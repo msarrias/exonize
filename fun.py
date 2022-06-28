@@ -48,15 +48,7 @@ def get_annotations_df(annot_db, annotation_list = ['mRNA', 'transcript']):
             for annot_id, annot_dic in annot_db[annot].items():
                 #note that there might be different id attributes
                 id_ = [id_key for id_key in list(annot_dic.attributes.keys()) if 'id' in id_key.lower()]
-                temp = [annot_dic.seqid,
-                        annot_dic.source,
-                        annot_dic.featuretype,  
-                        annot_dic.start,
-                        annot_dic.end,
-                        annot_dic.score, 
-                        annot_dic.strand,
-                        annot_dic.frame
-                       ]
+                temp = get_line_annotations(annot_dic)[:-1]
                 if not id_:
                     temp.append('Na')
                 else:
@@ -111,7 +103,7 @@ def create_parent_child_dic(annot_db_dict, parent_type = ['mRNA'], child_type = 
 def get_exon_overlaps(parent_child_dic, parent_dic):
     parents_exon_coverage = {}
     for parent_idx, (parent_id, parent_dict) in enumerate(parent_child_dic.items()):
-        out_file_a = '/home/msarrias/projects/exon_dups_analysis/temp/temp_file_a.bed'
+        out_file_a = '../temp/temp_file_a.bed'
         seq_id = parent_dict['annot'][0]
         with open(out_file_a, "w") as out_handle:
             out_handle.write(seq_id 
@@ -123,7 +115,7 @@ def get_exon_overlaps(parent_child_dic, parent_dic):
                                                        'len': parent_dict['annot'][4] - parent_dict['annot'][3],
                                                        'coord':(parent_dict['annot'][3], parent_dict['annot'][4])},
                                             'exons':{}, 'introns':[]}
-        out_file_b = '/home/msarrias/projects/exon_dups_analysis/temp/temp_file_a.bed'
+        out_file_b = '../temp/temp_file_b.bed'
         with open(out_file_b, "w") as out_handle_b:  
             for line_id, line_attrib in parent_dict['exon'].items():
                 id_ = line_attrib[-1]['exon_id'][0]
@@ -145,17 +137,7 @@ def get_exon_overlaps(parent_child_dic, parent_dic):
             parents_exon_coverage[parent_id]['introns'].append((line_interval.start, line_interval.end))
         parent_dic[parent_id]['intron'] = [len(parents_exon_coverage[parent_id]['introns']), total_length]
         
-    return parent_dic, parents_exon_coverage
-        
-#     for parent_id, parent_dict_cov in parents_exon_coverage.items():
-#         if parent_id in parent_dic.keys():
-#             for anot_type, iterval_anot_dic in parent_dict_cov.items():
-#                 total_length = 0
-#                 for line_id, line_interval in iterval_anot_dic.items():
-#                     total_length += (line_interval.end - line_interval.start) - 1
-#                 parent_dic[parent_id][anot_type].append(total_length)
-#         parent_dic[parent_id]['intron'] = len(parent_dict_cov['introns'])
-     
+    return parent_dic, parents_exon_coverage    
 
 
 def basic_stat(annotation_dict):
