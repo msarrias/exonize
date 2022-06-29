@@ -132,7 +132,7 @@ def get_exon_overlaps(parent_child_dic, parent_dic):
         introns_dict = dict(enumerate(list(c)))
         
         total_length = 0
-        for line_id, line_interval in introns_dict.items():
+        for line_interval in introns_dict.values():
             total_length += (line_interval.end - line_interval.start) - 1
             parents_exon_coverage[parent_id]['introns'].append((line_interval.start, line_interval.end))
         parent_dic[parent_id]['intron'] = [len(parents_exon_coverage[parent_id]['introns']), total_length]
@@ -181,14 +181,22 @@ def get_summary_dict(parent_dic):
                    }
     for key, value in parent_dic.items():
         summary_dict['transcript_id'].append(key)
-        summary_dict['transcript_len'].append(value['annot'][1])
-        summary_dict['n_exons'].append(value['exon'][0])
-        summary_dict['total_exon_len'].append(value['exon'][1])
-        summary_dict['n_introns'].append(value['intron'])
-        summary_dict['total_intron_len'].append(value['exon'][2])
-        summary_dict['n_cds'].append(value['CDS'][0])
-        summary_dict['cds_len'].append(value['CDS'][1])
-
+        if 'annot' in value:
+            summary_dict['transcript_len'].append(value['annot'][1])
+        if 'exon' in value:
+            summary_dict['n_exons'].append(value['exon'][0])
+            summary_dict['total_exon_len'].append(value['exon'][1])
+        if 'intron' in value:
+            summary_dict['n_introns'].append(value['intron'][0])
+            summary_dict['total_intron_len'].append(value['exon'][1])
+        if 'CDS' in value:
+            summary_dict['n_cds'].append(value['CDS'][0])
+            summary_dict['cds_len'].append(value['CDS'][1])
+    
+    for key,value in summary_dict.copy().items():
+        if not value:
+            del summary_dict[key]
+            
     for key, value in summary_dict.items():
         if key == 'transcript_id':
             value.append('Total')
