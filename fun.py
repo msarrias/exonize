@@ -114,7 +114,7 @@ def get_exon_overlaps(parent_child_dic, parent_dic):
         parents_exon_coverage[parent_id] = {'parent': {'source': parent_dict['annot'][1],
                                                        'len': parent_dict['annot'][4] - parent_dict['annot'][3],
                                                        'coord':(parent_dict['annot'][3], parent_dict['annot'][4])},
-                                            'exons':{}, 'introns':[]}
+                                            'exons':{}, 'introns':{}}
         out_file_b = '../temp/temp_file_b.bed'
         with open(out_file_b, "w") as out_handle_b:  
             for line_id, line_attrib in parent_dict['exon'].items():
@@ -132,9 +132,9 @@ def get_exon_overlaps(parent_child_dic, parent_dic):
         introns_dict = dict(enumerate(list(c)))
         
         total_length = 0
-        for line_interval in introns_dict.values():
+        for idx, line_interval in enumerate(introns_dict.values()):
             total_length += (line_interval.end - line_interval.start) - 1
-            parents_exon_coverage[parent_id]['introns'].append((line_interval.start, line_interval.end))
+            parents_exon_coverage[parent_id]['introns'][idx] = {'coord': (line_interval.start, line_interval.end)}
         parent_dic[parent_id]['intron'] = [len(parents_exon_coverage[parent_id]['introns']), total_length]
         
     return parent_dic, parents_exon_coverage    
