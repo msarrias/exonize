@@ -100,45 +100,66 @@ def create_parent_child_dic(annot_db_dict, parent_type = ['mRNA'], child_type = 
     return parent_dic, parent_child_dic
 
 
+def get_seq(strand, seq, start, end):
+    start, end = sorted([start, end])
+    temp_seq = (seq['+'][start-1:end-1])
+    if strand == '+':
+        return temp_seq
+    if strand == '-':
+        return str(Seq(temp_seq).reverse_complement())
+
+    
 def get_exon_overlaps(parent_child_dic, parent_dic):
     parents_exon_coverage = {}
     for parent_idx, (parent_id, parent_dict) in enumerate(parent_child_dic.items()):
-        out_file_a = '../temp/temp_file_a.bed'
         seq_id = parent_dict['annot'][0]
+        parents_exon_coverage[parent_id] = {'parent': {'source': parent_dict['annot'][1], 
+                                                       'strand':parent_dict['annot'][6],
+                                                       'len': parent_dict['annot'][4] - parent_dict['annot'][3],
+                                                       'coord':(parent_dict['annot'][3], parent_dict['annot'][4])},
+                                            'structure':[]}
+        
+        out_file_a = '../temp/temp_file_a.bed'
         with open(out_file_a, "w") as out_handle:
             out_handle.write(seq_id 
                              + "\t"  + str(parent_dict['annot'][3]) 
                              + "\t"  + str(parent_dict['annot'][4])
                              + "\t"  + str(parent_dict['annot'][6])
                              + "\t"  + str(parent_dict['annot'][-1]['ID'][0]) + '\n')
-        parents_exon_coverage[parent_id] = {'parent': {'source': parent_dict['annot'][1],
-                                                       'len': parent_dict['annot'][4] - parent_dict['annot'][3],
-                                                       'coord':(parent_dict['annot'][3], parent_dict['annot'][4])},
-                                            'exons':{}, 'introns':{}}
+        
         out_file_b = '../temp/temp_file_b.bed'
         with open(out_file_b, "w") as out_handle_b:  
-            for line_id, line_attrib in parent_dict['exon'].items():
+            for exon_idx, (line_id, line_attrib) in enumerate(parent_dict['exon'].items()):
                 id_ = line_attrib[-1]['exon_id'][0]
-                parents_exon_coverage[parent_id]['exons'][id_] = {'coord':(line_attrib[3], line_attrib[4])}
                 out_handle_b.write(line_attrib[0] + "\t"  + str(line_attrib[3]) 
                                    + "\t"  + str(line_attrib[4])
                                    + "\t"  + str(line_attrib[6]) 
-                                   + "\t"  + str(id_) + '\n') 
+                                   + "\t"  + str(id_) + '\n')   
+                parents_exon_coverage[parent_id]['structure'].append({id_ : {'coord':(line_attrib[3],
+                                                                                          line_attrib[4]),
+                                                                                 'type':'exon'}})
         a = pybedtools.BedTool(out_file_a)
         b = pybedtools.BedTool(out_file_b)
         c = a.subtract(b)
         os.remove(out_file_a)
         os.remove(out_file_b)
         introns_dict = dict(enumerate(list(c)))
-        
         total_length = 0
-        for idx, line_interval in enumerate(introns_dict.values()):
+        for intron_idx, line_interval in enumerate(introns_dict.values()):
             total_length += (line_interval.end - line_interval.start) - 1
-            parents_exon_coverage[parent_id]['introns'][idx] = {'coord': (line_interval.start, line_interval.end)}
-        parent_dic[parent_id]['intron'] = [len(parents_exon_coverage[parent_id]['introns']), total_length]
-        
-    return parent_dic, parents_exon_coverage    
-
+            for idx, comp in enumerate(parents_exon_coverage[parent_id]['structure']):
+                if line_interval.start < list(comp.values())[0]['coord'][0]:
+                    parents_exon_coverage[parent_id]['structure'].insert(idx,
+                                                                         {'intron' + str(intron_idx): {
+                                                                             'coord':(line_interval.start,line_interval.end),
+                                                                             'type':'intron'}}
+                                                                        ) 
+                                                                                
+                    break
+                
+            parent_dic[parent_id]['intron'] = [len(introns_dict), total_length]
+    return parent_dic, parents_exon_coverage            
+    
 
 def basic_stat(annotation_dict):
     basic_stat = {"Number": [], "Size total (kb)":[], "Size mean (bp)": []}
