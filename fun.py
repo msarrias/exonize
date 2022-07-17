@@ -4,13 +4,13 @@ import gffutils
 import pandas as pd
 import numpy as np
 import pybedtools
-import pickle
+import pickle, copy
 import matplotlib.pyplot as plt
 from BCBio import GFF
 from Bio.Seq import Seq
 from Bio import SeqIO
-from Bio.Blast import NCBIXML, NCBIWWW
 from Bio.SeqRecord import SeqRecord
+from Bio.Blast import NCBIXML, NCBIWWW
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 pd.options.display.float_format = "{:.2f}".format
 
