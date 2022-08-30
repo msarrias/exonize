@@ -4,11 +4,12 @@ import gffutils
 import pandas as pd
 import numpy as np
 import pybedtools
-import pickle, copy
+import pickle, copy, re
+from collections import Counter
 import matplotlib.pyplot as plt
 from BCBio import GFF
 from Bio.Seq import Seq
-from Bio import SeqIO
+from Bio import SeqIO, SearchIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML, NCBIWWW
 from Bio.SeqFeature import SeqFeature, FeatureLocation
@@ -309,8 +310,37 @@ def plot_hist_cdf(x):
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     plt.show()
+
     
+def parse_exonerate_output(ex_format, ex_out_fname):
+    all_qresult = list(SearchIO.parse(ex_out_fname, ex_format))
+    hits_feature_intervals = {}
+    for query in all_qresult:
+        id_ = query.id.rsplit('.')[0]
+        if id_ not in hits_feature_intervals:
+            hits_feature_intervals[id_] = []
+        for hit in query:
+            hit_dict = {}
+            for hsp in hit:
+                hit_dict['exons'] = {'query': {'exon_' + str(i): HSPFragment.query_range  
+                                                for i, HSPFragment in enumerate(hsp.fragments,1)},
+                                     'hit': {'exon_' + str(i): HSPFragment.hit_range
+                                              for i, HSPFragment in enumerate(hsp.fragments,1)}}
+                hit_dict['introns'] = {'intron_' + str(i): j 
+                                       for i, j in enumerate(hsp.hit_inter_ranges,1)}
+                hit_dict['align_features'] = {feature: coord for feature, 
+                                                                  coord in sorted({**hit_dict['introns'],
+                                                                                   **hit_dict['exons']['hit']}.items(),
+                                                                                  key=lambda item: item[1][0])}
+        hits_feature_intervals[id_].append(hit_dict)
+
+    return hits_feature_intervals    
+ 
     
+def flatten(l):
+    return [item for sublist in l for item in sublist]
+
+
 def cdf(N,y,v):
     p = np.zeros((np.shape(y)))
     for i in range(len(y)):
