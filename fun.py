@@ -13,6 +13,7 @@ from Bio import SeqIO, SearchIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML, NCBIWWW
 from Bio.SeqFeature import SeqFeature, FeatureLocation
+from dna_features_viewer import GraphicFeature, GraphicRecord
 pd.options.display.float_format = "{:.2f}".format
 
 
@@ -337,6 +338,10 @@ def parse_exonerate_output(ex_format, ex_out_fname):
     return hits_feature_intervals    
  
     
+def get_overlap(a, b):
+    return max(0, min(a[1], b[1]) - max(a[0], b[0]))
+
+
 def flatten(l):
     return [item for sublist in l for item in sublist]
 
