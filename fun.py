@@ -1,6 +1,7 @@
 import sys, os
 import subprocess
 import gffutils 
+import random
 import pandas as pd
 import numpy as np
 import pybedtools
@@ -77,7 +78,8 @@ def transcript_interval_dict(gene_dict):
     UTR_features = ['five_prime_UTR','three_prime_UTR']
     # we look at all genes' transcripts
     transcript_dict = {}
-    for transcript_id, trans_dict in gene_dict.items():
+    copy_gene_dict = copy.deepcopy(gene_dict)
+    for transcript_id, trans_dict in copy_gene_dict.items():
         interval_dict = {}
         # create an interval dict
         for idx, feature_annot in enumerate(trans_dict):
@@ -122,6 +124,12 @@ def get_transcript_overlaping_dict(transcript_dict):
     return transcript_overlaping_dict
 
 
+def sort_interval_dict(interval_dict):
+    keys_ = list(interval_dict.keys())
+    keys_ = sorted(keys_, key = lambda item: (item.lower, item.upper))
+    return {key: copy.deepcopy(interval_dict[key]) for key in keys_}
+
+
 def get_coords_with_coding_exons(interval_dict):
     UTR_features = ['five_prime_UTR','three_prime_UTR']
     overlaping_dict = get_overlaping_dict(interval_dict)
@@ -136,8 +144,8 @@ def get_coords_with_coding_exons(interval_dict):
 #     print(' ---------------------- ')
 
     if not any(list(overlaping_dict.values())):
-        print('no more intersections')
-        return interval_dict
+#         print('no more intersections')
+        return sort_interval_dict(interval_dict)
     new_gene_interv_dict = {}
     intervals_list = list(interval_dict.keys())
     for int_idx, (interval, feature_descrip) in enumerate(interval_dict.items()):
@@ -158,9 +166,11 @@ def get_coords_with_coding_exons(interval_dict):
                             new_gene_interv_dict[intersection] = copy.deepcopy(feature_descrip)
                             new_gene_interv_dict[intersection]['type'] = 'coding_exon'
                             # exon / CDS will be a non coding exon
-                            new_nc_exon_coord = interval - overlap_interval
-                            if len(new_nc_exon_coord) > 1:
-                                new_gene_interv_dict[new_nc_exon_coord] = copy.deepcopy(feature_descrip)
+                            new_nc_exon_coord_list = [i for i in interval - overlap_interval]
+                            if new_nc_exon_coord_list:
+                                for new_nc_coord in new_nc_exon_coord_list:
+                                    if (new_nc_coord.upper - new_nc_coord.lower) > 1:
+                                        new_gene_interv_dict[new_nc_coord] = copy.deepcopy(feature_descrip)
                         else:
                             new_gene_interv_dict[overlap_interval] = copy.deepcopy(feature_descrip)
                             new_gene_interv_dict[overlap_interval]['type'] = 'coding_exon'
@@ -168,23 +178,28 @@ def get_coords_with_coding_exons(interval_dict):
                         for intrv in intervals_list[int_idx+2:]:
                             if not intrv in new_gene_interv_dict:
                                 new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                        return get_coords_with_coding_exons(new_gene_interv_dict)      
+#                         for key,value in new_gene_interv_dict.items():
+#                             print(key, value)
+                        return get_coords_with_coding_exons(sort_interval_dict(new_gene_interv_dict))      
                 # CASE 1.2: overlap is with an UTR
                 if overlap_descript['type'] in UTR_features:
                     if interval.intersection(overlap_interval):
                         if interval.contains(overlap_interval):
                             utr_coord = interval.intersection(overlap_interval)
                             new_gene_interv_dict[utr_coord] = copy.deepcopy(overlap_descript)
-                            exon_coord = interval - overlap_interval
-                            new_gene_interv_dict[exon_coord] = copy.deepcopy(feature_descrip)
+                            new_exon_coord_list = [i for i in interval - overlap_interval]
+                            if new_exon_coord_list:
+                                for new_exon_coord in new_exon_coord_list:
+                                    if (new_exon_coord.upper - new_exon_coord.lower) > 1:
+                                        new_gene_interv_dict[exon_coord] = copy.deepcopy(feature_descrip)
                         else:
                             new_gene_interv_dict[overlap_interval] = copy.deepcopy(overlap_descript)
                         for intrv in intervals_list[int_idx+2:]:
                             if not intrv in new_gene_interv_dict:
                                 new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                        for key,value in new_gene_interv_dict.items():
-                            print(key, value)
-                        return get_coords_with_coding_exons(new_gene_interv_dict)    
+#                         for key,value in new_gene_interv_dict.items():
+#                             print(key, value)
+                        return get_coords_with_coding_exons(sort_interval_dict(new_gene_interv_dict))    
             # CASE 2: feature is a CDS
             if feature_descrip['type'] == 'CDS':
                 # CASE 2.1: overlap is with an exon:
@@ -197,57 +212,33 @@ def get_coords_with_coding_exons(interval_dict):
                             new_gene_interv_dict[intersection] = copy.deepcopy(overlap_descript)
                             new_gene_interv_dict[intersection]['type'] = 'coding_exon'
                             # CDS / exon will be a non coding exon
-                            new_exon_coord = overlap_interval - interval
-                            if len(new_exon_coord) > 1:
-                                new_gene_interv_dict[new_exon_coord] = copy.deepcopy(overlap_descript)
-                            # pad the rest of the interval 
+                            new_exon_coord_list = [i for i in overlap_interval - interval]
+                            if new_exon_coord_list:
+                                for new_exon_coord in new_exon_coord_list:
+                                    if (new_exon_coord.upper - new_exon_coord.lower) > 1:
+                                        new_gene_interv_dict[new_exon_coord] = copy.deepcopy(overlap_descript)
                         else:
                             new_gene_interv_dict[overlap_interval] = copy.deepcopy(feature_descrip)
                             new_gene_interv_dict[overlap_interval]['type'] = 'coding_exon'
                     for intrv in intervals_list[int_idx+2:]:
                         if not intrv in new_gene_interv_dict:
                             new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                    return get_coords_with_coding_exons(new_gene_interv_dict)
+                    return get_coords_with_coding_exons(sort_interval_dict(new_gene_interv_dict))
             # CASE 3: feature is an UTR
             if feature_descrip['type'] in UTR_features:
-                if overlap_descript['type'] == 'exon':
-                    if overlap_interval.contains(interval):
-                        new_gene_interv_dict[interval] = copy.deepcopy(feature_descrip)
-                        new_exon_coord = overlap_interval - interval
-                        new_gene_interv_dict[new_exon_coord] = copy.deepcopy(overlap_descript)
-                        for intrv in intervals_list[int_idx+2:]:
-                            if not intrv in new_gene_interv_dict:
-                                new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                        return get_coords_with_coding_exons(new_gene_interv_dict) 
-
-                    
-def create_parent_child_dic(annot_db_dict, parent_type = ['gene'], child_type = ['exon']):
-    parent_dic = {}
-    parent_child_dic = {}
-    for annot_i in parent_type:
-        if annot_i in annot_db_dict:
-            for annot_id, annot_dic in annot_db_dict[annot_i].items():
-                id_ = [id_key for id_key in list(annot_dic.attributes.keys()) if 'id' in id_key.lower()][0]
-                annot_ID = annot_dic.attributes[id_][0]
-                if annot_ID not in parent_dic.keys():
-                    parent_dic[annot_ID] = {'annot': [1, annot_dic.end - annot_dic.start + 1]}
-                else:
-                    parent_dic[annot_ID][0] += 1
-                    parent_dic[annot_ID][1] += annot_dic.end - annot_dic.start + 1
-                parent_child_dic[annot_ID] = {'annot':get_line_annotations(annot_dic)}
-                for annot_ii in child_type:
-                    temp = {}
-                    parent_dic[annot_ID][annot_ii] = [0, 0]
-                    parent_child_dic[annot_ID][annot_ii] = {}
-                    for line_key, line in annot_db_dict[annot_ii].items():
-                        id_ = [id_key for id_key in list(line.attributes.keys()) if 'id' in id_key.lower()][0]
-                        if line['Parent'][0] in annot_ID:
-                            temp[line.attributes[id_][0]] = get_line_annotations(line)
-                            parent_dic[line['Parent'][0]][annot_ii][-2] += 1
-                            parent_dic[line['Parent'][0]][annot_ii][-1] += line.end - line.start + 1
-                    parent_child_dic[annot_dic.attributes['ID'][0]][annot_ii] = temp
-    
-    return parent_dic, parent_child_dic
+                if interval.intersection(overlap_interval):
+                    if overlap_descript['type'] == 'exon':
+                        if overlap_interval.contains(interval):
+                            new_gene_interv_dict[interval] = copy.deepcopy(feature_descrip)
+                            new_exon_coord_list = [i for i in overlap_interval - interval]
+                            if new_exon_coord_list:
+                                for new_exon in new_exon_coord_list:
+                                    if (new_exon.upper - new_exon.lower) > 1:
+                                        new_gene_interv_dict[new_exon] = copy.deepcopy(overlap_descript)
+                            for intrv in intervals_list[int_idx+2:]:
+                                if not intrv in new_gene_interv_dict:
+                                    new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
+                            return get_coords_with_coding_exons(sort_interval_dict(new_gene_interv_dict)) 
 
 
 def get_seq(strand, seq, start, end):
