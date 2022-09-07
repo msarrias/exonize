@@ -5,11 +5,6 @@
 - Does Augustus allow for exon duplications?
 ### 2. How to test?
 - Take well-annotated region and simulate fake exon duplications to compare tool outcomes.
-
-**Aproach:**
-
-![image](https://user-images.githubusercontent.com/16377368/186400229-fb85c880-9eaa-4f06-a0fb-593587d9d2d6.png)
-
   * Tools to evaluate:
     * [exonerate](https://www.ebi.ac.uk/about/vertebrate-genomics/software/exonerate-manual)
     * [gmap](http://research-pub.gene.com/gmap/src/README)
