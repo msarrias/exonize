@@ -241,6 +241,103 @@ def get_coords_with_coding_exons(interval_dict):
                             return get_coords_with_coding_exons(sort_interval_dict(new_gene_interv_dict)) 
 
 
+def get_utr_coords(gs, ge, gene_breakdown, genome_seq, mutation=False, dup_genome_seq=''):
+    
+    utr_coords = [j for i, j in zip(gene_breakdown['features_order'],
+                                    gene_breakdown['features_intervals']) if 'UTR' in i]
+    features = []
+    if mutation:
+        for utr_coord in utr_coords:
+            s, e = utr_coord.lower, utr_coord.upper
+            utr_coords_in_ch_wd = [i.span() for i in re.finditer(genome_seq[s:e],dup_genome_seq)
+                                   if P.open(i.span()[0], i.span()[1]).intersection(P.open(gs, ge))]
+        if utr_coords_in_ch_wd:
+            for coord in utr_coords_in_ch_wd:
+                s, e = coord
+                features.append(GraphicFeature(start=s, end=e, color='gainsboro'))
+    else:
+        for utr_coord in utr_coords:
+            s, e = utr_coord.lower, utr_coord.upper
+            features.append(GraphicFeature(start=s, end=e, color='gainsboro'))
+    return features 
+        
+            
+def get_record(idx, gene_id, exons_dict, gs, ge, gene_breakdown, overlaping_hit_dict,
+               mutations=False, genome_seq = '', mut_loc='', exon_dup=0, genome_seq_with_mut=''):
+    features = []
+    if mutations:
+        if mut_loc == 'before':
+            mut = 0
+        if mut_loc == 'after':
+            mut = 1
+        for exon_id, exon_coords in exons_dict[gene_id]['coding_exons_dups'].items():
+            for coord in exon_coords:
+                s, e = coord
+                color="#ffcccc"
+                labl = 'exon ' + str(idx)
+                if idx == (exon_dup + mut):
+                    color = 'green'
+                    labl = 'exon ' + str(idx - mut) + ' dup'
+                if idx > (exon_dup + mut):
+                    idx_ = idx - 1
+                    labl = 'exon ' + str(idx_)
+                idx += 1
+                features.append(GraphicFeature(start=s, end=e, color=color,label=labl))
+    else:
+        for exon_id, exon_coords in exons_dict[gene_id]['coding_exons'].items():
+            for coord in exon_coords:
+                s, e = coord
+                color="#ffcccc"
+                labl = 'exon ' + str(idx)
+                idx += 1
+                features.append(GraphicFeature(start=s, end=e, color=color,label=labl))
+            
+    features += get_utr_coords(gs, ge, gene_breakdown, genome_seq=genome_seq, 
+                               mutation=mutations, dup_genome_seq=genome_seq_with_mut)
+    
+    for idx_j, query_feat_coord in enumerate(overlaping_hit_dict['hit'], 1):
+        qs, qe = query_feat_coord.lower, query_feat_coord.upper
+        labl = 'exon ' + str(idx_j)
+        features.append(GraphicFeature(start=qs, end=qe, color="blue",label=labl))
+    record = GraphicRecord(first_index = gs, sequence_length = ge-gs, features=features)
+    return record
+
+
+def parse_exonerate_output(all_qresult):
+    hits_feature_intervals = {}
+    for query in all_qresult:
+        query_dict = {}
+        query_id = query.id.rsplit('.')[0]
+        if query_id not in hits_feature_intervals:
+            hits_feature_intervals[query_id] = []
+        hits_dict = {}
+        for hit_idx, hit in enumerate(query):
+            hsp_dict = {}
+            for hsp_idx, hsp in enumerate(hit): # HSP stands for High-scoring Segment Pair
+                query_ranges = [frag.query_range for frag in hsp.fragments]
+                hit_ranges = [frag.hit_range for frag in hsp.fragments]
+                hsp_dict[hsp_idx] = { 'hit': [P.open(i[0], i[1]) for i in hit_ranges],
+                                     'query': [P.open(i[0], i[1]) for i in query_ranges]}
+            hits_dict[hit_idx] = hsp_dict
+        hits_feature_intervals[query_id].append(hits_dict)
+    return hits_feature_intervals
+
+
+def get_overlaping_queries(protein_gene_dict, genes_location, hits_feature_intervals):
+    overlaping_queries = {}
+    for prot_id, hits_list in hits_feature_intervals.items():
+        if prot_id in protein_gene_dict:
+            for hit in hits_list:
+                for hsp_idx, hsp in hit.items():
+                    for key, value in hsp.items():
+                        if all([genes_location[protein_gene_dict[prot_id]].contains(i) for i in value['hit']]):
+                            if prot_id not in overlaping_queries:
+                                overlaping_queries[prot_id] = copy.deepcopy(value)
+                            else:
+                                print('duplication')
+    return overlaping_queries
+
+
 def get_seq(strand, seq, start, end):
     start, end = sorted([start, end])
     temp_seq = (seq['+'][start-1:end-1])
@@ -450,31 +547,6 @@ def plot_hist_cdf(x):
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     plt.show()
-
-    
-def parse_exonerate_output(ex_format, ex_out_fname):
-    all_qresult = list(SearchIO.parse(ex_out_fname, ex_format))
-    hits_feature_intervals = {}
-    for query in all_qresult:
-        id_ = query.id.rsplit('.')[0]
-        if id_ not in hits_feature_intervals:
-            hits_feature_intervals[id_] = []
-        for hit in query:
-            hit_dict = {}
-            for hsp in hit:
-                hit_dict['exons'] = {'query': {'exon_' + str(i): HSPFragment.query_range  
-                                                for i, HSPFragment in enumerate(hsp.fragments,1)},
-                                     'hit': {'exon_' + str(i): HSPFragment.hit_range
-                                              for i, HSPFragment in enumerate(hsp.fragments,1)}}
-                hit_dict['introns'] = {'intron_' + str(i): j 
-                                       for i, j in enumerate(hsp.hit_inter_ranges,1)}
-                hit_dict['align_features'] = {feature: coord for feature, 
-                                                                  coord in sorted({**hit_dict['introns'],
-                                                                                   **hit_dict['exons']['hit']}.items(),
-                                                                                  key=lambda item: item[1][0])}
-        hits_feature_intervals[id_].append(hit_dict)
-
-    return hits_feature_intervals    
  
     
 def get_overlap(a, b):
