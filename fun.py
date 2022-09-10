@@ -130,7 +130,7 @@ def simulate_genes_with_coding_exons_duplications(duplicate_coding_exon_n,
         if insert_intron == 'before':
             mut_loct = 1
         if insert_intron == 'after':
-            mut_loct = -1
+            mut_loct = 0
         ce_dup_loc = (duplicate_coding_exon_n - mut_loct)
         insertion_in_intron = {}
         ce_exon_counter = 0
