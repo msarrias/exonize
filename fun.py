@@ -25,7 +25,194 @@ def create_database(in_file_path, outfile_path):
                             merge_strategy='merge',
                             sort_attribute_values=True)
     
-    
+
+def generate_gene_hierarchy_dict(db):
+    gene_hierarchy_dict = {}
+    for gene in db.features_of_type('gene'):
+        features = {}
+        for mRNA_annot in db.children(gene.id, featuretype='mRNA', order_by='start'):
+            temp_i = []
+            for child in db.children(mRNA_annot.id, featuretype = ['CDS', 'exon',
+                                                                   'intron', 
+                                                                   'five_prime_UTR',
+                                                                   'three_prime_UTR'],
+                                     order_by='start'):
+                if P.open(child.start, child.end):
+                    temp_i += [{'coord': P.open(child.start, child.end),
+                              'id':child.id, 
+                              'strand': child.strand,
+                              'type': child.featuretype}]
+            # sort first by the start and then by the end
+            temp_j = sorted(temp_i, key = lambda item: (item['coord'].lower, item['coord'].upper))
+            features[mRNA_annot.id] = temp_j
+        gene_hierarchy_dict[gene.id] = features
+    return gene_hierarchy_dict
+
+
+def get_gene_hierarchy_dict_with_coding_exons(gene_hierarchy_dict):
+    gene_hierarchy_dict_with_coding_exons = {}
+    copy_gene_hierarchy_dict = copy.deepcopy(gene_hierarchy_dict)
+    gene_transcript_dict = {}
+    for gene_id, gene_hierarchy_dict_ in copy_gene_hierarchy_dict.items():
+        temp_transcript_dict = {}
+        gene_transcript_dict[gene_id] = transcript_interval_dict(gene_hierarchy_dict_)
+        for transcript_id, transcript_hierarchy_dict in gene_transcript_dict[gene_id].items():
+            temp_transcript_dict[transcript_id] = get_coords_with_coding_exons(transcript_hierarchy_dict)
+        gene_hierarchy_dict_with_coding_exons[gene_id] = temp_transcript_dict
+    return gene_transcript_dict, gene_hierarchy_dict_with_coding_exons
+
+
+def simulate_genes_with_coding_exons_duplications(duplicate_coding_exon_n,
+                                                  insert_intron,
+                                                  genes_sample_dict,
+                                                  gene_hierarchy_dict,
+                                                  genome_seq, db):
+    simulated_genes = {}
+    copy_genes_sample_dict = copy.deepcopy(genes_sample_dict)
+    for gene_id, hierarchy_dict in copy_genes_sample_dict.items():
+        transcript_id = next(iter(gene_hierarchy_dict[gene_id].keys()))
+        temp_dict = {}
+        exon_count = 0
+        sim_gene_coord = []
+        sim_gene_comp = []
+        genome_seq_copy = copy.deepcopy(genome_seq)
+        intervals_list = list(hierarchy_dict.keys())
+        for idx, (interval, annotation) in enumerate(hierarchy_dict.items()):
+            sim_gene_coord.append(interval)
+            sim_gene_comp.append(annotation['id'])
+            if annotation['type'] == 'coding_exon':
+                exon_count += 1
+            if exon_count == duplicate_coding_exon_n:
+                if insert_intron == 'before':
+                    insert_in_interval = intervals_list[idx-1]
+                    insert_in = copy.deepcopy(hierarchy_dict[insert_in_interval])
+                if insert_intron == 'after':
+                    insert_in_interval = intervals_list[idx+1]
+                    insert_in = copy.deepcopy(hierarchy_dict[insert_in_interval])
+                if insert_in['type'] == 'intron':
+                    start, end = insert_in_interval.lower, insert_in_interval.upper
+                    center = (end - start) // 2
+                    # we want to leave an evolutionary marker so we insert the 
+                    # exon duplication leaving 10 bp in the start and end of the intron.
+                    if center > 10:
+                        temp_list = copy.deepcopy(sim_gene_coord)
+                        temp_coords = [P.open(start, start + center), interval, P.open(start + center, end)]
+                        if start > temp_list[-1].lower:
+                            sim_gene_coord.extend(temp_coords)
+                        else:
+                            for coord_idx, coord in enumerate(temp_list):
+                                if start < coord.lower:
+                                    sim_gene_coord = (sim_gene_coord[:(coord_idx -1)] 
+                                                      + temp_coords 
+                                                      + sim_gene_coord[coord_idx:])
+                                    break
+                        if insert_intron == 'before':
+                            sim_gene_coord.extend(intervals_list[idx+1:])
+                            sim_gene_comp.extend([insert_in['id']])
+                            sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx:]])
+                        if insert_intron == 'after':
+                            sim_gene_coord.extend(intervals_list[idx+2:])
+                            sim_gene_comp.extend([insert_in['id'], annotation['id'], insert_in['id']])
+                            sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx+2:]])
+                    else:
+                        print('the intron is too short to leave an evolutionary marker')
+                else:
+                    print('two consecutive exons')
+                break  
+                
+        temp_sim_gene_coord = []
+        for idx, i in enumerate(sim_gene_coord):
+            if i.lower not in [j.upper  for j in sim_gene_coord] and idx != 0:
+                temp_sim_gene_coord.append(P.open((i.lower - 1), i.upper))
+            else:
+                temp_sim_gene_coord.append(P.open(i.lower, i.upper))
+                
+        if insert_intron == 'before':
+            mut_loct = 1
+        if insert_intron == 'after':
+            mut_loct = -1
+        ce_dup_loc = (duplicate_coding_exon_n - mut_loct)
+        insertion_in_intron = {}
+        ce_exon_counter = 0
+        for feat_idx, feat in enumerate(sim_gene_comp):
+            if 'exon' in feat:
+                if ce_exon_counter == ce_dup_loc:
+                    insertion_in_intron['before'] = temp_sim_gene_coord[feat_idx-1]
+                    insertion_in_intron['after'] = temp_sim_gene_coord[feat_idx+1]
+                    break
+                else:
+                    ce_exon_counter += 1
+        seq = ''            
+        structure_breakdown = {}
+        for sim_coord, sim_id in zip(temp_sim_gene_coord, sim_gene_comp):
+            if 'intron' in sim_id:
+                temp = copy.deepcopy(genome_seq_copy[(sim_coord.lower):(sim_coord.upper)])
+                if sim_coord == insertion_in_intron['before']:
+                    if temp[-2:] != 'AG':
+                        temp = temp[:-2] + 'AG'
+                if sim_coord == insertion_in_intron['after']:
+                    if temp[:2] != 'GT':
+                        temp = 'GT' + temp[2:]
+            else:
+                temp = copy.deepcopy(genome_seq_copy[(sim_coord.lower):(sim_coord.upper)])
+            if sim_id not in structure_breakdown:
+                structure_breakdown[sim_id] = copy.deepcopy(temp)
+            else:
+                # since we're inserting an exon in the middle of the intron
+                structure_breakdown[sim_id + '_1'] = copy.deepcopy(temp)
+            seq += temp
+        simulated_genes[gene_id] = {'coord': P.closed(db[transcript_id].start, db[transcript_id].end),
+                                   'features_order': sim_gene_comp,
+                                   'features_intervals': temp_sim_gene_coord,
+                                    'structure_breakdown':structure_breakdown,
+                                   'seq': seq}
+    return simulated_genes
+
+
+def generate_new_genome_seq(sorted_gene_sample, gene_hierarchy_dict, genome_seq, db):
+    ch_seq_with_dipl = ''
+    end = 0
+    len_dup = 0
+    continue_ = True
+    for idx, (sim_gene, sim_trans) in enumerate(sorted_gene_sample.items()):
+        if continue_:
+            transcript = next(iter(gene_hierarchy_dict[sim_gene].keys()))
+            start, e = sim_trans['coord'].lower, sim_trans['coord'].upper
+            temp = (copy.deepcopy(genome_seq[end:start]) + sim_trans['seq'])
+            if  idx < (len(sorted_gene_sample)-1):
+                ch_seq_with_dipl += temp
+            else:
+                ch_seq_with_dipl += (temp + genome_seq[e:])
+                continue_ = False
+            end = sim_trans['coord'].upper
+        len_dup += len(sim_trans['seq']) - (db[transcript].end - db[transcript].start)  
+    return ch_seq_with_dipl, len_dup
+
+
+def get_simulated_new_intervals(genome_seq, new_genome_seq, sorted_gene_sample, coding_exons_interv):
+    sim_genes_interv_in_chr = {gene_id : {'seq': [i.span() for i in re.finditer(gene_dict['seq'],
+                                                                            new_genome_seq)],
+                                     'coding_exons_dups': {exon_id: [
+                                         i.span() 
+                                         for i in re.finditer(
+                                             genome_seq[intev.lower:intev.upper],
+                                             new_genome_seq
+                                         )
+                                     ] for exon_id, intev in coding_exons_interv[gene_id].items()
+                                                          },
+                                      'coding_exons': {exon_id: [
+                                          i.span() 
+                                         for i in re.finditer(
+                                             genome_seq[intev.lower:intev.upper],
+                                             genome_seq
+                                         )
+                                     ] for exon_id, intev in coding_exons_interv[gene_id].items()
+                                                          }
+                                     }
+                           for gene_id, gene_dict in sorted_gene_sample.items()}
+    return sim_genes_interv_in_chr
+
+
 def get_annotations_dict(db):
     annotation_types = list(db.featuretypes())
     annot_dict = {}
