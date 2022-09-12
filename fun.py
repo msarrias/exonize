@@ -7,6 +7,8 @@ import numpy as np
 import pybedtools
 import pickle, copy, re
 import portion as P
+from readpaf import parse_paf
+from sys import stdin
 from collections import Counter
 import matplotlib.pyplot as plt
 from BCBio import GFF
@@ -521,8 +523,91 @@ def get_overlaping_queries(protein_gene_dict, genes_location, hits_feature_inter
                             if prot_id not in overlaping_queries:
                                 overlaping_queries[prot_id] = copy.deepcopy(value)
                             else:
-                                print('duplication')
+                                print('extra hits:')
+                                print(prot_id)
+                                print(value)
     return overlaping_queries
+
+
+def parse_miniprot_output(paf_filename, genes_location, protein_gene_dict):
+    with open(paf_filename, "r") as handle:
+        df = parse_paf(handle, dataframe=True)
+    miniprot_hits = {}
+    for item in df.to_dict('records'):
+        id_ = item['query_name'].rsplit('.')[0]
+        if id_ not in miniprot_hits:
+            miniprot_hits[id_] = []
+        miniprot_hits[id_].append({'query_coord': P.open(item['query_start'], 
+                                                         item['query_end']),
+                                   'target_coord': P.open(item['target_start'],
+                                                         item['target_end']),
+                                   'cg': item['cg'], 
+                                   'overlaps': genes_location[protein_gene_dict[id_]].contains(
+                                       P.open(item['target_start'],item['target_end']))})
+    return miniprot_hits
+
+
+def get_align_intervals_from_CIGAR_string(hit_dict):
+    seq = hit_dict['cg']
+    i = 0
+    cigar_dict = {}
+    query_start = hit_dict['query_coord'].lower
+    target_start= hit_dict['target_coord'].lower
+    while seq:
+        find = re.search(r"[0-9]*", seq)
+        n = int(find.group())
+        op = seq[find.end()]
+        if op == 'M': # Alignment match. Consuming n*3 nucleotides and n amino acids 
+            query_intv = P.open(query_start, query_start + n)
+            query_start = query_start + n
+            target_intv = P.open(target_start, target_start + (n*3))
+            target_start = target_start + (n*3)
+        elif op == 'I': # Insertion, Phase-0 intron. Consuming n amino acids                           
+            query_intv = P.open(query_start, query_start + n)
+            query_start = query_start + n
+        elif op == 'D': # Delection. Consuming n*3 nucleotides 
+            target_intv = P.open(target_start, target_start + (n*3))
+            target_start = target_start + (n*3)
+        # Frameshift deletion. Consuming n nucleotides
+        elif op in ['F', 'N']: 
+            target_intv = P.open(target_start, target_start + n)
+            target_start = target_start + n
+        # Frameshift match, Phase-1 intron, Phase-2 intron. Consuming n nucleotides and 1 amino acid
+        elif op in ['U', 'V', 'G']: 
+            target_intv = P.open(target_start, target_start + n)
+            target_start = target_start + n
+            query_intv = P.open(query_start, query_start + 1)
+            query_start = query_start + 1
+        cigar_dict[i] = {'pos': n, 'op': op, 'query_intv': query_intv, 'target_intv': target_intv}
+        i +=1
+        seq = seq[find.end()+1:]
+    return cigar_dict
+
+
+def get_CIGAR_string_overlaping_queries(hits_dit):
+    overlaping_queries = {}
+    for prot_id, query_hit_list in hits_dit.items():
+        exon_itv = []
+        for hit in query_hit_list:
+            if hit['overlaps'] == True:
+                cigar_dict = get_align_intervals_from_CIGAR_string(hit)
+                exon_itv.append(cigar_dict)
+        if exon_itv:
+            overlaping_queries[prot_id] = exon_itv
+    return overlaping_queries
+
+
+def get_matching_intervals(overlaping_queries):
+    hits_feature_intervals = {}
+    for key, hits_list in overlaping_queries.items():
+        temp = {}
+        for hit_idx, hit in enumerate(hits_list):
+            temp[hit_idx] = {'hit': [hit_dict['target_intv'] 
+                                     for hit_id, hit_dict in hit.items() if hit_dict['op'] == 'M'],
+                            'query': [hit_dict['query_intv'] 
+                                      for hit_id, hit_dict in hit.items() if hit_dict['op'] == 'M']}
+        hits_feature_intervals[key] = temp
+    return hits_feature_intervals
 
 
 def get_seq(strand, seq, start, end):
