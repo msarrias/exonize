@@ -6,8 +6,8 @@
 ### 2. How to test?
 - Take well-annotated region and simulate fake exon duplications to compare tool outcomes.
   * Tools to evaluate:
-    * [exonerate](https://www.ebi.ac.uk/about/vertebrate-genomics/software/exonerate-manual)
-    * [gmap](http://research-pub.gene.com/gmap/src/README)
+    * [exonerate](https://www.ebi.ac.uk/about/vertebrate-genomics/software/exonerate-manual) - [test cases](#exonerate)
+    * [miniprot](https://github.com/lh3/miniprot) - [test cases](#miniprot)
     * [spaln2](https://github.com/ogotoh/spaln)
 - Problem: may not exist when predictions are RNA-supported.
   * what does Darwin ToL do?
@@ -19,10 +19,10 @@
 - [Zhang et al.](https://www.pnas.org/doi/10.1073/pnas.0603042103) 2006.
 - [Merkin et al.](https://www.sciencedirect.com/science/article/pii/S2211124715002351) 2015.
 
-## Comparison of the tools' outcomes.
+## Comparison of the tools' outcomes on simulated genes with coding exons duplications.
 
-### 1. Exonerate
+### Exonerate
 ![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/exonerate_alignms_with_is.jpg?raw=true)
 
-### 2. miniprot
+### miniprot
 ![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/miniprot_alignms_with_is.jpg?raw=true)
