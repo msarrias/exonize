@@ -8,7 +8,7 @@
   * Tools to evaluate:
     * [exonerate](https://www.ebi.ac.uk/about/vertebrate-genomics/software/exonerate-manual) - [test cases](#exonerate)
     * [miniprot](https://github.com/lh3/miniprot) - [test cases](#miniprot)
-    * [spaln2](https://github.com/ogotoh/spaln)
+    * [spaln2](https://github.com/ogotoh/spaln) - [test cases](#spaln)
 - Problem: may not exist when predictions are RNA-supported.
   * what does Darwin ToL do?
 ### 3. How do species differ in % duplicated and divergence of duplicates?
@@ -26,3 +26,6 @@
 
 ### miniprot
 ![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/miniprot_alignms_with_is.jpg?raw=true)
+
+### spaln
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/splan_alignms.jpg?raw=true)
