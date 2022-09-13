@@ -28,17 +28,15 @@ def create_database(in_file_path, outfile_path):
                             sort_attribute_values=True)
     
 
-def generate_gene_hierarchy_dict(db):
+def generate_gene_hierarchy_dict(db, featuretype_list = ['CDS', 'exon', 
+                                                         'intron', 'five_prime_UTR',
+                                                         'three_prime_UTR']):
     gene_hierarchy_dict = {}
     for gene in db.features_of_type('gene'):
         features = {}
         for mRNA_annot in db.children(gene.id, featuretype='mRNA', order_by='start'):
             temp_i = []
-            for child in db.children(mRNA_annot.id, featuretype = ['CDS', 'exon',
-                                                                   'intron', 
-                                                                   'five_prime_UTR',
-                                                                   'three_prime_UTR'],
-                                     order_by='start'):
+            for child in db.children(mRNA_annot.id, featuretype = featuretype_list, order_by='start'):
                 if P.open(child.start, child.end):
                     temp_i += [{'coord': P.open(child.start, child.end),
                               'id':child.id, 
@@ -545,6 +543,30 @@ def parse_miniprot_output(paf_filename, genes_location, protein_gene_dict):
                                    'overlaps': genes_location[protein_gene_dict[id_]].contains(
                                        P.open(item['target_start'],item['target_end']))})
     return miniprot_hits
+
+
+def parse_splan_output(db,genes_location,protein_gene_dict):
+    gene_hierarchy_dict = {}
+    for gene in db.features_of_type('gene'):
+        features = []
+        for mRNA_annot in db.children(gene.id, featuretype='mRNA', order_by='start'):
+            query = []
+            hit = []
+            for child in db.children(mRNA_annot.id, featuretype = ['cds'], order_by='start'):
+                if P.open(child.start, child.end):
+                    attributes = child.attributes['Target'][0].rsplit(' ')
+                    prot_id = attributes[0].rsplit('.')[0]
+                    query_start, query_end = map(int, attributes[1:3])
+                    query.append(P.open(query_start, query_end))
+                    hit.append(P.open(child.start, child.end))
+            features.append({'query':query, 'hit':hit,
+                             'overlaps': genes_location[protein_gene_dict[prot_id]].contains(
+                                 P.open(hit[0].lower, hit[-1].upper))})
+        if not prot_id in gene_hierarchy_dict:
+            gene_hierarchy_dict[prot_id] = features
+        else:
+            print('hit duplication')
+    return gene_hierarchy_dict
 
 
 def get_align_intervals_from_CIGAR_string(hit_dict):
