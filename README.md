@@ -18,3 +18,11 @@
 - [Gao et al.](https://www.pnas.org/doi/10.1073/pnas.0911093106) 2009.
 - [Zhang et al.](https://www.pnas.org/doi/10.1073/pnas.0603042103) 2006.
 - [Merkin et al.](https://www.sciencedirect.com/science/article/pii/S2211124715002351) 2015.
+
+## Comparison of the tools' outcomes.
+
+### 1. Exonerate
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/exonerate_alignms_with_is.jpg?raw=true)
+
+### 2. miniprot
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/miniprot_alignms_with_is.jpg?raw=true)
