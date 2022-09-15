@@ -9,9 +9,12 @@
     * [exonerate](https://www.ebi.ac.uk/about/vertebrate-genomics/software/exonerate-manual) - [test cases](#exonerate)
     * [miniprot](https://github.com/lh3/miniprot) - [test cases](#miniprot)
     * [spaln2](https://github.com/ogotoh/spaln) - [test cases](#spaln)
+- Hunt down examples of exon duplications: use human data to benchmark.
 - Problem: may not exist when predictions are RNA-supported.
   * what does Darwin ToL do?
 ### 3. How do species differ in % duplicated and divergence of duplicates?
+- Simulations in low scale. Look at divergence within an exon. Tweak exons to simulate different percentage of divergence.
+- How were the % of exons repeats estimates done? Quantify how often this happens.
 ### 4. How can we distinguish b/t TEs and recently duplicated genes? Repeat masking software may have issues.
 
 ## References:
