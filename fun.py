@@ -94,39 +94,36 @@ def simulate_genes_with_coding_exons_duplications(duplicate_coding_exon_n,
                     center = (end - start) // 2
                     # we want to leave an evolutionary marker so we insert the 
                     # exon duplication leaving 10 bp in the start and end of the intron.
-                    if center > 10:
-                        temp_list = copy.deepcopy(sim_gene_coord)
-                        temp_coords = [P.open(start, start + center), interval, P.open(start + center, end)]
-                        if start > temp_list[-1].lower:
-                            sim_gene_coord.extend(temp_coords)
-                        else:
-                            for coord_idx, coord in enumerate(temp_list):
-                                if start < coord.lower:
-                                    sim_gene_coord = (sim_gene_coord[:(coord_idx -1)] 
-                                                      + temp_coords 
-                                                      + sim_gene_coord[coord_idx:])
-                                    break
-                        if insert_intron == 'before':
-                            sim_gene_coord.extend(intervals_list[idx+1:])
-                            sim_gene_comp.extend([insert_in['id']])
-                            sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx:]])
-                        if insert_intron == 'after':
-                            sim_gene_coord.extend(intervals_list[idx+2:])
-                            sim_gene_comp.extend([insert_in['id'], annotation['id'], insert_in['id']])
-                            sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx+2:]])
+                    temp_list = copy.deepcopy(sim_gene_coord)
+                    temp_coords = [P.open(start, start + center),
+                                   P.open((interval.lower - 10),(interval.upper + 10)),
+                                   P.open(start + center, end)]
+                    if start > temp_list[-1].lower:
+                        sim_gene_coord.extend(temp_coords)
                     else:
-                        print('the intron is too short to leave an evolutionary marker')
+                        for coord_idx, coord in enumerate(temp_list):
+                            if start < coord.lower:
+                                sim_gene_coord = (sim_gene_coord[:(coord_idx -1)] 
+                                                  + temp_coords 
+                                                  + sim_gene_coord[coord_idx:])
+                                break
+                    if insert_intron == 'before':
+                        sim_gene_coord.extend(intervals_list[idx+1:])
+                        sim_gene_comp.extend([insert_in['id']])
+                        sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx:]])
+                    if insert_intron == 'after':
+                        sim_gene_coord.extend(intervals_list[idx+2:])
+                        sim_gene_comp.extend([insert_in['id'], annotation['id'], insert_in['id']])
+                        sim_gene_comp.extend([hierarchy_dict[intv]['id'] for intv in intervals_list[idx+2:]])
                 else:
                     print('two consecutive exons')
                 break  
-                
         temp_sim_gene_coord = []
         for idx, i in enumerate(sim_gene_coord):
             if i.lower not in [j.upper  for j in sim_gene_coord] and idx != 0:
                 temp_sim_gene_coord.append(P.open((i.lower - 1), i.upper))
             else:
                 temp_sim_gene_coord.append(P.open(i.lower, i.upper))
-                
         if insert_intron == 'before':
             mut_loct = 1
         if insert_intron == 'after':
@@ -146,7 +143,7 @@ def simulate_genes_with_coding_exons_duplications(duplicate_coding_exon_n,
         structure_breakdown = {}
         for sim_coord, sim_id in zip(temp_sim_gene_coord, sim_gene_comp):
             if 'intron' in sim_id:
-                temp = copy.deepcopy(genome_seq_copy[(sim_coord.lower):(sim_coord.upper)])
+                temp = copy.deepcopy(genome_seq_copy[sim_coord.lower:sim_coord.upper])
                 if sim_coord == insertion_in_intron['before']:
                     if temp[-2:] != 'AG':
                         temp = temp[:-2] + 'AG'
@@ -154,7 +151,7 @@ def simulate_genes_with_coding_exons_duplications(duplicate_coding_exon_n,
                     if temp[:2] != 'GT':
                         temp = 'GT' + temp[2:]
             else:
-                temp = copy.deepcopy(genome_seq_copy[(sim_coord.lower):(sim_coord.upper)])
+                temp = copy.deepcopy(genome_seq_copy[sim_coord.lower:sim_coord.upper])
             if sim_id not in structure_breakdown:
                 structure_breakdown[sim_id] = copy.deepcopy(temp)
             else:
