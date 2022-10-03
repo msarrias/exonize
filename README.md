@@ -25,10 +25,10 @@
 ## Comparison of the tools' outcomes on simulated genes with coding exons duplications.
 
 ## Exonerate
-![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/exonerate_alignms_with_is.jpg?raw=true)
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/04-figures/exonerate_alignms_with_is.jpg?raw=true)
 
 ## miniprot
-![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/miniprot_alignms.jpg?raw=true)
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/04-figures/miniprot_alignms.jpg?raw=true)
 
-## spaln
-![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/Figures/splan_alignms.jpg?raw=true)
+## Spaln
+![alt text](https://github.com/msarrias/exon-duplication-analysis/blob/main/04-figures/spaln_alignms.jpg?raw=true)
