@@ -1,7 +1,6 @@
 import gffutils # for creating/loading DBs
 
 
-
 class data_base_op(object):
     def __init__(self,
                  db_path,
@@ -42,3 +41,5 @@ class data_base_op(object):
         annotations will be created"""
         introns = list(self.db.create_introns())
         self.db.update(introns, keep_order=True)
+        
+        

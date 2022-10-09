@@ -4,6 +4,7 @@ import re # regular expressions
 import matplotlib.pyplot as plt
 from genome_analysis import *
 
+
 class exon_analysis(genome_analysis):
     def __init__(self, db_path, gene_hierarchy_path, gene_hierarchy=True):
         genome_analysis.__init__(self, db_path, gene_hierarchy_path)
@@ -16,6 +17,7 @@ class exon_analysis(genome_analysis):
                        } 
             for fasta in genome
         }
+        
         
     def get_within_gene_real_exon_dupl(self, exons_min_len,  filename=''):
         """
@@ -77,9 +79,4 @@ class exon_analysis(genome_analysis):
             plt.yticks(fontsize=14)
         plt.show()
 
-        
-    
-            
-            
-            
     

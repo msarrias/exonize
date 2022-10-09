@@ -9,6 +9,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord 
 from Bio.Seq import Seq
         
+    
 class genome_analysis(data_base_op):
     def __init__(self,
                  db_path,
@@ -42,6 +43,7 @@ class genome_analysis(data_base_op):
         with open(out_filepath, 'wb') as handle:
             pickle.dump(obj, handle)
     
+    
     def dump_fasta_file(self, out_filepath, seq_dict):
         with open(out_filepath, "w") as handle:
             for annot_id, annot_seq in seq_dict.keys():
@@ -73,7 +75,6 @@ class genome_analysis(data_base_op):
             self.basic_stat["Size mean (bp)"].append(
                 np.round(np.mean(lengths), 2)
             )
-        
         for value in self.basic_stat.values():
             value.append(sum(value))
             
@@ -212,7 +213,6 @@ class genome_analysis(data_base_op):
 
 
     def get_coords_with_coding_exons(self, interval_dict):
-        
         """HORRIBLE RECURSIVE FUNCTION - SORRY"""
         overlaping_dict = self.get_overlaping_dict(interval_dict)
         if not any(list(overlaping_dict.values())):
