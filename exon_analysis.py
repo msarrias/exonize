@@ -6,8 +6,13 @@ from genome_analysis import *
 
 
 class exon_analysis(genome_analysis):
-    def __init__(self, db_path, gene_hierarchy_path, gene_hierarchy=True):
-        genome_analysis.__init__(self, db_path, gene_hierarchy_path)
+    def __init__(self, db_path,
+                 gene_hierarchy_path,
+                 gene_hierarchy=True):
+        genome_analysis.__init__(self, 
+                                 db_path,
+                                 gene_hierarchy_path, 
+                                 gene_hierarchy)
     
     def read_genome(self, genome_file_dir):
         genome = SeqIO.parse(open(genome_file_dir), 'fasta')
@@ -19,7 +24,9 @@ class exon_analysis(genome_analysis):
         }
         
         
-    def get_within_gene_real_exon_dupl(self, exons_min_len,  filename=''):
+    def get_within_gene_real_exon_dupl(self,
+                                       exons_min_len, 
+                                       filename=''):
         """
         this might take a long time to run
         """
@@ -34,8 +41,8 @@ class exon_analysis(genome_analysis):
                     [
                         i.span() for i in re.finditer(
                         self.genome[intev_dict['chrom']]['+'][intv.lower:intv.upper],
-                        self.genome[intev_dict['chrom']]['+'][self.db[ID].start - 20: 
-                                                              self.db[ID].end + 20])
+                        self.genome[intev_dict['chrom']]['+'][self.db[ID].start: 
+                                                              self.db[ID].end])
                     ] 
                     for intv, intev_dict in transcript_dict.items() 
                     if intev_dict['type'] == 'coding_exon'
@@ -52,23 +59,31 @@ class exon_analysis(genome_analysis):
     
     
     def plot_histograms_on_real_exon_dup(self):
-        exon_dup_per_transctipt = []
-        len_of_dup_exon = []
-        n_times_dup_exon = []
+        self.exon_dup_per_transctipt = []
+        self.len_of_dup_exon = []
+        self.n_times_dup_exon = []
         for gene, gene_trascpt_dict in self.genes_coding_exons.items():
             for transcpt, trascpt_dict in gene_trascpt_dict.items():
                 for exon_id, exons_list in trascpt_dict.items():
-                    len_of_dup_exon.append(exons_list[0][1] - exons_list[0][0])
-                    n_times_dup_exon.append(len(exons_list))
-                exon_dup_per_transctipt.append(len(trascpt_dict))
-        data = [n_times_dup_exon, len_of_dup_exon,exon_dup_per_transctipt]
+                    self.len_of_dup_exon.append(
+                        exons_list[0][1] - exons_list[0][0]
+                    )
+                    self.n_times_dup_exon.append(
+                        len(exons_list)
+                    )
+                self.exon_dup_per_transctipt.append(
+                    len(trascpt_dict)
+                )
+        data = [self.n_times_dup_exon,
+                self.len_of_dup_exon,
+                self.exon_dup_per_transctipt]
         xlabels = ['Number of distinct exon duplications per transcript',
                    'Length of duplicated exons', 
                   'Single exon duplication frequency']
         plt.subplots(nrows=1, ncols=3, sharex=False, figsize=(13, 5))
-        for i in range(3):
+        for i in range(len(xlabels)):
             plt.tight_layout()
-            plt.subplot(1,3,(i+1)) 
+            plt.subplot(1,len(xlabels),(i+1)) 
             _, bins, _ = plt.hist(x=data[i], bins='auto',
                                   color='#0504aa',
                                   alpha=0.7,
@@ -78,5 +93,51 @@ class exon_analysis(genome_analysis):
             plt.xticks(fontsize=14)
             plt.yticks(fontsize=14)
         plt.show()
+        
+        
+    def plot_exons_hist_cdf(self):
+        temp = []
+        for gene, gene_dict in self.gene_hierarchy_dict.items():
+            for transcript, transcpt_list in gene_dict.items():
+                temp.append(len([
+                    i for i in transcpt_list
+                    if 'exon' in i['type']
+                ])
+                           )
+
+        plt.subplots(nrows=1,
+                     ncols=2, 
+                     sharex=False,
+                     figsize=(13, 5))
+        plt.subplot(1, 2, 1) 
+        _, bins, _ = plt.hist(x=temp, bins='auto',
+                              color='#0504aa',
+                              alpha=0.7,
+                              rwidth=0.85)
+        plt.xlabel('exons per mRNA', fontsize=18)
+        plt.ylabel('count', fontsize=18)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.subplot(1, 2, 2)
+        plt.plot(bins,
+                 self.cdf(len(temp), 
+                          bins,
+                          temp), 
+                 '-x',color='#0504aa', 
+                 markersize=2)
+        plt.ylabel (r'Cumulative distribution',
+                    fontsize=18)
+        plt.xlabel ('exons per mRNA',
+                    fontsize=18)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.show()
+
+    def cdf(self, N,y,v):
+        p = np.zeros((np.shape(y)))
+        for i in range(len(y)):
+            tr = y[i] - v
+            p[i] =  len(tr[tr >= 0]) / N
+        return p
 
     

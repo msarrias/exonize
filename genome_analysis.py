@@ -46,13 +46,15 @@ class genome_analysis(data_base_op):
     
     def dump_fasta_file(self, out_filepath, seq_dict):
         with open(out_filepath, "w") as handle:
-            for annot_id, annot_seq in seq_dict.keys():
+            for annot_id, annot_seq in seq_dict.items():
                 record = SeqRecord(Seq(annot_seq),
                                    id = str(annot_id),
                                           description= '')
                 SeqIO.write(record, handle, "fasta")
 
-            
+    def flatten(self, l):
+        return [item for sublist in l for item in sublist]
+
     def get_annotations_dict(self):
         self.annot_dict = {annot_type: 
                            {idx:gene for idx, gene in 
@@ -198,7 +200,9 @@ class genome_analysis(data_base_op):
             copy_interval_dict = copy.deepcopy(interval_dict)
             overlaping_dict = {}
             intervals_list = list(copy_interval_dict.keys())
-            for idx, (feat_interv, feature_annot) in enumerate(copy_interval_dict.items()):
+            for idx, (feat_interv, feature_annot) in enumerate(
+                copy_interval_dict.items()
+            ):
                 overlaping_dict[feat_interv] = []
                 if idx != (len(copy_interval_dict) - 1):
                     if feat_interv.overlaps(intervals_list[idx+1]):
@@ -219,7 +223,8 @@ class genome_analysis(data_base_op):
             return self.sort_interval_dict(interval_dict)
         new_gene_interv_dict = {}
         intervals_list = list(interval_dict.keys())
-        for int_idx, (interval, feature_descrip) in enumerate(interval_dict.items()):
+        for int_idx, (interval,
+                      feature_descrip) in enumerate(interval_dict.items()):
             overlap_interval = copy.deepcopy(overlaping_dict[interval])
             if not overlap_interval:
                 new_gene_interv_dict[interval] = feature_descrip
