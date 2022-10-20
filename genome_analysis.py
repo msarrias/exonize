@@ -52,9 +52,11 @@ class genome_analysis(data_base_op):
                                           description= '')
                 SeqIO.write(record, handle, "fasta")
 
+                
     def flatten(self, l):
         return [item for sublist in l for item in sublist]
 
+    
     def get_annotations_dict(self):
         self.annot_dict = {annot_type: 
                            {idx:gene for idx, gene in 

@@ -14,14 +14,21 @@ class exon_analysis(genome_analysis):
                                  gene_hierarchy_path, 
                                  gene_hierarchy)
     
-    def read_genome(self, genome_file_dir):
-        genome = SeqIO.parse(open(genome_file_dir), 'fasta')
-        self.genome = {
+    
+    def read_genome(self, 
+                    genome_file_dir,
+                    return_=False):
+        genome = {
             fasta.id : {'+' : str(fasta.seq),
                         '-': str(fasta.seq.reverse_complement())
                        } 
-            for fasta in genome
+            for fasta in SeqIO.parse(open(genome_file_dir), 
+                             'fasta')
         }
+        if not return_:
+            self.genome = genome
+        else:
+            return genome
         
         
     def get_within_gene_real_exon_dupl(self,
