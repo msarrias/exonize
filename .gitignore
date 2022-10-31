@@ -1,9 +1,11 @@
-/input_preprocessing.py
-/exon_evolution.py
 /__init__.py
+/exon_evolution.py
+/input_preprocessing.py
+/.ipynb_checkpoints/
 /00-fasta-files/
 /01-bed-files/
 /01-pkl-files/
 /02-seq-align-tools/
 /05-braker/
 /lib.egg-info/
+
