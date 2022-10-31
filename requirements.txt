@@ -1,0 +1,12 @@
+pip install notebook
+pip install gffutils
+pip install bcbio-gff
+pip install matplotlib
+pip install dna_features_viewer
+pip install PyQt5
+pip install portion
+pip install ete3
+pip install --upgrade gget
+pip install lxml
+pip install dendropy
+pip install readpaf
