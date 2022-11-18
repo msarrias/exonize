@@ -1,0 +1,5 @@
+p-tqdm==1.4.0
+tqdm==4.56.0
+pickleshare==0.7.5
+biopython==1.78 
+portion==2.3.0
