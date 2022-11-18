@@ -9,6 +9,7 @@ import subprocess # for running Exonerate
 from Bio import SeqIO, SearchIO # for parsing exonerate output
 import portion as P # for working with intervals
 
+
 class ExonDupSearch:
     def __init__(self,
                  ExonAnalysis_obj, 
@@ -87,6 +88,7 @@ class ExonDupSearch:
                      if feat_dict['id'] != exon_id and (coord.upper - coord.lower) > 1
                     }
         return query_seq ,hits_seqs
+        
         
     @staticmethod    
     def sort_interval_dict(interval_dict):
