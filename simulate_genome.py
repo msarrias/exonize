@@ -335,7 +335,7 @@ class genome_constructor(exon_analysis):
                                        gene_id : 
                                        {
                                            'seq': [
-                                               P.closed(i.span()[0], i.span()[1]) for i in 
+                                               P.open(i.span()[0], i.span()[1]) for i in 
                                                re.finditer(transcr_dict['seq'],
                                                            new_genome_dict[chrm])
                                            ],

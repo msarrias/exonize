@@ -1,3 +1,4 @@
+pip install biopython
 pip install notebook
 pip install gffutils
 pip install bcbio-gff
@@ -10,3 +11,4 @@ pip install --upgrade gget
 pip install lxml
 pip install dendropy
 pip install readpaf
+pip install p_tqdm
