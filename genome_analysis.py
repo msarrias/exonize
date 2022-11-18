@@ -1,6 +1,6 @@
 from data_base_op import * # object for handling DBs
 import portion as P # for working with intervals
-import pickle # saving and loading dictionries
+import pickle # saving and loading dictionaries
 import copy # deep copy mutable objects
 import pandas as pd # stats df
 import numpy as np # rounding
@@ -10,41 +10,61 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
         
     
-class genome_analysis(data_base_op):
+class GenomeAnalysis(DataBaseOp):
     def __init__(self,
                  db_path,
                  gene_hierarchy_path,
                  gene_hierarchy=True):
-        data_base_op.__init__(self, db_path)
+        DataBaseOp.__init__(self, db_path)
+        self.chrm_gene_dict = None
+        self.n_genes = None
+        self.gene_hierarchy_dict_with_coding_exons = None
+        self.genes_with_incorrect_intron_exon_overlaps = None
+        self.intersections_counter = None
+        self.gene_interval_dict = None
+        self.basic_stat = None
+        self.annot_dict = None
         self.load_db()
         self.feature_types = list(self.db.featuretypes())
         self.UTR_features = ['five_prime_UTR',
                              'three_prime_UTR']
-        self.feat_of_intst = ['CDS',
-                              'exon',
-                              'intron'] + self.UTR_features
+        self.feat_of_interest = ['CDS',
+                                 'exon',
+                                 'intron'] + self.UTR_features
         self.gene_hierarchy = gene_hierarchy
+        self.gene_hierarchy_path = gene_hierarchy_path
         if self.gene_hierarchy:
             self.gene_hierarchy_dict = self.read_pkl_file(
-                gene_hierarchy_path
+                self.gene_hierarchy_path
             )
         else:
-            self.gene_hierarchy_path = gene_hierarchy_path
             self.create_gene_hierarchy_dict()
+        self.chrom_dict = {gene_id: self.db[gene_id].chrom 
+                           for gene_id in self.gene_hierarchy_dict.keys()
+                          } 
+        self.gene_loc = {gene_id: P.open(self.db[gene_id].start, self.db[gene_id].end)
+                         for gene_id in self.gene_hierarchy_dict.keys()
+                        } 
+        self.strand_dict = {gene_id: self.db[gene_id].strand 
+                           for gene_id in self.gene_hierarchy_dict.keys()
+                           } 
     
     
-    def read_pkl_file(self, filepath):
+    @staticmethod
+    def read_pkl_file(filepath):
         with open(filepath, 'rb') as handle:
             read_file = pickle.load(handle)
         return read_file
     
     
-    def dump_pkl_file(self, out_filepath, obj):
+    @staticmethod
+    def dump_pkl_file(out_filepath, obj):
         with open(out_filepath, 'wb') as handle:
             pickle.dump(obj, handle)
     
     
-    def dump_fasta_file(self, out_filepath, seq_dict):
+    @staticmethod
+    def dump_fasta_file(out_filepath, seq_dict):
         with open(out_filepath, "w") as handle:
             for annot_id, annot_seq in seq_dict.items():
                 record = SeqRecord(Seq(annot_seq),
@@ -53,7 +73,8 @@ class genome_analysis(data_base_op):
                 SeqIO.write(record, handle, "fasta")
 
                 
-    def flatten(self, l):
+    @staticmethod
+    def flatten(l):
         return [item for sublist in l for item in sublist]
 
     
@@ -66,9 +87,9 @@ class genome_analysis(data_base_op):
         
         
     def generate_basic_statistics(self):
-        self.basic_stat = basic_stat = {"Number": [],
-                                        "Size total (kb)":[],
-                                        "Size mean (bp)": []}
+        self.basic_stat  = {"Number": [],
+                            "Size total (kb)":[],
+                            "Size mean (bp)": []}
         for annotation_type, ann_dic in self.annot_dict.items(): 
             lengths = [item.end - item.start 
                        for item in ann_dic.values()]
@@ -96,7 +117,7 @@ class genome_analysis(data_base_op):
                                                order_by='start'):
                 temp_i = []
                 for child in self.db.children(mRNA_annot.id,
-                                              featuretype=self.feat_of_intst,
+                                              featuretype=self.feat_of_interest,
                                               order_by='start'):
                     temp_i += [{'chrom':child.chrom,
                                 'coord': P.open(child.start, child.end),
@@ -110,7 +131,6 @@ class genome_analysis(data_base_op):
                                        item['coord'].upper))
                 features[mRNA_annot.id] = temp_j
             self.gene_hierarchy_dict[gene.id] = features
-            
         if not self.gene_hierarchy:
             self.dump_pkl_file(self.gene_hierarchy_path, 
                                self.gene_hierarchy_dict)
@@ -135,7 +155,7 @@ class genome_analysis(data_base_op):
                     # we keep the utr:
                     if interval_dict[feature_inv]['type'] in self.UTR_features:
                         continue
-                    # CASE 1.2: if there is an exon folowed by an utr,
+                    # CASE 1.2: if there is an exon followed by an utr,
                     # we keep the utr:
                     if (
                         interval_dict[feature_inv]['type'] == 'exon' 
@@ -150,7 +170,7 @@ class genome_analysis(data_base_op):
                     ):
                         interval_dict[feature_inv] = copy.deepcopy(temp_dict)
                         interval_dict[feature_inv]['type'] = 'coding_exon'
-                    # CASE 1.4: if there is a exon, followed by a CDS we
+                    # CASE 1.4: if there is an exon, followed by a CDS we
                     # register a coding exon:
                     if (
                         interval_dict[feature_inv]['type'] == 'exon'
@@ -162,26 +182,26 @@ class genome_analysis(data_base_op):
             
         
     def check_overlaps(self):
-        inters_type_counter = dict.fromkeys(self.feat_of_intst, 0)
+        inters_type_counter = dict.fromkeys(self.feat_of_interest, 0)
         self.gene_interval_dict = {}
         self.intersections_counter = {key: copy.deepcopy(inters_type_counter)
-                                      for key in self.feat_of_intst}
+                                      for key in self.feat_of_interest}
          # do not allow exon and introns annotations 
         no_overlaps = ['intron', 'exon']
-        # for collecting those annot
+        # for collecting those annotations
         self.genes_with_incorrect_intron_exon_overlaps = [] 
         for gene_id, gene_dict in self.gene_hierarchy_dict.items():
             self.gene_interval_dict[gene_id] = self.transcript_interval_dict(gene_dict)
             for transcript_id, transcript_dict in self.gene_interval_dict[gene_id].items():
-                overlaping_dict = {}
+                overlapping_dict = {}
                 intervals_list = list(transcript_dict.keys())
                 for idx, (feat_interv, feature_annot) in enumerate(transcript_dict.items()):
-                    overlaping_dict[feat_interv] = []
+                    overlapping_dict[feat_interv] = []
                     if idx != (len(transcript_dict) - 1):
                         for interval_i in intervals_list[idx+1:]:
                             if feat_interv.overlaps(interval_i):
-                                overlaping_dict[feat_interv].append(interval_i)
-                for interv, interv_overlap in overlaping_dict.items():
+                                overlapping_dict[feat_interv].append(interval_i)
+                for interv, interv_overlap in overlapping_dict.items():
                     if interv_overlap:
                         for interval_j in interv_overlap:
                             interval_type = transcript_dict[interv]['type']
@@ -193,26 +213,35 @@ class genome_analysis(data_base_op):
                                 else:
                                     self.intersections_counter[interval_type][next_interval_type] += 1
         # As instructed by Chris, we neglect those genes with 
-        # exon/intron overlaping annotations
+        # exon/intron overlapping_dict annotations
         for gene in set(self.genes_with_incorrect_intron_exon_overlaps):
             del self.gene_hierarchy_dict[gene]
             
+        if len(self.genes_with_incorrect_intron_exon_overlaps)>0:
+            self.dump_pkl_file(self.gene_hierarchy_path,
+                               self.gene_hierarchy_dict)
+            print(f'{len(set(self.genes_with_incorrect_intron_exon_overlaps))} genes \
+                  have been removed')
+        self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
             
-    def get_overlaping_dict(self, interval_dict):
+            
+    @staticmethod
+    def get_overlapping_dict(interval_dict):
             copy_interval_dict = copy.deepcopy(interval_dict)
-            overlaping_dict = {}
+            overlapping_dict = {}
             intervals_list = list(copy_interval_dict.keys())
             for idx, (feat_interv, feature_annot) in enumerate(
                 copy_interval_dict.items()
             ):
-                overlaping_dict[feat_interv] = []
+                overlapping_dict[feat_interv] = []
                 if idx != (len(copy_interval_dict) - 1):
                     if feat_interv.overlaps(intervals_list[idx+1]):
-                        overlaping_dict[feat_interv] = intervals_list[idx+1]
-            return overlaping_dict
+                        overlapping_dict[feat_interv] = intervals_list[idx+1]
+            return overlapping_dict
 
         
-    def sort_interval_dict(self, interval_dict):
+    @staticmethod
+    def sort_interval_dict(interval_dict):
         keys_ = list(interval_dict.keys())
         keys_ = sorted(keys_, key = lambda item: (item.lower, item.upper))
         return {key: copy.deepcopy(interval_dict[key]) for key in keys_}
@@ -220,14 +249,14 @@ class genome_analysis(data_base_op):
 
     def get_coords_with_coding_exons(self, interval_dict):
         """HORRIBLE RECURSIVE FUNCTION - SORRY"""
-        overlaping_dict = self.get_overlaping_dict(interval_dict)
-        if not any(list(overlaping_dict.values())):
+        overlapping_dict = self.get_overlapping_dict(interval_dict)
+        if not any(list(overlapping_dict.values())):
             return self.sort_interval_dict(interval_dict)
         new_gene_interv_dict = {}
         intervals_list = list(interval_dict.keys())
         for int_idx, (interval,
                       feature_descrip) in enumerate(interval_dict.items()):
-            overlap_interval = copy.deepcopy(overlaping_dict[interval])
+            overlap_interval = copy.deepcopy(overlapping_dict[interval])
             if not overlap_interval:
                 new_gene_interv_dict[interval] = feature_descrip
             else:
@@ -381,11 +410,19 @@ class genome_analysis(data_base_op):
         copy_gene_hierarchy_dict = copy.deepcopy(self.gene_hierarchy_dict)
         for gene_id, gene_hierarchy_dict_ in copy_gene_hierarchy_dict.items():
             temp_transcript_dict = {}
-            for transcript_id, transcript_hierarchy_dict in self.gene_interval_dict[gene_id].items():
+            for transcript_id, transcript_dict in self.gene_interval_dict[gene_id].items():
                 temp_transcript_dict[transcript_id] = self.get_coords_with_coding_exons(
-                    transcript_hierarchy_dict
+                    transcript_dict
                 )
             self.gene_hierarchy_dict_with_coding_exons[gene_id] = temp_transcript_dict
         self.n_genes = len(self.gene_hierarchy_dict_with_coding_exons)
+        
+        
+    def get_chrom_gene_dict(self):
+        self.chrm_gene_dict = {i:{} for i in self.genome.keys()}
+        for gene_id, gene_dict in self.gene_hierarchy_dict_with_coding_exons.items():
+            chm = self.db[gene_id].chrom
+            self.chrm_gene_dict[chm][gene_id] = copy.deepcopy(gene_dict)
+
             
             

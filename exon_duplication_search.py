@@ -8,7 +8,7 @@ import pickle, copy
 import subprocess # for running Exonerate
 from Bio import SeqIO, SearchIO # for parsing exonerate output
 import portion as P # for working with intervals
-from datetime import date
+
 
 class ExonDupSearch:
     def __init__(self,
@@ -76,42 +76,198 @@ class ExonDupSearch:
     def get_query_and_hits_seqs(self, 
                                 exon_id,
                                 gene_id,
-                                transcpt_dict,
+                                coding_exons_introns_dict,
                                 exon_coord):
         chrm = self.exon_analysis_obj.chrom_dict[gene_id]
         strand = self.exon_analysis_obj.strand_dict[gene_id]
         query_seq = self.exon_analysis_obj.genome[chrm][strand][exon_coord.lower:exon_coord.upper]
+        
         hits_seqs = {feat_dict['id']: 
                      self.exon_analysis_obj.genome[chrm][strand][coord.lower:coord.upper]
-                     for coord, feat_dict in transcpt_dict.items() 
-                     if feat_dict['id'] != exon_id
+                     for coord, feat_dict in coding_exons_introns_dict.items() 
+                     if feat_dict['id'] != exon_id and (coord.upper - coord.lower) > 1
                     }
         return query_seq ,hits_seqs
         
         
+    @staticmethod    
+    def sort_interval_dict(interval_dict):
+        """
+        Sort intervals dictionary
+        the intervals objects are created with the portion library
+        https://github.com/AlexandreDecan/portion
+        """
+        keys_ = list(interval_dict.keys())
+        keys_ = sorted(keys_, key = lambda item: (item.lower, item.upper))
+        return {key: copy.deepcopy(interval_dict[key]) for key in keys_}
+
+    
+    @staticmethod
+    def get_overlapping_dict(interval_dict):
+        """
+        gets the next overlap to the right
+        for each interval in the interval
+        dictionary keys `interval_dict`
+        """
+        copy_interval_dict = copy.deepcopy(interval_dict)
+        overlapping_dict = {intv:[] for intv in copy_interval_dict}
+        intervals_list = list(copy_interval_dict.keys())
+        for idx, (feat_interv, feature_annot) in enumerate(copy_interval_dict.items()):
+            if (idx != (len(copy_interval_dict) - 1) 
+                and feat_interv.overlaps(intervals_list[idx+1])
+               ):
+                overlapping_dict[feat_interv] = intervals_list[idx+1]
+        return overlapping_dict
+
+    
+    @staticmethod
+    def complete_dict(int_idx, 
+                      new_gene_interv_dict, 
+                      interval_dict,
+                      step = 2):
+        """
+        `complete_dict` populates the `new_gene_interv_dict` dictionary
+        with items in `interval_dict`. `complete_dict` is a help function 
+        to the `get_coding_exons_across_transcripts` function, where after
+        resolving a  not allowed intersection on `interval_dict`  
+        the `complete_dict` function updates the new interval dictionary
+        that will be passed on the next recursive step of 
+        `get_coding_exons_across_transcripts`
+        """
+        intervals_list = list(interval_dict.keys())
+        new_gene_interv_dict_copy = copy.deepcopy(new_gene_interv_dict)
+        for intrv in intervals_list[int_idx+step:]:
+            if not intrv in new_gene_interv_dict_copy:
+                new_gene_interv_dict_copy[intrv] = copy.deepcopy(interval_dict[intrv])
+        return new_gene_interv_dict_copy
+
+    
+    @staticmethod
+    def get_coding_exons_annotations(coords_dict):
+        return {i:y for key, v in coords_dict.items()
+                for i, y in v.items() if 'coding_exon' in y['type'] 
+               }
+
+    
+    @staticmethod
+    def get_coverage_perc(a,b):
+        return (a.upper - a.lower)/(b.upper - b.lower)
+
+    
+    @staticmethod
+    def get_small_large_interv(a,b):
+        len_a = a.upper - a.lower
+        len_b = b.upper - b.lower
+        if len_a < len_b:
+            return a, b
+        else:
+            return b, a
+
+        
+    def get_coding_exons_across_transcripts(self, interval_dict):
+        """
+        `get_coding_exons_across_transcripts` is a recursive function that 
+        takes as an input `interval_dict`: a nested dictionary of a 
+        gene, its transcripts and a breakdown of each transcript's architecture. 
+        input e.g.,
+        {geneID:{transcript1:{exon1:{}, intron1{},...}, transcript2:{...}...}}
+        and following certain criteria, it returns a sorted dictionary
+        `new_gene_interv_dict` of the most inclusive set of coding exons:
+        return e.g.,
+        {exonID: feature_dictionary, ...}
+        Cases of intersections are the following:
+        - Case 1: exon_i is contained in exon_j 
+        - Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
+            - Case 2.1: exon_i intersects exon_j in at least .7 of the length of each exon.
+            - Case 2.2: opposite to Case2.1
+        `get_coding_exons_across_transcripts` resolves what can me categorazied in 
+        allowed and not allowed intersections:
+        Not allowed: Case 1, Case 2.1, Allowed: Case 2.2
+        Each overlap is handled at a recursion step, so there are many 
+        recursion steps as overlaps.
+        """
+        overlapping_dict = self.get_overlapping_dict(interval_dict)
+        #if sorted interval dictionary has no overlaps - nothing to do
+        if not any(list(overlapping_dict.values())):
+            return self.sort_interval_dict(interval_dict)
+        new_gene_interv_dict = {}
+        intervals_list = list(interval_dict.keys())
+        for int_idx, (interval, feature_descrip) in enumerate(interval_dict.items()):
+            overlap_interval = copy.deepcopy(overlapping_dict[interval])
+            # if interval has no overlaps
+            if not overlap_interval:
+                new_gene_interv_dict[interval] = feature_descrip
+            # resolve interval overlaps:
+            else:
+                small_itv, large_itv = self.get_small_large_interv(interval, overlap_interval)
+                # Case 1: exon_i is contained in exon_j but exon_i is not contained in exon_j 
+                if large_itv.contains(small_itv):
+                    new_gene_interv_dict[large_itv] = interval_dict[large_itv]
+                    new_gene_interv_dict = self.complete_dict(int_idx, new_gene_interv_dict, interval_dict)
+                    return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
+                # Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
+                else:
+                    intersection = large_itv & small_itv
+                    perc_long = self.get_coverage_perc(intersection, large_itv)
+                    # Case 2.1: If the intersection covers more than 70% of the longest exon
+                    if round(perc_long) > 0.7:
+                        new_gene_interv_dict[large_itv] = interval_dict[large_itv]
+                        new_gene_interv_dict = self.complete_dict(int_idx,new_gene_interv_dict,interval_dict)
+                        return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
+                    # Case 2.2: If the intersection covers less than 70% of the longest exon
+                    # we allow the overlap
+                    else:
+                        new_gene_interv_dict[interval] = copy.deepcopy(interval_dict[interval])
+                        exclude_overlap_dict = {}
+                        for intrv in intervals_list[int_idx+1:]:
+                            if not intrv in new_gene_interv_dict:
+                                exclude_overlap_dict[intrv] = copy.deepcopy(interval_dict[intrv])
+                        new_block = self.get_coding_exons_across_transcripts(self.sort_interval_dict(exclude_overlap_dict))
+                        new_gene_interv_dict.update(new_block)
+                        return new_gene_interv_dict
+
+                    
+    def trans_exons_and_introns_coords(self, intv_dict, gene_id):
+        new_dict, i = {}, 0
+        copy_intv_dict = copy.deepcopy(intv_dict)
+        keys_list = list(intv_dict.keys())
+        first_itv, last_itv = keys_list[0], keys_list[-1]
+        gene_coord = self.exon_analysis_obj.gene_loc[gene_id]
+        s, e = first_itv.lower, first_itv.upper
+        gc_s, gc_e = gene_coord.lower, gene_coord.upper
+        if P.open(gc_s, s):
+            copy_intv_dict[P.open(gc_s, s)] = {'id': f'intron_{i}'}
+            i+=1
+        for coord in keys_list[1:]:
+            if P.open(e, coord.lower):
+                copy_intv_dict[P.open(e, coord.lower)] = {'id': f'intron_{i}'}
+                i+=1
+                e = coord.upper
+        if P.open(last_itv.upper, gc_e):
+            copy_intv_dict[P.open(last_itv.upper, gc_e)] = {'id': f'intron_{i}'}
+        return self.sort_interval_dict(copy_intv_dict)
+
+    
     def get_duplicates(self, gene_id):
         time.sleep(random.randrange(0, self.secs))
         temp_ce_dict = dict()
         gene_dict = copy.deepcopy(self.exon_analysis_obj.gene_hierarchy_dict_with_coding_exons[gene_id])
         if gene_dict:
-            #might change later
-            transcript_id = next(iter(gene_dict))
-            transcpt_dict = copy.deepcopy(gene_dict[transcript_id])
-            coding_exons_ids = [(coord, feat_dict['id'])
-                                for coord, feat_dict in transcpt_dict.items() 
-                                if feat_dict['type'] == 'coding_exon'
-                               ]
-            if coding_exons_ids:
+            sorted_exons = self.sort_interval_dict(self.get_coding_exons_annotations(gene_dict))
+            coding_exons_dict = self.get_coding_exons_across_transcripts(sorted_exons)
+            
+            if coding_exons_dict:
+                coding_exons_with_introns = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
                 # if exon x is a duplicate of exon y, we skip looking for 
                 # x duplicates, since they will be comprised in the y hits
                 pass_exons = []
-                for coding_exon in coding_exons_ids:
-                    exon_coord, exon_id = coding_exon
+                for exon_coord, coding_exon_dict in coding_exons_dict.items():
+                    exon_id = coding_exon_dict['id']
                     if exon_id not in pass_exons:
                         if (exon_coord.upper - exon_coord.lower) > self.min_len:
                             query_seq, hits_seqs = self.get_query_and_hits_seqs(exon_id,
                                                                                 gene_id,
-                                                                                transcpt_dict,
+                                                                                coding_exons_with_introns,
                                                                                 exon_coord)
                             if hits_seqs:
                                 with tempfile.TemporaryDirectory() as tmpdirname:
@@ -133,12 +289,28 @@ class ExonDupSearch:
                                     temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
                                     for hit in temp:
                                         for hit_id, hit_dict in hit.items():
+                                            hit_dict['query_coord'] = {exon_coord:query_seq}
+                                            hit_dict['hit_coord'] = {coord : hits_seqs[coord_dict['id']]
+                                                                     for coord, coord_dict in coding_exons_with_introns.items()
+                                                                     if coord_dict['id'] != hit_dict['query'] 
+                                                                     and coord_dict['id'] == hit_dict['hit_id']}
+
+                                            hit_dict['hit_seqs'] = {coord: 
+                                                                    hits_seqs[hit_dict['hit_id']][coord.lower:coord.upper]
+                                                                    for coord in hit_dict['hit']
+                                                                   }
+                                            hit_dict['query_seqs'] = {coord: 
+                                                                      query_seq[coord.lower:coord.upper]
+                                                                      for coord in hit_dict['query']
+                                                                     }
+                                            del hit_dict['query']
+                                            del hit_dict['hit']
                                             if 'exon' in hit_dict['hit_id']:
                                                 pass_exons.append(hit_dict['hit_id'])
                                     if temp:
                                         temp_ce_dict[exon_id] = temp
         return temp_ce_dict
-    
+
     
     def search_for_exon_duplicates(self, 
                                    args_list,
@@ -156,8 +328,9 @@ class ExonDupSearch:
                 progress_bar.update(len(arg_batch))
         tac = time.time()
         res = [i for i in res if i]
+        res = {next(iter(exon_hit_dict)).rsplit('.')[0]:exon_hit_dict for exon_hit_dict in res}
         print(f'process took: {(tac - tic)/60} minutes')
-        self.exon_analysis_obj.dump_pkl_file(f'exon_dups_analysis{str(date.today())}.pkl', {'res':res})
+        self.exon_analysis_obj.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
         return res
         ## alternative paralellizing - this should be done 
         ## outside the class
