@@ -1,4 +1,5 @@
 /__init__.py
+/global_var.py
 /exon_evolution.py
 /input_preprocessing.py
 /.ipynb_checkpoints/
