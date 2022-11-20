@@ -31,47 +31,60 @@ class ExonDupSearch:
             yield iterable[ndx:min(ndx + n, l)]
         
         
-    @staticmethod
-    def parse_exonerate_output_only_higher_score_hits(ex_out_fname):
-        hits_feature_intervals = dict()
-        for query in SearchIO.parse(ex_out_fname, 
-                                    'exonerate-vulgar'):
-            query_dict = dict()
-            query_id = query.id #.rsplit('.')[0]
-            if query_id not in hits_feature_intervals:
-                hits_feature_intervals[query_id] = []
-            hits_dict = dict()
-            for hit_idx, hit in enumerate(query):
-                hsp_dict = dict()
-                # HSP stands for High-scoring Segment Pair
-                for hsp_idx, hsp in enumerate(hit): 
-                    query_ranges = [frag.query_range
-                                    for frag in hsp.fragments]
-                    hit_ranges = [frag.hit_range
-                                  for frag in hsp.fragments]
-                    hsp_dict[hsp_idx] = {'query_id':query_id,
-                                           'hit_id':hit.id,
-                                           'score':hsp.score,
-                                           'hit': [P.open(i[0], i[1])
-                                                   for i in hit_ranges],
-                                           'query': [P.open(i[0], i[1])
-                                                     for i in query_ranges]}
-                    #let's choose the hsp with higher score 
-                    if len(set([value['hit_id'] for key, value in hsp_dict.items()])) < 2:
-                        max_score = max([(key, value['score'])
-                                         for key, value in hsp_dict.items()
-                                        ],
-                                        key=lambda item:item[1]
-                                       )[0]
-                        hits_dict[hit_idx] = hsp_dict[max_score]
-                    else:
-                        hits_dict[hit_idx] = hsp_dict
+    def get_fragment_annotation(self, frag):
+        """
+        Collect attributes of a single HSPFragment
+        """
+        return {'query_coord': P.open(frag.query_start, frag.query_end),
+                'hit_coord':P.open(frag.hit_start, frag.hit_end),
+                'query_annotation': frag.aln_annotation['query_annotation'],
+                'hit_annotation':frag.aln_annotation['hit_annotation'],
+                'query_seq':str(frag.query.seq),
+                'hit_seq':str(frag.hit.seq)}
 
-            hits_feature_intervals[query_id].append(hits_dict)
-        if len(hits_feature_intervals) == 1:
-            return hits_feature_intervals[query_id]   
-        return hits_feature_intervals
+
+    def get_HSP_annotations(self, HSP):
+    #   HSP stands for High-scoring Segment Pair
+        fragments_dict = {}
+        for frag_idx, frag in enumerate(HSP.fragments):
+            fragments_dict[frag_idx] = self.get_fragment_annotation(frag)
+        return fragments_dict
+
     
+    def parse_exonerate_output_only_higher_score_hits(self, ex_out_fname):
+        """
+        `parse_exonerate_output_only_higher_score_hits` parses single query
+        exonerate-text outputs.
+        Each query is composed by a hit(s), each hit by HSP(s), and each HSP
+        by fragments (since ungappend). Some criteria:
+        - In case we have multiple HSps within a single hit, we keep the one
+        with the highest score. 
+        - If we have repeated hits on the same sequence, we keep the hit with 
+        the highest HSP score.
+        
+        """
+        #we take the first element of the list since there's only one query 
+        all_results = list(SearchIO.parse(ex_out_fname, 'exonerate-text'))
+        if all_results:
+            hit_dict = {}
+            for hit_idx, hit in enumerate(all_results[0]):
+                hsp_dict = {'score': 0, 'frag_dict': {}}
+                for idx_hsp, HSP in enumerate(hit):
+                    #We keep the HSP with the highest score
+                    if (not hsp_dict['frag_dict']
+                        or HSP.score > hsp_dict['score']
+                       ):
+                        hsp_dict = {'score':HSP.score, 
+                                    'frag_dict': self.get_HSP_annotations(HSP)} 
+                # if there's more than one hit on the same target seq, 
+                # we keep the one with the highest score
+                if (hit.id not in hit_dict
+                    or HSP.score > hit_dict[hit.id]['score']
+                   ):
+                    hit_dict[hit.id] = hsp_dict
+            return hit_dict
+        return {}
+
     
     def get_query_and_hits_seqs(self, 
                                 exon_id,
@@ -277,7 +290,7 @@ class ExonDupSearch:
                                                                            hits_seqs)
                                     output_file = f'{tmpdirname}/output.txt'
                                     exonerate_command = ['exonerate',
-                                                         '--showalignment', 'no',
+                                                         '--showalignment', 'yes',
                                                          '--model', self.model,
                                                          '--percent', str(self.percent),
                                                          '--query', 'query.fa',
@@ -287,27 +300,8 @@ class ExonDupSearch:
                                                        cwd=tmpdirname,
                                                        stdout=out)
                                     temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
-                                    for hit in temp:
-                                        for hit_id, hit_dict in hit.items():
-                                            hit_dict['query_coord'] = {exon_coord:query_seq}
-                                            hit_dict['hit_coord'] = {coord : hits_seqs[coord_dict['id']]
-                                                                     for coord, coord_dict in coding_exons_with_introns.items()
-                                                                     if coord_dict['id'] != hit_dict['query'] 
-                                                                     and coord_dict['id'] == hit_dict['hit_id']}
-
-                                            hit_dict['hit_seqs'] = {coord: 
-                                                                    hits_seqs[hit_dict['hit_id']][coord.lower:coord.upper]
-                                                                    for coord in hit_dict['hit']
-                                                                   }
-                                            hit_dict['query_seqs'] = {coord: 
-                                                                      query_seq[coord.lower:coord.upper]
-                                                                      for coord in hit_dict['query']
-                                                                     }
-                                            del hit_dict['query']
-                                            del hit_dict['hit']
-                                            if 'exon' in hit_dict['hit_id']:
-                                                pass_exons.append(hit_dict['hit_id'])
                                     if temp:
+                                        pass_exons += [i for i in temp.keys() if 'exon' in i]
                                         temp_ce_dict[exon_id] = temp
         return temp_ce_dict
 
