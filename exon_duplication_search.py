@@ -54,7 +54,7 @@ class ExonDupSearch:
     def parse_exonerate_output_only_higher_score_hits(self, ex_out_fname):
         """
         `parse_exonerate_output_only_higher_score_hits` parses single query
-        exonerate-text outputs.
+        exonerate-text outputs for coding2genome model.
         Each query is composed by a hit(s), each hit by HSP(s), and each HSP
         by fragments (since ungappend). Some criteria:
         - In case we have multiple HSps within a single hit, we keep the one
@@ -288,20 +288,31 @@ class ExonDupSearch:
                                                                            {exon_id:query_seq})
                                     self.exon_analysis_obj.dump_fasta_file(f'{tmpdirname}/target.fa',
                                                                            hits_seqs)
-                                    output_file = f'{tmpdirname}/output.txt'
-                                    exonerate_command = ['exonerate',
-                                                         '--showalignment', 'yes',
-                                                         '--model', self.model,
-                                                         '--percent', str(self.percent),
-                                                         '--query', 'query.fa',
-                                                         '--target', 'target.fa']
-                                    with open(output_file, 'w') as out:
-                                        subprocess.run(exonerate_command,
-                                                       cwd=tmpdirname,
-                                                       stdout=out)
-                                    temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
+                                    steps = 0
+                                    temp = {}
+                                    while steps < 10:
+                                        output_file = f'{tmpdirname}/output.txt'
+                                        exonerate_command = ['exonerate',
+                                                                 '--showalignment', 'yes',
+                                                                 '--showvulgar', 'no',
+                                                                 '--model', self.model,
+                                                                 '--percent', str(self.percent),
+                                                                 '--query', 'query.fa',
+                                                                 '--target', 'target.fa']
+                                        with open(output_file, 'w') as out:
+                                            subprocess.run(exonerate_command,
+                                                           cwd=tmpdirname,
+                                                           stdout=out)
+                                        try:
+                                            temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
+                                            break
+                                        except Exception as e:
+                                            steps += 1
+                                            if steps == 10:
+                                                print(gene_id, exon_id)
+                                            pass
                                     if temp:
-                                        pass_exons += [i for i in temp.keys() if 'exon' in i]
+                                        pass_exons += [i for i in temp if 'exon' in i]
                                         temp_ce_dict[exon_id] = temp
         return temp_ce_dict
 
@@ -322,7 +333,7 @@ class ExonDupSearch:
                 progress_bar.update(len(arg_batch))
         tac = time.time()
         res = [i for i in res if i]
-        res = {next(iter(exon_hit_dict)).rsplit('.')[0]:exon_hit_dict for exon_hit_dict in res}
+        res = {next(iter(exon_hit_dict)).rsplit('.')[0] : exon_hit_dict for exon_hit_dict in res}
         print(f'process took: {(tac - tic)/60} minutes')
         self.exon_analysis_obj.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
         return res
