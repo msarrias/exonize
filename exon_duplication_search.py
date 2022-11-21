@@ -306,7 +306,7 @@ class ExonDupSearch:
                                         try:
                                             temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
                                             break
-                                        except Exception as e:
+                                        except ValueError:
                                             steps += 1
                                             if steps == 10:
                                                 print(gene_id, exon_id)
