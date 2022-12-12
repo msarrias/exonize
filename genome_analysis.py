@@ -78,59 +78,48 @@ class GenomeAnalysis(DataBaseOp):
         return [item for sublist in l for item in sublist]
 
     
-    def get_annotations_dict(self):
-        self.annot_dict = {annot_type: 
-                           {idx:gene for idx, gene in 
-                            enumerate(self.db.features_of_type(annot_type))
-                           }
+    def get_summary_statistics(self):
+        self.annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
                            for annot_type in self.feature_types}
-        
-        
-    def generate_basic_statistics(self):
-        self.basic_stat  = {"Number": [],
-                            "Size total (kb)":[],
-                            "Size mean (bp)": []}
-        for annotation_type, ann_dic in self.annot_dict.items(): 
-            lengths = [item.end - item.start 
-                       for item in ann_dic.values()]
-            self.basic_stat["Number"].append(len(ann_dic))
-            self.basic_stat["Size total (kb)"].append(
-                np.round(sum(lengths)/1000, 2)
-            )
-            self.basic_stat["Size mean (bp)"].append(
-                np.round(np.mean(lengths), 2)
-            )
-        for value in self.basic_stat.values():
-            value.append(sum(value))
-            
-        df = pd.DataFrame(self.basic_stat,
-                          index=self.feature_types+['Total'])
-        return df
-    
+        gene_n = len(self.gene_hierarchy_dict)
+        n_mRNAs = sum([len(gene_dict)
+                       for gene, gene_dict in self.gene_hierarchy_dict.items()]
+                     )
+        if self.annot_dict['gene'] > gene_n:
+            self.annot_dict['gene'] = gene_n
+            self.annot_dict['mRNA'] = n_mRNAs
+        df = pd.DataFrame({"Count": list(self.annot_dict.values())},
+                          index=self.feature_types) 
+        df["Count"] = df["Count"].map("{:,}".format)
+        return df 
+
     
     def create_gene_hierarchy_dict(self):
         self.gene_hierarchy_dict = {}
         for gene in self.db.features_of_type('gene'):
             features = {}
-            for mRNA_annot in self.db.children(gene.id,
-                                               featuretype='mRNA',
-                                               order_by='start'):
-                temp_i = []
-                for child in self.db.children(mRNA_annot.id,
-                                              featuretype=self.feat_of_interest,
-                                              order_by='start'):
-                    temp_i += [{'chrom':child.chrom,
-                                'coord': P.open(child.start, child.end),
-                                'id':child.id, 
-                                'strand': child.strand,
-                                'type': child.featuretype
-                               }]
-                # sort first by the start and then by the end
-                temp_j = sorted(temp_i, key = lambda 
-                                item: (item['coord'].lower,
-                                       item['coord'].upper))
-                features[mRNA_annot.id] = temp_j
-            self.gene_hierarchy_dict[gene.id] = features
+            mRNA_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id,
+                                                                      featuretype='mRNA',
+                                                                      order_by='start')
+                               ]
+            if mRNA_transcripts:
+                for mRNA_annot in mRNA_transcripts:
+                    temp_i = []
+                    for child in self.db.children(mRNA_annot.id,
+                                                  featuretype=self.feat_of_interest,
+                                                  order_by='start'):
+                        temp_i += [{'chrom':child.chrom,
+                                    'coord': P.open(child.start, child.end),
+                                    'id':child.id, 
+                                    'strand': child.strand,
+                                    'type': child.featuretype
+                                   }]
+                    # sort first by the start and then by the end
+                    temp_j = sorted(temp_i, key = lambda 
+                                    item: (item['coord'].lower,
+                                           item['coord'].upper))
+                    features[mRNA_annot.id] = temp_j
+                self.gene_hierarchy_dict[gene.id] = features
         if not self.gene_hierarchy:
             self.dump_pkl_file(self.gene_hierarchy_path, 
                                self.gene_hierarchy_dict)
