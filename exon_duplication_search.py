@@ -16,12 +16,14 @@ class ExonDupSearch:
                  model = 'coding2genome',
                  percentage = 70,
                  sleep_max_seconds = 5,
-                 min_exon_length = 50):
+                 min_exon_length = 50,
+                 cutoff = 0.7):
         self.exon_analysis_obj = ExonAnalysis_obj
         self.model = model
         self.percent = percentage
         self.secs = sleep_max_seconds
         self.min_len = min_exon_length
+        self.cutoff = cutoff
 
         
     @staticmethod
@@ -74,8 +76,12 @@ class ExonDupSearch:
                     if (not hsp_dict['frag_dict']
                         or HSP.score > hsp_dict['score']
                        ):
-                        hsp_dict = {'score':HSP.score, 
-                                    'frag_dict': self.get_HSP_annotations(HSP)} 
+                        try:
+                            hsp_dict = {'score':HSP.score, 
+                                        'frag_dict': self.get_HSP_annotations(HSP)} 
+                        except:
+                            print('not hsp', hit.id, hsp_dict)
+                            pass
                 # if there's more than one hit on the same target seq, 
                 # we keep the one with the highest score
                 if (hit.id not in hit_dict
@@ -288,29 +294,20 @@ class ExonDupSearch:
                                                                            {exon_id:query_seq})
                                     self.exon_analysis_obj.dump_fasta_file(f'{tmpdirname}/target.fa',
                                                                            hits_seqs)
-                                    steps = 0
                                     temp = {}
-                                    while steps < 10:
-                                        output_file = f'{tmpdirname}/output.txt'
-                                        exonerate_command = ['exonerate',
-                                                                 '--showalignment', 'yes',
-                                                                 '--showvulgar', 'no',
-                                                                 '--model', self.model,
-                                                                 '--percent', str(self.percent),
-                                                                 '--query', 'query.fa',
-                                                                 '--target', 'target.fa']
-                                        with open(output_file, 'w') as out:
-                                            subprocess.run(exonerate_command,
-                                                           cwd=tmpdirname,
-                                                           stdout=out)
-                                        try:
-                                            temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
-                                            break
-                                        except ValueError:
-                                            steps += 1
-                                            if steps == 10:
-                                                print(gene_id, exon_id)
-                                            pass
+                                    output_file = f'{tmpdirname}/output.txt'
+                                    exonerate_command = ['exonerate',
+                                                             '--showalignment', 'yes',
+                                                             '--showvulgar', 'no',
+                                                             '--model', self.model,
+                                                             '--percent', str(self.percent),
+                                                             '--query', 'query.fa',
+                                                             '--target', 'target.fa']
+                                    with open(output_file, 'w') as out:
+                                        subprocess.run(exonerate_command,
+                                                       cwd=tmpdirname,
+                                                       stdout=out)
+                                    temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
                                     if temp:
                                         pass_exons += [i for i in temp if 'exon' in i]
                                         temp_ce_dict[exon_id] = temp
