@@ -229,7 +229,7 @@ class ExonDupSearch:
                     intersection = large_itv & small_itv
                     perc_long = self.get_coverage_perc(intersection, large_itv)
                     # Case 2.1: If the intersection covers more than 70% of the longest exon
-                    if round(perc_long) > 0.7:
+                    if round(perc_long) > self.cutoff:
                         new_gene_interv_dict[large_itv] = interval_dict[large_itv]
                         new_gene_interv_dict = self.complete_dict(int_idx,new_gene_interv_dict,interval_dict)
                         return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
@@ -247,6 +247,14 @@ class ExonDupSearch:
 
                     
     def trans_exons_and_introns_coords(self, intv_dict, gene_id):
+        """
+        trans_exons_and_introns_coords is a function that for a given gene 
+        annotations dictionary, it creates intron annotations on the 
+        non-annotated regions.
+        :param intv_dict: gene annotations breakdown.
+        :param gene_id: gene identifier.
+        :return: new dictionary with the new and sorted annotations.
+        """
         new_dict, i = {}, 0
         copy_intv_dict = copy.deepcopy(intv_dict)
         keys_list = list(intv_dict.keys())
@@ -268,6 +276,15 @@ class ExonDupSearch:
 
     
     def get_duplicates(self, gene_id):
+        """
+        get_duplicates is a function that given a gene_id, and a set of constraints it
+        performs a search of exon duplications. The constraints on the exon to query are
+        the following:
+        1. The exon must be larger than a minimum length, default is 50 bps.
+        2. If exon_i has a hit on exon_j we exclude the exon_j search.
+        :param gene_id: gene in question.
+        :return temp_ce_dict: hits dictionary.
+        """
         time.sleep(random.randrange(0, self.secs))
         temp_ce_dict = dict()
         gene_dict = copy.deepcopy(self.exon_analysis_obj.gene_hierarchy_dict_with_coding_exons[gene_id])
@@ -318,6 +335,15 @@ class ExonDupSearch:
                                    args_list,
                                    batch_n,
                                    threads=10):
+        """
+        search_for_exon_duplicates is a function that performs a 
+        genome-wide search of exons duplications, multithreading 
+        is performed in barches of genes.
+        :param args_list: list of gene ids.
+        :param batch_n: batches size
+        :param threads: number of threads 
+        """
+        
         res = []
         tic = time.time()
         batches_list = [i for i in self.batch(args_list, batch_n)]
@@ -330,6 +356,7 @@ class ExonDupSearch:
                 progress_bar.update(len(arg_batch))
         tac = time.time()
         res = [i for i in res if i]
+        # next(iter( ... is used for getting the first key in the dict
         res = {next(iter(exon_hit_dict)).rsplit('.')[0] : exon_hit_dict for exon_hit_dict in res}
         print(f'process took: {(tac - tic)/60} minutes')
         self.exon_analysis_obj.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
