@@ -46,7 +46,11 @@ class ExonDupSearch:
 
 
     def get_HSP_annotations(self, HSP):
-    #   HSP stands for High-scoring Segment Pair
+        """ 
+        get_HSP_annotations returns a dictionary with the
+        fragments annotation for a High-scoring Segment Pair
+        :param HSP: object of the class HSP
+        """
         fragments_dict = {}
         for frag_idx, frag in enumerate(HSP.fragments):
             fragments_dict[frag_idx] = self.get_fragment_annotation(frag)
@@ -97,6 +101,15 @@ class ExonDupSearch:
                                 gene_id,
                                 coding_exons_introns_dict,
                                 exon_coord):
+        """
+        get_query_and_hits_seqs is a function given a gene and exon id, and
+        a features dictionary with coordinates, returns the dna sequences.
+        :param exon_id: as in the GFF file.
+        :param gene_id: as in the GFF file.
+        :param coding_exons_introns_dict: target annotations.
+        param exon_coord: coordinates of the hit annotation.
+        :return: the query sequence and a dictionary with the target sequences
+        """
         chrm = self.exon_analysis_obj.chrom_dict[gene_id]
         strand = self.exon_analysis_obj.strand_dict[gene_id]
         query_seq = self.exon_analysis_obj.genome[chrm][strand][exon_coord.lower:exon_coord.upper]
@@ -163,18 +176,29 @@ class ExonDupSearch:
     
     @staticmethod
     def get_coding_exons_annotations(coords_dict):
+        """
+        get_coding_exons_annotations returns a dictionary
+        with annotations of the type "coding_exon".
+        :param coords_dict: gene annotations dict.
+        """
         return {i:y for key, v in coords_dict.items()
                 for i, y in v.items() if 'coding_exon' in y['type'] 
                }
 
     
     @staticmethod
-    def get_coverage_perc(a,b):
+    def intervals_proportion(a,b):
+        """Computes the proportion between two intervals"""
         return (a.upper - a.lower)/(b.upper - b.lower)
 
     
     @staticmethod
     def get_small_large_interv(a,b):
+        """
+        Given two intervals, the function 
+        get_small_large_interv returns the smaller 
+        and the larger interval in length.
+        """
         len_a = a.upper - a.lower
         len_b = b.upper - b.lower
         if len_a < len_b:
@@ -227,13 +251,13 @@ class ExonDupSearch:
                 # Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
                 else:
                     intersection = large_itv & small_itv
-                    perc_long = self.get_coverage_perc(intersection, large_itv)
-                    # Case 2.1: If the intersection covers more than 70% of the longest exon
+                    perc_long = self.intervals_proportion(intersection, large_itv)
+                    # Case 2.1: If the proportion is more than 70% of the longest exon
                     if round(perc_long) > self.cutoff:
                         new_gene_interv_dict[large_itv] = interval_dict[large_itv]
                         new_gene_interv_dict = self.complete_dict(int_idx,new_gene_interv_dict,interval_dict)
                         return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
-                    # Case 2.2: If the intersection covers less than 70% of the longest exon
+                    # Case 2.2: If the proportion is less than 70% of the longest exon
                     # we allow the overlap
                     else:
                         new_gene_interv_dict[interval] = copy.deepcopy(interval_dict[interval])
@@ -343,7 +367,6 @@ class ExonDupSearch:
         :param batch_n: batches size
         :param threads: number of threads 
         """
-        
         res = []
         tic = time.time()
         batches_list = [i for i in self.batch(args_list, batch_n)]
