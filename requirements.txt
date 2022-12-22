@@ -3,3 +3,4 @@ tqdm==4.56.0
 pickleshare==0.7.5
 biopython==1.78 
 portion==2.3.0
+matplotlib==3.3.4
