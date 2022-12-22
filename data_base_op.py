@@ -11,6 +11,9 @@ class DataBaseOp(object):
         self.verbose = verbose
         self.db = None
         self.db_path = db_path
+        
+        
+    def create_parse_or_update_database(self):
         if not os.path.exists(self.db_path):
             self.in_file_path = in_file_path
             if 'gtf' in self.in_file_path:
