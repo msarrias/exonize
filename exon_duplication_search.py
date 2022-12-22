@@ -63,7 +63,6 @@ class ExonDupSearch(ExonAnalysis):
         # raw annotations - gff file features count
         self.raw_annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
                                for annot_type in self.db_features}
-        self.raw_annot_dict['coding_exon'] = copy.deepcopy(self.raw_annot_dict['exon'])
         self.filtered_annot_dict = copy.deepcopy(self.raw_annot_dict)
         # filtered coding annotations count  
         self.filtered_annot_dict['gene'] = len(self.gene_hierarchy_dict_with_coding_exons)
@@ -75,19 +74,23 @@ class ExonDupSearch(ExonAnalysis):
                                                    for k, l in j['transcpt'].items()
                                                    if l['type'] == 'intron' 
                                                  ])
-        self.filtered_annot_dict['exon'] = sum([len(j['trans_exons']) 
+        self.filtered_annot_dict['exon'] = sum([len(j['ce_dict']) 
                                                  for i, j in self.most_inclusive_transcript_dict.items()
                                                ])
-        self.filtered_annot_dict['coding_exon'] = sum([1 for i, j in self.most_inclusive_transcript_dict.items() 
-                                                        for k, l in j['transcpt'].items()
-                                                        if l['type'] == 'coding_exon' 
-                                                      ])
-        
-        
+        #count coding regions only once
+        CDS_count = 0
+        for gene_id, gene_dict in self.gene_hierarchy_dict.items():
+            temp_dict = {transcpt:{i['coord']:{'type':i['type']} for i in list_annot}
+                         for transcpt, list_annot in gene_dict.items()}
+            if temp_dict:
+                sorted_cds = self.sort_interval_dict(self.get_annotations(temp_dict, 'CDS'))
+                temp = self.get_annotations_across_transcripts(sorted_cds)
+                CDS_count+= len(temp)
+        self.filtered_annot_dict['CDS'] = CDS_count
+        #create df
         df = pd.DataFrame({"Raw": list(self.raw_annot_dict.values()),
-                           'Filtered': list(self.filtered_annot_dict.values())
-                          },
-                          index=self.db_features + ['coding_exon']) 
+                           'Filtered': list(self.filtered_annot_dict.values())},
+                          index=self.db_features) 
         df["Raw"] = df["Raw"].map("{:,}".format)
         df["Filtered"] = df["Filtered"].map("{:,}".format)
         return df 
@@ -227,11 +230,11 @@ class ExonDupSearch(ExonAnalysis):
         """
         `complete_dict` populates the `new_gene_interv_dict` dictionary
         with items in `interval_dict`. `complete_dict` is a help function 
-        to the `get_coding_exons_across_transcripts` function, where after
+        to the `get_annotations_across_transcripts` function, where after
         resolving a  not allowed intersection on `interval_dict`  
         the `complete_dict` function updates the new interval dictionary
         that will be passed on the next recursive step of 
-        `get_coding_exons_across_transcripts`
+        `get_annotations_across_transcripts`
         """
         intervals_list = list(interval_dict.keys())
         new_gene_interv_dict_copy = copy.deepcopy(new_gene_interv_dict)
@@ -242,14 +245,14 @@ class ExonDupSearch(ExonAnalysis):
 
     
     @staticmethod
-    def get_coding_exons_annotations(coords_dict):
+    def get_annotations(coords_dict, type_annot = "coding_exon"):
         """
         get_coding_exons_annotations returns a dictionary
         with annotations of the type "coding_exon".
         :param coords_dict: gene annotations dict.
         """
         return {i:y for key, v in coords_dict.items()
-                for i, y in v.items() if 'coding_exon' in y['type'] 
+                for i, y in v.items() if type_annot in y['type'] 
                }
 
     
@@ -274,9 +277,9 @@ class ExonDupSearch(ExonAnalysis):
             return b, a
 
         
-    def get_coding_exons_across_transcripts(self, interval_dict):
+    def get_annotations_across_transcripts(self, interval_dict):
         """
-        `get_coding_exons_across_transcripts` is a recursive function that 
+        `get_annotations_across_transcripts` is a recursive function that 
         takes as an input `interval_dict`: a nested dictionary of a 
         gene, its transcripts and a breakdown of each transcript's architecture. 
         input e.g.,
@@ -290,7 +293,7 @@ class ExonDupSearch(ExonAnalysis):
         - Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
             - Case 2.1: exon_i intersects exon_j in at least .7 of the length of each exon.
             - Case 2.2: opposite to Case2.1
-        `get_coding_exons_across_transcripts` resolves what can be categorazied in 
+        `get_annotations_transcripts` resolves what can be categorazied in 
         allowed and not allowed intersections:
         Not allowed: Case 1, Case 2.1, Allowed: Case 2.2
         Each overlap is handled at a recursion step, so there are many 
@@ -314,7 +317,7 @@ class ExonDupSearch(ExonAnalysis):
                 if large_itv.contains(small_itv):
                     new_gene_interv_dict[large_itv] = interval_dict[large_itv]
                     new_gene_interv_dict = self.complete_dict(int_idx, new_gene_interv_dict, interval_dict)
-                    return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
+                    return self.get_annotations_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
                 # Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
                 else:
                     intersection = large_itv & small_itv
@@ -323,7 +326,7 @@ class ExonDupSearch(ExonAnalysis):
                     if round(perc_long) > self.cutoff:
                         new_gene_interv_dict[large_itv] = interval_dict[large_itv]
                         new_gene_interv_dict = self.complete_dict(int_idx,new_gene_interv_dict,interval_dict)
-                        return self.get_coding_exons_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
+                        return self.get_annotations_across_transcripts(self.sort_interval_dict(new_gene_interv_dict))
                     # Case 2.2: If the proportion is less than 70% of the longest exon
                     # we allow the overlap
                     else:
@@ -332,7 +335,7 @@ class ExonDupSearch(ExonAnalysis):
                         for intrv in intervals_list[int_idx+1:]:
                             if not intrv in new_gene_interv_dict:
                                 exclude_overlap_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                        new_block = self.get_coding_exons_across_transcripts(self.sort_interval_dict(exclude_overlap_dict))
+                        new_block = self.get_annotations_across_transcripts(self.sort_interval_dict(exclude_overlap_dict))
                         new_gene_interv_dict.update(new_block)
                         return new_gene_interv_dict
 
@@ -368,12 +371,12 @@ class ExonDupSearch(ExonAnalysis):
                                                             'type': 'intron'}
         return self.sort_interval_dict(copy_intv_dict)
 
-    
+        
     def generate_most_inclusive_transcript_dict(self):
         for gene_id, gene_dict in self.gene_hierarchy_dict_with_coding_exons.items():
             if gene_dict:
-                sorted_exons = self.sort_interval_dict(self.get_coding_exons_annotations(gene_dict))
-                coding_exons_dict = self.get_coding_exons_across_transcripts(sorted_exons)
+                sorted_exons = self.sort_interval_dict(self.get_annotations(gene_dict))
+                coding_exons_dict = self.get_annotations_across_transcripts(sorted_exons)
                 if coding_exons_dict:
                     temp = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
                     self.most_inclusive_transcript_dict[gene_id] = {'trans_exons':sorted_exons,
@@ -393,7 +396,9 @@ class ExonDupSearch(ExonAnalysis):
         """
         time.sleep(random.randrange(0, self.secs))
         temp_ce_dict = dict()
+        # this gives a list of "distinct" coding exons across transcripts, i.e., no duplicates
         coding_exons_dict = copy.deepcopy(self.most_inclusive_transcript_dict[gene_id]['ce_dict'])
+        # this creates intron annotations for the regions in between exons.
         coding_exons_with_introns = copy.deepcopy(self.most_inclusive_transcript_dict[gene_id]['transcpt'])
         # if exon x is a duplicate of exon y, we skip looking for 
         # x duplicates, since they will be comprised in the y hits
