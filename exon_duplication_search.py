@@ -37,7 +37,7 @@ class ExonDupSearch(ExonAnalysis):
         self.exons_across_trascpts_dict = dict()
         
         
-    def search_exon_dups(self):
+    def generate_data_for_analysis(self):
         self.generate_genome_info_for_analysis()
         try:
             if self.verbose: print(f'Reading genome:', end = " ")
@@ -59,6 +59,40 @@ class ExonDupSearch(ExonAnalysis):
             print("Done!")   
             
             
+    def get_summary_statistics(self):
+        # raw annotations - gff file features count
+        self.raw_annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
+                               for annot_type in self.db_features}
+        self.raw_annot_dict['coding_exon'] = copy.deepcopy(self.raw_annot_dict['exon'])
+        self.filtered_annot_dict = copy.deepcopy(self.raw_annot_dict)
+        # filtered coding annotations count  
+        self.filtered_annot_dict['gene'] = len(self.gene_hierarchy_dict_with_coding_exons)
+        self.filtered_annot_dict['mRNA'] = sum([len(gene_dict)
+                                                for gene, gene_dict
+                                                in self.gene_hierarchy_dict.items()
+                                               ])
+        self.filtered_annot_dict['intron'] = sum([1 for i, j in self.most_inclusive_transcript_dict.items() 
+                                                   for k, l in j['transcpt'].items()
+                                                   if l['type'] == 'intron' 
+                                                 ])
+        self.filtered_annot_dict['exon'] = sum([len(j['trans_exons']) 
+                                                 for i, j in self.most_inclusive_transcript_dict.items()
+                                               ])
+        self.filtered_annot_dict['coding_exon'] = sum([1 for i, j in self.most_inclusive_transcript_dict.items() 
+                                                        for k, l in j['transcpt'].items()
+                                                        if l['type'] == 'coding_exon' 
+                                                      ])
+        
+        
+        df = pd.DataFrame({"Raw": list(self.raw_annot_dict.values()),
+                           'Filtered': list(self.filtered_annot_dict.values())
+                          },
+                          index=self.db_features + ['coding_exon']) 
+        df["Raw"] = df["Raw"].map("{:,}".format)
+        df["Filtered"] = df["Filtered"].map("{:,}".format)
+        return df 
+    
+    
     @staticmethod
     def batch(iterable, n=1):
         l = len(iterable)

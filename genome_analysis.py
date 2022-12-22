@@ -84,24 +84,6 @@ class GenomeAnalysis(DataBaseOp):
         return [item for sublist in l for item in sublist]
 
     
-    def get_summary_statistics(self):
-        self.raw_annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
-                               for annot_type in self.db_features}
-        self.filtered_annot_dict = copy.deepcopy(self.raw_annot_dict)
-        # filtered
-        self.filtered_annot_dict['gene'] = len(self.gene_hierarchy_dict)
-        self.filtered_annot_dict['mRNA'] = sum([len(gene_dict)
-                                                for gene, gene_dict
-                                                in self.gene_hierarchy_dict.items()
-                                               ])
-        df = pd.DataFrame({"Raw": list(self.raw_annot_dict.values()),
-                           'Filtered': list(self.filtered_annot_dict.values())},
-                          index=self.db_features) 
-        df["Raw"] = df["Raw"].map("{:,}".format)
-        df["Filtered"] = df["Filtered"].map("{:,}".format)
-        return df 
-
-    
     def create_gene_hierarchy_dict(self):
         self.gene_hierarchy_dict = {}
         for gene in self.db.features_of_type('gene'):
