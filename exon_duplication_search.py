@@ -1,3 +1,4 @@
+from exon_analysis import *
 # for multithreading the search of exon duplicates
 from multiprocessing.pool import ThreadPool
 import time, random
@@ -10,22 +11,50 @@ from Bio import SeqIO, SearchIO # for parsing exonerate output
 import portion as P # for working with intervals
 
 
-class ExonDupSearch:
+class ExonDupSearch(ExonAnalysis):
     def __init__(self,
-                 ExonAnalysis_obj, 
+                 db_path, 
+                 gff_file_path,
+                 genome_file_path,
+                 gene_hierarchy_path,
                  model = 'coding2genome',
                  percentage = 70,
                  sleep_max_seconds = 5,
                  min_exon_length = 50,
-                 cutoff = 0.7):
-        self.exon_analysis_obj = ExonAnalysis_obj
+                 cutoff = 0.7,
+                 verbose = True):
+        ExonAnalysis.__init__(self,
+                              db_path,
+                              gff_file_path,
+                              gene_hierarchy_path,
+                              verbose
+                             )
+        self.verbose = verbose
         self.model = model
         self.percent = percentage
         self.secs = sleep_max_seconds
         self.min_len = min_exon_length
         self.cutoff = cutoff
-
-        
+        self.most_inclusive_transcript_dict = dict()
+        self.exons_across_trascpts_dict = dict()
+        try:
+            if self.verbose: print(f'Reading genome:', end = " ")
+            self.read_genome(genome_file_path)
+            if self.verbose: print("Done!")
+        except ValueError:
+            print("Wrong genome path")
+        if self.verbose: print('Checking overlaps:', end = " ")
+        self.check_overlaps()
+        if self.verbose:
+            print("Done!")
+            print(f'Computing genome-wide coding exons coordinates:',end = " ")
+        self.get_gene_hierarchy_dict_with_coding_exons()
+        if self.verbose: 
+            print("Done!")
+            print(f'Generate most inclusive exon set across transcripts:',end = " ")
+        self.generate_most_inclusive_transcript_dict()
+        if self.verbose:
+            print("Done!")        
     @staticmethod
     def batch(iterable, n=1):
         l = len(iterable)
@@ -110,12 +139,12 @@ class ExonDupSearch:
         param exon_coord: coordinates of the hit annotation.
         :return: the query sequence and a dictionary with the target sequences
         """
-        chrm = self.exon_analysis_obj.chrom_dict[gene_id]
-        strand = self.exon_analysis_obj.strand_dict[gene_id]
-        query_seq = self.exon_analysis_obj.genome[chrm][strand][exon_coord.lower:exon_coord.upper]
+        chrm = self.chrom_dict[gene_id]
+        strand = self.strand_dict[gene_id]
+        query_seq = self.genome[chrm][strand][exon_coord.lower:exon_coord.upper]
         
         hits_seqs = {feat_dict['id']: 
-                     self.exon_analysis_obj.genome[chrm][strand][coord.lower:coord.upper]
+                     self.genome[chrm][strand][coord.lower:coord.upper]
                      for coord, feat_dict in coding_exons_introns_dict.items() 
                      if feat_dict['id'] != exon_id and (coord.upper - coord.lower) > 1
                     }
@@ -223,7 +252,7 @@ class ExonDupSearch:
         - Case 2: exon_i intersects exon_j but exon_i is not contained in exon_j 
             - Case 2.1: exon_i intersects exon_j in at least .7 of the length of each exon.
             - Case 2.2: opposite to Case2.1
-        `get_coding_exons_across_transcripts` resolves what can me categorazied in 
+        `get_coding_exons_across_transcripts` resolves what can be categorazied in 
         allowed and not allowed intersections:
         Not allowed: Case 1, Case 2.1, Allowed: Case 2.2
         Each overlap is handled at a recursion step, so there are many 
@@ -283,22 +312,37 @@ class ExonDupSearch:
         copy_intv_dict = copy.deepcopy(intv_dict)
         keys_list = list(intv_dict.keys())
         first_itv, last_itv = keys_list[0], keys_list[-1]
-        gene_coord = self.exon_analysis_obj.gene_loc[gene_id]
+        gene_coord = self.gene_loc[gene_id]
         s, e = first_itv.lower, first_itv.upper
         gc_s, gc_e = gene_coord.lower, gene_coord.upper
         if P.open(gc_s, s):
-            copy_intv_dict[P.open(gc_s, s)] = {'id': f'intron_{i}'}
+            copy_intv_dict[P.open(gc_s, s)] = {'id': f'intron_{i}',
+                                               'type': 'intron'}
             i+=1
         for coord in keys_list[1:]:
             if P.open(e, coord.lower):
-                copy_intv_dict[P.open(e, coord.lower)] = {'id': f'intron_{i}'}
+                copy_intv_dict[P.open(e, coord.lower)] = {'id': f'intron_{i}',
+                                                          'type': 'intron'}
                 i+=1
                 e = coord.upper
         if P.open(last_itv.upper, gc_e):
-            copy_intv_dict[P.open(last_itv.upper, gc_e)] = {'id': f'intron_{i}'}
+            copy_intv_dict[P.open(last_itv.upper, gc_e)] = {'id': f'intron_{i}',
+                                                            'type': 'intron'}
         return self.sort_interval_dict(copy_intv_dict)
 
     
+    def generate_most_inclusive_transcript_dict(self):
+        for gene_id, gene_dict in self.gene_hierarchy_dict_with_coding_exons.items():
+            if gene_dict:
+                sorted_exons = self.sort_interval_dict(self.get_coding_exons_annotations(gene_dict))
+                coding_exons_dict = self.get_coding_exons_across_transcripts(sorted_exons)
+                if coding_exons_dict:
+                    temp = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
+                    self.most_inclusive_transcript_dict[gene_id] = {'trans_exons':sorted_exons,
+                                                                    'transcpt': temp, 
+                                                                    'ce_dict': coding_exons_dict }
+                    
+                    
     def get_duplicates(self, gene_id):
         """
         get_duplicates is a function that given a gene_id, and a set of constraints it
@@ -311,47 +355,42 @@ class ExonDupSearch:
         """
         time.sleep(random.randrange(0, self.secs))
         temp_ce_dict = dict()
-        gene_dict = copy.deepcopy(self.exon_analysis_obj.gene_hierarchy_dict_with_coding_exons[gene_id])
-        if gene_dict:
-            sorted_exons = self.sort_interval_dict(self.get_coding_exons_annotations(gene_dict))
-            coding_exons_dict = self.get_coding_exons_across_transcripts(sorted_exons)
-            
-            if coding_exons_dict:
-                coding_exons_with_introns = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
-                # if exon x is a duplicate of exon y, we skip looking for 
-                # x duplicates, since they will be comprised in the y hits
-                pass_exons = []
-                for exon_coord, coding_exon_dict in coding_exons_dict.items():
-                    exon_id = coding_exon_dict['id']
-                    if exon_id not in pass_exons:
-                        if (exon_coord.upper - exon_coord.lower) > self.min_len:
-                            query_seq, hits_seqs = self.get_query_and_hits_seqs(exon_id,
-                                                                                gene_id,
-                                                                                coding_exons_with_introns,
-                                                                                exon_coord)
-                            if hits_seqs:
-                                with tempfile.TemporaryDirectory() as tmpdirname:
-                                    self.exon_analysis_obj.dump_fasta_file(f'{tmpdirname}/query.fa',
-                                                                           {exon_id:query_seq})
-                                    self.exon_analysis_obj.dump_fasta_file(f'{tmpdirname}/target.fa',
-                                                                           hits_seqs)
-                                    temp = {}
-                                    output_file = f'{tmpdirname}/output.txt'
-                                    exonerate_command = ['exonerate',
-                                                             '--showalignment', 'yes',
-                                                             '--showvulgar', 'no',
-                                                             '--model', self.model,
-                                                             '--percent', str(self.percent),
-                                                             '--query', 'query.fa',
-                                                             '--target', 'target.fa']
-                                    with open(output_file, 'w') as out:
-                                        subprocess.run(exonerate_command,
-                                                       cwd=tmpdirname,
-                                                       stdout=out)
-                                    temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
-                                    if temp:
-                                        pass_exons += [i for i in temp if 'exon' in i]
-                                        temp_ce_dict[exon_id] = temp
+        coding_exons_dict = copy.deepcopy(self.most_inclusive_transcript_dict[gene_id]['ce_dict'])
+        coding_exons_with_introns = copy.deepcopy(self.most_inclusive_transcript_dict[gene_id]['transcpt'])
+        # if exon x is a duplicate of exon y, we skip looking for 
+        # x duplicates, since they will be comprised in the y hits
+        pass_exons = []
+        for exon_coord, coding_exon_dict in coding_exons_dict.items():
+            exon_id = coding_exon_dict['id']
+            if exon_id not in pass_exons:
+                if (exon_coord.upper - exon_coord.lower) > self.min_len:
+                    query_seq, hits_seqs = self.get_query_and_hits_seqs(exon_id,
+                                                                        gene_id,
+                                                                        coding_exons_with_introns,
+                                                                        exon_coord)
+                    if hits_seqs:
+                        with tempfile.TemporaryDirectory() as tmpdirname:
+                            self.dump_fasta_file(f'{tmpdirname}/query.fa',
+                                                                   {exon_id:query_seq})
+                            self.dump_fasta_file(f'{tmpdirname}/target.fa',
+                                                                   hits_seqs)
+                            temp = {}
+                            output_file = f'{tmpdirname}/output.txt'
+                            exonerate_command = ['exonerate',
+                                                     '--showalignment', 'yes',
+                                                     '--showvulgar', 'no',
+                                                     '--model', self.model,
+                                                     '--percent', str(self.percent),
+                                                     '--query', 'query.fa',
+                                                     '--target', 'target.fa']
+                            with open(output_file, 'w') as out:
+                                subprocess.run(exonerate_command,
+                                               cwd=tmpdirname,
+                                               stdout=out)
+                            temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
+                            if temp:
+                                pass_exons += [i for i in temp if 'exon' in i]
+                                temp_ce_dict[exon_id] = temp
         return temp_ce_dict
 
     
@@ -382,7 +421,7 @@ class ExonDupSearch:
         # next(iter( ... is used for getting the first key in the dict
         res = {next(iter(exon_hit_dict)).rsplit('.')[0] : exon_hit_dict for exon_hit_dict in res}
         print(f'process took: {(tac - tic)/60} minutes')
-        self.exon_analysis_obj.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
+        self.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
         return res
         ## alternative paralellizing - this should be done 
         ## outside the class
