@@ -4,3 +4,4 @@ pickleshare==0.7.5
 biopython==1.78 
 portion==2.3.0
 matplotlib==3.3.4
+gffutils==0.11.1
