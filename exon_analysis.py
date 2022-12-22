@@ -6,13 +6,16 @@ from genome_analysis import *
 
 
 class ExonAnalysis(GenomeAnalysis):
-    def __init__(self, db_path,
+    def __init__(self,
+                 db_path,
+                 in_file_path,
                  gene_hierarchy_path,
-                 gene_hierarchy=True):
+                 verbose):
         GenomeAnalysis.__init__(self,
-                                 db_path,
-                                 gene_hierarchy_path, 
-                                 gene_hierarchy)
+                                db_path,
+                                in_file_path,
+                                gene_hierarchy_path,
+                                verbose)
         self.n_times_dup_exon = list()
         self.len_of_dup_exon = list()
         self.exon_dup_per_transcript = list()
@@ -24,10 +27,8 @@ class ExonAnalysis(GenomeAnalysis):
                     return_=False):
         genome = {
             fasta.id : {'+' : str(fasta.seq),
-                        '-': str(fasta.seq.reverse_complement())
-                       } 
-            for fasta in SeqIO.parse(open(genome_file_dir), 
-                             'fasta')
+                        '-': str(fasta.seq.reverse_complement())} 
+            for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')
         }
         if not return_:
             self.genome = genome
