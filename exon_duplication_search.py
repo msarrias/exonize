@@ -35,11 +35,15 @@ class ExonDupSearch(ExonAnalysis):
         self.secs = sleep_max_seconds
         self.min_len = min_exon_length
         self.cutoff = cutoff
+        self.genome_file_path = genome_file_path
         self.most_inclusive_transcript_dict = dict()
         self.exons_across_trascpts_dict = dict()
+        
+        
+    def search_exon_dups(self):
         try:
             if self.verbose: print(f'Reading genome:', end = " ")
-            self.read_genome(genome_file_path)
+            self.read_genome(self.genome_file_path)
             if self.verbose: print("Done!")
         except ValueError:
             print("Wrong genome path")
@@ -54,7 +58,9 @@ class ExonDupSearch(ExonAnalysis):
             print(f'Generate most inclusive exon set across transcripts:',end = " ")
         self.generate_most_inclusive_transcript_dict()
         if self.verbose:
-            print("Done!")        
+            print("Done!")   
+            
+            
     @staticmethod
     def batch(iterable, n=1):
         l = len(iterable)
