@@ -13,9 +13,13 @@ from Bio.Seq import Seq
 class GenomeAnalysis(DataBaseOp):
     def __init__(self,
                  db_path,
-                 gene_hierarchy_path,
-                 gene_hierarchy=True):
-        DataBaseOp.__init__(self, db_path)
+                 annot_path,
+                 gh_path,
+                 verbose):
+        DataBaseOp.__init__(self, 
+                            db_path=db_path,
+                            in_file_path=annot_path,
+                            verbose = verbose)
         self.chrm_gene_dict = None
         self.n_genes = None
         self.gene_hierarchy_dict_with_coding_exons = None
@@ -24,16 +28,14 @@ class GenomeAnalysis(DataBaseOp):
         self.gene_interval_dict = None
         self.basic_stat = None
         self.annot_dict = None
-        self.load_db()
-        self.feature_types = list(self.db.featuretypes())
+        self.db_features = list(self.db.featuretypes())
         self.UTR_features = ['five_prime_UTR',
                              'three_prime_UTR']
         self.feat_of_interest = ['CDS',
                                  'exon',
                                  'intron'] + self.UTR_features
-        self.gene_hierarchy = gene_hierarchy
-        self.gene_hierarchy_path = gene_hierarchy_path
-        if self.gene_hierarchy:
+        self.gene_hierarchy_path = gh_path
+        if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(
                 self.gene_hierarchy_path
             )
@@ -79,18 +81,20 @@ class GenomeAnalysis(DataBaseOp):
 
     
     def get_summary_statistics(self):
-        self.annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
-                           for annot_type in self.feature_types}
-        gene_n = len(self.gene_hierarchy_dict)
-        n_mRNAs = sum([len(gene_dict)
-                       for gene, gene_dict in self.gene_hierarchy_dict.items()]
-                     )
-        if self.annot_dict['gene'] > gene_n:
-            self.annot_dict['gene'] = gene_n
-            self.annot_dict['mRNA'] = n_mRNAs
-        df = pd.DataFrame({"Count": list(self.annot_dict.values())},
-                          index=self.feature_types) 
-        df["Count"] = df["Count"].map("{:,}".format)
+        self.raw_annot_dict = {annot_type: len(list(self.db.features_of_type(annot_type)))
+                               for annot_type in self.db_features}
+        self.filtered_annot_dict = copy.deepcopy(self.raw_annot_dict)
+        # filtered
+        self.filtered_annot_dict['gene'] = len(self.gene_hierarchy_dict)
+        self.filtered_annot_dict['mRNA'] = sum([len(gene_dict)
+                                                for gene, gene_dict
+                                                in self.gene_hierarchy_dict.items()
+                                               ])
+        df = pd.DataFrame({"Raw": list(self.raw_annot_dict.values()),
+                           'Filtered': list(self.filtered_annot_dict.values())},
+                          index=self.db_features) 
+        df["Raw"] = df["Raw"].map("{:,}".format)
+        df["Filtered"] = df["Filtered"].map("{:,}".format)
         return df 
 
     
@@ -120,9 +124,9 @@ class GenomeAnalysis(DataBaseOp):
                                            item['coord'].upper))
                     features[mRNA_annot.id] = temp_j
                 self.gene_hierarchy_dict[gene.id] = features
-        if not self.gene_hierarchy:
-            self.dump_pkl_file(self.gene_hierarchy_path, 
-                               self.gene_hierarchy_dict)
+                
+        self.dump_pkl_file(self.gene_hierarchy_path, 
+                           self.gene_hierarchy_dict)
             
   
     def transcript_interval_dict(self, gene_dict):
@@ -207,10 +211,12 @@ class GenomeAnalysis(DataBaseOp):
             del self.gene_hierarchy_dict[gene]
             
         if len(self.genes_with_incorrect_intron_exon_overlaps)>0:
-            self.dump_pkl_file(self.gene_hierarchy_path,
-                               self.gene_hierarchy_dict)
+#             self.dump_pkl_file(self.gene_hierarchy_path,
+#                                self.gene_hierarchy_dict)
             print(f'{len(set(self.genes_with_incorrect_intron_exon_overlaps))} genes \
                   have been removed')
+            for gene_i in set(self.genes_with_incorrect_intron_exon_overlaps):
+                print(gene_i)
         self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
             
             
