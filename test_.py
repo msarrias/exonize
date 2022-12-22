@@ -1,6 +1,6 @@
 from exon_duplication_search import *
 
-eds_obj = ExonDupSearch(None)
+eds_obj = ExonDupSearch('','','','')
 ### Unit testing: ExonDupSearch Class
 def test_get_small_large_interv():
     test_pairs = [(P.open(2,20), P.open(2,20)), (P.open(5,30), P.open(5,6))]
