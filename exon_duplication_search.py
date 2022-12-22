@@ -41,6 +41,7 @@ class ExonDupSearch(ExonAnalysis):
         
         
     def search_exon_dups(self):
+        self.generate_genome_info_for_analysis()
         try:
             if self.verbose: print(f'Reading genome:', end = " ")
             self.read_genome(self.genome_file_path)
