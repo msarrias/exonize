@@ -28,13 +28,17 @@ class GenomeAnalysis(DataBaseOp):
         self.gene_interval_dict = None
         self.basic_stat = None
         self.annot_dict = None
-        self.db_features = list(self.db.featuretypes())
         self.UTR_features = ['five_prime_UTR',
                              'three_prime_UTR']
         self.feat_of_interest = ['CDS',
                                  'exon',
                                  'intron'] + self.UTR_features
         self.gene_hierarchy_path = gh_path
+        
+        
+    def generate_genome_info_for_analysis(self):
+        self.create_parse_or_update_database()
+        self.db_features = list(self.db.featuretypes())
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(
                 self.gene_hierarchy_path
