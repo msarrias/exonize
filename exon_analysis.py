@@ -1,8 +1,7 @@
-from Bio import SeqIO # parsing FASTA files
+from genome_analysis import *
 from tqdm import tqdm # progress bar
 import re # regular expressions
 import matplotlib.pyplot as plt
-from genome_analysis import *
 
 
 class ExonAnalysis(GenomeAnalysis):

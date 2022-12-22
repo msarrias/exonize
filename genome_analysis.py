@@ -5,7 +5,7 @@ import copy # deep copy mutable objects
 import pandas as pd # stats df
 import numpy as np # rounding
 # for dumping FASTA files
-from Bio import SeqIO 
+from Bio import SeqIO, SearchIO
 from Bio.SeqRecord import SeqRecord 
 from Bio.Seq import Seq
         

@@ -1,14 +1,11 @@
 from exon_analysis import *
 # for multithreading the search of exon duplicates
 from multiprocessing.pool import ThreadPool
-import time, random
-from tqdm import tqdm # progress bar
+import time
+import random
 # for writing exonerate input/output as temporal files
 import tempfile 
-import pickle, copy
-import subprocess # for running Exonerate
-from Bio import SeqIO, SearchIO # for parsing exonerate output
-import portion as P # for working with intervals
+from tqdm import tqdm # progress bar
 
 
 class ExonDupSearch(ExonAnalysis):
