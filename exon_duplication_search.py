@@ -6,7 +6,7 @@ import random
 # for writing exonerate input/output as temporal files
 import tempfile 
 from tqdm import tqdm # progress bar
-
+import shutil
 
 class ExonDupSearch(ExonAnalysis):
     def __init__(self,
@@ -40,20 +40,20 @@ class ExonDupSearch(ExonAnalysis):
     def generate_data_for_analysis(self):
         self.generate_genome_info_for_analysis()
         try:
-            if self.verbose: print(f'Reading genome:', end = " ")
+            if self.verbose: print(f"Reading genome:", end = " ")
             self.read_genome(self.genome_file_path)
             if self.verbose: print("Done!")
         except ValueError:
             print("Wrong genome path")
-        if self.verbose: print('Checking overlaps:', end = " ")
+        if self.verbose: print("Checking overlaps:", end = " ")
         self.check_overlaps()
         if self.verbose:
             print("Done!")
-            print(f'Computing genome-wide coding exons coordinates:',end = " ")
+            print(f"Computing genome-wide coding exons coordinates:",end = " ")
         self.get_gene_hierarchy_dict_with_coding_exons()
         if self.verbose: 
             print("Done!")
-            print(f'Generate most inclusive exon set across transcripts:',end = " ")
+            print(f"Generate most inclusive exon set across transcripts:",end = " ")
         self.generate_most_inclusive_transcript_dict()
         if self.verbose:
             print("Done!")   
@@ -137,7 +137,6 @@ class ExonDupSearch(ExonAnalysis):
         with the highest score. 
         - If we have repeated hits on the same sequence, we keep the hit with 
         the highest HSP score.
-        
         """
         #we take the first element of the list since there's only one query 
         all_results = list(SearchIO.parse(ex_out_fname, 'exonerate-text'))
@@ -434,10 +433,12 @@ class ExonDupSearch(ExonAnalysis):
                             if temp:
                                 pass_exons += [i for i in temp if 'exon' in i]
                                 temp_ce_dict[exon_id] = temp
-        return temp_ce_dict
+        if temp_ce_dict:
+            self.dump_pkl_file(f'temp_results/{gene_id}.pkl', temp_ce_dict)
 
     
     def search_for_exon_duplicates(self, 
+                                   specie,
                                    args_list,
                                    batch_n,
                                    threads=10):
@@ -449,23 +450,30 @@ class ExonDupSearch(ExonAnalysis):
         :param batch_n: batches size
         :param threads: number of threads 
         """
-        res = []
         tic = time.time()
+        if not os.path.exists('temp_results'):
+            os.mkdir('temp_results') 
+        else:
+            processed_genes = [file.rsplit('.pkl')[0]
+                               for file in os.listdir('temp_results/')]
+            args_list = [i for i in args_list if i not in processed_genes]
         batches_list = [i for i in self.batch(args_list, batch_n)]
         with tqdm(total=len(args_list)) as progress_bar:
             for arg_batch in batches_list:              
                 t = ThreadPool(processes=threads)
-                res += list(t.map(self.get_duplicates, arg_batch))
+                t.map(self.get_duplicates, arg_batch)
                 t.close()
                 t.join()
                 progress_bar.update(len(arg_batch))
         tac = time.time()
-        res = [i for i in res if i]
-        # next(iter( ... is used for getting the first key in the dict
-        res = {next(iter(exon_hit_dict)).rsplit('.')[0] : exon_hit_dict for exon_hit_dict in res}
+        new_processed_genes = [(file.rsplit('.pkl')[0], file)
+                               for file in os.listdir('temp_results/')
+                               if '.pkl' in file]
+        res = {gene[0]: self.read_pkl_file(gene[1]) for gene in new_processed_genes}
         print(f'process took: {(tac - tic)/60} minutes')
-        self.dump_pkl_file(f'exon_dups_analysis{str(time.time())}.pkl', res)
-        return res
+        self.dump_pkl_file(f'{specie}_{str(time.time())}.pkl', res)
+        shutil.rmtree('/temp_results')
+
         ## alternative paralellizing - this should be done 
         ## outside the class
 #         pool = Pool(processes=10)
