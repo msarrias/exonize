@@ -6,10 +6,11 @@ import random
 # for writing exonerate input/output as temporal files
 import tempfile 
 from tqdm import tqdm # progress bar
-import shutil
+import sqlite3
 
 class ExonDupSearch(ExonAnalysis):
     def __init__(self,
+                 specie,
                  db_path, 
                  gff_file_path,
                  genome_file_path,
@@ -26,6 +27,8 @@ class ExonDupSearch(ExonAnalysis):
                               gene_hierarchy_path,
                               verbose
                              )
+        self.specie = specie
+        self.results_df = f'{self.specie}_results.db'
         self.verbose = verbose
         self.model = model
         self.percent = percentage
@@ -125,44 +128,6 @@ class ExonDupSearch(ExonAnalysis):
         for frag_idx, frag in enumerate(HSP.fragments):
             fragments_dict[frag_idx] = self.get_fragment_annotation(frag)
         return fragments_dict
-
-    
-    def parse_exonerate_output_only_higher_score_hits(self, ex_out_fname):
-        """
-        `parse_exonerate_output_only_higher_score_hits` parses single query
-        exonerate-text outputs for coding2genome model.
-        Each query is composed by a hit(s), each hit by HSP(s), and each HSP
-        by fragments (since ungappend). Some criteria:
-        - In case we have multiple HSps within a single hit, we keep the one
-        with the highest score. 
-        - If we have repeated hits on the same sequence, we keep the hit with 
-        the highest HSP score.
-        """
-        #we take the first element of the list since there's only one query 
-        all_results = list(SearchIO.parse(ex_out_fname, 'exonerate-text'))
-        if all_results:
-            hit_dict = {}
-            for hit_idx, hit in enumerate(all_results[0]):
-                hsp_dict = {'score': 0, 'frag_dict': {}}
-                for idx_hsp, HSP in enumerate(hit):
-                    #We keep the HSP with the highest score
-                    if (not hsp_dict['frag_dict']
-                        or HSP.score > hsp_dict['score']
-                       ):
-                        try:
-                            hsp_dict = {'score':HSP.score, 
-                                        'frag_dict': self.get_HSP_annotations(HSP)} 
-                        except:
-                            print('not hsp', hit.id, hsp_dict)
-                            pass
-                # if there's more than one hit on the same target seq, 
-                # we keep the one with the highest score
-                if (hit.id not in hit_dict
-                    or HSP.score > hit_dict[hit.id]['score']
-                   ):
-                    hit_dict[hit.id] = hsp_dict
-            return hit_dict
-        return {}
 
     
     def get_query_and_hits_seqs(self, 
@@ -380,9 +345,48 @@ class ExonDupSearch(ExonAnalysis):
                     temp = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
                     self.most_inclusive_transcript_dict[gene_id] = {'trans_exons':sorted_exons,
                                                                     'transcpt': temp, 
-                                                                    'ce_dict': coding_exons_dict }
+                                                                    'ce_dict': coding_exons_dict 
+                                                                   }
                     
                     
+    def parse_exonerate_output_only_higher_score_hits(self, ex_out_fname):
+        """
+        `parse_exonerate_output_only_higher_score_hits` parses single query
+        exonerate-text outputs for coding2genome model.
+        Each query is composed by a hit(s), each hit by HSP(s), and each HSP
+        by fragments (since ungappend). Some criteria:
+        - In case we have multiple HSps within a single hit, we keep the one
+        with the highest score. 
+        - If we have repeated hits on the same sequence, we keep the hit with 
+        the highest HSP score.
+        """
+        #we take the first element of the list since there's only one query 
+        all_results = list(SearchIO.parse(ex_out_fname, 'exonerate-text'))
+        if all_results:
+            hit_dict = {}
+            for hit_idx, hit in enumerate(all_results[0]):
+                hsp_dict = {'score': 0, 'frag_dict': {}}
+                for idx_hsp, HSP in enumerate(hit):
+                    #We keep the HSP with the highest score
+                    if (not hsp_dict['frag_dict']
+                        or HSP.score > hsp_dict['score']
+                       ):
+                        try:
+                            hsp_dict = {'score':HSP.score, 
+                                        'frag_dict': self.get_HSP_annotations(HSP)} 
+                        except:
+                            print('not hsp', hit.id, hsp_dict)
+                            pass
+                # if there's more than one hit on the same target seq, 
+                # we keep the one with the highest score
+                if (hit.id not in hit_dict
+                    or HSP.score > hit_dict[hit.id]['score']
+                   ):
+                    hit_dict[hit.id] = hsp_dict
+            return hit_dict
+        return {}
+    
+    
     def get_duplicates(self, gene_id):
         """
         get_duplicates is a function that given a gene_id, and a set of constraints it
@@ -429,16 +433,124 @@ class ExonDupSearch(ExonAnalysis):
                                 subprocess.run(exonerate_command,
                                                cwd=tmpdirname,
                                                stdout=out)
-                            temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
-                            if temp:
-                                pass_exons += [i for i in temp if 'exon' in i]
-                                temp_ce_dict[exon_id] = temp
+                                temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
+                                if temp:
+                                    pass_exons += [i for i in temp if 'exon' in i]
+                                    temp_ce_dict[exon_id] = temp
         if temp_ce_dict:
-            self.dump_pkl_file(f'temp_results/{gene_id}.pkl', temp_ce_dict)
-
+            self.insert_fragments_table(gene_id, temp_ce_dict)
+        else:
+            self.insert_gene_ids_table(gene_id, 0)
+            
+            
+    def connect_create_results_db(self):
+        db = sqlite3.connect(self.results_df) 
+        c = db.cursor()
+        c.execute('''
+                  CREATE TABLE IF NOT EXISTS GeneIDs (
+                  gene_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  gene_name VARCHAR(100) NOT NULL,
+                  has_duplicated_exon BINARY(1) NOT NULL,
+                  UNIQUE(gene_name)
+                  )
+                  ''')
+        c.execute('''
+                  CREATE TABLE IF NOT EXISTS Fragments (
+                  fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  gene_id  VARCHAR(100) NOT NULL REFERENCES GeneIDs(gene_id),
+                  exon_query_id VARCHAR(100) NOT NULL,
+                  exon_target_id VARCHAR(100) NOT NULL,
+                  score INTEGER NOT NULL,
+                  hit_start INTEGER NOT NULL,
+                  hit_end INTEGER NOT NULL,
+                  query_start INTEGER NOT NULL,
+                  query_end INTEGER NOT NULL,
+                  hit_dna_sequence VARCHAR NOT NULL,
+                  query_dna_sequence VARCHAR NOT NULL,
+                  hit_prot_sequence VARCHAR NOT NULL,
+                  query_prot_sequence VARCHAR NOT NULL
+                  )
+                  ''')        
+        db.commit()
+        db.close()
     
+
+    def insert_gene_ids_table(self, gene_name, has_dup):
+        db = sqlite3.connect(self.results_df) 
+        cursor = db.cursor()
+        insert_gene_table_param = """  
+        INSERT INTO GeneIDs 
+        (gene_name,
+        has_duplicated_exon) 
+        VALUES (?, ?)
+        """
+        cursor.execute(insert_gene_table_param, (gene_name, has_dup))
+        db.commit()
+        db.close()
+   
+    
+    def insert_fragments_table(self, gene_id, temp_ce_dict):
+        tuple_list = []
+        for query_id_query, gene_query_dict in temp_ce_dict.items():
+            for target_id, target_dict in gene_query_dict.items():
+                for fragment_id, fragment_dict in target_dict['frag_dict'].items():
+                    tuple_list.append(
+                        (gene_id,
+                         query_id_query,
+                         target_id,
+                         target_dict['score'],
+                         fragment_dict['query_coord'].lower,
+                         fragment_dict['query_coord'].upper,
+                         fragment_dict['hit_coord'].lower,
+                         fragment_dict['hit_coord'].upper,
+                         fragment_dict['query_seq'],
+                         fragment_dict['hit_seq'],
+                         fragment_dict['query_annotation'],
+                         fragment_dict['hit_annotation']
+                        )
+                    )
+        db = sqlite3.connect(self.results_df) 
+        cursor = db.cursor()
+        insert_gene_table_param = """  
+        INSERT INTO GeneIDs 
+        (gene_name,
+        has_duplicated_exon) 
+        VALUES (?, ?)
+        """
+        insert_fragments_table_param = """
+        INSERT INTO Fragments 
+        (gene_id,
+        exon_query_id, 
+        exon_target_id,
+        score,
+        query_start,
+        query_end,
+        hit_start,
+        hit_end,
+        query_dna_sequence,
+        hit_dna_sequence,
+        query_prot_sequence,
+        hit_prot_sequence
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        
+        cursor.execute(insert_gene_table_param, (gene_id, 1))
+        cursor.executemany(insert_fragments_table_param, tuple_list)
+        db.commit()
+        db.close()
+        
+        
+    def query_gene_ids_in_res_db(self):
+        db = sqlite3.connect(self.results_df) 
+        cursor = db.cursor()
+        cursor.execute("SELECT gene_name FROM GeneIDs")
+        rows = cursor.fetchall()
+        db.close()
+        return [i[0] for i in rows]
+
+        
     def search_for_exon_duplicates(self, 
-                                   specie,
                                    args_list,
                                    batch_n,
                                    threads=10):
@@ -450,29 +562,21 @@ class ExonDupSearch(ExonAnalysis):
         :param batch_n: batches size
         :param threads: number of threads 
         """
-        tic = time.time()
-        if not os.path.exists('temp_results'):
-            os.mkdir('temp_results') 
-        else:
-            processed_genes = [file.rsplit('.pkl')[0]
-                               for file in os.listdir('temp_results/')]
-            args_list = [i for i in args_list if i not in processed_genes]
-        batches_list = [i for i in self.batch(args_list, batch_n)]
-        with tqdm(total=len(args_list)) as progress_bar:
-            for arg_batch in batches_list:              
-                t = ThreadPool(processes=threads)
-                t.map(self.get_duplicates, arg_batch)
-                t.close()
-                t.join()
-                progress_bar.update(len(arg_batch))
-        tac = time.time()
-        new_processed_genes = [(file.rsplit('.pkl')[0], file)
-                               for file in os.listdir('temp_results/')
-                               if '.pkl' in file]
-        res = {gene[0]: self.read_pkl_file(gene[1]) for gene in new_processed_genes}
-        print(f'process took: {(tac - tic)/60} minutes')
-        self.dump_pkl_file(f'{specie}_{str(time.time())}.pkl', res)
-        shutil.rmtree('/temp_results')
+        self.connect_create_results_db()
+        processed_gene_ids = self.query_gene_ids_in_res_db()
+        if processed_gene_ids:
+            args_list = [i for i in args_list if i not in processed_gene_ids]   
+        if args_list:
+            batches_list = [i for i in self.batch(args_list, batch_n)]
+            with tqdm(total=len(args_list)) as progress_bar:
+                for arg_batch in batches_list:              
+                    t = ThreadPool(processes=threads)
+                    t.map(self.get_duplicates, arg_batch)
+                    t.close()
+                    t.join()
+                    progress_bar.update(len(arg_batch))
+            tac = time.time()
+            print(f'process took: {(tac - tic)/60} minutes')
 
         ## alternative paralellizing - this should be done 
         ## outside the class
