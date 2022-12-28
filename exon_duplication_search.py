@@ -20,7 +20,6 @@ class ExonDupSearch(ExonAnalysis):
                  sleep_max_seconds = 5,
                  min_exon_length = 50,
                  cutoff = 0.7,
-                 self.timeout_db = 30.0
                  verbose = True):
         ExonAnalysis.__init__(self,
                               db_path,
@@ -29,6 +28,7 @@ class ExonDupSearch(ExonAnalysis):
                               verbose
                              )
         self.specie = specie
+        self.timeout_db = 30.0
         self.results_df = f'{self.specie}_results.db'
         self.verbose = verbose
         self.model = model
