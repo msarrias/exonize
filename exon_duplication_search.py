@@ -20,6 +20,7 @@ class ExonDupSearch(ExonAnalysis):
                  sleep_max_seconds = 5,
                  min_exon_length = 50,
                  cutoff = 0.7,
+                 self.timeout_db = 30.0
                  verbose = True):
         ExonAnalysis.__init__(self,
                               db_path,
@@ -440,16 +441,26 @@ class ExonDupSearch(ExonAnalysis):
         if temp_ce_dict:
             self.insert_fragments_table(gene_id, temp_ce_dict)
         else:
-            self.insert_gene_ids_table(gene_id, 0)
+            gene_arg_tuple = (gene_id,
+                              self.chrom_dict[gene_id],
+                              self.strand_dict[gene_id],
+                              self.gene_loc[gene_id].lower,
+                              self.gene_loc[gene_id].upper,
+                              0)
+            self.insert_gene_ids_table(gene_id, gene_arg_tuple)
             
             
     def connect_create_results_db(self):
-        db = sqlite3.connect(self.results_df) 
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db) 
         c = db.cursor()
         c.execute('''
                   CREATE TABLE IF NOT EXISTS GeneIDs (
                   gene_id INTEGER PRIMARY KEY AUTOINCREMENT,
                   gene_name VARCHAR(100) NOT NULL,
+                  gene_chrom VARCHAR(100) NOT NULL,
+                  gene_strand VARCHAR(1) NOT NULL,
+                  gene_start INTEGER NOT NULL,
+                  gene_end INTEGER NOT NULL,
                   has_duplicated_exon BINARY(1) NOT NULL,
                   UNIQUE(gene_name)
                   )
@@ -475,16 +486,20 @@ class ExonDupSearch(ExonAnalysis):
         db.close()
     
 
-    def insert_gene_ids_table(self, gene_name, has_dup):
-        db = sqlite3.connect(self.results_df) 
+    def insert_gene_ids_table(self, gene_args_tuple):
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db) 
         cursor = db.cursor()
         insert_gene_table_param = """  
         INSERT INTO GeneIDs 
         (gene_name,
+        gene_chrom,
+        gene_strand,
+        gene_start, 
+        gene_end,  
         has_duplicated_exon) 
-        VALUES (?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """
-        cursor.execute(insert_gene_table_param, (gene_name, has_dup))
+        cursor.execute(insert_gene_table_param, gene_args_tuple)
         db.commit()
         db.close()
    
@@ -509,13 +524,17 @@ class ExonDupSearch(ExonAnalysis):
                          fragment_dict['hit_annotation']
                         )
                     )
-        db = sqlite3.connect(self.results_df) 
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)  
         cursor = db.cursor()
         insert_gene_table_param = """  
         INSERT INTO GeneIDs 
         (gene_name,
+        gene_chrom,
+        gene_strand,
+        gene_start,
+        gene_end,
         has_duplicated_exon) 
-        VALUES (?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """
         insert_fragments_table_param = """
         INSERT INTO Fragments 
@@ -534,15 +553,20 @@ class ExonDupSearch(ExonAnalysis):
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        
-        cursor.execute(insert_gene_table_param, (gene_id, 1))
+        gene_arg_tuple = (gene_id,
+                          self.chrom_dict[gene_id],
+                          self.strand_dict[gene_id],
+                          self.gene_loc[gene_id].lower,
+                          self.gene_loc[gene_id].upper,
+                          1)
+        cursor.execute(insert_gene_table_param, gene_arg_tuple)
         cursor.executemany(insert_fragments_table_param, tuple_list)
         db.commit()
         db.close()
         
         
     def query_gene_ids_in_res_db(self):
-        db = sqlite3.connect(self.results_df) 
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db) 
         cursor = db.cursor()
         cursor.execute("SELECT gene_name FROM GeneIDs")
         rows = cursor.fetchall()
