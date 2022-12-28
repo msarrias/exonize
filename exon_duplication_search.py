@@ -568,6 +568,7 @@ class ExonDupSearch(ExonAnalysis):
             args_list = [i for i in args_list if i not in processed_gene_ids]   
         if args_list:
             batches_list = [i for i in self.batch(args_list, batch_n)]
+            tic = time.time()
             with tqdm(total=len(args_list)) as progress_bar:
                 for arg_batch in batches_list:              
                     t = ThreadPool(processes=threads)
