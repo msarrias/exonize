@@ -227,165 +227,163 @@ class GenomeAnalysis(DataBaseOp):
         keys_ = sorted(keys_, key = lambda item: (item.lower, item.upper))
         return {key: copy.deepcopy(interval_dict[key]) for key in keys_}
 
+    
+    @staticmethod
+    def check_for_short_overlaps(x_intev, y_intev):
+        i, j = x_intev.lower, x_intev.upper
+        m, n = y_intev.lower, y_intev.upper
+        if (m - i) == 1: m = i
+        if (i - m) == 1: i = m
+        if (n - j) == 1: j = n
+        if (j - n) == 1: n = j
+        if (j - m) == 1: m = m + 2
+        x_intev, y_intev = P.open(i, j), P.open(m, n)
+        o_intv = x_intev.intersection(y_intev)
+        if o_intv:
+            k, l = o_intv.lower, o_intv.upper
+            if (k - i) == 1: k = i
+            if (n - l) == 1: l = n
+            o_intv = P.open(k, l)
+        return x_intev, y_intev, o_intv
+
+    
+    @staticmethod
+    def check_global_range(list_intervals):
+        upper =list_intervals[0].upper
+        for i in list_intervals[1:]:
+            lower = i.lower
+            if lower == upper + 1:
+                upper = i.upper
+            else:
+                raise ValueError('set of intervals should be consecutive')
+        return True
+
+    
+    @staticmethod
+    def change_type(dic, feature):
+        copy_dict = copy.deepcopy(dic)
+        copy_dict['type'] = feature
+        return copy_dict
+
 
     def get_coords_with_coding_exons(self, interval_dict):
-        """HORRIBLE RECURSIVE FUNCTION - SORRY"""
+        """
+        get_coords_with_coding_exons is a recursive function that ...
+        Let e = (i, j) and x = (m, n) be intervals
+        Based on the assumption that i <= m and j <= n ==> e_i ∪ x_j = (i, n)
+        and i\neq m and j \neq n . The intersections can be of the following type:
+        Exon with intron/UTR annotations: 
+        - overlaps: o = e_i  ∩ x_j = (k, l)
+            - if o ⊆ e_i 
+                - if k == i ==> (i, n) = (k, l) ∪ (l + 1, n)
+                - if l == j  ==> (i, n) = (i, k-1) ∪ (k, l)
+                - if k > i and l < j ==> (i, n) = (i, k-1) ∪ (k, l) ∪ (l + 1, n)
+            - else:
+                - (i, n) = (i, k-1) ∪ (k, l) ∪ (l+1 n)
+        """
+        ce_types = ['exon', 'coding_exon']
+        introns_utr = ['intron'] + self.UTR_features
         overlapping_dict = self.get_overlapping_dict(interval_dict)
+        # if there are no overlaps, it's done
         if not any(list(overlapping_dict.values())):
-            return self.sort_interval_dict(interval_dict)
+            final_res = self.sort_interval_dict(interval_dict)
+            if self.check_global_range(list(final_res.keys())):
+                return final_res
+        # otherwise we start solving intersections so that the final transcript
+        # annotation do not include overlaping annotations
         new_gene_interv_dict = {}
         intervals_list = list(interval_dict.keys())
-        for int_idx, (interval,
-                      feature_descrip) in enumerate(interval_dict.items()):
-            overlap_interval = copy.deepcopy(overlapping_dict[interval])
-            if not overlap_interval:
-                new_gene_interv_dict[interval] = feature_descrip
+        for int_idx, (x_intev, feature_descrip) in enumerate(interval_dict.items()):
+            # if there is no overlap do nothing
+            y_intev = copy.deepcopy(overlapping_dict[x_intev])
+            if not y_intev:
+                new_gene_interv_dict[x_intev] = feature_descrip
             else:
-                # CASE 1: feature is an exon
-                overlap_descript = copy.deepcopy(
-                    interval_dict[overlap_interval]
-                )
-                if feature_descrip['type'] == 'exon':
-                    # CASE 1.1: overlap is with a CDS
-                    if overlap_descript['type'] == 'CDS':
-                        if interval.intersection(overlap_interval):
-                            # if the exon is comprised in the CDS region 
-                            # - can this happen?
-                            if interval.contains(overlap_interval):
-                                # the intersection will be a coding exon
-                                intersection = interval.intersection(
-                                    overlap_interval
-                                )
-                                new_gene_interv_dict[intersection] = copy.deepcopy(
-                                    feature_descrip
-                                )
-                                new_gene_interv_dict[intersection]['type'] = 'coding_exon'
-                                # exon / CDS will be a non coding exon
-                                new_nc_exon_coord_list = [
-                                    i for i in interval - overlap_interval
-                                ]
-                                if new_nc_exon_coord_list:
-                                    for new_nc_coord in new_nc_exon_coord_list:
-                                        if(
-                                            (new_nc_coord.upper - new_nc_coord.lower) > 1
-                                        ):
-                                            new_gene_interv_dict[new_nc_coord] = copy.deepcopy(
-                                                feature_descrip
-                                            )
-                            else:
-                                new_gene_interv_dict[overlap_interval] = copy.deepcopy(
-                                    feature_descrip
-                                )
-                                new_gene_interv_dict[overlap_interval]['type'] = 'coding_exon'
-                            # pad the rest of the dictionary and repeat 
-                            for intrv in intervals_list[int_idx+2:]:
-                                if not intrv in new_gene_interv_dict:
-                                    new_gene_interv_dict[intrv] = copy.deepcopy(
-                                        interval_dict[intrv]
-                                    )
-                            return self.get_coords_with_coding_exons(
-                                self.sort_interval_dict(new_gene_interv_dict)
-                            )  
-                    # CASE 1.2: overlap is with an UTR
-                    if overlap_descript['type'] in self.UTR_features:
-                        if interval.intersection(overlap_interval):
-                            if interval.contains(overlap_interval):
-                                utr_coord = interval.intersection(overlap_interval)
-                                new_gene_interv_dict[utr_coord] = copy.deepcopy(
-                                    overlap_descript
-                                )
-                                new_exon_coord_list = [
-                                    i for i in interval - overlap_interval
-                                ]
-                                if new_exon_coord_list:
-                                    for new_exon_coord in new_exon_coord_list:
-                                        if (
-                                            (new_exon_coord.upper - new_exon_coord.lower) > 1
-                                        ):
-                                            new_gene_interv_dict[exon_coord] = copy.deepcopy(
-                                                feature_descrip
-                                            )
-                            else:
-                                new_gene_interv_dict[overlap_interval] = copy.deepcopy(
-                                    overlap_descript
-                                )
-                            for intrv in intervals_list[int_idx+2:]:
-                                if not intrv in new_gene_interv_dict:
-                                    new_gene_interv_dict[intrv] = copy.deepcopy(
-                                        interval_dict[intrv]
-                                    )
-                            return self.get_coords_with_coding_exons(
-                                self.sort_interval_dict(new_gene_interv_dict)
-                            )
-                # CASE 2: feature is a CDS
-                if feature_descrip['type'] == 'CDS':
-                    # CASE 2.1: overlap is with an exon:
-                    if overlap_descript['type'] == 'exon':
-                        if interval.intersection(overlap_interval):
-                            # if the CDS region is comprised in the exon region 
-                            if overlap_interval.contains(interval):
-                                # the intersection will be a coding exon
-                                intersection = interval.intersection(
-                                    overlap_interval
-                                )
-                                new_gene_interv_dict[intersection] = copy.deepcopy(
-                                    overlap_descript
-                                )
-                                new_gene_interv_dict[intersection]['type'] = 'coding_exon'
-                                # CDS / exon will be a non coding exon
-                                new_exon_coord_list = [
-                                    i for i in overlap_interval - interval
-                                ]
-                                if new_exon_coord_list:
-                                    for new_exon_coord in new_exon_coord_list:
-                                        if (
-                                            (new_exon_coord.upper - new_exon_coord.lower) > 1
-                                        ):
-                                            new_gene_interv_dict[new_exon_coord] = copy.deepcopy(
-                                                overlap_descript
-                                            )
-                            else:
-                                new_gene_interv_dict[overlap_interval] = copy.deepcopy(
-                                    feature_descrip
-                                )
-                                new_gene_interv_dict[overlap_interval]['type'] = 'coding_exon'
-                        for intrv in intervals_list[int_idx+2:]:
-                            if not intrv in new_gene_interv_dict:
-                                new_gene_interv_dict[intrv] = copy.deepcopy(
-                                    interval_dict[intrv]
-                                )
-                        return self.get_coords_with_coding_exons(
-                            self.sort_interval_dict(new_gene_interv_dict)
-                        )
-                # CASE 3: feature is an UTR
-                if feature_descrip['type'] in self.UTR_features:
-                    if interval.intersection(overlap_interval):
-                        if overlap_descript['type'] == 'exon':
-                            if overlap_interval.contains(interval):
-                                new_gene_interv_dict[interval] = copy.deepcopy(
-                                    feature_descrip
-                                )
-                                new_exon_coord_list = [
-                                    i for i in overlap_interval - interval
-                                ]
-                                if new_exon_coord_list:
-                                    for new_exon in new_exon_coord_list:
-                                        if (
-                                            (new_exon.upper - new_exon.lower) > 1
-                                        ):
-                                            new_gene_interv_dict[new_exon] = copy.deepcopy(
-                                                overlap_descript
-                                            )
-                                for intrv in intervals_list[int_idx+2:]:
-                                    if not intrv in new_gene_interv_dict:
-                                        new_gene_interv_dict[intrv] = copy.deepcopy(
-                                            interval_dict[intrv]
-                                        )
-                                return self.get_coords_with_coding_exons(
-                                    self.sort_interval_dict(new_gene_interv_dict)
-                                ) 
-                            
-                            
+                x_dict = copy.deepcopy(feature_descrip)
+                x_type = x_dict['type']
+                y_dict = copy.deepcopy(interval_dict[y_intev])
+                y_type = y_dict['type']
+                x_intev, y_intev, o_intv = self.check_for_short_overlaps(x_intev, y_intev)
+                if o_intv:
+                    i, j = x_intev.lower, x_intev.upper
+                    m, n = y_intev.lower, y_intev.upper
+                    k, l = o_intv.lower, o_intv.upper
+                    if x_intev.contains(y_intev):
+                        if x_type not in introns_utr:
+                            # overlaps between coding regions        
+                            if x_type in ce_types and y_type == 'CDS':
+                                new_gene_interv_dict[o_intv] = self.change_type(x_dict, 'coding_exon')
+                            elif x_type == 'CDS' and y_type in ce_types:
+                                new_gene_interv_dict[o_intv] = self.change_type(y_dict, 'coding_exon')
+                            # overlaps between coding and non coding regions
+                            elif y_type in introns_utr:
+                                new_gene_interv_dict[o_intv] = y_dict
+                            elif x_type in ce_types + ['CDS'] and y_type in introns_utr:
+                                new_gene_interv_dict[o_intv] = y_dict
+                            else: print('case 1.1')
+                            if i == k:
+                                new_gene_interv_dict[P.open(l+1, n)] = x_dict
+                            elif j == n:
+                                new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            elif k > i and l < j:
+                                new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                                new_gene_interv_dict[P.open(l+1, n)] = x_dict
+                            # overlap between non coding and coding region
+                            else: print('case 1.3')
+                        elif x_type in introns_utr:
+                                new_gene_interv_dict[x_intev] = x_dict
+                        else: print('case 1.2')
+                    elif y_intev.contains(x_intev):
+                        if y_type not in introns_utr:
+                            if y_type == 'CDS' and x_type in ce_types:
+                                new_gene_interv_dict[o_intv] = self.change_type(x_dict, 'coding_exon')
+                            elif y_type in ce_types and x_type == 'CDS':
+                                new_gene_interv_dict[o_intv] = self.change_type(y_dict, 'coding_exon')
+                            elif x_type in introns_utr:
+                                new_gene_interv_dict[o_intv] = x_dict
+                            else: print('case 2.1')
+                            if n == l:
+                                new_gene_interv_dict[P.open(m, k-1)] = y_dict
+                            elif k == m:
+                                new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                            elif k > m and l < n:
+                                new_gene_interv_dict[P.open(m, k-1)] = y_dict
+                                new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                            else: print((k, l) , (m, n), 'casw 2.3')
+                        elif y_type in introns_utr:
+                            new_gene_interv_dict[P.open(m, n)] = y_dict
+                        else: print('case 2.4')
+                    elif not x_intev.contains(y_intev) | y_intev.contains(x_intev):
+                        if x_type in ce_types and y_type == 'CDS':
+                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            new_gene_interv_dict[o_intv] = self.change_type(x_dict, 'coding_exon')
+                            new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                        elif x_type == 'CDS' and y_type in ce_types:
+                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            new_gene_interv_dict[o_intv] = self.change_type(y_dict, 'coding_exon')
+                            new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                        elif y_type in introns_utr:
+                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            new_gene_interv_dict[P.open(k, n)] = y_dict
+                        elif x_type in introns_utr:
+                            new_gene_interv_dict[P.open(i, l)] = x_dict
+                            new_gene_interv_dict[P.open(l + 1, n)] = y_dict
+                        else: print('case 3.1')
+                    else: print(x_intev, y_intev, x_intev.contains(y_intev),  y_intev.contains(x_intev), 'case 4.1')
+                else:
+                    new_gene_interv_dict[x_intev] = x_dict
+                    new_gene_interv_dict[y_intev] = y_dict
+                new_gene_interv_dict = self.sort_interval_dict(new_gene_interv_dict)
+                for intrv in intervals_list[int_idx+2:]:
+                    if intrv not in new_gene_interv_dict:
+                        new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
+                    elif (new_gene_interv_dict[intrv]['type'] in ce_types 
+                          and interval_dict[intrv]['type'] in introns_utr
+                         ):
+                        new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
+                return self.get_coords_with_coding_exons(self.sort_interval_dict(new_gene_interv_dict))           
+                
+                
     def get_gene_hierarchy_dict_with_coding_exons(self):
         self.gene_hierarchy_dict_with_coding_exons = {}
         copy_gene_hierarchy_dict = copy.deepcopy(self.gene_hierarchy_dict)
@@ -404,6 +402,5 @@ class GenomeAnalysis(DataBaseOp):
         for gene_id, gene_dict in self.gene_hierarchy_dict_with_coding_exons.items():
             chm = self.db[gene_id].chrom
             self.chrm_gene_dict[chm][gene_id] = copy.deepcopy(gene_dict)
-
             
             
