@@ -28,7 +28,8 @@ class ExonDupSearch(ExonAnalysis):
                               verbose
                              )
         self.specie = specie
-        self.timeout_db = 30.0
+        self.timeout_db = 160.0
+        self.stop_codons = ["TAG","TGA","TAA"]
         self.results_df = f'{self.specie}_results.db'
         self.verbose = verbose
         self.model = model
@@ -132,14 +133,14 @@ class ExonDupSearch(ExonAnalysis):
 
     
     def get_query_and_hits_seqs(self, 
-                                exon_id,
+                                annot_id,
                                 gene_id,
                                 coding_exons_introns_dict,
                                 exon_coord):
         """
         get_query_and_hits_seqs is a function given a gene and exon id, and
         a features dictionary with coordinates, returns the dna sequences.
-        :param exon_id: as in the GFF file.
+        :param annot_id: as in the GFF file.
         :param gene_id: as in the GFF file.
         :param coding_exons_introns_dict: target annotations.
         param exon_coord: coordinates of the hit annotation.
@@ -152,8 +153,8 @@ class ExonDupSearch(ExonAnalysis):
         hits_seqs = {feat_dict['id']: 
                      self.genome[chrm][strand][coord.lower:coord.upper]
                      for coord, feat_dict in coding_exons_introns_dict.items() 
-                     if feat_dict['id'] != exon_id and (coord.upper - coord.lower) > 1
-                    }
+                     if (feat_dict['id'] != annot_id 
+                         and (coord.upper - coord.lower) >= round(0.9*(exon_coord.upper-exon_coord.lower)))}
         return query_seq ,hits_seqs
         
         
@@ -217,8 +218,7 @@ class ExonDupSearch(ExonAnalysis):
         :param coords_dict: gene annotations dict.
         """
         return {i:y for key, v in coords_dict.items()
-                for i, y in v.items() if type_annot in y['type'] 
-               }
+                for i, y in v.items() if type_annot in y['type']}
 
     
     @staticmethod
@@ -305,7 +305,8 @@ class ExonDupSearch(ExonAnalysis):
                         return new_gene_interv_dict
 
                     
-    def trans_exons_and_introns_coords(self, intv_dict, gene_id):
+    @staticmethod                
+    def trans_exons_and_introns_coords(intv_dict, gene_loc):
         """
         trans_exons_and_introns_coords is a function that for a given gene 
         annotations dictionary, it creates intron annotations on the 
@@ -315,26 +316,24 @@ class ExonDupSearch(ExonAnalysis):
         :return: new dictionary with the new and sorted annotations.
         """
         new_dict, i = {}, 0
-        copy_intv_dict = copy.deepcopy(intv_dict)
         keys_list = list(intv_dict.keys())
         first_itv, last_itv = keys_list[0], keys_list[-1]
-        gene_coord = self.gene_loc[gene_id]
         s, e = first_itv.lower, first_itv.upper
-        gc_s, gc_e = gene_coord.lower, gene_coord.upper
-        if P.open(gc_s, s):
-            copy_intv_dict[P.open(gc_s, s)] = {'id': f'intron_{i}',
-                                               'type': 'intron'}
-            i+=1
-        for coord in keys_list[1:]:
-            if P.open(e, coord.lower):
-                copy_intv_dict[P.open(e, coord.lower)] = {'id': f'intron_{i}',
-                                                          'type': 'intron'}
-                i+=1
-                e = coord.upper
-        if P.open(last_itv.upper, gc_e):
-            copy_intv_dict[P.open(last_itv.upper, gc_e)] = {'id': f'intron_{i}',
-                                                            'type': 'intron'}
-        return self.sort_interval_dict(copy_intv_dict)
+        gc_s, gc_e = gene_loc.lower, gene_loc.upper
+        if P.open(gc_s, s-1):
+            new_dict[P.open(gc_s, s-1)] = {'id': f'intron_{i}', 'type': 'intron'}
+            i +=1
+        new_dict[first_itv] = intv_dict[first_itv]
+        prev_intv = first_itv
+        for intv_idx, intv in enumerate(keys_list[1:]):
+            if  P.open(prev_intv.upper+1, intv.lower-1):
+                new_dict[P.open(prev_intv.upper+1, intv.lower-1)] = {'id': f'intron_{i}', 'type': 'intron'}
+                i +=1
+            new_dict[intv] = intv_dict[intv]
+            prev_intv = intv
+        if P.open(last_itv.upper+1, gc_e):
+            new_dict[P.open(last_itv.upper+1, gc_e)] = {'id': f'intron_{i}', 'type': 'intron'}
+        return new_dict
 
         
     def generate_most_inclusive_transcript_dict(self):
@@ -343,11 +342,10 @@ class ExonDupSearch(ExonAnalysis):
                 sorted_exons = self.sort_interval_dict(self.get_annotations(gene_dict))
                 coding_exons_dict = self.get_annotations_across_transcripts(sorted_exons)
                 if coding_exons_dict:
-                    temp = self.trans_exons_and_introns_coords(coding_exons_dict, gene_id)
+                    temp = self.trans_exons_and_introns_coords(coding_exons_dict, self.gene_loc[gene_id])
                     self.most_inclusive_transcript_dict[gene_id] = {'trans_exons':sorted_exons,
                                                                     'transcpt': temp, 
-                                                                    'ce_dict': coding_exons_dict 
-                                                                   }
+                                                                    'ce_dict': coding_exons_dict }
                     
                     
     def parse_exonerate_output_only_higher_score_hits(self, ex_out_fname):
@@ -369,25 +367,39 @@ class ExonDupSearch(ExonAnalysis):
                 hsp_dict = {'score': 0, 'frag_dict': {}}
                 for idx_hsp, HSP in enumerate(hit):
                     #We keep the HSP with the highest score
-                    if (not hsp_dict['frag_dict']
-                        or HSP.score > hsp_dict['score']
-                       ):
+                    if (not hsp_dict['frag_dict'] or HSP.score > hsp_dict['score']):
                         try:
-                            hsp_dict = {'score':HSP.score, 
-                                        'frag_dict': self.get_HSP_annotations(HSP)} 
+                            hsp_dict = {'score':HSP.score, 'frag_dict': self.get_HSP_annotations(HSP)} 
                         except:
                             print('not hsp', hit.id, hsp_dict)
                             pass
                 # if there's more than one hit on the same target seq, 
                 # we keep the one with the highest score
-                if (hit.id not in hit_dict
-                    or HSP.score > hit_dict[hit.id]['score']
-                   ):
+                if (hit.id not in hit_dict or HSP.score > hit_dict[hit.id]['score']):
                     hit_dict[hit.id] = hsp_dict
             return hit_dict
         return {}
     
     
+    def run_exonerate(self, annotation_id, query_seq, hits_seqs):
+        temp = {}
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.dump_fasta_file(f'{tmpdirname}/query.fa', {annotation_id:query_seq})
+            self.dump_fasta_file(f'{tmpdirname}/target.fa', hits_seqs)
+            output_file = f'{tmpdirname}/output.txt'
+            exonerate_command = ['exonerate',
+                                     '--showalignment', 'yes',
+                                     '--showvulgar', 'no',
+                                     '--model', self.model,
+                                     '--percent', str(self.percent),
+                                     '--query', 'query.fa',
+                                     '--target', 'target.fa']
+            with open(output_file, 'w') as out:
+                subprocess.run(exonerate_command, cwd=tmpdirname, stdout=out)
+                temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
+        return temp
+           
+
     def get_duplicates(self, gene_id):
         """
         get_duplicates is a function that given a gene_id, and a set of constraints it
@@ -406,38 +418,15 @@ class ExonDupSearch(ExonAnalysis):
         coding_exons_with_introns = copy.deepcopy(self.most_inclusive_transcript_dict[gene_id]['transcpt'])
         # if exon x is a duplicate of exon y, we skip looking for 
         # x duplicates, since they will be comprised in the y hits
-        pass_exons = []
-        for exon_coord, coding_exon_dict in coding_exons_dict.items():
-            exon_id = coding_exon_dict['id']
-            if exon_id not in pass_exons:
-                if (exon_coord.upper - exon_coord.lower) > self.min_len:
-                    query_seq, hits_seqs = self.get_query_and_hits_seqs(exon_id,
-                                                                        gene_id,
-                                                                        coding_exons_with_introns,
-                                                                        exon_coord)
-                    if hits_seqs:
-                        with tempfile.TemporaryDirectory() as tmpdirname:
-                            self.dump_fasta_file(f'{tmpdirname}/query.fa',
-                                                                   {exon_id:query_seq})
-                            self.dump_fasta_file(f'{tmpdirname}/target.fa',
-                                                                   hits_seqs)
-                            temp = {}
-                            output_file = f'{tmpdirname}/output.txt'
-                            exonerate_command = ['exonerate',
-                                                     '--showalignment', 'yes',
-                                                     '--showvulgar', 'no',
-                                                     '--model', self.model,
-                                                     '--percent', str(self.percent),
-                                                     '--query', 'query.fa',
-                                                     '--target', 'target.fa']
-                            with open(output_file, 'w') as out:
-                                subprocess.run(exonerate_command,
-                                               cwd=tmpdirname,
-                                               stdout=out)
-                                temp = self.parse_exonerate_output_only_higher_score_hits(output_file)
-                                if temp:
-                                    pass_exons += [i for i in temp if 'exon' in i]
-                                    temp_ce_dict[exon_id] = temp
+        introns_list = []
+        for coord, annotation_dict in coding_exons_dict.items():
+            annotation_id = annotation_dict['id']
+            if (coord.upper - coord.lower) > self.min_len:
+                query_seq, hits_seqs = self.get_query_and_hits_seqs(annotation_id, gene_id, coding_exons_with_introns, coord)
+                if hits_seqs:
+                    temp = self.run_exonerate(annotation_id, query_seq, hits_seqs)
+                    if temp:
+                        temp_ce_dict[annotation_id] = temp
         if temp_ce_dict:
             self.insert_fragments_table(gene_id, temp_ce_dict)
         else:
@@ -447,7 +436,7 @@ class ExonDupSearch(ExonAnalysis):
                               self.gene_loc[gene_id].lower,
                               self.gene_loc[gene_id].upper,
                               0)
-            self.insert_gene_ids_table(gene_id, gene_arg_tuple)
+            self.insert_gene_ids_table(gene_arg_tuple)
             
             
     def connect_create_results_db(self):
@@ -469,18 +458,23 @@ class ExonDupSearch(ExonAnalysis):
                   CREATE TABLE IF NOT EXISTS Fragments (
                   fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                   gene_id  VARCHAR(100) NOT NULL REFERENCES GeneIDs(gene_id),
-                  exon_query_id VARCHAR(100) NOT NULL,
-                  exon_target_id VARCHAR(100) NOT NULL,
-                  score INTEGER NOT NULL,
-                  hit_start INTEGER NOT NULL,
-                  hit_end INTEGER NOT NULL,
+                  query_id VARCHAR(100) NOT NULL,
                   query_start INTEGER NOT NULL,
                   query_end INTEGER NOT NULL,
-                  hit_dna_sequence VARCHAR NOT NULL,
+                  target_id VARCHAR(100) NOT NULL,
+                  target_start INTEGER NOT NULL,
+                  target_end INTEGER NOT NULL,
+                  category BINARY(1) NOT NULL,
+                  is_pseudo_exon BINARY(1) NOT NULL,
+                  score INTEGER NOT NULL,
+                  frag_query_start INTEGER NOT NULL,
+                  frag_query_end INTEGER NOT NULL,
+                  frag_target_start INTEGER NOT NULL,
+                  frag_target_end INTEGER NOT NULL,
                   query_dna_sequence VARCHAR NOT NULL,
-                  hit_prot_sequence VARCHAR NOT NULL,
-                  query_prot_sequence VARCHAR NOT NULL
-                  )
+                  target_dna_sequence VARCHAR NOT NULL,
+                  query_prot_sequence VARCHAR NOT NULL,
+                  target_prot_sequence VARCHAR NOT NULL)
                   ''')        
         db.commit()
         db.close()
@@ -504,54 +498,85 @@ class ExonDupSearch(ExonAnalysis):
         db.close()
    
     
+    @staticmethod
+    def is_novel(target_id):
+        dup_type = 0
+        if 'intron' in target_id:
+            dup_type = 1
+        return dup_type
+        
+           
+    def is_pseudo_exon(self, fragment):
+        is_pseudo_exon = 0
+        if sum([True for stop_codon in self.stop_codons
+                if stop_codon in fragment]) > 1:
+            is_pseudo_exon = 1
+        return is_pseudo_exon
+        
+    def get_fragment_annotation_coord(self, gene_id, annotation_id):
+        return [i for i, j in self.most_inclusive_transcript_dict[gene_id]['transcpt'].items()
+                if j['id'] == annotation_id][0]
+        
+        
     def insert_fragments_table(self, gene_id, temp_ce_dict):
         tuple_list = []
-        for query_id_query, gene_query_dict in temp_ce_dict.items():
+        for query_id, gene_query_dict in temp_ce_dict.items():
+            annot_coord = self.get_fragment_annotation_coord(gene_id, query_id)
             for target_id, target_dict in gene_query_dict.items():
                 for fragment_id, fragment_dict in target_dict['frag_dict'].items():
+                    fragment_coord = self.get_fragment_annotation_coord(gene_id, target_id)
                     tuple_list.append(
-                        (gene_id,
-                         query_id_query,
-                         target_id,
-                         target_dict['score'],
-                         fragment_dict['query_coord'].lower,
-                         fragment_dict['query_coord'].upper,
-                         fragment_dict['hit_coord'].lower,
-                         fragment_dict['hit_coord'].upper,
-                         fragment_dict['query_seq'],
-                         fragment_dict['hit_seq'],
-                         fragment_dict['query_annotation'],
-                         fragment_dict['hit_annotation']
+                        (gene_id,                                        #gene_id
+                         query_id,                                       #query_id
+                         annot_coord.lower,                              #query_start
+                         annot_coord.upper,                              #query_end
+                         target_id,                                      #target_id
+                         fragment_coord.lower,                           #target_start
+                         fragment_coord.upper,                           #target_end       
+                         self.is_novel(target_id),                       #category
+                         self.is_pseudo_exon(fragment_dict['hit_seq']),  #is_pseudo_exon
+                         target_dict['score'],                           #score
+                         fragment_dict['query_coord'].lower,             #query_start
+                         fragment_dict['query_coord'].upper,             #query_end
+                         fragment_dict['hit_coord'].lower,               #hit_start
+                         fragment_dict['hit_coord'].upper,               #hit_end
+                         fragment_dict['query_seq'],                     #query_dna_sequence
+                         fragment_dict['hit_seq'],                       #hit_dna_sequence
+                         fragment_dict['query_annotation'],              #query_prot_sequence
+                         fragment_dict['hit_annotation']                 #hit_prot_sequence
                         )
                     )
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)  
-        cursor = db.cursor()
+        insert_fragments_table_param = """
+        INSERT INTO Fragments 
+        (gene_id,
+        query_id, 
+        query_start,
+        query_end,
+        target_id,
+        target_start,
+        target_end,
+        category,
+        is_pseudo_exon,
+        score,
+        frag_query_start,
+        frag_query_end,
+        frag_target_start,
+        frag_target_end,
+        query_dna_sequence,
+        target_dna_sequence,
+        query_prot_sequence,
+        target_prot_sequence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
         insert_gene_table_param = """  
         INSERT INTO GeneIDs 
         (gene_name,
         gene_chrom,
         gene_strand,
-        gene_start,
-        gene_end,
+        gene_start, 
+        gene_end,  
         has_duplicated_exon) 
         VALUES (?, ?, ?, ?, ?, ?)
-        """
-        insert_fragments_table_param = """
-        INSERT INTO Fragments 
-        (gene_id,
-        exon_query_id, 
-        exon_target_id,
-        score,
-        query_start,
-        query_end,
-        hit_start,
-        hit_end,
-        query_dna_sequence,
-        hit_dna_sequence,
-        query_prot_sequence,
-        hit_prot_sequence
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         gene_arg_tuple = (gene_id,
                           self.chrom_dict[gene_id],
@@ -559,12 +584,14 @@ class ExonDupSearch(ExonAnalysis):
                           self.gene_loc[gene_id].lower,
                           self.gene_loc[gene_id].upper,
                           1)
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db) 
+        cursor = db.cursor()
         cursor.execute(insert_gene_table_param, gene_arg_tuple)
         cursor.executemany(insert_fragments_table_param, tuple_list)
         db.commit()
-        db.close()
-        
-        
+        db.close()   
+
+            
     def query_gene_ids_in_res_db(self):
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db) 
         cursor = db.cursor()
@@ -577,19 +604,23 @@ class ExonDupSearch(ExonAnalysis):
     def search_for_exon_duplicates(self, 
                                    args_list,
                                    batch_n,
-                                   threads=10):
+                                   threads=6):
         """
         search_for_exon_duplicates is a function that performs a 
         genome-wide search of exons duplications, multithreading 
         is performed in barches of genes.
         :param args_list: list of gene ids.
         :param batch_n: batches size
-        :param threads: number of threads 
+        :param threads: number of threads WARNING: Mind that a large 
+        selection of threads number can yield to a SQLite3.OperationalError
+        since many processes trying to access the db will potentially exhaust
+        the db timeout. Hence, choose a large enough value that will not 
+        result in locking the db.
         """
         self.connect_create_results_db()
         processed_gene_ids = self.query_gene_ids_in_res_db()
         if processed_gene_ids:
-            args_list = [i for i in args_list if i not in processed_gene_ids]   
+            args_list = [i for i in args_list if i not in processed_gene_ids] 
         if args_list:
             batches_list = [i for i in self.batch(args_list, batch_n)]
             tic = time.time()
