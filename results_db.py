@@ -2,14 +2,22 @@ import sqlite3
 
 
 class SQlite_res():
-    def __init__(self,db_path):
+    def __init__(self, db_path):
         self.db_path = db_path
         self.colnames = []
         self.create_table_concatenate_fragments()
+        self.get_concatenate_fragments_col_names()
         self.insert_conservation_percentage_columns()
+          
             
+    def get_tables_name():
+        con = sqlite3.connect(self.db_path)
+        cursor = con.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        return cursor.fetchall()
                               
-    def get_concatenate_fragments_col_names(self, table):
+        
+    def get_concatenate_fragments_col_names(self):
         conn = sqlite3.connect(self.db_path)
         info = conn.execute("PRAGMA table_info('concatenate_fragments')").fetchall()
         self.concatenate_fragments_colnames = [col_name[1] for col_name in info]
@@ -74,13 +82,11 @@ class SQlite_res():
         query_id, 
         target_id));
         """
+        #create table
         cursor.execute(new_table)
-        cursor.execute("""
-         CREATE INDEX 
-         concat_frag_idx 
-         ON 
-         concatenate_fragments (gene_id, query_id, target_id);
-         """)
+        #create index
+        cursor.execute("""CREATE INDEX concat_frag_idx ON concatenate_fragments (gene_id, query_id, target_id);""")
+        cursor.execute("""CREATE INDEX concat_frag_gene_idx ON concatenate_fragments (gene_id);""")
         conn.close()
         
         
@@ -88,8 +94,8 @@ class SQlite_res():
         conn = sqlite3.connect(self.db_path)
         cur = conn.cursor()
         if 'dna_perc_conservation' and 'prot_perc_conservation' not in self.concatenate_fragments_colnames:
-            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN dna_perc_conservation REAL")
-            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN prot_perc_conservation REAL")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN dna_perc_conservation REAL;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN prot_perc_conservation REAL;")
             #populate column
             cur.execute("""
             SELECT 
@@ -101,7 +107,7 @@ class SQlite_res():
             query_prot_sequence,
             target_prot_sequence
             FROM
-            prot_perc_conservation
+            concatenate_fragments
             """)
             for row in cur:
                 cursor_insert = conn.cursor()
