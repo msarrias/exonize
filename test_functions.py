@@ -93,20 +93,32 @@ def test_get_coords_with_coding_exons():
         my_res_3_2 = eds_obj.get_coords_with_coding_exons(test_3_2)
         assert test_3_2_res == my_res_3_2
         # j == l
-        test_1_3 = {P.open(1,300): {'type': ce}, P.open(200,300): {'type': 'CDS'}}
-        test_1_3_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
-        my_res_1_3 = eds_obj.get_coords_with_coding_exons(test_1_3)
-        assert test_1_3_res == my_res_1_3
+        if ce == 'exon':
+            test_1_3 = {P.open(1,300): {'type': ce}, P.open(200,300): {'type': 'CDS'}}
+            test_1_3_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
+            my_res_1_3 = eds_obj.get_coords_with_coding_exons(test_1_3)
+            assert test_1_3_res == my_res_1_3
+        if ce == 'coding_exon':
+            test_1_3 = {P.open(1,300): {'type': ce}, P.open(200,300): {'type': 'CDS'}}
+            test_1_3_res = {P.open(1,300): {'type': 'coding_exon'}}
+            my_res_1_3 = eds_obj.get_coords_with_coding_exons(test_1_3)
+            assert test_1_3_res == my_res_1_3
         test_1_4 = {P.open(1,300): {'type': 'CDS'}, P.open(200,300): {'type': ce}}
         test_1_4_res = {P.open(1,199): {'type': 'CDS'}, P.open(200,300): {'type': 'coding_exon'}}
         my_res_1_4 = eds_obj.get_coords_with_coding_exons(test_1_4)
         assert test_1_4_res == my_res_1_4
         test_3_4 = {P.open(1,299): {'type': ce}, P.open(200,300): {'type': 'CDS'}}
-        test_3_4_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
+        if ce == 'exon':
+            test_3_4_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
+        if ce == 'coding_exon':
+            test_3_4_res = {P.open(1,300): {'type': 'coding_exon'}}
         my_res_3_4 = eds_obj.get_coords_with_coding_exons(test_3_4)
         assert test_3_4_res == my_res_3_4
         test_3_5 = {P.open(1,300): {'type': ce}, P.open(200,299): {'type': 'CDS'}}
-        test_3_5_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
+        if ce == 'exon':
+            test_3_5_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
+        if ce == 'coding_exon':
+            test_3_5_res = {P.open(1,300): {'type': 'coding_exon'}}
         my_res_3_5 = eds_obj.get_coords_with_coding_exons(test_3_5)
         assert test_3_5_res == my_res_3_5
         #k > i and l < j
@@ -124,9 +136,27 @@ def test_get_coords_with_coding_exons():
         test_3_6_res = {P.open(1,201): {'type': ce}, P.open(202,400): {'type': 'CDS'}}
         my_res_3_6 = eds_obj.get_coords_with_coding_exons(test_3_6)
         assert test_3_6_res == my_res_3_6
+        test_1_7 = {P.open(1,500): {'type': 'CDS'}, P.open(200,400): {'type': ce}}
+        test_1_7_res = {P.open(1,199): {'type': 'CDS'},
+                        P.open(200,400): {'type': 'coding_exon'},
+                        P.open(401,500): {'type': 'CDS'}}
+        my_res_1_7 = eds_obj.get_coords_with_coding_exons(test_1_7)
+        assert test_1_7_res == my_res_1_7
+        if ce == 'exon':
+            test_1_8 = {P.open(1,500): {'type': ce}, P.open(200,400): {'type': 'CDS'}}
+            test_1_8_res = {P.open(1,199): {'type': ce},
+                            P.open(200,400): {'type': 'coding_exon'},
+                            P.open(401,500): {'type': ce}}
+            my_res_1_8 = eds_obj.get_coords_with_coding_exons(test_1_8)
+            assert test_1_8_res == my_res_1_8
+        if ce == 'coding_exon':
+            test_1_9 = {P.open(1,500): {'type': ce}, P.open(200,400): {'type': 'CDS'}}
+            test_1_9_res = {P.open(1,500): {'type': ce}}
+            my_res_1_9 = eds_obj.get_coords_with_coding_exons(test_1_9)
+            assert test_1_9_res == my_res_1_9
     ## Case 2 coding region overlaps non coding region and vice versa
     for coding_region in ['exon', 'coding_exon', 'CDS']:
-        for utr_intron in ['intron'] + eds_obj.UTR_features:
+        for utr_intron in ['intron'] + new_Pn_genome.UTR_features:
             # i == k
             test_2_1 = {P.open(1,200): {'type': coding_region}, P.open(1,300): {'type':utr_intron}}
             test_2_1_res = {P.open(1,300): {'type': utr_intron}}
@@ -178,4 +208,4 @@ def test_get_coords_with_coding_exons():
             test_3_13_res = {P.open(1,201): {'type': utr_intron}, P.open(202,400): {'type': coding_region}}
             my_res_3_13 = eds_obj.get_coords_with_coding_exons(test_3_13)
             assert test_3_13_res == my_res_3_13
-
+           
