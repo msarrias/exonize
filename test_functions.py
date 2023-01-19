@@ -107,6 +107,14 @@ def test_get_coords_with_coding_exons():
         test_1_4_res = {P.open(1,199): {'type': 'CDS'}, P.open(200,300): {'type': 'coding_exon'}}
         my_res_1_4 = eds_obj.get_coords_with_coding_exons(test_1_4)
         assert test_1_4_res == my_res_1_4
+        test_1_10 = {P.open(1,300): {'type': ce}, P.open(299,300): {'type': 'CDS'}}
+        test_1_10_res = {P.open(1,300): {'type': ce}}
+        my_res_1_10 = eds_obj.get_coords_with_coding_exons(test_1_10)
+        assert test_1_10_res == my_res_1_10
+        test_1_11 = {P.open(1,300): {'type': 'CDS'}, P.open(299,300): {'type': ce}}
+        test_1_11_res = {P.open(1,300): {'type': 'CDS'}}
+        my_res_1_11 = eds_obj.get_coords_with_coding_exons(test_1_10)
+        assert test_1_11_res == my_res_1_11
         test_3_4 = {P.open(1,299): {'type': ce}, P.open(200,300): {'type': 'CDS'}}
         if ce == 'exon':
             test_3_4_res = {P.open(1,199): {'type': ce}, P.open(200,300): {'type': 'coding_exon'}}
