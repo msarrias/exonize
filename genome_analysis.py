@@ -28,11 +28,8 @@ class GenomeAnalysis(DataBaseOp):
         self.gene_interval_dict = None
         self.basic_stat = None
         self.annot_dict = None
-        self.UTR_features = ['five_prime_UTR',
-                             'three_prime_UTR']
-        self.feat_of_interest = ['CDS',
-                                 'exon',
-                                 'intron'] + self.UTR_features
+        self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
+        self.feat_of_interest = ['CDS', 'exon','intron'] + self.UTR_features
         self.gene_hierarchy_path = gh_path
         
         
@@ -40,20 +37,13 @@ class GenomeAnalysis(DataBaseOp):
         self.create_parse_or_update_database()
         self.db_features = list(self.db.featuretypes())
         if os.path.exists(self.gene_hierarchy_path):
-            self.gene_hierarchy_dict = self.read_pkl_file(
-                self.gene_hierarchy_path
-            )
+            self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
             self.create_gene_hierarchy_dict()
-        self.chrom_dict = {gene_id: self.db[gene_id].chrom 
-                           for gene_id in self.gene_hierarchy_dict.keys()
-                          } 
+        self.chrom_dict = {gene_id: self.db[gene_id].chrom for gene_id in self.gene_hierarchy_dict.keys()} 
         self.gene_loc = {gene_id: P.open(self.db[gene_id].start, self.db[gene_id].end)
-                         for gene_id in self.gene_hierarchy_dict.keys()
-                        } 
-        self.strand_dict = {gene_id: self.db[gene_id].strand 
-                           for gene_id in self.gene_hierarchy_dict.keys()
-                           } 
+                         for gene_id in self.gene_hierarchy_dict.keys()} 
+        self.strand_dict = {gene_id: self.db[gene_id].strand for gene_id in self.gene_hierarchy_dict.keys() } 
     
     
     @staticmethod
@@ -73,9 +63,7 @@ class GenomeAnalysis(DataBaseOp):
     def dump_fasta_file(out_filepath, seq_dict):
         with open(out_filepath, "w") as handle:
             for annot_id, annot_seq in seq_dict.items():
-                record = SeqRecord(Seq(annot_seq),
-                                   id = str(annot_id),
-                                          description= '')
+                record = SeqRecord(Seq(annot_seq), id = str(annot_id), description= '')
                 SeqIO.write(record, handle, "fasta")
 
                 
@@ -88,32 +76,24 @@ class GenomeAnalysis(DataBaseOp):
             self.gene_hierarchy_dict = {}
             for gene in self.db.features_of_type('gene'):
                 features = {}
-                mRNA_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id,
-                                                                          featuretype='mRNA',
-                                                                          order_by='start')]
+                mRNA_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
                 if mRNA_transcripts:
                     for mRNA_annot in mRNA_transcripts:
                         temp_i = []
-                        for child in self.db.children(mRNA_annot.id, 
-                                                      featuretype=self.feat_of_interest,
-                                                      order_by='start'):
+                        for child in self.db.children(mRNA_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                             coord = P.open(child.start, child.end)
                             if coord:
                                 temp_i += [{'chrom':child.chrom,
                                             'coord': coord,
                                             'id':child.id, 
                                             'strand': child.strand,
-                                            'type': child.featuretype
-                                           }]
+                                            'type': child.featuretype }]
                         # sort first by the start and then by the end
-                        temp_j = sorted(temp_i, key = lambda item: (item['coord'].lower,
-                                                                    item['coord'].upper))
+                        temp_j = sorted(temp_i, key = lambda item: (item['coord'].lower, item['coord'].upper))
                         features[mRNA_annot.id] = temp_j
                     self.gene_hierarchy_dict[gene.id] = features
-
             self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-            
   
     def transcript_interval_dict(self, gene_dict):
         transcript_dict = {}
@@ -194,11 +174,8 @@ class GenomeAnalysis(DataBaseOp):
         # As instructed by Chris, we neglect those genes with 
         # exon/intron overlapping_dict annotations
         for gene in set(self.genes_with_incorrect_intron_exon_overlaps):
-            del self.gene_hierarchy_dict[gene]
-            
+            del self.gene_hierarchy_dict[gene] 
         if len(self.genes_with_incorrect_intron_exon_overlaps)>0:
-#             self.dump_pkl_file(self.gene_hierarchy_path,
-#                                self.gene_hierarchy_dict)
             print(f'{len(set(self.genes_with_incorrect_intron_exon_overlaps))} genes \
                   have been removed')
             for gene_i in set(self.genes_with_incorrect_intron_exon_overlaps):
@@ -211,9 +188,7 @@ class GenomeAnalysis(DataBaseOp):
             copy_interval_dict = copy.deepcopy(interval_dict)
             overlapping_dict = {}
             intervals_list = list(copy_interval_dict.keys())
-            for idx, (feat_interv, feature_annot) in enumerate(
-                copy_interval_dict.items()
-            ):
+            for idx, (feat_interv, feature_annot) in enumerate(copy_interval_dict.items()):
                 overlapping_dict[feat_interv] = []
                 if idx != (len(copy_interval_dict) - 1):
                     if feat_interv.overlaps(intervals_list[idx+1]):
@@ -254,6 +229,7 @@ class GenomeAnalysis(DataBaseOp):
         the architecture of every gene that we query is composed
         by consecutive and non-overlapping annotations. 
         """
+        # it may happend that after overlapping we end up with a single annotation
         if len(list_intervals) > 1:
             temp = []
             upper =list_intervals[0].upper
@@ -412,10 +388,7 @@ class GenomeAnalysis(DataBaseOp):
             temp_transcript_dict = {}
             for transcript_id, transcript_dict in self.gene_interval_dict[gene_id].items():
                 if len(transcript_dict) > 1:
-                    temp_transcript_dict[transcript_id] = self.get_coords_with_coding_exons(
-                        gene_id,
-                        transcript_dict
-                    )
+                    temp_transcript_dict[transcript_id] = self.get_coords_with_coding_exons(gene_id, transcript_dict)
                 else:
                     temp_transcript_dict[transcript_id] = transcript_dict
             self.gene_hierarchy_dict_with_coding_exons[gene_id] = temp_transcript_dict
