@@ -22,15 +22,15 @@ def test_gget_annotations_across_transcripts():
         assert solution == eds_obj.get_annotations_across_transcripts(eds_obj.sort_interval_dict(test))
         
 
-def test_check_global_range():
+def test_check_for_consecutive_intervals():
     test1 = [P.open(1,5), P.open(6,20), P.open(21,40)]
     test2 = [P.open(1,6), P.open(6,20), P.open(21,40)]
     test3 = [P.open(1,6), P.open(6,20), P.open(21,40), (41,41)]
-    eds_obj.check_global_range(test1) == None
+    eds_obj.check_for_consecutive_intervals(test1) == None
     status = 0
     for l in [test2, test3]:
         try:
-            eds_obj.check_global_range(l)
+            eds_obj.check_for_consecutive_intervals(l)
         except ValueError:
             status +=1
     assert status == 2
