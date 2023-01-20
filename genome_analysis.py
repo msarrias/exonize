@@ -85,34 +85,34 @@ class GenomeAnalysis(DataBaseOp):
 
     
     def create_gene_hierarchy_dict(self):
-        self.gene_hierarchy_dict = {}
-        for gene in self.db.features_of_type('gene'):
-            features = {}
-            mRNA_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id,
-                                                                      featuretype='mRNA',
-                                                                      order_by='start')
-                               ]
-            if mRNA_transcripts:
-                for mRNA_annot in mRNA_transcripts:
-                    temp_i = []
-                    for child in self.db.children(mRNA_annot.id,
-                                                  featuretype=self.feat_of_interest,
-                                                  order_by='start'):
-                        temp_i += [{'chrom':child.chrom,
-                                    'coord': P.open(child.start, child.end),
-                                    'id':child.id, 
-                                    'strand': child.strand,
-                                    'type': child.featuretype
-                                   }]
-                    # sort first by the start and then by the end
-                    temp_j = sorted(temp_i, key = lambda 
-                                    item: (item['coord'].lower,
-                                           item['coord'].upper))
-                    features[mRNA_annot.id] = temp_j
-                self.gene_hierarchy_dict[gene.id] = features
-                
-        self.dump_pkl_file(self.gene_hierarchy_path, 
-                           self.gene_hierarchy_dict)
+            self.gene_hierarchy_dict = {}
+            for gene in self.db.features_of_type('gene'):
+                features = {}
+                mRNA_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id,
+                                                                          featuretype='mRNA',
+                                                                          order_by='start')]
+                if mRNA_transcripts:
+                    for mRNA_annot in mRNA_transcripts:
+                        temp_i = []
+                        for child in self.db.children(mRNA_annot.id, 
+                                                      featuretype=self.feat_of_interest,
+                                                      order_by='start'):
+                            coord = P.open(child.start, child.end)
+                            if coord:
+                                temp_i += [{'chrom':child.chrom,
+                                            'coord': coord,
+                                            'id':child.id, 
+                                            'strand': child.strand,
+                                            'type': child.featuretype
+                                           }]
+                        # sort first by the start and then by the end
+                        temp_j = sorted(temp_i, key = lambda item: (item['coord'].lower,
+                                                                    item['coord'].upper))
+                        features[mRNA_annot.id] = temp_j
+                    self.gene_hierarchy_dict[gene.id] = features
+
+            self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
+
             
   
     def transcript_interval_dict(self, gene_dict):
@@ -248,15 +248,33 @@ class GenomeAnalysis(DataBaseOp):
 
     
     @staticmethod
-    def check_global_range(list_intervals):
-        upper =list_intervals[0].upper
-        for i in list_intervals[1:]:
-            lower = i.lower
-            if lower == upper + 1:
+    def check_for_consecutive_intervals(list_intervals):
+        """
+        This may be messy, but the idea is to make sure that
+        the architecture of every gene that we query is composed
+        by consecutive and non-overlapping annotations. 
+        """
+        if len(list_intervals) > 1:
+            temp = []
+            upper =list_intervals[0].upper
+            for i in list_intervals[1:]:
+                lower = i.lower
+                try:
+                    #check if there is any gap in between intervals
+                    temp.append(upper + 1 - lower)
+                except:
+                    return False
                 upper = i.upper
+            if not temp:
+                return False
+            # if there is a gap/overlap between intervals 
+            # of less/more than 5 aminoacids we let it slide
+            if min(temp) >= -5 and max(temp) <= 5:
+                return True
             else:
-                raise ValueError('set of intervals should be consecutive')
-        return True
+                return False
+        else:
+            return True
 
     
     @staticmethod
@@ -266,12 +284,12 @@ class GenomeAnalysis(DataBaseOp):
         return copy_dict
 
 
-    def get_coords_with_coding_exons(self, interval_dict):
+    def get_coords_with_coding_exons(self, gene_id, interval_dict):
         """
-        get_coords_with_coding_exons is a recursive function that ...
+        Test overlaps:
         Let e = (i, j) and x = (m, n) be intervals
         Based on the assumption that i <= m and j <= n ==> e_i ∪ x_j = (i, n)
-        and i\neq m and j \neq n . The intersections can be of the following type:
+        and i\neq m and j \neq n . The intersections can be of the following forms:
         Exon with intron/UTR annotations: 
         - overlaps: o = e_i  ∩ x_j = (k, l)
             - if o ⊆ e_i 
@@ -284,11 +302,12 @@ class GenomeAnalysis(DataBaseOp):
         ce_types = ['exon', 'coding_exon']
         introns_utr = ['intron'] + self.UTR_features
         overlapping_dict = self.get_overlapping_dict(interval_dict)
-        # if there are no overlaps, it's done
         if not any(list(overlapping_dict.values())):
             final_res = self.sort_interval_dict(interval_dict)
-            if self.check_global_range(list(final_res.keys())):
+            if self.check_for_consecutive_intervals(list(final_res.keys())):
                 return final_res
+            else:
+                print(f'set of intervals should be consecutive: {gene_id}')
         # otherwise we start solving intersections so that the final transcript
         # annotation do not include overlaping annotations
         new_gene_interv_dict = {}
@@ -309,9 +328,11 @@ class GenomeAnalysis(DataBaseOp):
                     m, n = y_intev.lower, y_intev.upper
                     k, l = o_intv.lower, o_intv.upper
                     if x_intev.contains(y_intev):
-                        if x_type not in introns_utr:
-                            # overlaps between coding regions        
-                            if x_type in ce_types and y_type == 'CDS':
+                        if x_type == 'coding_exon' and y_type == 'CDS':
+                                new_gene_interv_dict[x_intev] = self.change_type(x_dict, 'coding_exon')
+                        elif x_type not in introns_utr:
+                            # overlaps between coding regions   
+                            if x_type == "exon" and y_type == 'CDS':
                                 new_gene_interv_dict[o_intv] = self.change_type(x_dict, 'coding_exon')
                             elif x_type == 'CDS' and y_type in ce_types:
                                 new_gene_interv_dict[o_intv] = self.change_type(y_dict, 'coding_exon')
@@ -322,12 +343,12 @@ class GenomeAnalysis(DataBaseOp):
                                 new_gene_interv_dict[o_intv] = y_dict
                             else: print('case 1.1')
                             if i == k:
-                                new_gene_interv_dict[P.open(l+1, n)] = x_dict
+                                if P.open(l+1, j): new_gene_interv_dict[P.open(l+1, j)] = x_dict
                             elif j == n:
-                                new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                                if P.open(i, k-1): new_gene_interv_dict[P.open(i, k-1)] = x_dict
                             elif k > i and l < j:
-                                new_gene_interv_dict[P.open(i, k-1)] = x_dict
-                                new_gene_interv_dict[P.open(l+1, n)] = x_dict
+                                if P.open(i, k-1): new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                                if P.open(l+1, j): new_gene_interv_dict[P.open(l+1, j)] = x_dict
                             # overlap between non coding and coding region
                             else: print('case 1.3')
                         elif x_type in introns_utr:
@@ -343,36 +364,36 @@ class GenomeAnalysis(DataBaseOp):
                                 new_gene_interv_dict[o_intv] = x_dict
                             else: print('case 2.1')
                             if n == l:
-                                new_gene_interv_dict[P.open(m, k-1)] = y_dict
+                                if P.open(m, k-1): new_gene_interv_dict[P.open(m, k-1)] = y_dict
                             elif k == m:
-                                new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                                if P.open(l+1, n): new_gene_interv_dict[P.open(l+1, n)] = y_dict
                             elif k > m and l < n:
-                                new_gene_interv_dict[P.open(m, k-1)] = y_dict
-                                new_gene_interv_dict[P.open(l+1, n)] = y_dict
-                            else: print((k, l) , (m, n), 'casw 2.3')
+                                if P.open(m, k-1): new_gene_interv_dict[P.open(m, k-1)] = y_dict
+                                if P.open(l+1, n): new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                            else: print((k, l) , (m, n), 'case 2.3')
                         elif y_type in introns_utr:
                             new_gene_interv_dict[P.open(m, n)] = y_dict
                         else: print('case 2.4')
                     elif not x_intev.contains(y_intev) | y_intev.contains(x_intev):
                         if x_type in ce_types and y_type == 'CDS':
-                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            if P.open(i, k-1): new_gene_interv_dict[P.open(i, k-1)] = x_dict
                             new_gene_interv_dict[o_intv] = self.change_type(x_dict, 'coding_exon')
-                            new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                            if P.open(l+1, n): new_gene_interv_dict[P.open(l+1, n)] = y_dict
                         elif x_type == 'CDS' and y_type in ce_types:
-                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            if P.open(i, k-1): new_gene_interv_dict[P.open(i, k-1)] = x_dict
                             new_gene_interv_dict[o_intv] = self.change_type(y_dict, 'coding_exon')
-                            new_gene_interv_dict[P.open(l+1, n)] = y_dict
+                            if P.open(l+1, n): new_gene_interv_dict[P.open(l+1, n)] = y_dict
                         elif y_type in introns_utr:
-                            new_gene_interv_dict[P.open(i, k-1)] = x_dict
-                            new_gene_interv_dict[P.open(k, n)] = y_dict
+                            if P.open(i, k-1): new_gene_interv_dict[P.open(i, k-1)] = x_dict
+                            if P.open(k, n): new_gene_interv_dict[P.open(k, n)] = y_dict
                         elif x_type in introns_utr:
-                            new_gene_interv_dict[P.open(i, l)] = x_dict
-                            new_gene_interv_dict[P.open(l + 1, n)] = y_dict
+                            if P.open(i, l): new_gene_interv_dict[P.open(i, l)] = x_dict
+                            if P.open(l + 1, n): new_gene_interv_dict[P.open(l + 1, n)] = y_dict
                         else: print('case 3.1')
                     else: print(x_intev, y_intev, x_intev.contains(y_intev),  y_intev.contains(x_intev), 'case 4.1')
                 else:
-                    new_gene_interv_dict[x_intev] = x_dict
-                    new_gene_interv_dict[y_intev] = y_dict
+                    if x_intev: new_gene_interv_dict[x_intev] = x_dict
+                    if y_intev: new_gene_interv_dict[y_intev] = y_dict
                 new_gene_interv_dict = self.sort_interval_dict(new_gene_interv_dict)
                 for intrv in intervals_list[int_idx+2:]:
                     if intrv not in new_gene_interv_dict:
@@ -381,18 +402,22 @@ class GenomeAnalysis(DataBaseOp):
                           and interval_dict[intrv]['type'] in introns_utr
                          ):
                         new_gene_interv_dict[intrv] = copy.deepcopy(interval_dict[intrv])
-                return self.get_coords_with_coding_exons(self.sort_interval_dict(new_gene_interv_dict))           
+                return self.get_coords_with_coding_exons(gene_id, self.sort_interval_dict(new_gene_interv_dict)) 
                 
-                
+        
     def get_gene_hierarchy_dict_with_coding_exons(self):
         self.gene_hierarchy_dict_with_coding_exons = {}
         copy_gene_hierarchy_dict = copy.deepcopy(self.gene_hierarchy_dict)
         for gene_id, gene_hierarchy_dict_ in copy_gene_hierarchy_dict.items():
             temp_transcript_dict = {}
             for transcript_id, transcript_dict in self.gene_interval_dict[gene_id].items():
-                temp_transcript_dict[transcript_id] = self.get_coords_with_coding_exons(
-                    transcript_dict
-                )
+                if len(transcript_dict) > 1:
+                    temp_transcript_dict[transcript_id] = self.get_coords_with_coding_exons(
+                        gene_id,
+                        transcript_dict
+                    )
+                else:
+                    temp_transcript_dict[transcript_id] = transcript_dict
             self.gene_hierarchy_dict_with_coding_exons[gene_id] = temp_transcript_dict
         self.n_genes = len(self.gene_hierarchy_dict_with_coding_exons)
         
