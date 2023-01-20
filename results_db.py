@@ -10,7 +10,7 @@ class SQlite_res():
         self.insert_conservation_percentage_columns()
           
             
-    def get_tables_name():
+    def get_tables_name(self):
         con = sqlite3.connect(self.db_path)
         cursor = con.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
