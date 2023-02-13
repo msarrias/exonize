@@ -9,7 +9,8 @@ class ExonAnalysis(GenomeAnalysis):
                  db_path,
                  in_file_path,
                  gene_hierarchy_path,
-                 verbose):
+                 verbose,
+                 hard_masking):
         GenomeAnalysis.__init__(self,
                                 db_path,
                                 in_file_path,
@@ -20,19 +21,18 @@ class ExonAnalysis(GenomeAnalysis):
         self.exon_dup_per_transcript = list()
         self.genes_coding_exons = dict()
         self.genome = None
+        self.hard_masking = hard_masking
 
-    def read_genome(self, 
-                    genome_file_dir,
-                    return_=False):
-        genome = {
-            fasta.id : {'+' : str(fasta.seq),
-                        '-': str(fasta.seq.reverse_complement())} 
-            for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')
-        }
-        if not return_:
-            self.genome = genome
+    def read_genome(self, genome_file_dir, return_=False):
+        if self.hard_masking:
+            genome = {fasta.id : {'+' : re.sub('[a-z]', 'N', str(fasta.seq)),
+                                  '-': re.sub('[a-z]', 'N', str(fasta.seq.complement()))} 
+                      for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
         else:
-            return genome
+            genome = {fasta.id : {'+' : str(fasta.seq), '-': str(fasta.seq.complement())} 
+                      for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
+        if not return_: self.genome = genome
+        else: return genome
         
         
     def get_within_gene_real_exon_dupl(self,
