@@ -140,10 +140,8 @@ class ExonDupSearch(ExonAnalysis):
         :return: the query sequence and a dictionary with the target sequences
         """
         chrm = self.chrom_dict[gene_id]
-        strand = self.strand_dict[gene_id]
-        query_seq = self.genome[chrm][strand][exon_coord.lower:exon_coord.upper]
-        hits_seqs = {feat_dict['id']: 
-                     self.genome[chrm][strand][coord.lower:coord.upper]
+        query_seq = self.genome[chrm][exon_coord.lower:exon_coord.upper]
+        hits_seqs = {feat_dict['id']: self.genome[chrm][coord.lower:coord.upper] 
                      for coord, feat_dict in coding_exons_introns_dict.items() 
                      if (feat_dict['id'] != annot_id 
                          and (coord.upper - coord.lower) >= round(0.9*(exon_coord.upper-exon_coord.lower)))}
