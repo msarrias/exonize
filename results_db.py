@@ -7,22 +7,25 @@ class SQlite_res():
         self.db_path = db_path
         self.colnames = []
         self.create_table_concatenate_fragments()
-        self.get_concatenate_fragments_col_names()
+        self.get_table_col_names('concatenate_fragments')
         self.insert_conservation_percentage_columns()
           
             
     def get_tables_name(self):
-        con = sqlite3.connect(self.db_path)
-        cursor = con.cursor()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        return cursor.fetchall()
+        tables_names = cursor.fetchall()
+        conn.close()
+        return tables_names
                               
         
-    def get_concatenate_fragments_col_names(self):
+    def get_table_col_names(self,table_name):
         conn = sqlite3.connect(self.db_path)
-        info = conn.execute("PRAGMA table_info('concatenate_fragments')").fetchall()
-        self.concatenate_fragments_colnames = [col_name[1] for col_name in info]
+        info = conn.execute(f"PRAGMA table_info('{table_name}')").fetchall()
+        colnames = [col_name[1] for col_name in info]
         conn.close()
+        return colnames
       
     
     @staticmethod        
@@ -90,75 +93,81 @@ class SQlite_res():
         #create table
         cursor.execute(new_table)
         #create index
-        cursor.execute("""CREATE INDEX concat_frag_idx ON concatenate_fragments (gene_id, query_id, target_id);""")
-        cursor.execute("""CREATE INDEX concat_frag_gene_idx ON concatenate_fragments (gene_id);""")
+        cursor.execute("""CREATE INDEX IF NOT EXISTS concat_frag_idx ON concatenate_fragments (gene_id, query_id, target_id);""")
+        cursor.execute("""CREATE INDEX IF NOT EXISTS concat_frag_gene_idx ON concatenate_fragments (gene_id);""")
         conn.close()
         
         
     def insert_conservation_percentage_columns(self):
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN dna_perc_conservation REAL;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN prot_perc_conservation REAL;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_dna_sequence VARCHAR;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN target_dna_sequence VARCHAR;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_prot_sequence VARCHAR;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN target_prot_sequence VARCHAR;")
-        cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_aligned_fraction REAL;")
-        #populate column
-        cur.execute("""
-        SELECT 
-        gene_id,
-        query_id,
-        target_id,
-        query_length,
-        query_aln_dna_sequence,
-        target_aln_dna_sequence,
-        query_aln_prot_sequence,
-        target_aln_prot_sequence,
-        HSP_n,
-        score
-        FROM
-        concatenate_fragments
-        """)
-        for row in cur:
-            cursor_insert = conn.cursor()
-            (gene_id, 
-             query_id, 
-             target_id,
-             query_length,
-             query_aln_dna_sequence,
-             target_aln_dna_sequence,
-             query_aln_prot_sequence,
-             target_aln_prot_sequence,
-             HSP_n,
-             score) = row
-            dna_consev = 1 - (self.hd_dna_seqs(query_aln_dna_sequence, target_aln_dna_sequence) / len(query_aln_dna_sequence))
-            prot_consev = 1 - (self.hd_amino_seqs(query_aln_prot_sequence, target_aln_prot_sequence) / len(query_aln_prot_sequence))
-            query_dna_sequence = self.ungap_sequence(query_aln_dna_sequence)
-            target_dna_sequence = self.ungap_sequence(target_aln_dna_sequence)
-            query_prot_sequence = self.ungap_sequence(query_aln_prot_sequence)
-            target_prot_sequence = self.ungap_sequence(target_aln_prot_sequence)
-            query_aligned_fraction = len(query_dna_sequence)/query_length
-            update_string = """
-            UPDATE 
+        concatenate_fragments_colnames = self.get_table_col_names('concatenate_fragments')
+        new_colnames = ['dna_perc_conservation','prot_perc_conservation',
+                        'query_dna_sequence','target_dna_sequence',
+                        'query_prot_sequence','target_prot_sequence', 'query_aligned_fraction']
+        
+        if sum([True for i in new_colnames if i in concatenate_fragments_colnames]) == 0:
+            conn = sqlite3.connect(self.db_path)
+            cur = conn.cursor()
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN dna_perc_conservation REAL;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN prot_perc_conservation REAL;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_dna_sequence VARCHAR;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN target_dna_sequence VARCHAR;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_prot_sequence VARCHAR;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN target_prot_sequence VARCHAR;")
+            cur.execute("ALTER TABLE concatenate_fragments ADD COLUMN query_aligned_fraction REAL;")
+            #populate column
+            cur.execute("""
+            SELECT 
+            gene_id,
+            query_id,
+            target_id,
+            query_length,
+            query_aln_dna_sequence,
+            target_aln_dna_sequence,
+            query_aln_prot_sequence,
+            target_aln_prot_sequence,
+            HSP_n,
+            score
+            FROM
             concatenate_fragments
-            SET 
-            dna_perc_conservation = ?,
-            prot_perc_conservation = ?,
-            query_dna_sequence = ?,
-            target_dna_sequence = ?,
-            query_prot_sequence = ?,
-            target_prot_sequence = ?,
-            query_aligned_fraction = ?
-            WHERE 
-            (gene_id = ? AND query_id = ? AND target_id = ? AND HSP_n = ? AND score = ?)
-            """
-            cursor_insert.execute(update_string, (dna_consev, prot_consev,
-                                                  query_dna_sequence, target_dna_sequence,
-                                                  query_prot_sequence, target_prot_sequence,
-                                                  query_aligned_fraction,
-                                                  gene_id, query_id, target_id,
-                                                  HSP_n, score))
-        conn.commit()
-        conn.close()
+            """)
+            for row in cur:
+                cursor_insert = conn.cursor()
+                (gene_id, 
+                 query_id, 
+                 target_id,
+                 query_length,
+                 query_aln_dna_sequence,
+                 target_aln_dna_sequence,
+                 query_aln_prot_sequence,
+                 target_aln_prot_sequence,
+                 HSP_n,
+                 score) = row
+                dna_consev = 1 - (self.hd_dna_seqs(query_aln_dna_sequence, target_aln_dna_sequence) / len(query_aln_dna_sequence))
+                prot_consev = 1 - (self.hd_amino_seqs(query_aln_prot_sequence, target_aln_prot_sequence) / len(query_aln_prot_sequence))
+                query_dna_sequence = self.ungap_sequence(query_aln_dna_sequence)
+                target_dna_sequence = self.ungap_sequence(target_aln_dna_sequence)
+                query_prot_sequence = self.ungap_sequence(query_aln_prot_sequence)
+                target_prot_sequence = self.ungap_sequence(target_aln_prot_sequence)
+                query_aligned_fraction = len(query_dna_sequence)/query_length
+                update_string = """
+                UPDATE 
+                concatenate_fragments
+                SET 
+                dna_perc_conservation = ?,
+                prot_perc_conservation = ?,
+                query_dna_sequence = ?,
+                target_dna_sequence = ?,
+                query_prot_sequence = ?,
+                target_prot_sequence = ?,
+                query_aligned_fraction = ?
+                WHERE 
+                (gene_id = ? AND query_id = ? AND target_id = ? AND HSP_n = ? AND score = ?)
+                """
+                cursor_insert.execute(update_string, (dna_consev, prot_consev,
+                                                      query_dna_sequence, target_dna_sequence,
+                                                      query_prot_sequence, target_prot_sequence,
+                                                      query_aligned_fraction,
+                                                      gene_id, query_id, target_id,
+                                                      HSP_n, score))
+            conn.commit()
+            conn.close()
