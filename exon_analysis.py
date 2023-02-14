@@ -25,12 +25,9 @@ class ExonAnalysis(GenomeAnalysis):
 
     def read_genome(self, genome_file_dir, return_=False):
         if self.hard_masking:
-            genome = {fasta.id : {'+' : re.sub('[a-z]', 'N', str(fasta.seq)),
-                                  '-': re.sub('[a-z]', 'N', str(fasta.seq.complement()))} 
-                      for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
+            genome = {fasta.id : re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
         else:
-            genome = {fasta.id : {'+' : str(fasta.seq), '-': str(fasta.seq.complement())} 
-                      for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
+            genome = {fasta.id : str(fasta.seq) for fasta in SeqIO.parse(open(genome_file_dir), 'fasta')}
         if not return_: self.genome = genome
         else: return genome
         
@@ -50,8 +47,8 @@ class ExonAnalysis(GenomeAnalysis):
                     intev_dict['id']:
                     [
                         i.span() for i in re.finditer(
-                        self.genome[intev_dict['chrom']]['+'][intv.lower:intv.upper],
-                        self.genome[intev_dict['chrom']]['+'][self.db[ID].start: 
+                        self.genome[intev_dict['chrom']][intv.lower:intv.upper],
+                        self.genome[intev_dict['chrom']][self.db[ID].start: 
                                                               self.db[ID].end])
                     ] 
                     for intv, intv_dict in transcript_dict.items()
