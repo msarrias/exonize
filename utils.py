@@ -49,10 +49,10 @@ def batch(iterable, n=1):
         yield iterable[ndx:min(ndx + n, it_length)]
 
 
-def get_overlapping_percentage(a, b):
+def get_overlap_percentage(a, b):
     """
     Given two intervals, the function
-    get_overlapping_percentage returns the percentage
+    get_overlap_percentage returns the percentage
     of the overlapping region relative to an interval b.
     """
     intersection = a & b
@@ -93,18 +93,23 @@ def gaps_from_peptide(peptide_seq, nucleotide_seq):
 def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
     hsp_dict = cds_dict['tblastx_hits'][hsp_idx]
     hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
+    hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
+    hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
+
     return (gene_id,
             mrna_id,
             cds_id,
             int(cds_dict['frame']),
-            hit_q_frame,
-            hit_t_frame,
+            cds_dict['coord'].lower,
+            cds_dict['coord'].upper,
+            hit_q_f,
+            hit_q_s,
+            hit_t_f,
+            hit_t_s,
             hsp_dict['score'],
             hsp_dict['bits'],
             hsp_dict['evalue'],
             hsp_dict['alignment_len'],
-            cds_dict['coord'].lower,
-            cds_dict['coord'].upper,
             hsp_dict['query_start'],
             hsp_dict['query_end'],
             hsp_dict['target_start'],
@@ -148,3 +153,13 @@ def get_hsp_dict(hsp, query_seq, hit_seq):
             prot_perc_identity=prot_perc_identity,
             dna_perc_identity=dna_perc_identity
             )
+
+
+def reformat_frame_strand(frame):
+    n_frame = abs(frame) - 1
+    n_strand = '+'
+    if frame < 0:
+        n_strand = '-'
+    return n_frame, n_strand
+
+
