@@ -46,10 +46,6 @@ def get_dna_seq(seq, frame, start, end):
         return seq[start:end]
 
 
-def seq_record(seq, seq_id):
-    return SeqRecord(Seq(seq), id=seq_id)
-
-
 def batch(iterable, n=1):
     it_length = len(iterable)
     for ndx in range(0, it_length, n):
@@ -60,20 +56,6 @@ def codon_alignment(dna_seq_a, dna_seq_b, peptide_seq_a, peptide_seq_b):
     dna_align_a = gaps_from_peptide(peptide_seq_a, dna_seq_a)
     dna_align_b = gaps_from_peptide(peptide_seq_b, dna_seq_b)
     return dna_align_a, dna_align_b
-
-
-def get_small_large_interval(a, b):
-    """
-    Given two intervals, the function
-    get_small_large_interval returns the smaller
-    and the larger interval in length.
-    """
-    len_a = a.upper - a.lower
-    len_b = b.upper - b.lower
-    if len_a < len_b:
-        return a, b
-    else:
-        return b, a
 
 
 def get_overlapping_percentage(a, b):
@@ -89,20 +71,6 @@ def get_overlapping_percentage(a, b):
         return 0
 
 
-def strand_to_int(strand):
-    if strand == '+':
-        return 1
-    else:
-        return -1
-
-
-def check_int_type(fragment_dict):
-    return all(isinstance(x, int) for x in [fragment_dict['query_coord'].lower,
-                                            fragment_dict['query_coord'].upper,
-                                            fragment_dict['hit_coord'].lower,
-                                            fragment_dict['hit_coord'].upper])
-
-
 def gaps_from_peptide(peptide_seq, nucleotide_seq):
     """ Transfers gaps from aligned peptide seq into codon partitioned nucleotide seq (codon alignment)
           - peptide_seq is an aligned peptide sequence with gaps that need to be transferred to nucleotide seq
@@ -112,13 +80,13 @@ def gaps_from_peptide(peptide_seq, nucleotide_seq):
         for i in range(0, len(l), n):
             yield l[i:i+n]
     codons = [codon for codon in chunks(nucleotide_seq, 3)]  # splits nucleotides into codons (triplets)
-    gapped_codons = []
+    gaped_codons = []
     codon_count = 0
     for aa in peptide_seq:  # adds '---' gaps to nucleotide seq corresponding to peptide
         if aa != '*':
-            gapped_codons.append(codons[codon_count])
+            gaped_codons.append(codons[codon_count])
             codon_count += 1
         else:
-            gapped_codons.append('---')
-    return ''.join(gapped_codons)
+            gaped_codons.append('---')
+    return ''.join(gaped_codons)
 
