@@ -9,9 +9,6 @@ def read_pkl_file(filepath: str) -> dict:
         read_file = pickle.load(handle)
     return read_file
 
-# write a function display_time that given a time of start "tic" and end "tac" prints out the time in seconds
-# if (tac - tic) is less than a minute, minutes if (tac - tic) is less than an hour
-
 
 def dump_pkl_file(out_filepath: str, obj: dict) -> None:
     with open(out_filepath, 'wb') as handle:
@@ -52,12 +49,6 @@ def batch(iterable, n=1):
         yield iterable[ndx:min(ndx + n, it_length)]
 
 
-def codon_alignment(dna_seq_a, dna_seq_b, peptide_seq_a, peptide_seq_b):
-    dna_align_a = gaps_from_peptide(peptide_seq_a, dna_seq_a)
-    dna_align_b = gaps_from_peptide(peptide_seq_b, dna_seq_b)
-    return dna_align_a, dna_align_b
-
-
 def get_overlapping_percentage(a, b):
     """
     Given two intervals, the function
@@ -71,14 +62,22 @@ def get_overlapping_percentage(a, b):
         return 0
 
 
+def codon_alignment(dna_seq_a, dna_seq_b, peptide_seq_a, peptide_seq_b):
+    dna_align_a = gaps_from_peptide(peptide_seq_a, dna_seq_a)
+    dna_align_b = gaps_from_peptide(peptide_seq_b, dna_seq_b)
+    return dna_align_a, dna_align_b
+
+
 def gaps_from_peptide(peptide_seq, nucleotide_seq):
     """ Transfers gaps from aligned peptide seq into codon partitioned nucleotide seq (codon alignment)
           - peptide_seq is an aligned peptide sequence with gaps that need to be transferred to nucleotide seq
           - nucleotide_seq is an un-aligned dna sequence whose codons translate to peptide seq"""
-    def chunks(l, n):
+
+    def chunks(seq, n):
         """ Yield successive n-sized chunks from l."""
-        for i in range(0, len(l), n):
-            yield l[i:i+n]
+        for i in range(0, len(seq), n):
+            yield seq[i:i + n]
+
     codons = [codon for codon in chunks(nucleotide_seq, 3)]  # splits nucleotides into codons (triplets)
     gaped_codons = []
     codon_count = 0
@@ -90,3 +89,34 @@ def gaps_from_peptide(peptide_seq, nucleotide_seq):
             gaped_codons.append('---')
     return ''.join(gaped_codons)
 
+
+def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
+    hsp_dict = cds_dict['tblastx_hits'][hsp_idx]
+    hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
+    return (gene_id,
+            mrna_id,
+            cds_id,
+            int(cds_dict['frame']),
+            hit_q_frame,
+            hit_t_frame,
+            hsp_dict['score'],
+            hsp_dict['bits'],
+            hsp_dict['evalue'],
+            hsp_dict['query_len'],
+            hsp_dict['alignment_len'],
+            hsp_dict['query_aligned_fraction'],
+            cds_dict['coord'].lower,
+            cds_dict['coord'].upper,
+            hsp_dict['query_start'],
+            hsp_dict['query_end'],
+            hsp_dict['target_start'],
+            hsp_dict['target_end'],
+            hsp_dict['query_dna_seq'],
+            hsp_dict['target_dna_seq'],
+            hsp_dict['query_aln_prot_seq'],
+            hsp_dict['target_aln_prot_seq'],
+            hsp_dict['match'],
+            hsp_dict['query_num_stop_codons'],
+            hsp_dict['target_num_stop_codons'],
+            hsp_dict['dna_perc_identity'],
+            hsp_dict['prot_perc_identity'])
