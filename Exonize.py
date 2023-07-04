@@ -177,10 +177,6 @@ class Exonize(object):
 
     def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, gene_coord) -> dict:
         """
-        :param q_coord:
-        :param hit_seq:
-        :param blast_records:
-        :param query_seq:
         We only want to consider hits that:
             (i)   have an e-value lower than the threshold,
             (ii)  have a minimum alignment length percentage of the query sequence and
@@ -191,47 +187,25 @@ class Exonize(object):
         res_tblastx = {}
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
-            # there's going to be only one alignment per blast_record
-            for alignment in blast_record.alignments:
-                for hsp_idx, hsp in enumerate(alignment.hsps):
-                    blast_target_coord = P.open((hsp.sbjct_start-1) + gene_coord.lower, hsp.sbjct_end + gene_coord.lower)
-                    query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
-                    query_target_overlapping_percentage = get_overlapping_percentage(blast_target_coord, q_coord)
-                    if (hsp.expect < self.evalue
-                            and query_aligned_frac > self.min_align_len_perc
-                            and query_target_overlapping_percentage < 0.5):
-                        q_frame, t_frame = hsp.frame
-                        # Recover the DNA codon alignment from the tblastx alignment
-                        q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
-                        t_dna_seq = get_dna_seq(hit_seq, t_frame, (hsp.sbjct_start - 1), hsp.sbjct_end)
-                        prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
-                        dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
-                        res_tblastx[hsp_idx] = dict(
-                            score=hsp.score,
-                            bits=hsp.bits,
-                            evalue=hsp.expect,
-                            alignment_len=hsp.align_length * 3,
-                            query_aligned_fraction=query_aligned_frac,
-                            hit_frame=hsp.frame,
-                            query_len=blast_record.query_length,
-                            query_start=hsp.query_start - 1,
-                            query_end=hsp.query_end,
-                            target_start=hsp.sbjct_start - 1,
-                            target_end=hsp.sbjct_end,
-                            query_dna_seq=q_dna_seq,
-                            target_dna_seq=t_dna_seq,
-                            query_aln_prot_seq=hsp.query,
-                            target_aln_prot_seq=hsp.sbjct,
-                            query_dna_align=q_dna_seq,
-                            target_dna_align=t_dna_seq,
-                            query_num_stop_codons=hsp.query.count('*'),
-                            target_num_stop_codons=hsp.sbjct.count('*'),
-                            match=hsp.match,
-                            prot_perc_identity=prot_perc_identity,
-                            dna_perc_identity=dna_perc_identity,
-                            query_target_overlapping_perc=query_target_overlapping_percentage
-                        )
+            alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
+            for hsp_idx, hsp in enumerate(alignment.hsps):
+                blast_target_coord = P.open((hsp.sbjct_start - 1) + gene_coord.lower, hsp.sbjct_end + gene_coord.lower)
+                query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
+                query_target_overlapping_percentage = get_overlapping_percentage(blast_target_coord, q_coord)
+                if (hsp.expect < self.evalue
+                        and query_aligned_frac > self.min_align_len_perc
+                        and query_target_overlapping_percentage < 0.5):
+                    res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
+
+    def get_gene_tuple(self, gene_id, bin_has_dup):
+        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        return (gene_id,
+                self.gene_hierarchy_dict[gene_id]['chrom'],
+                (self.gene_hierarchy_dict[gene_id]['strand']),
+                gene_coord.lower,
+                gene_coord.upper,
+                bin_has_dup)
 
     def find_coding_exon_duplicates(self, gene_id) -> None:
         """
@@ -260,13 +234,7 @@ class Exonize(object):
         if mrna_blast_dict:
             self.insert_fragments_table(gene_id, mrna_blast_dict)
         else:
-            gene_arg_tuple = (gene_id,
-                              self.gene_hierarchy_dict[gene_id]['chrom'],
-                              (self.gene_hierarchy_dict[gene_id]['strand']),
-                              self.gene_hierarchy_dict[gene_id]['coord'].lower,
-                              self.gene_hierarchy_dict[gene_id]['coord'].upper,
-                              0)
-            self.insert_gene_ids_table(gene_arg_tuple)
+            self.insert_gene_ids_table(self.get_gene_tuple(gene_id, 0))
 
     def connect_create_results_db(self):
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
@@ -294,9 +262,7 @@ class Exonize(object):
         score INTEGER NOT NULL,
         bits INTEGER NOT NULL,
         evalue REAL NOT NULL,
-        query_len INTEGER NOT NULL,
         alignment_len INTEGER NOT NULL,
-        query_aligned_fraction REAL NOT NULL,  
         cds_start INTEGER NOT NULL,
         cds_end INTEGER NOT NULL,               
         query_start INTEGER NOT NULL,
@@ -311,8 +277,8 @@ class Exonize(object):
         query_num_stop_codons INTEGER NOT NULL,
         target_num_stop_codons INTEGER NOT NULL,
         dna_perc_identity REAL NOT NULL,
-        prot_perc_identity REAL NOT NULL,
-        query_target_overlapping_perc REAL NOT NULL)
+        prot_perc_identity REAL NOT NULL
+        )
         """)
         cursor.execute(
             """CREATE INDEX IF NOT EXISTS Fragments_idx ON Fragments (gene_id, mrna_id, query_id);""")
@@ -345,41 +311,11 @@ class Exonize(object):
         db.close()
 
     def insert_fragments_table(self, gene_id: str, blast_mrna_cds_dict: dict) -> None:
-        tuple_list = []
-        for mrna_id, blast_cds_dict in blast_mrna_cds_dict.items():
-            for cds_id, cds_dict in blast_cds_dict.items():
-                for hsp_idx, hsp_dict in cds_dict['tblastx_hits'].items():
-                    hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
-                    tuple_list.append(
-                        (gene_id,
-                         mrna_id,
-                         cds_id,
-                         int(cds_dict['frame']),
-                         hit_q_frame,
-                         hit_t_frame,
-                         hsp_dict['score'],
-                         hsp_dict['bits'],
-                         hsp_dict['evalue'],
-                         hsp_dict['query_len'],
-                         hsp_dict['alignment_len'],
-                         hsp_dict['query_aligned_fraction'],
-                         cds_dict['coord'].lower,
-                         cds_dict['coord'].upper,
-                         hsp_dict['query_start'],
-                         hsp_dict['query_end'],
-                         hsp_dict['target_start'],
-                         hsp_dict['target_end'],
-                         hsp_dict['query_dna_seq'],
-                         hsp_dict['target_dna_seq'],
-                         hsp_dict['query_aln_prot_seq'],
-                         hsp_dict['target_aln_prot_seq'],
-                         hsp_dict['match'],
-                         hsp_dict['query_num_stop_codons'],
-                         hsp_dict['target_num_stop_codons'],
-                         hsp_dict['dna_perc_identity'],
-                         hsp_dict['prot_perc_identity'],
-                         hsp_dict['query_target_overlapping_perc'])
-                    )
+        tuple_list = [get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx)
+                      for mrna_id, blast_cds_dict in blast_mrna_cds_dict.items()
+                      for cds_id, cds_dict in blast_cds_dict.items()
+                      for hsp_idx, hsp_dict in cds_dict['tblastx_hits'].items()]
+
         insert_fragments_table_param = """
         INSERT INTO Fragments (
         gene_id,
@@ -391,9 +327,7 @@ class Exonize(object):
         score,
         bits,
         evalue,
-        query_len,
         alignment_len,
-        query_aligned_fraction,
         cds_start,
         cds_end,
         query_start,
@@ -408,10 +342,9 @@ class Exonize(object):
         query_num_stop_codons,
         target_num_stop_codons,
         dna_perc_identity,
-        prot_perc_identity,
-        query_target_overlapping_perc
+        prot_perc_identity
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         insert_gene_table_param = """
         INSERT INTO GeneIDs
@@ -423,16 +356,9 @@ class Exonize(object):
         has_duplicated_exon)
         VALUES (?, ?, ?, ?, ?, ?)
         """
-        gene_arg_tuple = (gene_id,
-                          self.gene_hierarchy_dict[gene_id]['chrom'],
-                          (self.gene_hierarchy_dict[gene_id]['strand']),
-                          self.gene_hierarchy_dict[gene_id]['coord'].lower,
-                          self.gene_hierarchy_dict[gene_id]['coord'].upper,
-                          1)
-
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
         cursor = db.cursor()
-        cursor.execute(insert_gene_table_param, gene_arg_tuple)
+        cursor.execute(insert_gene_table_param, self.get_gene_tuple(gene_id, 1))
         cursor.executemany(insert_fragments_table_param, tuple_list)
         db.commit()
         db.close()
