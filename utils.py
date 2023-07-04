@@ -102,9 +102,7 @@ def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
             hsp_dict['score'],
             hsp_dict['bits'],
             hsp_dict['evalue'],
-            hsp_dict['query_len'],
             hsp_dict['alignment_len'],
-            hsp_dict['query_aligned_fraction'],
             cds_dict['coord'].lower,
             cds_dict['coord'].upper,
             hsp_dict['query_start'],
@@ -120,3 +118,33 @@ def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
             hsp_dict['target_num_stop_codons'],
             hsp_dict['dna_perc_identity'],
             hsp_dict['prot_perc_identity'])
+
+
+def get_hsp_dict(hsp, query_seq, hit_seq):
+    q_frame, t_frame = hsp.frame
+    q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
+    t_dna_seq = get_dna_seq(hit_seq, t_frame, (hsp.sbjct_start - 1), hsp.sbjct_end)
+    prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
+    dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
+    return dict(
+            score=hsp.score,
+            bits=hsp.bits,
+            evalue=hsp.expect,
+            alignment_len=hsp.align_length * 3,
+            hit_frame=hsp.frame,
+            query_start=hsp.query_start - 1,
+            query_end=hsp.query_end,
+            target_start=hsp.sbjct_start - 1,
+            target_end=hsp.sbjct_end,
+            query_dna_seq=q_dna_seq,
+            target_dna_seq=t_dna_seq,
+            query_aln_prot_seq=hsp.query,
+            target_aln_prot_seq=hsp.sbjct,
+            query_dna_align=q_dna_seq,
+            target_dna_align=t_dna_seq,
+            query_num_stop_codons=hsp.query.count('*'),
+            target_num_stop_codons=hsp.sbjct.count('*'),
+            match=hsp.match,
+            prot_perc_identity=prot_perc_identity,
+            dna_perc_identity=dna_perc_identity
+            )
