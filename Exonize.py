@@ -123,11 +123,8 @@ class Exonize(object):
                 self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
             else:
                 self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
-            tac_genome = time.time()
-            if self.verbose:
-                elapsed = tac_genome - tic_genome
-                hms_time = dt.strftime(dt.utcfromtimestamp(elapsed), '%H:%M:%S')
-                print(f"[{hms_time}]")
+            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
+            print(f"Done! [{hms_time}]")
         except ValueError:
             print("Wrong genome file path")
 
@@ -188,13 +185,15 @@ class Exonize(object):
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
+            if len([aln for aln in blast_record.alignments]) > 1:
+                print("More than one alignment per blast_record")
             for hsp_idx, hsp in enumerate(alignment.hsps):
                 blast_target_coord = P.open((hsp.sbjct_start - 1) + gene_coord.lower, hsp.sbjct_end + gene_coord.lower)
                 query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
-                query_target_overlapping_percentage = get_overlapping_percentage(blast_target_coord, q_coord)
+                query_target_overlap_percentage = get_overlap_percentage(blast_target_coord, q_coord)
                 if (hsp.expect < self.evalue
                         and query_aligned_frac > self.min_align_len_perc
-                        and query_target_overlapping_percentage < 0.5):
+                        and query_target_overlap_percentage < 0.5):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
 
@@ -220,9 +219,8 @@ class Exonize(object):
             if cds_list:
                 blast_mrna_cds_dict = {}
                 for coord, annot in cds_list.items():
-                    cds_frame = int(annot['frame'])
                     if (coord.upper - coord.lower) >= 30:  # only consider CDS queries with length >= 30
-                        cds_seq = self.genome[chrom][(coord.lower+cds_frame):coord.upper]
+                        cds_seq = self.genome[chrom][coord.lower:coord.upper]
                         mrna_seq = self.genome[chrom][mrna_coord.lower:mrna_coord.upper]
                         temp = self.run_tblastx(gene_id, mrna_id, annot['id'], cds_seq, mrna_seq, coord)
                         if temp:
@@ -240,31 +238,32 @@ class Exonize(object):
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS GeneIDs (
+        CREATE TABLE IF NOT EXISTS Genes (
         gene_id VARCHAR(100) PRIMARY KEY,
         gene_chrom VARCHAR(100) NOT NULL,
         gene_strand VARCHAR(1) NOT NULL,
         gene_start INTEGER NOT NULL,
         gene_end INTEGER NOT NULL,
-        has_duplicated_exon BINARY(1) NOT NULL,
+        has_duplicated_CDS BINARY(1) NOT NULL,
         UNIQUE(gene_id))
                 """)
-
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS Fragments (
         fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gene_id  VARCHAR(100) NOT NULL REFERENCES GeneIDs(gene_id),
+        gene_id  VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
         mrna_id VARCHAR(100) NOT NULL,
-        query_id VARCHAR(100) NOT NULL,
+        CDS_id VARCHAR(100) NOT NULL,
+        CDS_frame INTEGER NOT NULL,
+        CDS_start INTEGER NOT NULL,
+        CDS_end INTEGER NOT NULL,  
         query_frame INTEGER NOT NULL,
-        hit_query_frame VARCHAR(100) NOT NULL,
-        hit_target_frame VARCHAR(100) NOT NULL,
+        query_strand VARCHAR(1) NOT NULL,
+        target_frame INTEGER NOT NULL,
+        target_strand VARCHAR(1) NOT NULL,
         score INTEGER NOT NULL,
         bits INTEGER NOT NULL,
         evalue REAL NOT NULL,
         alignment_len INTEGER NOT NULL,
-        cds_start INTEGER NOT NULL,
-        cds_end INTEGER NOT NULL,               
         query_start INTEGER NOT NULL,
         query_end INTEGER NOT NULL,
         target_start INTEGER NOT NULL,
@@ -280,15 +279,59 @@ class Exonize(object):
         prot_perc_identity REAL NOT NULL
         )
         """)
-        cursor.execute(
-            """CREATE INDEX IF NOT EXISTS Fragments_idx ON Fragments (gene_id, mrna_id, query_id);""")
+        cursor.execute("""CREATE INDEX IF NOT EXISTS Fragments_idx ON Fragments (gene_id, mrna_id, CDS_id);""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Fragments_matches (
+        fragment_match_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+        CDS_mrna_id VARCHAR(100) NOT NULL REFERENCES Fragments(mrna_id),
+        CDS_id VARCHAR(100) NOT NULL REFERENCES Fragments(CDS_id),
+        match_mrna_id VARCHAR(100) NOT NULL,
+        match_id VARCHAR(100) NOT NULL,
+        match_annot_start INTEGER NOT NULL,
+        match_annot_end INTEGER NOT NULL,
+        overlap_percentage REAL NOT NULL,
+        UNIQUE(gene_id, CDS_mrna_id, CDS_id, match_mrna_id, match_id))
+                """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS Fragments_id_idx ON Fragments_matches (gene_id, CDS_mrna_id, CDS_id);
+        """)
+        db.commit()
+        db.close()
+
+    def get_fragments_matches_tuples(self, gene_id, mrna_id, event) -> list:
+        cds_mrna_id, cds_id, target_start, target_end, _ = event
+        trans_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
+        target_coord = P.open(target_start + trans_coord.lower, target_end + trans_coord.lower)
+        trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['structure']
+        return [(gene_id, cds_mrna_id,
+                 cds_id, mrna_id, annot_dict['id'],
+                 coord.lower, coord.upper, round(get_overlap_percentage(target_coord, coord), 3))
+                for coord, annot_dict in trans_structure.items() if target_coord.overlaps(coord)]
+
+    def insert_fragments_matches_table(self, tuples_list: list) -> None:
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        cursor = db.cursor()
+        insert_frag_match_table_param = """
+        INSERT INTO Fragments_matches (
+        gene_id,
+        CDS_mrna_id,
+        CDS_id,
+        match_mrna_id,
+        match_id,
+        match_annot_start,
+        match_annot_end,
+        overlap_percentage)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.executemany(insert_frag_match_table_param, tuples_list)
         db.commit()
         db.close()
 
     def query_gene_ids_in_res_db(self):
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
         cursor = db.cursor()
-        cursor.execute("SELECT gene_id FROM GeneIDs")
+        cursor.execute("SELECT gene_id FROM Genes")
         rows = cursor.fetchall()
         db.close()
         return [i[0] for i in rows]
@@ -297,13 +340,13 @@ class Exonize(object):
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
         cursor = db.cursor()
         insert_gene_table_param = """  
-        INSERT INTO GeneIDs (
+        INSERT INTO Genes (
         gene_id,
         gene_chrom,
         gene_strand,
         gene_start, 
         gene_end,  
-        has_duplicated_exon) 
+        has_duplicated_CDS) 
         VALUES (?, ?, ?, ?, ?, ?)
         """
         cursor.execute(insert_gene_table_param, gene_args_tuple)
@@ -320,16 +363,18 @@ class Exonize(object):
         INSERT INTO Fragments (
         gene_id,
         mrna_id,
-        query_id,
+        CDS_id,
+        CDS_frame,
+        CDS_start,
+        CDS_end,
         query_frame,
-        hit_query_frame,
-        hit_target_frame,
+        query_strand,
+        target_frame,
+        target_strand,
         score,
         bits,
         evalue,
         alignment_len,
-        cds_start,
-        cds_end,
         query_start,
         query_end,
         target_start,
@@ -344,16 +389,16 @@ class Exonize(object):
         dna_perc_identity,
         prot_perc_identity
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         insert_gene_table_param = """
-        INSERT INTO GeneIDs
+        INSERT INTO Genes
         (gene_id,
         gene_chrom,
         gene_strand,
         gene_start,
         gene_end,
-        has_duplicated_exon)
+        has_duplicated_CDS)
         VALUES (?, ?, ?, ?, ?, ?)
         """
         db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
@@ -362,6 +407,51 @@ class Exonize(object):
         cursor.executemany(insert_fragments_table_param, tuple_list)
         db.commit()
         db.close()
+
+    def query_within_gene_events(self, gene_id):
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        cursor = db.cursor()
+        fragments_query = """
+        SELECT 
+        mrna_id,
+        CDS_id,
+        target_start,
+        target_end,
+        MIN(evalue)
+        FROM Fragments
+        WHERE gene_id==?
+        GROUP BY gene_id, mrna_id, CDS_id
+        HAVING (ABS(query_start - target_start) > 5 OR ABS(query_end - target_end) > 5)
+        """
+        cursor.execute(fragments_query, (gene_id,))
+        records = cursor.fetchall()
+        db.close()
+        return records
+
+    def query_genes_with_duplicated_cds(self):
+        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        cursor = db.cursor()
+        cursor.execute("""
+        SELECT gene_id 
+        FROM Genes 
+        WHERE has_duplicated_CDS==1
+        """)
+        rows = cursor.fetchall()
+        db.close()
+        return [i[0] for i in rows]
+
+    def identify_events(self):
+        genes_with_duplicated_cds = self.query_genes_with_duplicated_cds()
+        for gene_id in genes_with_duplicated_cds:
+            gene_events = self.query_within_gene_events(gene_id)
+            for event in gene_events:
+                gene_mrnas_list = list(self.gene_hierarchy_dict[gene_id]['mRNAs'].keys())
+                for mrna_id in gene_mrnas_list:
+                    fragments_matches_tuples_list = self.get_fragments_matches_tuples(gene_id, mrna_id, event)
+                    if fragments_matches_tuples_list:
+                        self.insert_fragments_matches_table(fragments_matches_tuples_list)
+                    else:
+                        print("check this case")
 
     def run_analysis(self) -> None:
         self.create_parse_or_update_database()
@@ -387,7 +477,10 @@ class Exonize(object):
                     t.close()
                     t.join()
                     progress_bar.update(len(arg_batch))
-            tac = time.time()
-            elapsed = tac - tic
-            hms_time = dt.strftime(dt.utcfromtimestamp(elapsed), '%H:%M:%S')
-            print(f'[{hms_time}]')
+            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+            print(f' Done! [{hms_time}]')
+        tic = time.time()
+        print('- Identifying region of events', end=' ')
+        self.identify_events()
+        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+        print(f' Done! [{hms_time}]')
