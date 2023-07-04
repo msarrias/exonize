@@ -1,18 +1,18 @@
-from utils import *                                   # helper functions
-import gffutils                                     # for creating/loading DBs
-import subprocess                                   # for calling gffread
-import portion as P                                 # for working with intervals
-import os                                           # for working with files
-import time                                         # for sleeping between BLAST calls and for timeout on DB creation
-import random                                       # for random sleep
-import sqlite3                                      # for working with SQLite
-import re                                           # regular expressions for genome masking
-import tempfile                                     # for creating temporary files
-from Bio import SeqIO                               # for reading FASTA files
-from tqdm import tqdm                               # progress bar
-from multiprocessing.pool import ThreadPool         # for parallelization
-from Bio.Blast import NCBIXML                       # for parsing BLAST results
-from datetime import datetime as dt                 # for timeout
+from utils import *                                                                 # helper functions
+import gffutils                                                                     # for creating/loading DBs
+import subprocess                                                                   # for calling gffread
+import portion as P                                                                 # for working with intervals
+import os                                                                           # for working with files
+import time                                                                         # for sleeping between BLAST calls and for timeout on DB creation
+import random                                                                       # for random sleep
+import sqlite3                                                                      # for working with SQLite
+import re                                                                           # regular expressions for genome masking
+import tempfile                                                                     # for creating temporary files
+from Bio import SeqIO                                                               # for reading FASTA files
+from tqdm import tqdm                                                               # progress bar
+from multiprocessing.pool import ThreadPool                                         # for parallelization
+from Bio.Blast import NCBIXML                                                       # for parsing BLAST results
+from datetime import datetime as dt                                                 # for timeout
 
 
 class Exonize(object):
@@ -30,23 +30,23 @@ class Exonize(object):
                  threads=6,
                  timeout_db=160.0):
 
-        self.genome = None                            # genome sequence
-        self.gene_hierarchy_dict = None               # gene hierarchy dictionary (gene -> transcript -> exon)
-        self.db_features = None                       # features in the database
-        self.old_filename = None                      # old filename (if GTF file is provided)
-        self.db = None                                # database object (gffutils)
-        self.specie_identifier = specie_identifier    # specie identifier
-        self.verbose = verbose                        # verbose mode (True/False)
-        self.in_file_path = gff_file_path             # input file path (GFF/GTF)
-        self.genome_path = genome_path                # genome path (FASTA)
-        self.hard_masking = hard_masking              # hard masking (True/False)
-        self.secs = sleep_max_seconds                 # max seconds to sleep between BLAST calls
-        self.min_exon_len = min_exon_length           # minimum exon length (bp)
-        self.timeout_db = timeout_db                  # timeout for creating the database (seconds)
-        self.evalue = evalue_threshold                # e-value threshold for BLAST
-        self.min_align_len_perc = min_align_len_perc  # minimum alignment length percentage of query length
-        self.batch_number = batch_number              # batch number for BLAST calls
-        self.threads = threads                        # number of threads for BLAST calls
+        self.genome = None                                                          # genome sequence
+        self.gene_hierarchy_dict = None                                             # gene hierarchy dictionary (gene -> transcript -> exon)
+        self.db_features = None                                                     # features in the database
+        self.old_filename = None                                                    # old filename (if GTF file is provided)
+        self.db = None                                                              # database object (gffutils)
+        self.specie_identifier = specie_identifier                                  # specie identifier
+        self.verbose = verbose                                                      # verbose mode (True/False)
+        self.in_file_path = gff_file_path                                           # input file path (GFF/GTF)
+        self.genome_path = genome_path                                              # genome path (FASTA)
+        self.hard_masking = hard_masking                                            # hard masking (True/False)
+        self.secs = sleep_max_seconds                                               # max seconds to sleep between BLAST calls
+        self.min_exon_len = min_exon_length                                         # minimum exon length (bp)
+        self.timeout_db = timeout_db                                                # timeout for creating the database (seconds)
+        self.evalue = evalue_threshold                                              # e-value threshold for BLAST
+        self.min_align_len_perc = min_align_len_perc                                # minimum alignment length percentage of query length
+        self.batch_number = batch_number                                            # batch number for BLAST calls
+        self.threads = threads                                                      # number of threads for BLAST calls
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
         self.results_df = f'{self.specie_identifier}_results.db'
@@ -65,7 +65,7 @@ class Exonize(object):
             self.create_database()
         if not self.db:
             if self.verbose:
-                print("Reading annotations database:", end=" ")
+                print("- Reading annotations database:", end=" ")
             self.load_db()
             if self.verbose:
                 print("Done!")
@@ -117,7 +117,7 @@ class Exonize(object):
         try:
             tic_genome = time.time()
             if self.verbose:
-                print("Reading genome file:", end=" ")
+                print("- Reading genome file:", end=" ")
             parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
             if self.hard_masking:
                 self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
@@ -171,10 +171,11 @@ class Exonize(object):
             subprocess.run(tblastx_command)
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
-                temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq, query_coord)
+                gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+                temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq, query_coord, gene_coord)
         return temp
 
-    def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord) -> dict:
+    def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, gene_coord) -> dict:
         """
         :param q_coord:
         :param hit_seq:
@@ -193,11 +194,12 @@ class Exonize(object):
             # there's going to be only one alignment per blast_record
             for alignment in blast_record.alignments:
                 for hsp_idx, hsp in enumerate(alignment.hsps):
-                    blast_target_coord = P.open((hsp.sbjct_start-1) + q_coord.lower, hsp.sbjct_end + q_coord.lower)
+                    blast_target_coord = P.open((hsp.sbjct_start-1) + gene_coord.lower, hsp.sbjct_end + gene_coord.lower)
                     query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
+                    query_target_overlapping_percentage = get_overlapping_percentage(blast_target_coord, q_coord)
                     if (hsp.expect < self.evalue
                             and query_aligned_frac > self.min_align_len_perc
-                            and get_overlapping_percentage(blast_target_coord, q_coord) < 0.5):
+                            and query_target_overlapping_percentage < 0.5):
                         q_frame, t_frame = hsp.frame
                         # Recover the DNA codon alignment from the tblastx alignment
                         q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
@@ -226,7 +228,8 @@ class Exonize(object):
                             target_num_stop_codons=hsp.sbjct.count('*'),
                             match=hsp.match,
                             prot_perc_identity=prot_perc_identity,
-                            dna_perc_identity=dna_perc_identity
+                            dna_perc_identity=dna_perc_identity,
+                            query_target_overlapping_perc=query_target_overlapping_percentage
                         )
         return res_tblastx
 
@@ -293,7 +296,9 @@ class Exonize(object):
         evalue REAL NOT NULL,
         query_len INTEGER NOT NULL,
         alignment_len INTEGER NOT NULL,
-        query_aligned_fraction REAL NOT NULL,                 
+        query_aligned_fraction REAL NOT NULL,  
+        cds_start INTEGER NOT NULL,
+        cds_end INTEGER NOT NULL,               
         query_start INTEGER NOT NULL,
         query_end INTEGER NOT NULL,
         target_start INTEGER NOT NULL,
@@ -306,7 +311,8 @@ class Exonize(object):
         query_num_stop_codons INTEGER NOT NULL,
         target_num_stop_codons INTEGER NOT NULL,
         dna_perc_identity REAL NOT NULL,
-        prot_perc_identity REAL NOT NULL)
+        prot_perc_identity REAL NOT NULL,
+        query_target_overlapping_perc REAL NOT NULL)
         """)
         cursor.execute(
             """CREATE INDEX IF NOT EXISTS Fragments_idx ON Fragments (gene_id, mrna_id, query_id);""")
@@ -357,6 +363,8 @@ class Exonize(object):
                          hsp_dict['query_len'],
                          hsp_dict['alignment_len'],
                          hsp_dict['query_aligned_fraction'],
+                         cds_dict['coord'].lower,
+                         cds_dict['coord'].upper,
                          hsp_dict['query_start'],
                          hsp_dict['query_end'],
                          hsp_dict['target_start'],
@@ -369,7 +377,8 @@ class Exonize(object):
                          hsp_dict['query_num_stop_codons'],
                          hsp_dict['target_num_stop_codons'],
                          hsp_dict['dna_perc_identity'],
-                         hsp_dict['prot_perc_identity'])
+                         hsp_dict['prot_perc_identity'],
+                         hsp_dict['query_target_overlapping_perc'])
                     )
         insert_fragments_table_param = """
         INSERT INTO Fragments (
@@ -385,6 +394,8 @@ class Exonize(object):
         query_len,
         alignment_len,
         query_aligned_fraction,
+        cds_start,
+        cds_end,
         query_start,
         query_end,
         target_start,
@@ -397,9 +408,10 @@ class Exonize(object):
         query_num_stop_codons,
         target_num_stop_codons,
         dna_perc_identity,
-        prot_perc_identity
+        prot_perc_identity,
+        query_target_overlapping_perc
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         insert_gene_table_param = """
         INSERT INTO GeneIDs
@@ -433,7 +445,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         self.read_genome()
         self.connect_create_results_db()
-        args_list = list(self.gene_hierarchy_dict.keys())
+        args_list = list(self.gene_hierarchy_dict.keys())[0:10]
         processed_gene_ids = self.query_gene_ids_in_res_db()
         if processed_gene_ids:
             args_list = [i for i in args_list if i not in processed_gene_ids]
@@ -441,7 +453,7 @@ class Exonize(object):
             batches_list = [i for i in batch(args_list, self.batch_number)]
             tic = time.time()
             if self.verbose:
-                print(f'Starting exon duplication search for {len(args_list)} genes.')
+                print(f'- Starting exon duplication search for {len(args_list)} genes.')
             with tqdm(total=len(args_list)) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
