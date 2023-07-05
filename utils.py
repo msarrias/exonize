@@ -22,7 +22,11 @@ def dump_fasta_file(out_filepath: str, seq_dict: dict) -> None:
             SeqIO.write(record, handle, "fasta")
 
 
-def sort_intervals_dict(interval_dict: dict) -> dict:
+def sort_list_intervals_dict(list_dicts: list) -> list:
+    return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']))
+
+
+def sort_key_intervals_dict(interval_dict: dict) -> dict:
     sorted_intervals = sorted(list(interval_dict.keys()), key=lambda item: (item.lower, item.upper))
     return {coord: interval_dict[coord] for coord in sorted_intervals}
 
@@ -161,5 +165,3 @@ def reformat_frame_strand(frame):
     if frame < 0:
         n_strand = '-'
     return n_frame, n_strand
-
-
