@@ -49,7 +49,7 @@ class Exonize(object):
         self.threads = threads                                                      # number of threads for BLAST calls
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
-        self.results_df = f'{self.specie_identifier}_results.db'
+        self.results_db = f'{self.specie_identifier}_results.db'
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
@@ -108,7 +108,7 @@ class Exonize(object):
             if self.verbose:
                 print(f"Writing intron annotations in database:", end=" ")
             self.db.update(list(self.db.create_introns()),
-                           id_spec=dict(intron=[lambda f: ''.join(f"{f[self.specie_identifier]}_{f['Parent']}")]),
+                           id_spec={'intron': [lambda f: ','.join(f['ID'])]},
                            make_backup=False)
             if self.verbose:
                 print("Done!")
@@ -141,15 +141,16 @@ class Exonize(object):
                 mrna_dict = dict(coord=gene_coord, chrom=gene.chrom, strand=gene.strand, mRNAs={})
                 for mrna_annot in mrna_transcripts:
                     mrna_coord = P.open(mrna_annot.start - 1, mrna_annot.end)
-                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand, structure={})
-                    temp_mrna_transcript = {}
+                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand, structure=[])
+                    temp_mrna_transcript = []
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
                         if coord:
-                            temp_mrna_transcript[coord] = {'id': child.id,  # ID attribute
-                                                           'frame': child.frame,  # One of '0', '1' or '2'. '0'
-                                                           'type': child.featuretype}  # feature type name
-                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_intervals_dict(temp_mrna_transcript)
+                            temp_mrna_transcript.append({'id': child.id,
+                                                         'coord': coord,  # ID attribute
+                                                         'frame': child.frame,  # One of '0', '1' or '2'. '0'
+                                                         'type': child.featuretype})  # feature type name
+                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
                 dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
@@ -157,7 +158,7 @@ class Exonize(object):
         with tempfile.TemporaryDirectory() as temp_dir_name:
             query_filename = f'{temp_dir_name}/query.fa'
             target_filename = f'{temp_dir_name}/target.fa'
-            output_file = f'{temp_dir_name}/output.xmp'
+            output_file = f'{temp_dir_name}/output.xml'
             dump_fasta_file(query_filename, {annot_id: query_seq})
             dump_fasta_file(target_filename, {f"{gene_id}_{mrna_id}": hit_seq})
             tblastx_command = ['tblastx',
@@ -184,6 +185,9 @@ class Exonize(object):
         res_tblastx = {}
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
+            if len(blast_record.alignments) == 0:
+                print(f"No alignments found {blast_record.descriptions[0].title}")
+                continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
                 print("More than one alignment per blast_record")
@@ -215,10 +219,12 @@ class Exonize(object):
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
             mrna_coord = mrna_annot['coord']
-            cds_list = {coord: annot for coord, annot in mrna_annot['structure'].items() if annot['type'] == 'CDS'}
-            if cds_list:
+            cds_dict = sort_key_intervals_dict({i['coord']: {key: m for key, m in i.items()
+                                                             if key != 'coord'}
+                                                for i in mrna_annot['structure'] if i['type'] == 'CDS'})
+            if cds_dict:
                 blast_mrna_cds_dict = {}
-                for coord, annot in cds_list.items():
+                for coord, annot in cds_dict.items():
                     if (coord.upper - coord.lower) >= 30:  # only consider CDS queries with length >= 30
                         cds_seq = self.genome[chrom][coord.lower:coord.upper]
                         mrna_seq = self.genome[chrom][mrna_coord.lower:mrna_coord.upper]
@@ -235,7 +241,7 @@ class Exonize(object):
             self.insert_gene_ids_table(self.get_gene_tuple(gene_id, 0))
 
     def connect_create_results_db(self):
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS Genes (
@@ -304,13 +310,13 @@ class Exonize(object):
         trans_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
         target_coord = P.open(target_start + trans_coord.lower, target_end + trans_coord.lower)
         trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['structure']
-        return [(gene_id, cds_mrna_id,
-                 cds_id, mrna_id, annot_dict['id'],
-                 coord.lower, coord.upper, round(get_overlap_percentage(target_coord, coord), 3))
-                for coord, annot_dict in trans_structure.items() if target_coord.overlaps(coord)]
+        return [(gene_id, cds_mrna_id, cds_id, mrna_id,
+                 annot['id'], annot['coord'].lower, annot['coord'].upper,
+                 round(get_overlap_percentage(target_coord, annot['coord']), 3))
+                for annot in trans_structure if target_coord.overlaps(annot['coord'])]
 
     def insert_fragments_matches_table(self, tuples_list: list) -> None:
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         insert_frag_match_table_param = """
         INSERT INTO Fragments_matches (
@@ -329,7 +335,7 @@ class Exonize(object):
         db.close()
 
     def query_gene_ids_in_res_db(self):
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("SELECT gene_id FROM Genes")
         rows = cursor.fetchall()
@@ -337,7 +343,7 @@ class Exonize(object):
         return [i[0] for i in rows]
 
     def insert_gene_ids_table(self, gene_args_tuple: tuple) -> None:
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         insert_gene_table_param = """  
         INSERT INTO Genes (
@@ -401,7 +407,7 @@ class Exonize(object):
         has_duplicated_CDS)
         VALUES (?, ?, ?, ?, ?, ?)
         """
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute(insert_gene_table_param, self.get_gene_tuple(gene_id, 1))
         cursor.executemany(insert_fragments_table_param, tuple_list)
@@ -409,7 +415,7 @@ class Exonize(object):
         db.close()
 
     def query_within_gene_events(self, gene_id):
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         fragments_query = """
         SELECT 
@@ -429,7 +435,7 @@ class Exonize(object):
         return records
 
     def query_genes_with_duplicated_cds(self):
-        db = sqlite3.connect(self.results_df, timeout=self.timeout_db)
+        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("""
         SELECT gene_id 
@@ -461,7 +467,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         self.read_genome()
         self.connect_create_results_db()
-        args_list = list(self.gene_hierarchy_dict.keys())[0:10]
+        args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = self.query_gene_ids_in_res_db()
         if processed_gene_ids:
             args_list = [i for i in args_list if i not in processed_gene_ids]
