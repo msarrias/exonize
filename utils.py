@@ -2,6 +2,9 @@ import pickle  # saving and loading dictionaries
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio import SeqIO
+from Bio.Align.Applications import MuscleCommandline
+from Bio import AlignIO
+import tempfile
 
 
 def read_pkl_file(filepath: str) -> dict:
@@ -94,14 +97,15 @@ def gaps_from_peptide(peptide_seq, nucleotide_seq):
     return ''.join(gaped_codons)
 
 
-def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
+def get_fragment_tuple(gene_id, mrna_id, mrna_coords, cds_id, cds_dict, hsp_idx):
     hsp_dict = cds_dict['tblastx_hits'][hsp_idx]
     hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
     hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
     hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-
     return (gene_id,
             mrna_id,
+            mrna_coords.lower,
+            mrna_coords.upper,
             cds_id,
             int(cds_dict['frame']),
             cds_dict['coord'].lower,
@@ -129,12 +133,15 @@ def get_fragment_tuple(gene_id, mrna_id, cds_id, cds_dict, hsp_idx):
             hsp_dict['prot_perc_identity'])
 
 
-def get_hsp_dict(hsp, query_seq, hit_seq):
+def get_hsp_dict(query_id, hsp, query_seq, hit_seq):
     q_frame, t_frame = hsp.frame
     q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
     t_dna_seq = get_dna_seq(hit_seq, t_frame, (hsp.sbjct_start - 1), hsp.sbjct_end)
-    prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
-    dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
+    try:
+        prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
+        dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
+    except ZeroDivisionError:
+        print(f'{query_id} has no alignment')
     return dict(
             score=hsp.score,
             bits=hsp.bits,
@@ -165,3 +172,18 @@ def reformat_frame_strand(frame):
     if frame < 0:
         n_strand = '-'
     return n_frame, n_strand
+
+
+def muscle_pairwise_alignment(seq1, seq2, muscle_exe="muscle"):
+    with tempfile.TemporaryDirectory() as temp_dir_name:
+        input_file = f'{temp_dir_name}/input.fa'
+        out_file = f'{temp_dir_name}/out.fa'
+        with open(input_file, "w") as f:
+            f.write(seq1 + "\n")
+            f.write(seq2 + "\n")
+        # Run MUSCLE for pairwise alignment
+        muscle_cline = MuscleCommandline(muscle_exe, input=input_file, out=out_file)
+        muscle_cline()
+        # Parse the alignment from the output file
+        alignment = AlignIO.read(out_file, "fasta")
+    return alignment
