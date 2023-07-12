@@ -26,7 +26,7 @@ class Exonize(object):
                  evalue_threshold=1e-1,
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
-                 min_exon_length=10,
+                 min_exon_length=20,
                  batch_number=10,
                  threads=6,
                  timeout_db=160.0):
@@ -107,10 +107,15 @@ class Exonize(object):
         annotations will be created
         """
         if 'intron' not in self.db_features:
-            print("- The genome annotations do not contain intron annotations")
+            print('---------------------Warning------------------------------')
+            print("-The genomic annotations do not contain intron annotations")
+            print('----------------------------------------------------------')
             if self.verbose:
                 print(f"- Attempting to write intron annotations in database:", end=" ")
             try:
+
+
+
                 def intron_id(f):
                     return ','.join(f[self.id_spec_attribute])
 
@@ -166,6 +171,7 @@ class Exonize(object):
 
     def run_tblastx(self, gene_id: str, mrna_id: str, annot_id: str,
                     query_seq: str, hit_seq: str, query_coord) -> dict:
+        annot_id = annot_id.replace(':', '_')
         identifier = f'{gene_id}_{mrna_id}_{annot_id}'
         output_file = f'output/{identifier}_output.xml'
         if not os.path.exists(output_file):
@@ -202,7 +208,8 @@ class Exonize(object):
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
             if len(blast_record.alignments) == 0:
-                print(f"No alignments found {query_id}")
+                query_len = len(query_seq)
+                print(f"No alignments found {query_id} --- query length: {query_len}")
                 continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
@@ -214,7 +221,7 @@ class Exonize(object):
                 if (hsp.expect < self.evalue
                         and query_aligned_frac > self.min_align_len_perc
                         and query_target_overlap_percentage < 0.5):
-                    res_tblastx[hsp_idx] = get_hsp_dict(query_id, hsp, query_seq, hit_seq)
+                    res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
 
     def get_gene_tuple(self, gene_id, bin_has_dup):
@@ -312,6 +319,7 @@ class Exonize(object):
         CDS_end INTEGER NOT NULL,
         match_mrna_id VARCHAR(100) NOT NULL,
         match_id VARCHAR(100) NOT NULL,
+        feature VARCHAR(100) NOT NULL,
         match_annot_start INTEGER NOT NULL,
         match_annot_end INTEGER NOT NULL,
         overlap_percentage REAL NOT NULL,
@@ -327,7 +335,7 @@ class Exonize(object):
         cds_mrna_id, cds_id, cds_start, cds_end, target_start, target_end, _ = event
         trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['structure']
         return [(gene_id, cds_mrna_id, cds_id, cds_start, cds_end, mrna_id,
-                 annot['id'], annot['coord'].lower, annot['coord'].upper,
+                 annot['id'], annot['type'], annot['coord'].lower, annot['coord'].upper,
                  round(get_overlap_percentage(target_coord, annot['coord']), 3))
                 for annot in trans_structure if target_coord.overlaps(annot['coord'])]
 
@@ -343,10 +351,11 @@ class Exonize(object):
         CDS_end,
         match_mrna_id,
         match_id,
+        feature,
         match_annot_start,
         match_annot_end,
         overlap_percentage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?)
         """
         cursor.executemany(insert_frag_match_table_param, tuples_list)
         db.commit()
@@ -496,6 +505,7 @@ class Exonize(object):
         self.connect_create_results_db()
 
     def run_analysis(self) -> None:
+        exonize()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = self.query_gene_ids_in_res_db()
