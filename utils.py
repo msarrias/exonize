@@ -38,11 +38,11 @@ def hamming_distance(seq_a: str, seq_b: str) -> float:
     return sum([i == j for i, j in zip(seq_a, seq_b)]) / len(seq_b)
 
 
-def reverse_complement(seq):
-    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}[B] for B in seq][::-1])
+def reverse_complement(seq: str) -> str:
+    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}[nucleotide] for nucleotide in seq][::-1])
 
 
-def get_dna_seq(seq, frame, start, end):
+def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
     if frame < 0:
         rev_comp = reverse_complement(seq)
         return rev_comp[start:end]
@@ -50,13 +50,13 @@ def get_dna_seq(seq, frame, start, end):
         return seq[start:end]
 
 
-def batch(iterable, n=1):
+def batch(iterable: list, n=1) -> list:
     it_length = len(iterable)
     for ndx in range(0, it_length, n):
         yield iterable[ndx:min(ndx + n, it_length)]
 
 
-def get_overlap_percentage(a, b):
+def get_overlap_percentage(a, b) -> float:
     """
     Given two intervals, the function
     get_overlap_percentage returns the percentage
@@ -69,18 +69,18 @@ def get_overlap_percentage(a, b):
         return 0
 
 
-def codon_alignment(dna_seq_a, dna_seq_b, peptide_seq_a, peptide_seq_b):
+def codon_alignment(dna_seq_a: str, dna_seq_b: str, peptide_seq_a: str, peptide_seq_b: str) -> tuple:
     dna_align_a = gaps_from_peptide(peptide_seq_a, dna_seq_a)
     dna_align_b = gaps_from_peptide(peptide_seq_b, dna_seq_b)
     return dna_align_a, dna_align_b
 
 
-def gaps_from_peptide(peptide_seq, nucleotide_seq):
+def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
     """ Transfers gaps from aligned peptide seq into codon partitioned nucleotide seq (codon alignment)
           - peptide_seq is an aligned peptide sequence with gaps that need to be transferred to nucleotide seq
           - nucleotide_seq is an un-aligned dna sequence whose codons translate to peptide seq"""
 
-    def chunks(seq, n):
+    def chunks(seq: seq, n: int) -> list:
         """ Yield successive n-sized chunks from l."""
         for i in range(0, len(seq), n):
             yield seq[i:i + n]
@@ -97,7 +97,7 @@ def gaps_from_peptide(peptide_seq, nucleotide_seq):
     return ''.join(gaped_codons)
 
 
-def get_fragment_tuple(gene_id, mrna_id, mrna_coords, cds_id, cds_dict, hsp_idx):
+def get_fragment_tuple(gene_id: str, mrna_id: str, mrna_coords, cds_id: str, cds_dict: dict, hsp_idx: int) -> tuple:
     hsp_dict = cds_dict['tblastx_hits'][hsp_idx]
     hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
     hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
@@ -133,15 +133,12 @@ def get_fragment_tuple(gene_id, mrna_id, mrna_coords, cds_id, cds_dict, hsp_idx)
             hsp_dict['prot_perc_identity'])
 
 
-def get_hsp_dict(query_id, hsp, query_seq, hit_seq):
+def get_hsp_dict(hsp, query_seq: str, hit_seq: str) -> dict:
     q_frame, t_frame = hsp.frame
     q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
     t_dna_seq = get_dna_seq(hit_seq, t_frame, (hsp.sbjct_start - 1), hsp.sbjct_end)
-    try:
-        prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
-        dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
-    except ZeroDivisionError:
-        print(f'{query_id} has no alignment')
+    prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
+    dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
     return dict(
             score=hsp.score,
             bits=hsp.bits,
@@ -166,7 +163,7 @@ def get_hsp_dict(query_id, hsp, query_seq, hit_seq):
             )
 
 
-def reformat_frame_strand(frame):
+def reformat_frame_strand(frame: int) -> tuple:
     n_frame = abs(frame) - 1
     n_strand = '+'
     if frame < 0:
@@ -174,7 +171,7 @@ def reformat_frame_strand(frame):
     return n_frame, n_strand
 
 
-def muscle_pairwise_alignment(seq1, seq2, muscle_exe="muscle"):
+def muscle_pairwise_alignment(seq1: str, seq2: str, muscle_exe="muscle"):
     with tempfile.TemporaryDirectory() as temp_dir_name:
         input_file = f'{temp_dir_name}/input.fa'
         out_file = f'{temp_dir_name}/out.fa'
@@ -187,3 +184,16 @@ def muscle_pairwise_alignment(seq1, seq2, muscle_exe="muscle"):
         # Parse the alignment from the output file
         alignment = AlignIO.read(out_file, "fasta")
     return alignment
+
+
+def exonize():
+    exonize_ansi_regular = """
+    
+    ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
+    ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
+    █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗  
+    ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝  
+    ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝                                                      
+    """
+    print(exonize)
