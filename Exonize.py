@@ -20,6 +20,7 @@ class Exonize(object):
                  gff_file_path,
                  genome_path,
                  specie_identifier,
+                 results_db_name='',
                  spec_attribute='ID',
                  verbose=True,
                  hard_masking=False,
@@ -51,7 +52,10 @@ class Exonize(object):
         self.id_spec_attribute = spec_attribute
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
-        self.results_db = f'{self.specie_identifier}_results.db'
+        self.results_db = results_db_name
+        if self.results_db == '':
+            self.results_db = f'{self.specie_identifier}_results.db'
+        self.results_db = results_db_name
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
@@ -208,8 +212,8 @@ class Exonize(object):
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
             if len(blast_record.alignments) == 0:
-                query_len = len(query_seq)
-                print(f"No alignments found {query_id} --- query length: {query_len}")
+                # query_len = len(query_seq)
+                # print(f"No alignments found {query_id} --- query length: {query_len}")
                 continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
@@ -314,10 +318,16 @@ class Exonize(object):
         fragment_match_id INTEGER PRIMARY KEY AUTOINCREMENT,
         gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
         CDS_mrna_id VARCHAR(100) NOT NULL REFERENCES Fragments(mrna_id),
+        CDS_mrna_start INTEGER NOT NULL,
+        CDS_mrna_end INTEGER NOT NULL,
         CDS_id VARCHAR(100) NOT NULL REFERENCES Fragments(CDS_id),
         CDS_start INTEGER NOT NULL,
         CDS_end INTEGER NOT NULL,
+        target_start INTEGER NOT NULL,
+        target_end INTEGER NOT NULL,
         match_mrna_id VARCHAR(100) NOT NULL,
+        match_mrna_start INTEGER NOT NULL,
+        match_mrna_end INTEGER NOT NULL,
         match_id VARCHAR(100) NOT NULL,
         feature VARCHAR(100) NOT NULL,
         match_annot_start INTEGER NOT NULL,
@@ -331,13 +341,16 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def get_fragments_matches_tuples(self, gene_id, mrna_id, event, target_coord) -> list:
+    def get_fragments_matches_tuples(self, gene_id, match_mrna_id, event, target_coord) -> list:
         cds_mrna_id, cds_id, cds_start, cds_end, target_start, target_end, _ = event
-        trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['structure']
-        return [(gene_id, cds_mrna_id, cds_id, cds_start, cds_end, mrna_id,
+        trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][match_mrna_id]
+        cds_mrna_coords = self.gene_hierarchy_dict[gene_id]['mRNAs'][cds_mrna_id]['coord']
+        return [(gene_id, cds_mrna_id, cds_mrna_coords.lower, cds_mrna_coords.upper,
+                 cds_id, cds_start, cds_end, target_coord.lower, target_coord.upper,
+                 match_mrna_id, trans_structure['coord'].lower, trans_structure['coord'].upper,
                  annot['id'], annot['type'], annot['coord'].lower, annot['coord'].upper,
-                 round(get_overlap_percentage(target_coord, annot['coord']), 3))
-                for annot in trans_structure if target_coord.overlaps(annot['coord'])]
+                 round(get_overlap_percentage(annot['coord'], target_coord), 3))
+                for annot in trans_structure['structure'] if target_coord.overlaps(annot['coord'])]
 
     def insert_fragments_matches_table(self, tuples_list: list) -> None:
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
@@ -346,16 +359,22 @@ class Exonize(object):
         INSERT OR IGNORE INTO Fragments_matches (
         gene_id,
         CDS_mrna_id,
+        CDS_mrna_start,
+        CDS_mrna_end,
         CDS_id,
         CDS_start,
         CDS_end,
+        target_start,
+        target_end,
         match_mrna_id,
+        match_mrna_start,
+        match_mrna_end,
         match_id,
         feature,
         match_annot_start,
         match_annot_end,
         overlap_percentage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?, ?, ?, ?, ?, ?, ?)
         """
         cursor.executemany(insert_frag_match_table_param, tuples_list)
         db.commit()
@@ -488,8 +507,8 @@ class Exonize(object):
                     trans_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
                     target_coord = P.open(target_start + trans_coord.lower, target_end + trans_coord.lower)
                     if trans_coord.overlaps(target_coord):
-                        fragments_matches_tuples_list = self.get_fragments_matches_tuples(gene_id, mrna_id, event,
-                                                                                          target_coord)
+                        fragments_matches_tuples_list = self.get_fragments_matches_tuples(gene_id, mrna_id,
+                                                                                          event, target_coord)
                         if fragments_matches_tuples_list:
                             self.insert_fragments_matches_table(fragments_matches_tuples_list)
                         else:
