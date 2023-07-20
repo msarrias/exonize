@@ -117,10 +117,7 @@ class Exonize(object):
             if self.verbose:
                 print(f"- Attempting to write intron annotations in database:", end=" ")
             try:
-
-
-
-                def intron_id(f):
+                def intron_id(f) -> str:
                     return ','.join(f[self.id_spec_attribute])
 
                 introns_list = list(self.db.create_introns())
@@ -147,7 +144,7 @@ class Exonize(object):
         except ValueError:
             print("Wrong genome file path")
 
-    def create_gene_hierarchy_dict(self):
+    def create_gene_hierarchy_dict(self) -> None:
         """
         GFF coordinates are 1-based, so we need to subtract 1 from the start position to convert to 0-based.
         :return:
@@ -194,12 +191,12 @@ class Exonize(object):
             mrna_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
             try:
                 temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq,
-                                                 query_coord, mrna_coord, annot_id)
+                                                 query_coord, mrna_coord)
             except KeyError:
                 print(f"KeyError: {gene_id} {mrna_id} {annot_id}")
         return temp
 
-    def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, hit_coord, query_id) -> dict:
+    def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, hit_coord) -> dict:
         """
         We only want to consider hits that:
             (i)   have an e-value lower than the threshold,
@@ -228,7 +225,7 @@ class Exonize(object):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
 
-    def get_gene_tuple(self, gene_id, bin_has_dup):
+    def get_gene_tuple(self, gene_id: str, bin_has_dup: int) -> tuple:
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         return (gene_id,
                 self.gene_hierarchy_dict[gene_id]['chrom'],
@@ -237,7 +234,7 @@ class Exonize(object):
                 gene_coord.upper,
                 bin_has_dup)
 
-    def find_coding_exon_duplicates(self, gene_id) -> None:
+    def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
         The reading frame of the CDS queries is respected in the tblastx search.
         """
@@ -266,7 +263,7 @@ class Exonize(object):
         else:
             self.insert_gene_ids_table(self.get_gene_tuple(gene_id, 0))
 
-    def connect_create_results_db(self):
+    def connect_create_results_db(self) -> None:
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -341,7 +338,7 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def get_fragments_matches_tuples(self, gene_id, match_mrna_id, event, target_coord) -> list:
+    def get_fragments_matches_tuples(self, gene_id: str, match_mrna_id: str, event: list, target_coord) -> list:
         cds_mrna_id, cds_id, cds_start, cds_end, target_start, target_end, _ = event
         trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][match_mrna_id]
         cds_mrna_coords = self.gene_hierarchy_dict[gene_id]['mRNAs'][cds_mrna_id]['coord']
@@ -380,7 +377,7 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def query_gene_ids_in_res_db(self):
+    def query_gene_ids_in_res_db(self) -> list:
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("SELECT gene_id FROM Genes")
@@ -462,7 +459,7 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def query_within_gene_events(self, gene_id):
+    def query_within_gene_events(self, gene_id: str) -> list:
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         fragments_query = """
@@ -484,7 +481,7 @@ class Exonize(object):
         db.close()
         return records
 
-    def query_genes_with_duplicated_cds(self):
+    def query_genes_with_duplicated_cds(self) -> list:
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -496,7 +493,7 @@ class Exonize(object):
         db.close()
         return [i[0] for i in rows]
 
-    def identify_events(self):
+    def identify_events(self) -> None:
         genes_with_duplicated_cds = self.query_genes_with_duplicated_cds()
         for gene_id in genes_with_duplicated_cds:
             gene_events = self.query_within_gene_events(gene_id)
@@ -514,7 +511,7 @@ class Exonize(object):
                         else:
                             print(f"check this case{mrna_id, gene_id, event}")
 
-    def prepare_data(self):
+    def prepare_data(self) -> None:
         self.create_parse_or_update_database()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
@@ -524,7 +521,7 @@ class Exonize(object):
         self.connect_create_results_db()
 
     def run_analysis(self) -> None:
-        exonize()
+        exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = self.query_gene_ids_in_res_db()
