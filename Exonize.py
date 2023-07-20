@@ -1,18 +1,18 @@
-from utils import *                                    # helper functions
+from sqlite_utils import *
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
 import portion as P                                    # for working with intervals
 import os                                              # for working with files
 import time                                            # for sleeping between BLAST calls and for timeout on DB creation
 import random                                          # for random sleep
-import sqlite3                                         # for working with SQLite
 import re                                              # regular expressions for genome masking
 # import tempfile                                        # for creating temporary files
 from Bio import SeqIO                                  # for reading FASTA files
 from tqdm import tqdm                                  # progress bar
 from multiprocessing.pool import ThreadPool            # for parallelization
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
-from datetime import datetime as dt                    # for timeout
+from datetime import datetime as dt
+import sys
 
 
 class Exonize(object):
@@ -96,14 +96,21 @@ class Exonize(object):
                                          disable_infer_transcripts=True)
             if self.verbose:
                 print("Done!")
-        except ValueError:
-            print("Wrong infile path")
+        except ValueError as e:
+            print(' ')
+            print('---------------------ERROR-------------------------------')
+            print(f"Incorrect genome annotations file  {e}")
+            print('---------------------------------------------------------')
+            sys.exit()
 
     def load_db(self) -> None:
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
-        except ValueError:
-            print("Wrong db file path")
+        except ValueError as e:
+            print(' ')
+            print('---------------------ERROR-------------------------------')
+            print(f"Incorrect data base path  {e}")
+            print('---------------------------------------------------------')
 
     def create_intron_annotations(self) -> None:
         """
@@ -141,8 +148,12 @@ class Exonize(object):
                 self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
             print(f"Done! [{hms_time}]")
-        except ValueError:
-            print("Wrong genome file path")
+        except (ValueError, FileNotFoundError) as e:
+            print(' ')
+            print('---------------------ERROR-------------------------------')
+            print(f"Incorrect genome file path {e}")
+            print('---------------------------------------------------------')
+            sys.exit()
 
     def create_gene_hierarchy_dict(self) -> None:
         """
@@ -248,7 +259,7 @@ class Exonize(object):
             if cds_dict:
                 blast_mrna_cds_dict = {}
                 for cds_coord, annot in cds_dict.items():
-                    if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:  # only consider CDS queries with length >= 30
+                    if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:  # only consider CDS queries with length >= x
                         cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
                         mrna_seq = self.genome[chrom][mrna_coord.lower:mrna_coord.upper]
                         temp = self.run_tblastx(gene_id, mrna_id, annot['id'], cds_seq, mrna_seq, cds_coord)
@@ -261,82 +272,7 @@ class Exonize(object):
         if mrna_blast_dict:
             self.insert_fragments_table(gene_id, mrna_blast_dict)
         else:
-            self.insert_gene_ids_table(self.get_gene_tuple(gene_id, 0))
-
-    def connect_create_results_db(self) -> None:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Genes (
-        gene_id VARCHAR(100) PRIMARY KEY,
-        gene_chrom VARCHAR(100) NOT NULL,
-        gene_strand VARCHAR(1) NOT NULL,
-        gene_start INTEGER NOT NULL,
-        gene_end INTEGER NOT NULL,
-        has_duplicated_CDS BINARY(1) NOT NULL,
-        UNIQUE(gene_id))
-                """)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Fragments (
-        fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gene_id  VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
-        mrna_id VARCHAR(100) NOT NULL,
-        mrna_start INTEGER NOT NULL,
-        mrna_end INTEGER NOT NULL,
-        CDS_id VARCHAR(100) NOT NULL,
-        CDS_frame INTEGER NOT NULL,
-        CDS_start INTEGER NOT NULL,
-        CDS_end INTEGER NOT NULL,  
-        query_frame INTEGER NOT NULL,
-        query_strand VARCHAR(1) NOT NULL,
-        target_frame INTEGER NOT NULL,
-        target_strand VARCHAR(1) NOT NULL,
-        score INTEGER NOT NULL,
-        bits INTEGER NOT NULL,
-        evalue REAL NOT NULL,
-        alignment_len INTEGER NOT NULL,
-        query_start INTEGER NOT NULL,
-        query_end INTEGER NOT NULL,
-        target_start INTEGER NOT NULL,
-        target_end INTEGER NOT NULL,
-        query_dna_seq VARCHAR NOT NULL,
-        target_dna_seq VARCHAR NOT NULL,
-        query_aln_prot_seq VARCHAR NOT NULL,
-        target_aln_prot_seq VARCHAR NOT NULL,
-        match VARCHAR NOT NULL,
-        query_num_stop_codons INTEGER NOT NULL,
-        target_num_stop_codons INTEGER NOT NULL,
-        dna_perc_identity REAL NOT NULL,
-        prot_perc_identity REAL NOT NULL)
-        """)
-        cursor.execute("""CREATE INDEX IF NOT EXISTS Fragments_idx ON Fragments (gene_id, mrna_id, CDS_id);""")
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Fragments_matches (
-        fragment_match_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
-        CDS_mrna_id VARCHAR(100) NOT NULL REFERENCES Fragments(mrna_id),
-        CDS_mrna_start INTEGER NOT NULL,
-        CDS_mrna_end INTEGER NOT NULL,
-        CDS_id VARCHAR(100) NOT NULL REFERENCES Fragments(CDS_id),
-        CDS_start INTEGER NOT NULL,
-        CDS_end INTEGER NOT NULL,
-        target_start INTEGER NOT NULL,
-        target_end INTEGER NOT NULL,
-        match_mrna_id VARCHAR(100) NOT NULL,
-        match_mrna_start INTEGER NOT NULL,
-        match_mrna_end INTEGER NOT NULL,
-        match_id VARCHAR(100) NOT NULL,
-        feature VARCHAR(100) NOT NULL,
-        match_annot_start INTEGER NOT NULL,
-        match_annot_end INTEGER NOT NULL,
-        overlap_percentage REAL NOT NULL,
-        UNIQUE(gene_id, CDS_mrna_id, CDS_id, match_mrna_id, match_id))
-                """)
-        cursor.execute("""
-        CREATE INDEX IF NOT EXISTS Fragments_id_idx ON Fragments_matches (gene_id, CDS_mrna_id, CDS_id);
-        """)
-        db.commit()
-        db.close()
+            insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def get_fragments_matches_tuples(self, gene_id: str, match_mrna_id: str, event: list, target_coord) -> list:
         cds_mrna_id, cds_id, cds_start, cds_end, target_start, target_end, _ = event
@@ -346,61 +282,9 @@ class Exonize(object):
                  cds_id, cds_start, cds_end, target_coord.lower, target_coord.upper,
                  match_mrna_id, trans_structure['coord'].lower, trans_structure['coord'].upper,
                  annot['id'], annot['type'], annot['coord'].lower, annot['coord'].upper,
-                 round(get_overlap_percentage(annot['coord'], target_coord), 3))
+                 round(get_overlap_percentage(annot['coord'], target_coord), 3),
+                 round(get_overlap_percentage(target_coord, annot['coord']), 3))
                 for annot in trans_structure['structure'] if target_coord.overlaps(annot['coord'])]
-
-    def insert_fragments_matches_table(self, tuples_list: list) -> None:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        insert_frag_match_table_param = """
-        INSERT OR IGNORE INTO Fragments_matches (
-        gene_id,
-        CDS_mrna_id,
-        CDS_mrna_start,
-        CDS_mrna_end,
-        CDS_id,
-        CDS_start,
-        CDS_end,
-        target_start,
-        target_end,
-        match_mrna_id,
-        match_mrna_start,
-        match_mrna_end,
-        match_id,
-        feature,
-        match_annot_start,
-        match_annot_end,
-        overlap_percentage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?, ?, ?, ?, ?, ?, ?)
-        """
-        cursor.executemany(insert_frag_match_table_param, tuples_list)
-        db.commit()
-        db.close()
-
-    def query_gene_ids_in_res_db(self) -> list:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        cursor.execute("SELECT gene_id FROM Genes")
-        rows = cursor.fetchall()
-        db.close()
-        return [i[0] for i in rows]
-
-    def insert_gene_ids_table(self, gene_args_tuple: tuple) -> None:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        insert_gene_table_param = """  
-        INSERT INTO Genes (
-        gene_id,
-        gene_chrom,
-        gene_strand,
-        gene_start, 
-        gene_end,  
-        has_duplicated_CDS) 
-        VALUES (?, ?, ?, ?, ?, ?)
-        """
-        cursor.execute(insert_gene_table_param, gene_args_tuple)
-        db.commit()
-        db.close()
 
     def insert_fragments_table(self, gene_id: str, blast_mrna_cds_dict: dict) -> None:
         tuple_list = [get_fragment_tuple(gene_id, mrna_id, blast_cds_dict['coord'], cds_id, cds_dict, hsp_idx)
@@ -408,50 +292,7 @@ class Exonize(object):
                       for cds_id, cds_dict in blast_cds_dict['blast_mrna_dict'].items()
                       for hsp_idx, hsp_dict in cds_dict['tblastx_hits'].items()]
 
-        insert_fragments_table_param = """
-        INSERT INTO Fragments (
-        gene_id,
-        mrna_id,
-        mrna_start,
-        mrna_end,
-        CDS_id,
-        CDS_frame,
-        CDS_start,
-        CDS_end,
-        query_frame,
-        query_strand,
-        target_frame,
-        target_strand,
-        score,
-        bits,
-        evalue,
-        alignment_len,
-        query_start,
-        query_end,
-        target_start,
-        target_end,
-        query_dna_seq,
-        target_dna_seq,
-        query_aln_prot_seq,
-        target_aln_prot_seq,
-        match,
-        query_num_stop_codons,
-        target_num_stop_codons,
-        dna_perc_identity,
-        prot_perc_identity
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        insert_gene_table_param = """
-        INSERT INTO Genes
-        (gene_id,
-        gene_chrom,
-        gene_strand,
-        gene_start,
-        gene_end,
-        has_duplicated_CDS)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """
+        insert_fragments_table_param, insert_gene_table_param = insert_fragments_calls()
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
         cursor.execute(insert_gene_table_param, self.get_gene_tuple(gene_id, 1))
@@ -459,44 +300,10 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def query_within_gene_events(self, gene_id: str) -> list:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        fragments_query = """
-        SELECT 
-        mrna_id,
-        CDS_id,
-        CDS_start,
-        CDS_end,
-        target_start,
-        target_end,
-        MIN(evalue)
-        FROM Fragments
-        WHERE gene_id==?
-        GROUP BY gene_id, mrna_id, CDS_id
-        HAVING (ABS(query_start - target_start) > 5 OR ABS(query_end - target_end) > 5)
-        """
-        cursor.execute(fragments_query, (gene_id,))
-        records = cursor.fetchall()
-        db.close()
-        return records
-
-    def query_genes_with_duplicated_cds(self) -> list:
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT gene_id 
-        FROM Genes 
-        WHERE has_duplicated_CDS==1
-        """)
-        rows = cursor.fetchall()
-        db.close()
-        return [i[0] for i in rows]
-
     def identify_events(self) -> None:
-        genes_with_duplicated_cds = self.query_genes_with_duplicated_cds()
+        genes_with_duplicated_cds = query_genes_with_duplicated_cds(self.results_db, self.timeout_db)
         for gene_id in genes_with_duplicated_cds:
-            gene_events = self.query_within_gene_events(gene_id)
+            gene_events = query_within_gene_events(self.results_db, self.timeout_db, gene_id)
             for event in gene_events:
                 gene_mrnas_list = list(self.gene_hierarchy_dict[gene_id]['mRNAs'].keys())
                 for mrna_id in gene_mrnas_list:
@@ -507,7 +314,8 @@ class Exonize(object):
                         fragments_matches_tuples_list = self.get_fragments_matches_tuples(gene_id, mrna_id,
                                                                                           event, target_coord)
                         if fragments_matches_tuples_list:
-                            self.insert_fragments_matches_table(fragments_matches_tuples_list)
+                            insert_fragments_matches_table(self.results_db, self.timeout_db,
+                                                           fragments_matches_tuples_list)
                         else:
                             print(f"check this case{mrna_id, gene_id, event}")
 
@@ -518,13 +326,13 @@ class Exonize(object):
         else:
             self.create_gene_hierarchy_dict()
         self.read_genome()
-        self.connect_create_results_db()
+        connect_create_results_db(self.results_db, self.timeout_db)
 
     def run_analysis(self) -> None:
         exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
-        processed_gene_ids = self.query_gene_ids_in_res_db()
+        processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
         if processed_gene_ids:
             args_list = [i for i in args_list if i not in processed_gene_ids]
         if args_list:
