@@ -4,7 +4,9 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
-import tempfile, re
+import tempfile
+import re
+import random
 
 
 def read_pkl_file(filepath: str) -> dict:
@@ -195,12 +197,44 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
         if (e2-s2) == (e1-s1):
             return seq1, seq2
         elif (e2-s2) < (e1-s1):
-            s, e = seq2_match.start(1), seq2_match.end(1)
             return seq1[s2:e2], seq2[s2:e2]
         else:
             return seq1[s1:e1], seq2[s1:e1]
     else:
         print('The input sequences are not aligned')
+
+
+def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
+    overlapping_coords = {}
+    skip_coords = []
+    for idx, i in enumerate(list_coords):
+        if i not in skip_coords:
+            if i not in overlapping_coords:
+                overlapping_coords[i] = []
+            for j in list_coords[idx+1:]:
+                if j not in skip_coords:
+                    if all([get_overlap_percentage(i, j) > 0.9,
+                            get_overlap_percentage(j, i) > 0.9]):
+                        overlapping_coords[i].append(j)
+                        skip_coords.append(j)
+            skip_coords.append(i)
+    return overlapping_coords
+
+
+def get_non_overlapping_coords_set(overlapping_coords_dict: dict) -> list:
+    return [max([intv, *overlp_intv], key=lambda x: x.upper - x.lower)
+            for intv, overlp_intv in overlapping_coords_dict.items()]
+
+
+def sample_color(n=1) -> list:
+    return ["#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)])
+            for i in range(n)]
+
+
+def strand_string_to_integer(strand: str) -> int:
+    if strand == '-':
+        return -1
+    return 1
 
 
 def exonize_asci_art():
