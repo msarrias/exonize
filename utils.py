@@ -4,7 +4,7 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
-import tempfile
+import tempfile, re
 
 
 def read_pkl_file(filepath: str) -> dict:
@@ -80,7 +80,7 @@ def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
           - peptide_seq is an aligned peptide sequence with gaps that need to be transferred to nucleotide seq
           - nucleotide_seq is an un-aligned dna sequence whose codons translate to peptide seq"""
 
-    def chunks(seq: seq, n: int) -> list:
+    def chunks(seq: str, n: int) -> list:
         """ Yield successive n-sized chunks from l."""
         for i in range(0, len(seq), n):
             yield seq[i:i + n]
@@ -186,14 +186,31 @@ def muscle_pairwise_alignment(seq1: str, seq2: str, muscle_exe="muscle"):
     return alignment
 
 
-def exonize():
+def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple:
+    if len(seq1) == len(seq2):
+        p = re.compile(r'^-*([^-\s].*?[^-])-*$')
+        seq1_match, seq2_match = p.search(seq1), p.search(seq2)
+        s1, e1 = seq1_match.start(1), seq1_match.end(1)
+        s2, e2 = seq2_match.start(1), seq2_match.end(1)
+        if (e2-s2) == (e1-s1):
+            return seq1, seq2
+        elif (e2-s2) < (e1-s1):
+            s, e = seq2_match.start(1), seq2_match.end(1)
+            return seq1[s2:e2], seq2[s2:e2]
+        else:
+            return seq1[s1:e1], seq2[s1:e1]
+    else:
+        print('The input sequences are not aligned')
+
+
+def exonize_asci_art():
     exonize_ansi_regular = """
     
     ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
     ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
-    █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗  
-    ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝  
+    █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
+    ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
     ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
-    ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝                                                      
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
     """
-    print(exonize)
+    print(exonize_ansi_regular)
