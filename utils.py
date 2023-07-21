@@ -99,19 +99,14 @@ def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
     return ''.join(gaped_codons)
 
 
-def get_fragment_tuple(gene_id: str, mrna_id: str, mrna_coords, cds_id: str, cds_dict: dict, hsp_idx: int) -> tuple:
-    hsp_dict = cds_dict['tblastx_hits'][hsp_idx]
+def get_fragment_tuple(gene_id: str, cds_coord, blast_hits: dict, hsp_idx: int) -> tuple:
+    hsp_dict = blast_hits[hsp_idx]
     hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
     hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
     hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
     return (gene_id,
-            mrna_id,
-            mrna_coords.lower,
-            mrna_coords.upper,
-            cds_id,
-            int(cds_dict['frame']),
-            cds_dict['coord'].lower,
-            cds_dict['coord'].upper,
+            cds_coord.lower,
+            cds_coord.upper,
             hit_q_f,
             hit_q_s,
             hit_t_f,
@@ -235,6 +230,27 @@ def strand_string_to_integer(strand: str) -> int:
     if strand == '-':
         return -1
     return 1
+
+
+def identify_obligatory_events():
+    pass
+
+
+def identify_truncation_events():
+    pass
+
+
+def identify_trunctation():
+    pass
+
+
+def identify_deactivated_duplication():
+    pass
+
+
+def identify_MEXs_transcripts():
+    pass
+
 
 
 def exonize_asci_art():
