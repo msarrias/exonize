@@ -181,16 +181,17 @@ class Exonize(object):
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
                 dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-    def run_tblastx(self, gene_id: str, mrna_id: str, annot_id: str,
-                    query_seq: str, hit_seq: str, query_coord) -> dict:
-        annot_id = annot_id.replace(':', '_')
-        identifier = f'{gene_id}_{mrna_id}_{annot_id}'
+    def run_tblastx(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
+        chrom = self.gene_hierarchy_dict[gene_id]['chrom']
+        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
         output_file = f'output/{identifier}_output.xml'
         if not os.path.exists(output_file):
             query_filename = f'input/{identifier}_query.fa'
-            target_filename = f'input/{identifier}_target.fa'
-            dump_fasta_file(query_filename, {annot_id: query_seq})
-            dump_fasta_file(target_filename, {f"{gene_id}_{mrna_id}": hit_seq})
+            target_filename = f'input/{gene_id}_target.fa'
+            if not os.path.exists(target_filename):
+                dump_fasta_file(target_filename, {f"{gene_id}": hit_seq})
+            dump_fasta_file(query_filename, {identifier: query_seq})
             tblastx_command = ['tblastx',
                                '-query', query_filename,
                                '-subject', target_filename,
@@ -199,12 +200,11 @@ class Exonize(object):
             subprocess.run(tblastx_command)
         with open(output_file, "r") as result_handle:
             blast_records = NCBIXML.parse(result_handle)
-            mrna_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
             try:
-                temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq,
-                                                 query_coord, mrna_coord)
-            except KeyError:
-                print(f"KeyError: {gene_id} {mrna_id} {annot_id}")
+                temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq, query_coord, gene_coord)
+            except Exception as e:
+                print(e)
+                sys.exit()
         return temp
 
     def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, hit_coord) -> dict:
@@ -250,47 +250,42 @@ class Exonize(object):
         The reading frame of the CDS queries is respected in the tblastx search.
         """
         time.sleep(random.randrange(0, self.secs))
-        mrna_blast_dict = {}
+        CDS_blast_dict = {}
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
-        for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-            mrna_coord = mrna_annot['coord']
-            cds_dict = sort_key_intervals_dict({i['coord']: {key: m for key, m in i.items() if key != 'coord'}
-                                                for i in mrna_annot['structure'] if i['type'] == 'CDS'})
-            if cds_dict:
-                blast_mrna_cds_dict = {}
-                for cds_coord, annot in cds_dict.items():
-                    if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:  # only consider CDS queries with length >= x
-                        cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
-                        mrna_seq = self.genome[chrom][mrna_coord.lower:mrna_coord.upper]
-                        temp = self.run_tblastx(gene_id, mrna_id, annot['id'], cds_seq, mrna_seq, cds_coord)
-                        if temp:
-                            blast_mrna_cds_dict[annot['id']] = dict(coord=cds_coord,
-                                                                    frame=annot['frame'],
-                                                                    tblastx_hits=temp)
-                if blast_mrna_cds_dict:
-                    mrna_blast_dict[mrna_id] = dict(coord=mrna_coord, blast_mrna_dict=blast_mrna_cds_dict)
-        if mrna_blast_dict:
-            self.insert_fragments_table(gene_id, mrna_blast_dict)
+        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        CDS_coords_list = list(set([i['coord']
+                                    for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
+                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
+        if CDS_coords_list:
+            for cds_coord in CDS_coords_list:
+                if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
+                    cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
+                    gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+                    temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
+                    if temp:
+                        CDS_blast_dict[cds_coord] = temp
+        if CDS_blast_dict:
+            self.insert_fragments_table(gene_id, CDS_blast_dict)
         else:
             insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def get_fragments_matches_tuples(self, gene_id: str, match_mrna_id: str, event: list, target_coord) -> list:
-        cds_mrna_id, cds_id, cds_start, cds_end, target_start, target_end, _ = event
+        cds_mrna_id, cds_id, cds_start, cds_end, query_start, query_end, target_start, target_end, _ = event
         trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][match_mrna_id]
         cds_mrna_coords = self.gene_hierarchy_dict[gene_id]['mRNAs'][cds_mrna_id]['coord']
         return [(gene_id, cds_mrna_id, cds_mrna_coords.lower, cds_mrna_coords.upper,
-                 cds_id, cds_start, cds_end, target_coord.lower, target_coord.upper,
-                 match_mrna_id, trans_structure['coord'].lower, trans_structure['coord'].upper,
+                 cds_id, cds_start, cds_end, query_start, query_end,
+                 target_start, target_end, match_mrna_id,
+                 trans_structure['coord'].lower, trans_structure['coord'].upper,
                  annot['id'], annot['type'], annot['coord'].lower, annot['coord'].upper,
                  round(get_overlap_percentage(annot['coord'], target_coord), 3),
                  round(get_overlap_percentage(target_coord, annot['coord']), 3))
                 for annot in trans_structure['structure'] if target_coord.overlaps(annot['coord'])]
 
-    def insert_fragments_table(self, gene_id: str, blast_mrna_cds_dict: dict) -> None:
-        tuple_list = [get_fragment_tuple(gene_id, mrna_id, blast_cds_dict['coord'], cds_id, cds_dict, hsp_idx)
-                      for mrna_id, blast_cds_dict in blast_mrna_cds_dict.items()
-                      for cds_id, cds_dict in blast_cds_dict['blast_mrna_dict'].items()
-                      for hsp_idx, hsp_dict in cds_dict['tblastx_hits'].items()]
+    def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
+        tuple_list = [get_fragment_tuple(gene_id, cds_coord, blast_hits, hsp_idx)
+                      for cds_coord, blast_hits in blast_cds_dict.items()
+                      for hsp_idx, hsp_dict in blast_hits.items()]
 
         insert_fragments_table_param, insert_gene_table_param = insert_fragments_calls()
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
@@ -307,7 +302,7 @@ class Exonize(object):
             for event in gene_events:
                 gene_mrnas_list = list(self.gene_hierarchy_dict[gene_id]['mRNAs'].keys())
                 for mrna_id in gene_mrnas_list:
-                    target_start, target_end = event[4], event[5]
+                    target_start, target_end = event[6], event[7]
                     trans_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
                     target_coord = P.open(target_start + trans_coord.lower, target_end + trans_coord.lower)
                     if trans_coord.overlaps(target_coord):
@@ -349,8 +344,12 @@ class Exonize(object):
                     progress_bar.update(len(arg_batch))
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
-            tic = time.time()
-            print('- Identifying region of events', end=' ')
-            self.identify_events()
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-            print(f' Done! [{hms_time}]')
+            # tic = time.time()
+            # print('- Identifying region of events', end=' ')
+            # self.identify_events()
+            # hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+            # print(f' Done! [{hms_time}]')
+        else:
+            print('All genes already processed, '
+                  'if you want to re-run the analysis, '
+                  'delete/rename the results DB.')
