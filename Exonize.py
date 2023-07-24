@@ -155,6 +155,15 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
+    def prepare_data(self) -> None:
+        self.create_parse_or_update_database()
+        if os.path.exists(self.gene_hierarchy_path):
+            self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
+        else:
+            self.create_gene_hierarchy_dict()
+        self.read_genome()
+        connect_create_results_db(self.results_db, self.timeout_db)
+
     def create_gene_hierarchy_dict(self) -> None:
         """
         GFF coordinates are 1-based, so we need to subtract 1 from the start position to convert to 0-based.
@@ -229,10 +238,12 @@ class Exonize(object):
             for hsp_idx, hsp in enumerate(alignment.hsps):
                 blast_target_coord = P.open((hsp.sbjct_start - 1) + hit_coord.lower, hsp.sbjct_end + hit_coord.lower)
                 query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
-                query_target_overlap_percentage = get_overlap_percentage(blast_target_coord, q_coord)
+                target_query_overlap_percentage = get_overlap_percentage(blast_target_coord, q_coord)
+                query_target_overlap_percentage = get_overlap_percentage(q_coord, blast_target_coord)
                 if (hsp.expect < self.evalue
                         and query_aligned_frac > self.min_align_len_perc
-                        and query_target_overlap_percentage < 0.5):
+                        and query_target_overlap_percentage < 0.5
+                        and target_query_overlap_percentage < 0.5):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
 
@@ -295,33 +306,48 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def identify_events(self) -> None:
-        genes_with_duplicated_cds = query_genes_with_duplicated_cds(self.results_db, self.timeout_db)
-        for gene_id in genes_with_duplicated_cds:
-            gene_events = query_within_gene_events(self.results_db, self.timeout_db, gene_id)
-            for event in gene_events:
-                gene_mrnas_list = list(self.gene_hierarchy_dict[gene_id]['mRNAs'].keys())
-                for mrna_id in gene_mrnas_list:
-                    target_start, target_end = event[6], event[7]
-                    trans_coord = self.gene_hierarchy_dict[gene_id]['mRNAs'][mrna_id]['coord']
-                    target_coord = P.open(target_start + trans_coord.lower, target_end + trans_coord.lower)
-                    if trans_coord.overlaps(target_coord):
-                        fragments_matches_tuples_list = self.get_fragments_matches_tuples(gene_id, mrna_id,
-                                                                                          event, target_coord)
-                        if fragments_matches_tuples_list:
-                            insert_fragments_matches_table(self.results_db, self.timeout_db,
-                                                           fragments_matches_tuples_list)
-                        else:
-                            print(f"check this case{mrna_id, gene_id, event}")
-
-    def prepare_data(self) -> None:
-        self.create_parse_or_update_database()
-        if os.path.exists(self.gene_hierarchy_path):
-            self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
-        else:
-            self.create_gene_hierarchy_dict()
-        self.read_genome()
-        connect_create_results_db(self.results_db, self.timeout_db)
+    def find_full_length_duplications(self):
+        rows = query_within_gene_events(self.results_db, self.timeout_db)
+        tuples_full_length_duplications, tuples_obligatory_events = [], []
+        for row in rows:
+            fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e = row
+            target_intv = P.open(target_s + gene_s, target_e + gene_s)
+            for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
+                trans_coord = trans_dict['coord']
+                neither, query, target, both = 0, 0, 0, 0
+                CDS_id = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
+                          and i['coord'] == P.open(cds_s, cds_e)]
+                overlap = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
+                           if (i['coord'].contains(target_intv)
+                               or (get_overlap_percentage(target_intv, i['coord']) > 0.98
+                                   and get_overlap_percentage(i['coord'], target_intv) > 0.98))
+                           and i['type'] == "CDS"]
+                if len(CDS_id) > 1:
+                    print(f'overlapping query CDSs: {CDS_id}')
+                elif CDS_id:
+                    query = 1
+                if len(overlap) > 1:
+                    print(f'overlapping target CDSs: {overlap}')
+                elif overlap:
+                    target = 1
+                counter_q_t = query + target
+                if counter_q_t == 2:
+                    both = 1
+                    query, target = 0, 0
+                    query_CDS = CDS_id[0]
+                    target_CDS, _, t_CDS_coord = overlap[0]
+                    tuples_obligatory_events.append((fragment_id, gene_id, mrna,
+                                                     trans_coord.lower, trans_coord.upper,
+                                                     cds_s, cds_e,
+                                                     query_CDS, query_s, query_e,
+                                                     target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
+                                                     target_s, target_e))
+                elif counter_q_t == 0:
+                    neither = 1
+                tuples_full_length_duplications.append((fragment_id, gene_id, mrna, cds_s, cds_e,
+                                                        neither, query, target, both))
+        instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
+        instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
 
     def run_analysis(self) -> None:
         exonize_asci_art()
@@ -344,11 +370,11 @@ class Exonize(object):
                     progress_bar.update(len(arg_batch))
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
-            # tic = time.time()
-            # print('- Identifying region of events', end=' ')
-            # self.identify_events()
-            # hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-            # print(f' Done! [{hms_time}]')
+            tic = time.time()
+            print('- Identifying full length duplications', end=' ')
+            self.find_full_length_duplications()
+            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+            print(f' Done! [{hms_time}]')
         else:
             print('All genes already processed, '
                   'if you want to re-run the analysis, '
