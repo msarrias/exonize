@@ -53,27 +53,18 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     mrna_id VARCHAR(100) NOT NULL,
     CDS_start INTEGER NOT NULL,
     CDS_end INTEGER NOT NULL,
+    query_start INTEGER NOT NULL,
+    query_end INTEGER NOT NULL,
+    target_start INTEGER NOT NULL,
+    target_end INTEGER NOT NULL,
     neither BINARY(1) NOT NULL,
     query BINARY(1) NOT NULL,
     target BINARY(1) NOT NULL,
     both BINARY(1) NOT NULL,
-    UNIQUE(fragment_id, gene_id, mrna_id, CDS_start, CDS_end))""")
+    UNIQUE(fragment_id, gene_id, mrna_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end))""")
     cursor.execute("""
-    CREATE INDEX IF NOT EXISTS Full_length_duplications_idx ON Full_length_duplications (fragment_id, gene_id, mrna_id);
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS MXEs_events (
-    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
-    mrna_A VARCHAR(100) NOT NULL,
-    mrna_B VARCHAR(100) NOT NULL,
-    CDS_A VARCHAR(100) NOT NULL,
-    CDS_A_start INTEGER NOT NULL,
-    CDS_A_end INTEGER NOT NULL,
-    CDS_B VARCHAR(100) NOT NULL,
-    CDS_B_start INTEGER NOT NULL,
-    CDS_B_end INTEGER NOT NULL,
-    UNIQUE(gene_id, mrna_A, mrna_B))
+    CREATE INDEX IF NOT EXISTS Full_length_duplications_idx 
+    ON Full_length_duplications (fragment_id, gene_id, mrna_id, CDS_start, CDS_end);
     """)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Obligatory_events (
@@ -180,11 +171,15 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     mrna_id,
     CDS_start,
     CDS_end,
+    query_start,
+    query_end,
+    target_start,
+    target_end,
     neither,
     query,
     target,
     both )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
     """
     cursor.executemany(insert_full_length_event_table_param, tuples_list)
     db.commit()
@@ -359,13 +354,14 @@ def create_cumulative_counts_view(db_path, timeout_db) -> None:
     fm.query_end,
     fm.target_start,
     fm.target_end,
-    MIN(fm.evalue) AS evalue
+    fm.evalue
+    /* MIN(fm.evalue) AS evalue */
     FROM Fragments as fm
     JOIN Genes AS g
     ON fm.gene_id = g.gene_id
     JOIN Genes_mRNA_counts AS gc
     ON fm.gene_id = gc.gene_id
-    GROUP BY fm.gene_id, fm.CDS_start, fm.CDS_end
+    /* GROUP BY fm.gene_id, fm.CDS_start, fm.CDS_end */
     ORDER BY fm.fragment_id
     ) AS fn
     JOIN Full_length_duplications AS fld
@@ -373,7 +369,7 @@ def create_cumulative_counts_view(db_path, timeout_db) -> None:
     AND fn.fragment_id = fld.fragment_id
     AND fn.CDS_start = fld.CDS_start
     AND fn.CDS_end = fld.CDS_end
-    GROUP BY fn.gene_id, fn.CDS_start, fn.CDS_end
+    GROUP BY fn.fragment_id
     ORDER BY fn.fragment_id) AS fn2
     """)
     db.commit()
@@ -399,10 +395,12 @@ def create_exclusive_pairs_view(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
-    CREATE VIEW Exclusive_pairs_view AS
+    CREATE VIEW Exclusive_pairs AS
     SELECT 
     fm3.fragment_id,
     fm3.gene_id,
+    fm3.gene_start,
+    fm3.gene_end,
     fld.mrna_id,
     fm3.mrna_count,
     fms.CDS_start,
@@ -450,6 +448,10 @@ def create_exclusive_pairs_view(db_path, timeout_db) -> None:
     AND fm3.fragment_id = fld.fragment_id
     AND fm3.CDS_start = fld.CDS_start
     AND fm3.CDS_end = fld.CDS_end
+    AND fm3.query_start = fld.query_start
+    AND fm3.query_end = fld.query_end
+    AND fm3.target_start = fld.target_start
+    AND fm3.target_end = fld.target_end
     ORDER BY fm3.fragment_id, target, query;
     """)
     db.commit()
