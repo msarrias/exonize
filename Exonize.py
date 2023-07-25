@@ -28,8 +28,8 @@ class Exonize(object):
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
                  min_exon_length=20,
-                 batch_number=10,
-                 threads=6,
+                 batch_number=100,
+                 threads=7,
                  timeout_db=160.0):
 
         self.genome = None                             # genome sequence
@@ -70,11 +70,9 @@ class Exonize(object):
                 print(f'with filename: {self.in_file_path}')
             self.create_database()
         if not self.db:
-            if self.verbose:
-                print("- Reading annotations database:", end=" ")
+            print("- Reading annotations database:", end=" ")
             self.load_db()
-            if self.verbose:
-                print("Done!")
+            print("Done!")
         self.db_features = list(self.db.featuretypes())
         self.create_intron_annotations()
 
@@ -182,13 +180,16 @@ class Exonize(object):
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
                         if coord:
-                            temp_mrna_transcript.append({'id': child.id,
-                                                         'coord': coord,  # ID attribute
-                                                         'frame': child.frame,  # One of '0', '1' or '2'. '0'
-                                                         'type': child.featuretype})  # feature type name
+                            temp_mrna_transcript.append({'id': child.id,  # ID attribute
+                                                         'coord': coord,  # ID coordinate starting at 0
+                                                         # One of '0', '1' or '2'. '0' indicates that the x base of
+                                                         # the feature is the x base of a codon
+                                                         'frame': child.frame,
+                                                         'type': child.featuretype} # feature type name
+                                                        )
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
-                dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
+        dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
     def run_tblastx(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
@@ -344,8 +345,8 @@ class Exonize(object):
                                                      target_s, target_e))
                 elif counter_q_t == 0:
                     neither = 1
-                tuples_full_length_duplications.append((fragment_id, gene_id, mrna, cds_s, cds_e,
-                                                        neither, query, target, both))
+                tuples_full_length_duplications.append((fragment_id, gene_id, mrna, cds_s, cds_e, query_s, query_e,
+                                                        target_s, target_e, neither, query, target, both))
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
 
@@ -373,6 +374,9 @@ class Exonize(object):
             tic = time.time()
             print('- Identifying full length duplications', end=' ')
             self.find_full_length_duplications()
+            create_mrna_counts_view(self.results_db, self.timeout_db)
+            create_cumulative_counts_view(self.results_db, self.timeout_db)
+            create_exclusive_pairs_view(self.results_db, self.timeout_db)
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
         else:
