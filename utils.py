@@ -41,7 +41,7 @@ def hamming_distance(seq_a: str, seq_b: str) -> float:
 
 
 def reverse_complement(seq: str) -> str:
-    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}[nucleotide] for nucleotide in seq][::-1])
+    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq][::-1])
 
 
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
@@ -230,27 +230,6 @@ def strand_string_to_integer(strand: str) -> int:
     if strand == '-':
         return -1
     return 1
-
-
-def identify_obligatory_events():
-    pass
-
-
-def identify_truncation_events():
-    pass
-
-
-def identify_trunctation():
-    pass
-
-
-def identify_deactivated_duplication():
-    pass
-
-
-def identify_MEXs_transcripts():
-    pass
-
 
 
 def exonize_asci_art():
