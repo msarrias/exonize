@@ -84,7 +84,35 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     target_CDS_end INTEGER NOT NULL,
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
+    type VARCHAR(100) NOT NULL,
     UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, target_CDS_id))
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Truncation_events (
+    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fragment_id INTEGER NOT NULL REFERENCES Fragments(fragment_id),
+    gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+    mrna_id VARCHAR(100) NOT NULL,
+    mrna_start INTEGER NOT NULL,
+    mrna_end INTEGER NOT NULL,
+    query_CDS_id VARCHAR(100) NOT NULL,
+    query_CDS_start INTEGER NOT NULL,
+    query_CDS_end INTEGER NOT NULL,
+    query_start INTEGER NOT NULL,
+    query_end INTEGER NOT NULL,
+    target_start INTEGER NOT NULL,
+    target_end INTEGER NOT NULL,
+    id_A VARCHAR(100) NOT NULL,
+    A_annot_start INTEGER NOT NULL,
+    A_annot_end INTEGER NOT NULL,
+    target_A_start INTEGER NOT NULL,
+    target_A_end INTEGER NOT NULL,
+    id_B VARCHAR(100) NOT NULL,
+    B_annot_start INTEGER NOT NULL,
+    B_annot_end INTEGER NOT NULL,
+    target_B_start INTEGER NOT NULL,
+    target_B_end INTEGER NOT NULL,
+    UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, id_A, id_B))
     """)
     db.commit()
     db.close()
@@ -205,10 +233,45 @@ def instert_obligatory_event(db_path, timeout_db, tuples_list):
     target_CDS_start,
     target_CDS_end,
     target_start,
-    target_end)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    target_end,
+    type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      """
     cursor.executemany(insert_obl_event_table_param, tuples_list)
+    db.commit()
+    db.close()
+
+
+def instert_truncation_event(db_path, timeout_db, tuples_list):
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    insert_trunc_event_table_param = """
+    INSERT OR IGNORE INTO Truncation_events (
+    fragment_id,
+    gene_id,
+    mrna_id,
+    mrna_start,
+    mrna_end,
+    query_CDS_id,
+    query_CDS_start,
+    query_CDS_end,
+    query_start,
+    query_end,
+    target_start,
+    target_end,
+    id_A,
+    A_annot_start,
+    A_annot_end,
+    target_A_start,
+    target_A_end,
+    id_B,
+    B_annot_start,
+    B_annot_end,
+    target_B_start,
+    target_B_end)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    cursor.executemany(insert_trunc_event_table_param, tuples_list)
     db.commit()
     db.close()
 
