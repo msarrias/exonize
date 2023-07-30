@@ -55,7 +55,6 @@ class Exonize(object):
         self.results_db = results_db_name
         if self.results_db == '':
             self.results_db = f'{self.specie_identifier}_results.db'
-        self.results_db = results_db_name
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
@@ -185,7 +184,7 @@ class Exonize(object):
                                                          # One of '0', '1' or '2'. '0' indicates that the x base of
                                                          # the feature is the x base of a codon
                                                          'frame': child.frame,
-                                                         'type': child.featuretype} # feature type name
+                                                         'type': child.featuretype}  # feature type name
                                                         )
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
@@ -271,8 +270,13 @@ class Exonize(object):
         if CDS_coords_list:
             for cds_coord in CDS_coords_list:
                 if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
-                    cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
-                    gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+                    try:
+                        cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
+                        gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+                    except KeyError as e:
+                        print(f'Either there is missing a chromosome in the genome file '
+                              f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
+                        sys.exit()
                     temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
                     if temp:
                         CDS_blast_dict[cds_coord] = temp
@@ -312,41 +316,107 @@ class Exonize(object):
         tuples_full_length_duplications, tuples_obligatory_events = [], []
         for row in rows:
             fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e = row
+            cds_intv = P.open(cds_s, cds_e)
             target_intv = P.open(target_s + gene_s, target_e + gene_s)
-            for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-                trans_coord = trans_dict['coord']
-                neither, query, target, both = 0, 0, 0, 0
-                CDS_id = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
-                          and i['coord'] == P.open(cds_s, cds_e)]
-                overlap = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
-                           if (i['coord'].contains(target_intv)
-                               or (get_overlap_percentage(target_intv, i['coord']) > 0.98
-                                   and get_overlap_percentage(i['coord'], target_intv) > 0.98))
-                           and i['type'] == "CDS"]
-                if len(CDS_id) > 1:
-                    print(f'overlapping query CDSs: {CDS_id}')
-                elif CDS_id:
-                    query = 1
-                if len(overlap) > 1:
-                    print(f'overlapping target CDSs: {overlap}')
-                elif overlap:
-                    target = 1
-                counter_q_t = query + target
-                if counter_q_t == 2:
-                    both = 1
-                    query, target = 0, 0
-                    query_CDS = CDS_id[0]
-                    target_CDS, _, t_CDS_coord = overlap[0]
-                    tuples_obligatory_events.append((fragment_id, gene_id, mrna,
-                                                     trans_coord.lower, trans_coord.upper,
-                                                     cds_s, cds_e,
-                                                     query_CDS, query_s, query_e,
-                                                     target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
-                                                     target_s, target_e))
-                elif counter_q_t == 0:
-                    neither = 1
-                tuples_full_length_duplications.append((fragment_id, gene_id, mrna, cds_s, cds_e, query_s, query_e,
-                                                        target_s, target_e, neither, query, target, both))
+            query_intv = P.open(query_s + cds_s, query_e + cds_s)
+            # we want the matches queries to cover at least 98% of the CDS
+            if get_overlap_percentage(query_intv, cds_intv) > 0.95:
+                for mrna, trans_dict in test.gene_hierarchy_dict[gene_id]['mRNAs'].items():
+                    trans_coord = trans_dict['coord']
+                    neither, query, target, target_full, target_insertion, both = 0, 0, 0, 0, 0, 0
+                    # ####### QUERY ONLY - FULL LENGTH #######
+                    query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
+                                  and i['coord'] == cds_intv]
+                    if len(query_only) > 1:
+                        print(f'overlapping query CDSs: {query_only}')
+                        continue
+                    elif query_only:
+                        query_CDS = query_only[0]
+                        query = 1
+                    else:
+                        print("check here")
+                        continue
+                    # ###### CHECK: TARGET REGION NOT IN mRNA #######
+                    if target_intv.lower < trans_coord.lower or trans_coord.upper < target_intv.upper:
+                        if (query + target) == 0:
+                            neither = 1
+                        tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
+                                                                cds_s, cds_e, query_s, query_e,
+                                                                target_s, target_e,
+                                                                neither, query, target, both))
+                        continue
+                    # ####### TARGET ONLY - FULL LENGTH #######
+                    target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
+                                   if (get_overlap_percentage(target_intv, i['coord']) > 0.98
+                                       and get_overlap_percentage(i['coord'], target_intv) > 0.98
+                                       and i['type'] == "CDS")]
+                    if len(target_only) > 1:
+                        print(f'overlapping query CDSs: {target_only}')
+                        continue
+                    elif target_only:
+                        target_full = 1
+                        found = True
+                        target_t = "FULL"
+                        target_CDS, t_CDS_coord = target_only[0]
+                    else:
+                        print("check here")
+                        continue
+                    # ####### TARGET ONLY - INSERTION #######
+                    if target_full == 0:
+                        insertion = [(i['id'], i['coord']) for i in trans_dict['structure']
+                                     if (i['coord'].contains(target_intv)
+                                         and get_overlap_percentage(target_intv, i['coord']) < 0.98
+                                         and i['type'] == "CDS")]
+                        if insertion:
+                            target_insertion = 1
+                            target_t = "INS"
+                            found = True
+                            target_CDS, t_CDS_coord = insertion[0]
+                    target = target_full + target_insertion
+                    # ####### FULL LENGTH DUPL: BOTH #######
+                    if (query + target_full + target_insertion) == 2:
+                        both = 1
+                        query, target = 0, 0
+                        tuples_obligatory_events.append((fragment_id, gene_id, mrna,
+                                                         trans_coord.lower, trans_coord.upper,
+                                                         cds_s, cds_e,
+                                                         query_CDS, query_s, query_e,
+                                                         target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
+                                                         target_s, target_e, target_t))
+                    elif (query + target_full + target_insertion) == 0:
+                        neither = 1
+                    tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
+                                                            cds_s, cds_e, query_s, query_e,
+                                                            target_s, target_e,
+                                                            neither, query, target, both))
+
+                    # ####### FULL LENGTH DUPL: TRUNCATION #######
+                    if not found:
+                        truncation = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
+                                      if (i['coord'].overlaps(target_intv)
+                                          and not i['coord'].contains(target_intv))]
+                        reconc_exon_cds = [j for i in [annot for annot in truncation if annot[1] == 'exon']
+                                           for j in [annot for annot in truncation if annot[1] == 'CDS']
+                                           if (j[-1] & target_intv) == (i[-1] & target_intv)]
+                        if reconc_exon_cds:
+                            truncation = sorted(
+                                [*[i for i in truncation if i[1] not in ['CDS', 'exon']], *reconc_exon_cds],
+                                key=lambda x: (x[-1].lower, x[-1].upper))
+                        if truncation:
+                            if len(truncation) == 2:
+                                a, b = truncation
+                                id_a, _, coord_a = a
+                                id_b, _, coord_b = b
+                                seg_a, seg_b = coord_a & target_intv, coord_b & target_intv
+                                tuples_truncation_events.append(
+                                    (fragment_id, gene_id,
+                                     mrna, trans_coord.lower, trans_coord.upper,
+                                     query_CDS, cds_s, cds_e, query_s, query_e,
+                                     target_s, target_e,
+                                     id_a, coord_a.lower, coord_a.upper, seg_a.lower, seg_a.upper,
+                                     id_b, coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+                            else:
+                                print('truncation', gene_id, mrna, truncation, target_intv)
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
 
@@ -360,9 +430,9 @@ class Exonize(object):
         if args_list:
             batches_list = [i for i in batch(args_list, self.batch_number)]
             tic = time.time()
-            if self.verbose:
-                print(f'- Starting exon duplication search for {len(args_list)} genes.')
-            with tqdm(total=len(args_list)) as progress_bar:
+            gene_n = len(list(self.gene_hierarchy_dict.keys()))
+            print(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
+            with tqdm(total=len(args_list), position=0, leave=True) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
                     t.map(self.find_coding_exon_duplicates, arg_batch)
