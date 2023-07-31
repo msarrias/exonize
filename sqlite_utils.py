@@ -19,7 +19,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Fragments (
     fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gene_id  VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+    gene_id  VARCHAR(100) NOT NULL,
     CDS_start INTEGER NOT NULL,
     CDS_end INTEGER NOT NULL,  
     query_frame INTEGER NOT NULL,
@@ -43,13 +43,14 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     target_num_stop_codons INTEGER NOT NULL,
     dna_perc_identity REAL NOT NULL,
     prot_perc_identity REAL NOT NULL,
+    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
     UNIQUE(fragment_id, gene_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end))
     """)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Full_length_duplications (
     fragment_match_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    fragment_id INTEGER NOT NULL REFERENCES Fragments(fragment_id),
-    gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+    fragment_id INTEGER NOT NULL,
+    gene_id VARCHAR(100) NOT NULL,
     mrna_id VARCHAR(100) NOT NULL,
     CDS_start INTEGER NOT NULL,
     CDS_end INTEGER NOT NULL,
@@ -61,6 +62,9 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     query BINARY(1) NOT NULL,
     target BINARY(1) NOT NULL,
     both BINARY(1) NOT NULL,
+    evalue REAL NOT NULL,
+    FOREIGN KEY (fragment_id) REFERENCES Fragments(fragment_id),
+    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
     UNIQUE(fragment_id, gene_id, mrna_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end))""")
     cursor.execute("""
     CREATE INDEX IF NOT EXISTS Full_length_duplications_idx 
@@ -69,8 +73,8 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Obligatory_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    fragment_id INTEGER NOT NULL REFERENCES Fragments(fragment_id),
-    gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+    fragment_id INTEGER NOT NULL,
+    gene_id VARCHAR(100) NOT NULL,
     mrna_id VARCHAR(100) NOT NULL,
     mrna_start INTEGER NOT NULL,
     mrna_end INTEGER NOT NULL,
@@ -85,13 +89,15 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
     type VARCHAR(100) NOT NULL,
+    FOREIGN KEY (fragment_id) REFERENCES Fragments(fragment_id),
+    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
     UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, target_CDS_id))
     """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Truncation_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    fragment_id INTEGER NOT NULL REFERENCES Fragments(fragment_id),
-    gene_id VARCHAR(100) NOT NULL REFERENCES Genes(gene_id),
+    fragment_id INTEGER NOT NULL,
+    gene_id VARCHAR(100) NOT NULL,
     mrna_id VARCHAR(100) NOT NULL,
     mrna_start INTEGER NOT NULL,
     mrna_end INTEGER NOT NULL,
@@ -112,6 +118,8 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     B_annot_end INTEGER NOT NULL,
     target_B_start INTEGER NOT NULL,
     target_B_end INTEGER NOT NULL,
+    FOREIGN KEY (fragment_id) REFERENCES Fragments(fragment_id),
+    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
     UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, id_A, id_B))
     """)
     db.commit()
@@ -206,8 +214,9 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     neither,
     query,
     target,
-    both )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    both,
+    evalue)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
     """
     cursor.executemany(insert_full_length_event_table_param, tuples_list)
     db.commit()
@@ -277,7 +286,7 @@ def instert_truncation_event(db_path, timeout_db, tuples_list):
 
 
 # ###### QUERY TABLES ######
-def query_within_gene_events(db_path: str, timeout_db: float) -> list:
+def query_full_duplication_events(db_path: str, timeout_db: float, coverage_threshold: float) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     fragments_query = """
@@ -289,16 +298,30 @@ def query_within_gene_events(db_path: str, timeout_db: float) -> list:
     f.CDS_start,
     f.CDS_end,
     f.query_start,
-    f.query_end ,
-    f.target_start ,
-    f.target_end 
+    f.query_end,
+    f.target_start,
+    f.target_end,
+    f.evalue 
     FROM Fragments as f
     JOIN Genes AS g ON g.gene_id = f.gene_id
+    WHERE (ROUND(CAST(f.query_end - f.query_start AS REAL)/CAST(f.CDS_end - f.CDS_start AS REAL),3) >= ?)
     """
-    cursor.execute(fragments_query)
+    cursor.execute(fragments_query, (coverage_threshold,))
     records = cursor.fetchall()
     db.close()
     return [i for i in records]
+
+
+def query_tuples_full_length_duplications(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT *
+    FROM Full_length_duplications;
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
 
 
 def query_genes_with_duplicated_cds(db_path, timeout_db) -> list:
@@ -314,13 +337,36 @@ def query_genes_with_duplicated_cds(db_path, timeout_db) -> list:
     return [i[0] for i in rows]
 
 
-def query_obligatory_pairs(db_path, timeout_db) -> list:
+def query_obligatory_events(db_path, timeout_db) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
     SELECT *
-    FROM Full_length_events_cumulative_counts AS fle
-    WHERE fle.cum_both==fle.mrna_count;
+    FROM Obligatory_events;
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
+def query_truncation_events(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT *
+    FROM Truncation_events;
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
+def query_exclusive_events(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT *
+    FROM Exclusive_pairs;
     """)
     rows = cursor.fetchall()
     db.close()
@@ -374,6 +420,19 @@ def query_unused_events(db_path, timeout_db) -> list:
     SELECT *
     FROM Full_length_events_cumulative_counts AS fle
     WHERE (fle.cum_neither==fle.mrna_count);
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
+def query_optional_events(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT *
+    FROM Full_length_events_cumulative_counts AS fle
+    WHERE fle.cum_neither>0 AND (fle.cum_query>0 OR fle.cum_target>0 OR fle.cum_both>0);
     """)
     rows = cursor.fetchall()
     db.close()
@@ -462,9 +521,9 @@ def create_exclusive_pairs_view(db_path, timeout_db) -> None:
     SELECT 
     fm3.fragment_id,
     fm3.gene_id,
+    fld.mrna_id,
     fm3.gene_start,
     fm3.gene_end,
-    fld.mrna_id,
     fm3.mrna_count,
     fms.CDS_start,
     fms.CDS_end,
