@@ -25,6 +25,7 @@ class Exonize(object):
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-1,
+                 coverage_threshold=0.95,
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
                  min_exon_length=20,
@@ -50,6 +51,7 @@ class Exonize(object):
         self.batch_number = batch_number               # batch number for BLAST calls
         self.threads = threads                         # number of threads for BLAST calls
         self.id_spec_attribute = spec_attribute
+        self.coverage_threshold = coverage_threshold
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
         self.results_db = results_db_name
@@ -312,113 +314,118 @@ class Exonize(object):
         db.close()
 
     def find_full_length_duplications(self):
-        rows = query_within_gene_events(self.results_db, self.timeout_db)
-        tuples_full_length_duplications, tuples_obligatory_events = [], []
+        rows = query_full_duplication_events(self.results_db, self.timeout_db, self.coverage_threshold)
+        tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
         for row in rows:
-            fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e = row
+            fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e, evalue = row
             cds_intv = P.open(cds_s, cds_e)
             target_intv = P.open(target_s + gene_s, target_e + gene_s)
-            query_intv = P.open(query_s + cds_s, query_e + cds_s)
-            # we want the matches queries to cover at least 98% of the CDS
-            if get_overlap_percentage(query_intv, cds_intv) > 0.95:
-                for mrna, trans_dict in test.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-                    trans_coord = trans_dict['coord']
-                    neither, query, target, target_full, target_insertion, both = 0, 0, 0, 0, 0, 0
-                    # ####### QUERY ONLY - FULL LENGTH #######
-                    query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
-                                  and i['coord'] == cds_intv]
-                    if len(query_only) > 1:
-                        print(f'overlapping query CDSs: {query_only}')
-                        continue
-                    elif query_only:
-                        query_CDS = query_only[0]
-                        query = 1
-                    else:
-                        print("check here")
-                        continue
-                    # ###### CHECK: TARGET REGION NOT IN mRNA #######
-                    if target_intv.lower < trans_coord.lower or trans_coord.upper < target_intv.upper:
-                        if (query + target) == 0:
-                            neither = 1
-                        tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                                cds_s, cds_e, query_s, query_e,
-                                                                target_s, target_e,
-                                                                neither, query, target, both))
-                        continue
-                    # ####### TARGET ONLY - FULL LENGTH #######
-                    target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
-                                   if (get_overlap_percentage(target_intv, i['coord']) > 0.98
-                                       and get_overlap_percentage(i['coord'], target_intv) > 0.98
-                                       and i['type'] == "CDS")]
-                    if len(target_only) > 1:
-                        print(f'overlapping query CDSs: {target_only}')
-                        continue
-                    elif target_only:
-                        target_full = 1
-                        found = True
-                        target_t = "FULL"
-                        target_CDS, t_CDS_coord = target_only[0]
-                    else:
-                        print("check here")
-                        continue
-                    # ####### TARGET ONLY - INSERTION #######
-                    if target_full == 0:
-                        insertion = [(i['id'], i['coord']) for i in trans_dict['structure']
-                                     if (i['coord'].contains(target_intv)
-                                         and get_overlap_percentage(target_intv, i['coord']) < 0.98
-                                         and i['type'] == "CDS")]
-                        if insertion:
-                            target_insertion = 1
-                            target_t = "INS"
-                            found = True
-                            target_CDS, t_CDS_coord = insertion[0]
-                    target = target_full + target_insertion
-                    # ####### FULL LENGTH DUPL: BOTH #######
-                    if (query + target_full + target_insertion) == 2:
-                        both = 1
-                        query, target = 0, 0
-                        tuples_obligatory_events.append((fragment_id, gene_id, mrna,
-                                                         trans_coord.lower, trans_coord.upper,
-                                                         cds_s, cds_e,
-                                                         query_CDS, query_s, query_e,
-                                                         target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
-                                                         target_s, target_e, target_t))
-                    elif (query + target_full + target_insertion) == 0:
+            for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
+                found = False
+                trans_coord = trans_dict['coord']
+                neither, query, target, target_full, target_insertion, both = 0, 0, 0, 0, 0, 0
+                # ####### QUERY ONLY - FULL LENGTH #######
+                query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS' and i['coord'] == cds_intv]
+                if len(query_only) > 1:
+                    print(f'overlapping query CDSs: {query_only}')
+                    continue
+                elif query_only:
+                    query_CDS = query_only[0]
+                    query = 1
+                # ###### CHECK: TARGET REGION NOT IN mRNA #######
+                if target_intv.lower < trans_coord.lower or trans_coord.upper < target_intv.upper:
+                    if (query + target) == 0:
                         neither = 1
                     tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
                                                             cds_s, cds_e, query_s, query_e,
                                                             target_s, target_e,
-                                                            neither, query, target, both))
+                                                            neither, query, target, both, evalue))
 
-                    # ####### FULL LENGTH DUPL: TRUNCATION #######
-                    if not found:
-                        truncation = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
-                                      if (i['coord'].overlaps(target_intv)
-                                          and not i['coord'].contains(target_intv))]
-                        reconc_exon_cds = [j for i in [annot for annot in truncation if annot[1] == 'exon']
-                                           for j in [annot for annot in truncation if annot[1] == 'CDS']
-                                           if (j[-1] & target_intv) == (i[-1] & target_intv)]
-                        if reconc_exon_cds:
-                            truncation = sorted(
-                                [*[i for i in truncation if i[1] not in ['CDS', 'exon']], *reconc_exon_cds],
-                                key=lambda x: (x[-1].lower, x[-1].upper))
-                        if truncation:
-                            if len(truncation) == 2:
-                                a, b = truncation
-                                id_a, _, coord_a = a
-                                id_b, _, coord_b = b
-                                seg_a, seg_b = coord_a & target_intv, coord_b & target_intv
-                                tuples_truncation_events.append(
-                                    (fragment_id, gene_id,
-                                     mrna, trans_coord.lower, trans_coord.upper,
-                                     query_CDS, cds_s, cds_e, query_s, query_e,
-                                     target_s, target_e,
-                                     id_a, coord_a.lower, coord_a.upper, seg_a.lower, seg_a.upper,
-                                     id_b, coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                            else:
-                                print('truncation', gene_id, mrna, truncation, target_intv)
+                    continue
+                # ####### TARGET ONLY - FULL LENGTH #######
+                target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
+                               if (get_overlap_percentage(target_intv, i['coord']) >= self.coverage_threshold
+                                   and get_overlap_percentage(i['coord'], target_intv) >= self.coverage_threshold
+                                   and i['type'] == "CDS")]
+                if len(target_only) > 1:
+                    print(f'overlapping query CDSs: {target_only}')
+                    continue
+                elif target_only:
+                    target_full = 1
+                    found = True
+                    target_t = "FULL"
+                    target_CDS, t_CDS_coord = target_only[0]
+                # ####### TARGET ONLY - INSERTION #######
+                if target_full == 0:
+                    insertion_CDS = [(i['id'], i['coord']) for i in trans_dict['structure']
+                                     if (i['coord'].contains(target_intv)
+                                         and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
+                                         and i['type'] == "CDS")]
+                    insertion_UTR = [(i['id'], i['coord']) for i in trans_dict['structure']
+                                     if (i['coord'].contains(target_intv)
+                                         and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
+                                         and "UTR" in i['type'])]
+                    if insertion_CDS:
+                        target_insertion = 1
+                        target_t = "INS_CDS"
+                        found = True
+                        target_CDS, t_CDS_coord = insertion_CDS[0]
+                    elif insertion_UTR:
+                        target_insertion = 1
+                        target_t = "INS_UTR"
+                        found = True
+                        target_CDS, t_CDS_coord = insertion_UTR[0]
+                #                 else:
+                #                     print('check here- inserting')
+                #                     continue
+                target = target_full + target_insertion
+                # ####### FULL LENGTH DUPL: BOTH #######
+                if query + target == 2:
+                    both = 1
+                    query, target = 0, 0
+                    tuples_obligatory_events.append((fragment_id, gene_id, mrna,
+                                                    trans_coord.lower, trans_coord.upper,
+                                                    cds_s, cds_e,
+                                                    query_CDS, query_s, query_e,
+                                                    target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
+                                                    target_s, target_e, target_t))
+                elif query + target == 0:
+                    neither = 1
+                tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
+                                                        cds_s, cds_e, query_s, query_e,
+                                                        target_s, target_e,
+                                                        neither, query, target, both, evalue))
+                # ####### FULL LENGTH DUPL: TRUNCATION #######
+                if not found:
+                    truncation = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
+                                  if (i['coord'].overlaps(target_intv)
+                                      and not i['coord'].contains(target_intv))]
+                    reconc_exon_cds = [j for i in [annot for annot in truncation if annot[1] == 'exon']
+                                       for j in [annot for annot in truncation if annot[1] == 'CDS']
+                                       if (j[-1] & target_intv) == (i[-1] & target_intv)]
+                    if reconc_exon_cds:
+                        truncation = sorted([*[i for i in truncation if i[1] not in ['CDS', 'exon']],
+                                             *reconc_exon_cds],
+                                            key=lambda x: (x[-1].lower, x[-1].upper))
+                    if truncation:
+                        if len(truncation) == 2:
+                            a, b = truncation
+                            id_a, _, coord_a = a
+                            id_b, _, coord_b = b
+                            seg_a, seg_b = coord_a & target_intv, coord_b & target_intv
+                            tuples_truncation_events.append(
+                                (fragment_id, gene_id,
+                                 mrna, trans_coord.lower, trans_coord.upper,
+                                 query_CDS, cds_s, cds_e, query_s, query_e,
+                                 target_s, target_e,
+                                 id_a, coord_a.lower, coord_a.upper, seg_a.lower, seg_a.upper,
+                                 id_b, coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+                        else:
+                            print('look here')
+                            print('truncation', gene_id, mrna, truncation, target_intv)
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
+        instert_truncation_event(self.results_db, self.timeout_db, tuples_truncation_events)
 
     def run_analysis(self) -> None:
         exonize_asci_art()
@@ -441,15 +448,15 @@ class Exonize(object):
                     progress_bar.update(len(arg_batch))
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
-            tic = time.time()
-            print('- Identifying full length duplications', end=' ')
-            self.find_full_length_duplications()
-            create_mrna_counts_view(self.results_db, self.timeout_db)
-            create_cumulative_counts_view(self.results_db, self.timeout_db)
-            create_exclusive_pairs_view(self.results_db, self.timeout_db)
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-            print(f' Done! [{hms_time}]')
         else:
             print('All genes already processed, '
                   'if you want to re-run the analysis, '
                   'delete/rename the results DB.')
+        tic = time.time()
+        print('- Identifying full length duplications', end=' ')
+        self.find_full_length_duplications()
+        create_mrna_counts_view(self.results_db, self.timeout_db)
+        create_cumulative_counts_view(self.results_db, self.timeout_db)
+        create_exclusive_pairs_view(self.results_db, self.timeout_db)
+        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+        print(f' Done! [{hms_time}]')
