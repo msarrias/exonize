@@ -314,7 +314,7 @@ class Exonize(object):
         db.close()
 
     def find_full_length_duplications(self):
-        rows = query_full_duplication_events(self.results_db, self.timeout_db, self.coverage_threshold)
+        rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
         for row in rows:
             fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e, evalue = row
@@ -454,9 +454,10 @@ class Exonize(object):
                   'delete/rename the results DB.')
         tic = time.time()
         print('- Identifying full length duplications', end=' ')
-        self.find_full_length_duplications()
+        create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
         create_cumulative_counts_view(self.results_db, self.timeout_db)
+        self.find_full_length_duplications()
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
         print(f' Done! [{hms_time}]')
