@@ -15,7 +15,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     gene_end INTEGER NOT NULL,
     has_duplicated_CDS BINARY(1) NOT NULL,
     UNIQUE(gene_id))
-            """)
+    """)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Fragments (
     fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +94,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, target_CDS_id))
     """)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Truncation_events (
+    CREATE TABLE IF NOT EXISTS Truncation_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
     fragment_id INTEGER NOT NULL,
     gene_id VARCHAR(100) NOT NULL,
@@ -286,27 +286,25 @@ def instert_truncation_event(db_path, timeout_db, tuples_list):
 
 
 # ###### QUERY TABLES ######
-def query_full_duplication_events(db_path: str, timeout_db: float, coverage_threshold: float) -> list:
+def query_filtered_full_duplication_events(db_path: str, timeout_db: float) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     fragments_query = """
     SELECT 
-    f.fragment_id,
-    f.gene_id,
-    g.gene_start,
-    g.gene_end,
-    f.CDS_start,
-    f.CDS_end,
-    f.query_start,
-    f.query_end,
-    f.target_start,
-    f.target_end,
-    f.evalue 
-    FROM Fragments as f
-    JOIN Genes AS g ON g.gene_id = f.gene_id
-    WHERE (ROUND(CAST(f.query_end - f.query_start AS REAL)/CAST(f.CDS_end - f.CDS_start AS REAL),3) >= ?)
+    fragment_id,
+    gene_id,
+    gene_start,
+    gene_end,
+    CDS_start,
+    CDS_end,
+    query_start,
+    query_end,
+    target_start,
+    target_end,
+    evalue
+    FROM Filtered_full_length_events
     """
-    cursor.execute(fragments_query, (coverage_threshold,))
+    cursor.execute(fragments_query)
     records = cursor.fetchall()
     db.close()
     return [i for i in records]
@@ -439,12 +437,26 @@ def query_optional_events(db_path, timeout_db) -> list:
     return rows
 
 
+def query_obligate_pairs(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT oe.* 
+    FROM Obligatory_events AS oe
+    INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id==oe.fragment_id
+    WHERE fle.cum_both==fle.mrna_count
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
 # ### CREATE VIEW ####
 def create_cumulative_counts_view(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
-    CREATE VIEW Full_length_events_cumulative_counts AS
+    CREATE VIEW IF NOT EXISTS Full_length_events_cumulative_counts AS
     SELECT * FROM (
     SELECT
     fn.fragment_id,
@@ -477,13 +489,11 @@ def create_cumulative_counts_view(db_path, timeout_db) -> None:
     fm.target_start,
     fm.target_end,
     fm.evalue
-    /* MIN(fm.evalue) AS evalue */
     FROM Fragments as fm
     JOIN Genes AS g
     ON fm.gene_id = g.gene_id
     JOIN Genes_mRNA_counts AS gc
     ON fm.gene_id = gc.gene_id
-    /* GROUP BY fm.gene_id, fm.CDS_start, fm.CDS_end */
     ORDER BY fm.fragment_id
     ) AS fn
     JOIN Full_length_duplications AS fld
@@ -498,11 +508,83 @@ def create_cumulative_counts_view(db_path, timeout_db) -> None:
     db.close()
 
 
+def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    CREATE VIEW IF NOT EXISTS Filtered_full_length_events AS
+    WITH filtered_overlapping_queries AS (
+    WITH overlaping_fragments AS (
+    WITH gene_id_counts AS (
+    SELECT f.gene_id, f.CDS_start, f.CDS_end
+    FROM Fragments AS f
+    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    GROUP BY f.gene_id, f.CDS_start, f.CDS_end
+    HAVING COUNT(*) > 1)
+    SELECT
+    f.fragment_id, f.gene_id, g.gene_start,
+    g.gene_end, f.CDS_start, f.CDS_end,
+    f.query_start, f.query_end,
+    f.target_start, f.target_end,
+    MIN(f.evalue) as evalue
+    FROM Fragments as f
+    JOIN Genes AS g ON g.gene_id = f.gene_id
+    JOIN gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.CDS_start = f.CDS_start AND gc.CDS_end = f.CDS_end
+    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
+    ) 
+    SELECT f1.*
+    FROM overlaping_fragments AS f1
+    LEFT JOIN overlaping_fragments AS f2
+    ON f1.gene_id = f2.gene_id
+    AND f1.CDS_start = f2.CDS_start
+    AND f1.CDS_end = f2.CDS_end
+    AND f1.fragment_id <> f2.fragment_id
+    AND f1.target_start <= f2.target_end
+    AND f1.target_end >= f2.target_start
+    WHERE f2.fragment_id IS NULL OR f1.evalue = (
+    SELECT MIN(evalue)
+    FROM overlaping_fragments
+    WHERE gene_id = f1.gene_id
+    AND CDS_start = f2.CDS_start
+    AND CDS_end = f2.CDS_end
+    AND target_start <= f2.target_end
+    AND target_end >= f2.target_start
+    )
+    GROUP BY f1.fragment_id
+    ORDER BY f1.fragment_id),
+    single_gene_fragments AS (
+    WITH single_gene_id_counts AS(
+    SELECT f.fragment_id, f.gene_id
+    FROM Fragments AS f
+    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    GROUP BY f.gene_id, f.CDS_start, f.CDS_end
+    HAVING COUNT(*) = 1)
+    SELECT
+    f.fragment_id, f.gene_id, g.gene_start, g.gene_end,
+    f.CDS_start, f.CDS_end, f.query_start, f.query_end,
+    f.target_start, f.target_end, MIN(f.evalue) as evalue
+    FROM Fragments as f
+    JOIN Genes AS g ON g.gene_id = f.gene_id
+    JOIN single_gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.fragment_id = f.fragment_id
+    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
+    ORDER BY f.fragment_id)
+    SELECT * FROM (
+    SELECT * FROM single_gene_fragments AS sgf
+    UNION ALL
+    SELECT * FROM filtered_overlapping_queries AS foq)
+    ORDER BY fragment_id;
+    """)
+    db.commit()
+    db.close()
+
+
 def create_mrna_counts_view(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
-    CREATE VIEW Genes_mRNA_counts AS
+    CREATE VIEW IF NOT EXISTS Genes_mRNA_counts AS
     SELECT
     gene_id,
     COUNT(DISTINCT mrna_id) as mrna_count
@@ -517,7 +599,7 @@ def create_exclusive_pairs_view(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
-    CREATE VIEW Exclusive_pairs AS
+    CREATE VIEW IF NOT EXISTS Exclusive_pairs AS
     SELECT 
     fm3.fragment_id,
     fm3.gene_id,
