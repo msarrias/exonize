@@ -5,6 +5,7 @@ from Bio import SeqIO
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
 import tempfile
+import portion as P
 import re
 import random
 
@@ -41,7 +42,8 @@ def hamming_distance(seq_a: str, seq_b: str) -> float:
 
 
 def reverse_complement(seq: str) -> str:
-    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq][::-1])
+    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide]
+                    for nucleotide in seq][::-1])
 
 
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
@@ -69,6 +71,35 @@ def get_overlap_percentage(a, b) -> float:
         return (intersection.upper - intersection.lower) / (b.upper - b.lower)
     else:
         return 0
+
+
+def get_full_matches_records(full_matches, threshold) -> list:
+    fragments = []
+    skip_frag = []
+    counter = 1
+    full_matches_cp = list(full_matches)
+    for frag_a in full_matches:
+        frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
+        if frag_id_a not in skip_frag:
+            candidates = [i for i in full_matches_cp if frag_id_a != i[0] and i[1] == gene_id_a]
+            if candidates:
+                temp_cand = []
+                for frag_b in candidates:
+                    frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
+                    intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
+                                  for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                            (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                    if all(perc > threshold for perc in intvs_pair):
+                        temp_cand.append(frag_id_b)
+                if temp_cand:
+                    skip_frag.extend([frag_id_a, *temp_cand])
+                    fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
+                    full_matches_cp = [i for i in full_matches_cp if i[0] not in skip_frag]
+                    counter += 1
+    return fragments
+
+
+
 
 
 def codon_alignment(dna_seq_a: str, dna_seq_b: str, peptide_seq_a: str, peptide_seq_b: str) -> tuple:
@@ -197,6 +228,39 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
             return seq1[s1:e1], seq2[s1:e1]
     else:
         print('The input sequences are not aligned')
+
+
+def get_average_overlapping_percentage(intv_a, intv_b):
+    return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
+
+
+def resolve_overlappings(intv_list, threshold=0.7):
+    intv_a, intv_b = intv_list
+    if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
+        _, rec_itv = get_small_large_interv(intv_a, intv_b)
+        return rec_itv
+    else:
+        return intv_a, intv_b
+
+
+def get_intervals_overlapping_list(intv_list):
+    return [(feat_interv, intv_list[idx + 1])
+            for idx, feat_interv in enumerate(intv_list[:-1])
+            if feat_interv.overlaps(intv_list[idx + 1])]
+
+
+def get_small_large_interv(a, b):
+    """
+    Given two intervals, the function
+    get_small_large_interv returns the smaller
+    and the larger interval in length.
+    """
+    len_a = a.upper - a.lower
+    len_b = b.upper - b.lower
+    if len_a < len_b:
+        return a, b
+    else:
+        return b, a
 
 
 def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
