@@ -25,7 +25,7 @@ class Exonize(object):
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-1,
-                 coverage_threshold=0.95,
+                 coverage_threshold=0.9,
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
                  min_exon_length=20,
@@ -270,6 +270,13 @@ class Exonize(object):
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
         if CDS_coords_list:
+            CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
+            overlaps_list = get_intervals_overlaping_list(CDS_coords_list)
+            if overlaps_list:
+                CDS_coords_list = list(sorted([*[j for i in [resolve_overlapings(i) for i in overlaps_list] for j in i],
+                                               *[i for i in CDS_coords_list if
+                                                 i not in [j for i in overlaps_list for j in i]]],
+                                              key=lambda x: (x.lower, x.upper)))
             for cds_coord in CDS_coords_list:
                 if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
                     try:
@@ -324,6 +331,8 @@ class Exonize(object):
                 found = False
                 trans_coord = trans_dict['coord']
                 neither, query, target, target_full, target_insertion, both = 0, 0, 0, 0, 0, 0
+                query_CDS, target_CDS = "-", "-"
+                annot_target_start, annot_target_end, target_t = None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
                 query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS' and i['coord'] == cds_intv]
                 if len(query_only) > 1:
@@ -337,7 +346,8 @@ class Exonize(object):
                     if (query + target) == 0:
                         neither = 1
                     tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                            cds_s, cds_e, query_s, query_e,
+                                                            cds_s, cds_e, query_CDS, query_s, query_e,
+                                                            target_CDS, annot_target_start, annot_target_end,
                                                             target_s, target_e,
                                                             neither, query, target, both, evalue))
 
@@ -355,6 +365,7 @@ class Exonize(object):
                     found = True
                     target_t = "FULL"
                     target_CDS, t_CDS_coord = target_only[0]
+                    annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                 # ####### TARGET ONLY - INSERTION #######
                 if target_full == 0:
                     insertion_CDS = [(i['id'], i['coord']) for i in trans_dict['structure']
@@ -370,11 +381,13 @@ class Exonize(object):
                         target_t = "INS_CDS"
                         found = True
                         target_CDS, t_CDS_coord = insertion_CDS[0]
+                        annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     elif insertion_UTR:
                         target_insertion = 1
                         target_t = "INS_UTR"
                         found = True
                         target_CDS, t_CDS_coord = insertion_UTR[0]
+                        annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                 #                 else:
                 #                     print('check here- inserting')
                 #                     continue
@@ -387,12 +400,13 @@ class Exonize(object):
                                                     trans_coord.lower, trans_coord.upper,
                                                     cds_s, cds_e,
                                                     query_CDS, query_s, query_e,
-                                                    target_CDS, t_CDS_coord.lower, t_CDS_coord.upper,
+                                                    target_CDS, annot_target_start, annot_target_end,
                                                     target_s, target_e, target_t))
                 elif query + target == 0:
                     neither = 1
                 tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                        cds_s, cds_e, query_s, query_e,
+                                                        cds_s, cds_e, query_CDS, query_s, query_e,
+                                                        target_CDS, annot_target_start, annot_target_end,
                                                         target_s, target_e,
                                                         neither, query, target, both, evalue))
                 # ####### FULL LENGTH DUPL: TRUNCATION #######
@@ -403,9 +417,17 @@ class Exonize(object):
                     reconc_exon_cds = [j for i in [annot for annot in truncation if annot[1] == 'exon']
                                        for j in [annot for annot in truncation if annot[1] == 'CDS']
                                        if (j[-1] & target_intv) == (i[-1] & target_intv)]
+
+                    reconc_exon_UTR = [j for i in [annot for annot in truncation if annot[1] == 'exon']
+                                       for j in [annot for annot in truncation if 'UTR' in annot[1]]
+                                       if (j[-1] & target_intv) == (i[-1] & target_intv)]
                     if reconc_exon_cds:
                         truncation = sorted([*[i for i in truncation if i[1] not in ['CDS', 'exon']],
                                              *reconc_exon_cds],
+                                            key=lambda x: (x[-1].lower, x[-1].upper))
+                    elif reconc_exon_UTR:
+                        truncation = sorted([*[i for i in truncation if i[1] not in [*self.UTR_features, 'exon']],
+                                             *reconc_exon_UTR],
                                             key=lambda x: (x[-1].lower, x[-1].upper))
                     if truncation:
                         if len(truncation) == 2:
@@ -454,10 +476,14 @@ class Exonize(object):
                   'delete/rename the results DB.')
         tic = time.time()
         print('- Identifying full length duplications', end=' ')
+        insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
-        create_cumulative_counts_view(self.results_db, self.timeout_db)
         self.find_full_length_duplications()
+        create_cumulative_counts_table(self.results_db, self.timeout_db)
+        instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db,
+                                                                       self.timeout_db,
+                                                                       self.coverage_threshold)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
         print(f' Done! [{hms_time}]')
