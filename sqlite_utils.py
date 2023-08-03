@@ -54,8 +54,12 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     mrna_id VARCHAR(100) NOT NULL,
     CDS_start INTEGER NOT NULL,
     CDS_end INTEGER NOT NULL,
+    query_id VARCHAR(100) NOT NULL,
     query_start INTEGER NOT NULL,
     query_end INTEGER NOT NULL,
+    target_id VARCHAR(100) NOT NULL,
+    annot_target_start INTEGER,
+    annot_target_end INTEGER,
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
     neither BINARY(1) NOT NULL,
@@ -126,13 +130,115 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     db.close()
 
 
-def query_gene_ids_in_res_db(db_path, timeout_db) -> list:
+def create_cumulative_counts_table(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
-    cursor.execute("SELECT gene_id FROM Genes")
-    rows = cursor.fetchall()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS Full_length_events_cumulative_counts AS
+    SELECT * FROM (
+    SELECT
+    fn.fragment_id,
+    fn.gene_id,
+    fn.gene_start,
+    fn.gene_end,
+    fn.mrna_count,
+    fn.CDS_start,
+    fn.CDS_end,
+    fn.query_start,
+    fn.query_end,
+    fn.target_start,
+    fn.target_end,
+    SUM(fld.both) AS cum_both,
+    SUM(fld.query) AS cum_query,
+    SUM(fld.target) AS cum_target,
+    SUM(fld.neither) AS cum_neither,
+    fn.evalue
+    FROM (
+    SELECT
+    fm.fragment_id,
+    fm.gene_id,
+    g.gene_start,
+    g.gene_end,
+    gc.mrna_count,
+    fm.CDS_start,
+    fm.CDS_end,
+    fm.query_start,
+    fm.query_end,
+    fm.target_start,
+    fm.target_end,
+    fm.evalue
+    FROM Fragments as fm
+    JOIN Genes AS g
+    ON fm.gene_id = g.gene_id
+    JOIN Genes_mRNA_counts AS gc
+    ON fm.gene_id = gc.gene_id
+    ORDER BY fm.fragment_id
+    ) AS fn
+    JOIN Full_length_duplications AS fld
+    ON fn.gene_id = fld.gene_id
+    AND fn.fragment_id = fld.fragment_id
+    AND fn.CDS_start = fld.CDS_start
+    AND fn.CDS_end = fld.CDS_end
+    GROUP BY fn.fragment_id
+    ORDER BY fn.fragment_id) AS fn2
+    """)
+    db.commit()
     db.close()
-    return [i[0] for i in rows]
+
+
+def query_full_events(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    matches_q = """
+    SELECT 
+    f.fragment_id,
+    f.gene_id,
+    f.CDS_start - f.gene_start as CDS_start,
+    f.CDS_end - f.gene_start as CDS_end,
+    f.target_start,
+    f.target_end
+    FROM Full_length_events_cumulative_counts AS f
+    """
+    cursor.execute(matches_q)
+    full_matches = cursor.fetchall()
+    db.close()
+    return full_matches
+
+
+def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, threshold) -> None:
+    full_matches = query_full_events(db_path, timeout_db)
+    fragments = get_full_matches_records(full_matches, threshold)
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
+    cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET pair_id=? WHERE fragment_id=? """, fragments)
+    db.commit()
+    db.close()
+
+
+def insert_percent_query_column_to_fragments(db_path, timeout_db):
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    ALTER TABLE Fragments ADD COLUMN percent_query DECIMAL(10, 3);
+    """)
+    cursor.execute("""
+    UPDATE Fragments 
+    SET percent_query = ROUND(CAST(int.intersect_end - int.intersect_start AS REAL) / CAST(int.CDS_end - int.CDS_start AS REAL), 3)
+    FROM (SELECT 
+    Fragment_id,
+    MAX(f.CDS_start, (f.query_start + f.CDS_start)) AS intersect_start,
+    MIN(f.CDS_end, (f.query_end + f.CDS_start)) AS intersect_end,
+    f.CDS_end,
+    f.CDS_start
+    FROM Fragments AS f
+    WHERE f.CDS_end >= (f.query_start + f.CDS_start) 
+    AND f.CDS_start <= (f.query_end + f.CDS_start)
+    ) AS int
+    WHERE Fragments.Fragment_id = int.Fragment_id;
+    """)
+    db.commit()
+    db.close()
 
 
 # #### INSERT INTO TABLES #####
@@ -207,8 +313,12 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     mrna_id,
     CDS_start,
     CDS_end,
+    query_id,
     query_start,
     query_end,
+    target_id,
+    annot_target_start,
+    annot_target_end,
     target_start,
     target_end,
     neither,
@@ -216,7 +326,7 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     target,
     both,
     evalue)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
     """
     cursor.executemany(insert_full_length_event_table_param, tuples_list)
     db.commit()
@@ -286,6 +396,15 @@ def instert_truncation_event(db_path, timeout_db, tuples_list):
 
 
 # ###### QUERY TABLES ######
+def query_gene_ids_in_res_db(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("SELECT gene_id FROM Genes")
+    rows = cursor.fetchall()
+    db.close()
+    return [i[0] for i in rows]
+
+
 def query_filtered_full_duplication_events(db_path: str, timeout_db: float) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -417,7 +536,7 @@ def query_unused_events(db_path, timeout_db) -> list:
     cursor.execute("""
     SELECT *
     FROM Full_length_events_cumulative_counts AS fle
-    WHERE (fle.cum_neither==fle.mrna_count);
+    WHERE (fle.cum_neither=fle.mrna_count);
     """)
     rows = cursor.fetchall()
     db.close()
@@ -443,8 +562,8 @@ def query_obligate_pairs(db_path, timeout_db) -> list:
     cursor.execute("""
     SELECT oe.* 
     FROM Obligatory_events AS oe
-    INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id==oe.fragment_id
-    WHERE fle.cum_both==fle.mrna_count
+    INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id=oe.fragment_id
+    WHERE fle.cum_both=fle.mrna_count
     """)
     rows = cursor.fetchall()
     db.close()
@@ -452,62 +571,6 @@ def query_obligate_pairs(db_path, timeout_db) -> list:
 
 
 # ### CREATE VIEW ####
-def create_cumulative_counts_view(db_path, timeout_db) -> None:
-    db = sqlite3.connect(db_path, timeout=timeout_db)
-    cursor = db.cursor()
-    cursor.execute("""
-    CREATE VIEW IF NOT EXISTS Full_length_events_cumulative_counts AS
-    SELECT * FROM (
-    SELECT
-    fn.fragment_id,
-    fn.gene_id,
-    fn.gene_start,
-    fn.gene_end,
-    fn.mrna_count,
-    fn.CDS_start,
-    fn.CDS_end,
-    fn.query_start,
-    fn.query_end,
-    fn.target_start,
-    fn.target_end,
-    SUM(fld.both) AS cum_both,
-    SUM(fld.query) AS cum_query,
-    SUM(fld.target) AS cum_target,
-    SUM(fld.neither) AS cum_neither,
-    fn.evalue
-    FROM (
-    SELECT
-    fm.fragment_id,
-    fm.gene_id,
-    g.gene_start,
-    g.gene_end,
-    gc.mrna_count,
-    fm.CDS_start,
-    fm.CDS_end,
-    fm.query_start,
-    fm.query_end,
-    fm.target_start,
-    fm.target_end,
-    fm.evalue
-    FROM Fragments as fm
-    JOIN Genes AS g
-    ON fm.gene_id = g.gene_id
-    JOIN Genes_mRNA_counts AS gc
-    ON fm.gene_id = gc.gene_id
-    ORDER BY fm.fragment_id
-    ) AS fn
-    JOIN Full_length_duplications AS fld
-    ON fn.gene_id = fld.gene_id
-    AND fn.fragment_id = fld.fragment_id
-    AND fn.CDS_start = fld.CDS_start
-    AND fn.CDS_end = fld.CDS_end
-    GROUP BY fn.fragment_id
-    ORDER BY fn.fragment_id) AS fn2
-    """)
-    db.commit()
-    db.close()
-
-
 def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -518,7 +581,7 @@ def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
     WITH gene_id_counts AS (
     SELECT f.gene_id, f.CDS_start, f.CDS_end
     FROM Fragments AS f
-    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    WHERE f.percent_query >= 0.9
     GROUP BY f.gene_id, f.CDS_start, f.CDS_end
     HAVING COUNT(*) > 1)
     SELECT
@@ -530,7 +593,7 @@ def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
     FROM Fragments as f
     JOIN Genes AS g ON g.gene_id = f.gene_id
     JOIN gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.CDS_start = f.CDS_start AND gc.CDS_end = f.CDS_end
-    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    WHERE f.percent_query >= 0.9
     GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
     ) 
     SELECT f1.*
@@ -557,7 +620,7 @@ def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
     WITH single_gene_id_counts AS(
     SELECT f.fragment_id, f.gene_id
     FROM Fragments AS f
-    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    WHERE f.percent_query >= 0.9
     GROUP BY f.gene_id, f.CDS_start, f.CDS_end
     HAVING COUNT(*) = 1)
     SELECT
@@ -567,7 +630,7 @@ def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
     FROM Fragments as f
     JOIN Genes AS g ON g.gene_id = f.gene_id
     JOIN single_gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.fragment_id = f.fragment_id
-    WHERE ROUND(CAST(f.query_end - f.query_start AS REAL) / CAST(f.CDS_end - f.CDS_start AS REAL), 3) >= 0.95
+    WHERE f.percent_query >= 0.9
     GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
     ORDER BY f.fragment_id)
     SELECT * FROM (
@@ -660,3 +723,136 @@ def create_exclusive_pairs_view(db_path, timeout_db) -> None:
     """)
     db.commit()
     db.close()
+
+
+def sanity_check(db_path, timeout_db) -> dict:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT SUM(obligate_pairs_count) FROM
+    (SELECT
+        COUNT(*) AS obligate_pairs_count
+    FROM (
+    select
+        f.fragment_id as f_id,
+        f.gene_id as g_id,
+        f.mrna_id as m_id,
+        g.mrna_count as m_count,
+        f.query_CDS_id as q_cds_id,
+        f.query_CDS_start as q_cds_start,
+        f.query_CDS_end as q_cds_end,
+        f.query_start as q_start,
+        f.query_end as q_end,
+        f.target_CDS_id as t_cds_id,
+        f.target_CDS_start as t_cds_start,
+        f.target_CDS_end as t_cds_end,
+        f.target_start as t_start,
+        f.target_end as t_end,
+        f.type as t,
+        fle.cum_both as cum_both
+    from Obligatory_events as f
+    JOIN Genes_mRNA_counts  as g ON g.gene_id = f.gene_id
+    INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id==f.fragment_id
+    WHERE fle.cum_both==fle.mrna_count
+    GROUP BY f.fragment_id
+    )
+    GROUP BY t);
+    """)
+    obligate_pairs_count = cursor.fetchone()[0]
+    cursor.execute("""
+    SELECT SUM(ratio) AS MXEs_full_pairs_count FROM (SELECT
+        COUNT(*)/mrna_count as ratio
+    FROM Full_length_events_cumulative_counts
+    WHERE mrna_count = (cum_query + cum_target)
+      AND cum_query = cum_target
+    GROUP BY gene_id
+    HAVING (COUNT(*) % mrna_count) = 0);
+    """)
+    MXES_full = cursor.fetchone()[0]
+
+    cursor.execute("""
+    SELECT SUM(ratio) AS MXEs_full_pairs_count FROM (SELECT
+        COUNT(*)/mrna_count as ratio
+    FROM Full_length_events_cumulative_counts
+    WHERE mrna_count = (cum_query + cum_target)
+      AND cum_query = cum_target
+    GROUP BY gene_id
+    HAVING (COUNT(*) % mrna_count) = 0);
+    """)
+    MXES_insertion_missing_match = cursor.fetchone()[0]
+
+    cursor.execute("""
+    SELECT COUNT(DISTINCT fld.fragment_id) AS Query_only_counts
+    FROM Full_length_events_cumulative_counts AS fld WHERE fld.cum_query==fld.mrna_count;
+    """)
+    query_only = cursor.fetchone()[0]
+
+    cursor.execute("""SELECT COUNT(DISTINCT fld.fragment_id) AS Target_only_counts
+    FROM Full_length_events_cumulative_counts AS fld WHERE fld.cum_target==fld.mrna_count;""")
+    target_only = cursor.fetchone()[0]
+
+    cursor.execute("""SELECT COUNT(DISTINCT fld.fragment_id) AS Target_only_counts
+    FROM Full_length_events_cumulative_counts AS fld WHERE fld.cum_neither==fld.mrna_count;""")
+    neither = cursor.fetchone()[0]
+
+    cursor.execute("""
+    SELECT SUM(group_count) FROM (
+    SELECT
+    cum_query || cum_target || cum_both || cum_neither AS optional_group_category, COUNT(*) AS group_count
+    FROM (
+    SELECT
+        fragment_id,
+        CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cum_query,
+        CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS cum_target,
+        CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cum_both,
+        CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cum_neither
+    FROM (
+    SELECT
+        fle.fragment_id,
+        fle.cum_query,
+        fle.cum_target,
+        fle.cum_both,
+        fle.cum_neither
+    FROM Full_length_events_cumulative_counts AS fle
+    WHERE (fle.cum_neither > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0 OR fle.cum_both > 0))
+    ) AS subquery
+    ) AS grouped_subquery
+    GROUP BY optional_group_category);
+    """)
+    optional = cursor.fetchone()[0]
+
+    cursor.execute("""
+    SELECT SUM(group_count) FROM (
+    SELECT
+        cum_query || cum_target || cum_both || cum_neither AS flexible_group_category, COUNT(*) AS group_count
+    FROM (
+    SELECT
+        fragment_id,
+        CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cum_query,
+        CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS cum_target,
+        CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cum_both,
+        CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cum_neither
+    FROM (
+    SELECT
+        fle.fragment_id,
+        fle.cum_query,
+        fle.cum_target,
+        fle.cum_both,
+        fle.cum_neither
+    FROM Full_length_events_cumulative_counts AS fle
+    WHERE (fle.cum_both > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0))
+    ) AS subquery
+    ) AS grouped_subquery
+    GROUP BY flexible_group_category);
+    """)
+    flexible = cursor.fetchone()[0]
+    db.close()
+
+    return {'obligate_pairs_count': obligate_pairs_count,
+            'MXES_full': MXES_full,
+            'MXES_insertion_missing_match': MXES_insertion_missing_match,
+            'query_only': query_only,
+            'target_only': target_only,
+            'neither': neither,
+            'optional': optional,
+            'flexible': flexible}
