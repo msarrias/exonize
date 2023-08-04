@@ -8,6 +8,7 @@ import tempfile
 import portion as P
 import re
 import random
+import copy
 
 
 def read_pkl_file(filepath: str) -> dict:
@@ -71,35 +72,6 @@ def get_overlap_percentage(a, b) -> float:
         return (intersection.upper - intersection.lower) / (b.upper - b.lower)
     else:
         return 0
-
-
-def get_full_matches_records(full_matches, threshold) -> list:
-    fragments = []
-    skip_frag = []
-    counter = 1
-    full_matches_cp = list(full_matches)
-    for frag_a in full_matches:
-        frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
-        if frag_id_a not in skip_frag:
-            candidates = [i for i in full_matches_cp if frag_id_a != i[0] and i[1] == gene_id_a]
-            if candidates:
-                temp_cand = []
-                for frag_b in candidates:
-                    frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
-                    intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
-                                  for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                            (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
-                    if all(perc > threshold for perc in intvs_pair):
-                        temp_cand.append(frag_id_b)
-                if temp_cand:
-                    skip_frag.extend([frag_id_a, *temp_cand])
-                    fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
-                    full_matches_cp = [i for i in full_matches_cp if i[0] not in skip_frag]
-                    counter += 1
-    return fragments
-
-
-
 
 
 def codon_alignment(dna_seq_a: str, dna_seq_b: str, peptide_seq_a: str, peptide_seq_b: str) -> tuple:
@@ -243,7 +215,7 @@ def resolve_overlappings(intv_list, threshold=0.7):
         return intv_a, intv_b
 
 
-def get_intervals_overlapping_list(intv_list):
+def get_intervals_overlapping_list(intv_list: list) -> list:
     return [(feat_interv, intv_list[idx + 1])
             for idx, feat_interv in enumerate(intv_list[:-1])
             if feat_interv.overlaps(intv_list[idx + 1])]
@@ -280,6 +252,13 @@ def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
     return overlapping_coords
 
 
+def check_if_non_overlapping(intv_list: list) -> bool:
+    for idx, intv in enumerate(intv_list[:-1]):
+        if intv.overlaps(intv_list[idx + 1]):
+            return False
+    return True
+
+
 def get_non_overlapping_coords_set(overlapping_coords_dict: dict) -> list:
     return [max([intv, *overlp_intv], key=lambda x: x.upper - x.lower)
             for intv, overlp_intv in overlapping_coords_dict.items()]
@@ -294,6 +273,58 @@ def strand_string_to_integer(strand: str) -> int:
     if strand == '-':
         return -1
     return 1
+
+
+def check_for_consecutive_intervals(list_intervals, target_intv):
+    first, last = list_intervals[0], list_intervals[-1]
+    if first.lower <= target_intv.lower and target_intv.upper <= last.upper:
+        if len(list_intervals) <= 1:
+            return True
+        for i in range(1, len(list_intervals)):
+            if abs(list_intervals[i].lower - list_intervals[i - 1].upper) > 2:
+                return False
+        return True
+    else:
+        return False
+
+
+def get_interval_dictionary(trans_dict, target_intv):
+    UTR_features = ['five_prime_UTR', 'three_prime_UTR']
+    interval_dict = {}
+    for annot in trans_dict:
+        if annot['coord'].overlaps(target_intv) and not annot['coord'].contains(target_intv):
+            feature_inv = annot['coord']
+            annot_dict = {'id': annot['id'], 'type': annot['type'], 'coord': annot['coord']}
+            inter = feature_inv & target_intv
+            if inter not in interval_dict:
+                interval_dict[inter] = annot_dict
+            elif interval_dict[inter]['type'] in UTR_features:
+                continue
+            elif interval_dict[inter]['type'] == 'CDS' and annot['type'] == 'exon':
+                continue
+            elif interval_dict[inter]['type'] == 'intron' and annot['type'] in UTR_features:
+                interval_dict[inter] = annot_dict
+            elif interval_dict[inter]['type'] == 'exon' and annot['type'] in UTR_features:
+                interval_dict[inter] = annot_dict
+            elif interval_dict[inter]['type'] == 'exon' and annot['type'] == 'CDS':
+                interval_dict[inter] = annot_dict
+            else:
+                print('check here')
+    return sort_key_intervals_dict(interval_dict)
+
+
+def get_overlapping_dict(interval_dict):
+    """
+    gets the next overlap to the right
+    for each interval in the interval
+    dictionary keys `interval_dict`
+    """
+    overlapping_dict = {intv: [] for intv in interval_dict}
+    intervals_list = list(interval_dict.keys())
+    for idx, (feat_interv, feature_annot) in enumerate(interval_dict.items()):
+        if idx != (len(interval_dict) - 1) and feat_interv.overlaps(intervals_list[idx + 1]):
+            overlapping_dict[feat_interv] = intervals_list[idx+1]
+    return overlapping_dict
 
 
 def exonize_asci_art():
