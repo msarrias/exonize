@@ -268,12 +268,13 @@ class Exonize(object):
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
+                                    for i in mrna_annot['structure'] if i['type'] == 'CDS'])
+                               )
         if CDS_coords_list:
             CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
-            overlaps_list = get_intervals_overlaping_list(CDS_coords_list)
+            overlaps_list = get_intervals_overlapping_list(CDS_coords_list)
             if overlaps_list:
-                CDS_coords_list = list(sorted([*[j for i in [resolve_overlapings(i) for i in overlaps_list] for j in i],
+                CDS_coords_list = list(sorted([*[j for i in [resolve_overlappings(i) for i in overlaps_list] for j in i],
                                                *[i for i in CDS_coords_list if
                                                  i not in [j for i in overlaps_list for j in i]]],
                                               key=lambda x: (x.lower, x.upper)))
@@ -388,9 +389,6 @@ class Exonize(object):
                         found = True
                         target_CDS, t_CDS_coord = insertion_UTR[0]
                         annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                #                 else:
-                #                     print('check here- inserting')
-                #                     continue
                 target = target_full + target_insertion
                 # ####### FULL LENGTH DUPL: BOTH #######
                 if query + target == 2:
@@ -411,43 +409,45 @@ class Exonize(object):
                                                         neither, query, target, both, evalue))
                 # ####### FULL LENGTH DUPL: TRUNCATION #######
                 if not found:
-                    truncation = [(i['id'], i['type'], i['coord']) for i in trans_dict['structure']
-                                  if (i['coord'].overlaps(target_intv)
-                                      and not i['coord'].contains(target_intv))]
-                    reconc_exon_cds = [j for i in [annot for annot in truncation if annot[1] == 'exon']
-                                       for j in [annot for annot in truncation if annot[1] == 'CDS']
-                                       if (j[-1] & target_intv) == (i[-1] & target_intv)]
-
-                    reconc_exon_UTR = [j for i in [annot for annot in truncation if annot[1] == 'exon']
-                                       for j in [annot for annot in truncation if 'UTR' in annot[1]]
-                                       if (j[-1] & target_intv) == (i[-1] & target_intv)]
-                    if reconc_exon_cds:
-                        truncation = sorted([*[i for i in truncation if i[1] not in ['CDS', 'exon']],
-                                             *reconc_exon_cds],
-                                            key=lambda x: (x[-1].lower, x[-1].upper))
-                    elif reconc_exon_UTR:
-                        truncation = sorted([*[i for i in truncation if i[1] not in [*self.UTR_features, 'exon']],
-                                             *reconc_exon_UTR],
-                                            key=lambda x: (x[-1].lower, x[-1].upper))
-                    if truncation:
-                        if len(truncation) == 2:
-                            a, b = truncation
-                            id_a, _, coord_a = a
-                            id_b, _, coord_b = b
-                            seg_a, seg_b = coord_a & target_intv, coord_b & target_intv
+                    intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
+                    if intv_dict:
+                        for seg_b, value in intv_dict.items():
+                            coord_b = value['coord']
                             tuples_truncation_events.append(
-                                (fragment_id, gene_id,
-                                 mrna, trans_coord.lower, trans_coord.upper,
+                                (fragment_id, gene_id, mrna, trans_coord.lower, trans_coord.upper,
                                  query_CDS, cds_s, cds_e, query_s, query_e,
-                                 target_s, target_e,
-                                 id_a, coord_a.lower, coord_a.upper, seg_a.lower, seg_a.upper,
-                                 id_b, coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                        else:
-                            print('look here')
-                            print('truncation', gene_id, mrna, truncation, target_intv)
+                                 target_s, target_e, value['id'],
+                                 coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+                else:
+                    continue
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
         instert_truncation_event(self.results_db, self.timeout_db, tuples_truncation_events)
+
+    def get_full_matches_records(self, full_matches) -> list:
+        fragments = []
+        skip_frag = []
+        counter = 1
+        full_matches_cp = list(full_matches)
+        for frag_a in full_matches:
+            frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
+            if frag_id_a not in skip_frag:
+                candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
+                if candidates:
+                    temp_cand = []
+                    for frag_b in candidates:
+                        frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
+                        intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
+                                      for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                                (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                        if all(perc > self.coverage_threshold for perc in intvs_pair):
+                            temp_cand.append(frag_id_b)
+                    if temp_cand:
+                        skip_frag.extend([frag_id_a, *temp_cand])
+                        fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
+                        full_matches_cp = list(set(skip_frag).difference(full_matches_cp))
+                        counter += 1
+        return fragments
 
     def run_analysis(self) -> None:
         exonize_asci_art()
@@ -481,9 +481,15 @@ class Exonize(object):
         create_mrna_counts_view(self.results_db, self.timeout_db)
         self.find_full_length_duplications()
         create_cumulative_counts_table(self.results_db, self.timeout_db)
+        full_matches = query_full_events(self.results_db, self.timeout_db)
+        print("~.~.~.~.~.~. Starting reconciliation process - this may take a while... ~.~.~.~.~.~.", end=' ')
+        tic_j = time.time()
+        fragments = self.get_full_matches_records(full_matches)
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db,
                                                                        self.timeout_db,
-                                                                       self.coverage_threshold)
+                                                                       fragments)
+        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_j), '%H:%M:%S')
+        print(f' Done! [{hms_time}]')
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
         print(f' Done! [{hms_time}]')
