@@ -112,11 +112,6 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     query_end INTEGER NOT NULL,
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
-    id_A VARCHAR(100) NOT NULL,
-    A_annot_start INTEGER NOT NULL,
-    A_annot_end INTEGER NOT NULL,
-    target_A_start INTEGER NOT NULL,
-    target_A_end INTEGER NOT NULL,
     id_B VARCHAR(100) NOT NULL,
     B_annot_start INTEGER NOT NULL,
     B_annot_end INTEGER NOT NULL,
@@ -124,7 +119,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     target_B_end INTEGER NOT NULL,
     FOREIGN KEY (fragment_id) REFERENCES Fragments(fragment_id),
     FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
-    UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, id_A, id_B))
+    UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, id_B))
     """)
     db.commit()
     db.close()
@@ -186,6 +181,28 @@ def create_cumulative_counts_table(db_path, timeout_db) -> None:
     db.close()
 
 
+def query_candidates(db_path, timeout_db, pars) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute(
+        """
+        SELECT 
+        f.fragment_id,
+        f.gene_id,
+        f.CDS_start - f.gene_start as CDS_start,
+        f.CDS_end - f.gene_start as CDS_end,
+        f.target_start,
+        f.target_end
+        FROM Full_length_events_cumulative_counts AS f
+        WHERE 
+        f.gene_id==?
+        AND f.fragment_id<>?
+        """, pars)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
 def query_full_events(db_path, timeout_db) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -205,9 +222,7 @@ def query_full_events(db_path, timeout_db) -> list:
     return full_matches
 
 
-def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, threshold) -> None:
-    full_matches = query_full_events(db_path, timeout_db)
-    fragments = get_full_matches_records(full_matches, threshold)
+def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
@@ -378,17 +393,12 @@ def instert_truncation_event(db_path, timeout_db, tuples_list):
     query_end,
     target_start,
     target_end,
-    id_A,
-    A_annot_start,
-    A_annot_end,
-    target_A_start,
-    target_A_end,
     id_B,
     B_annot_start,
     B_annot_end,
     target_B_start,
     target_B_end)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     cursor.executemany(insert_trunc_event_table_param, tuples_list)
     db.commit()
