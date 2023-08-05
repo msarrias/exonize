@@ -57,7 +57,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     query_id VARCHAR(100) NOT NULL,
     query_start INTEGER NOT NULL,
     query_end INTEGER NOT NULL,
-    target_id VARCHAR(100) NOT NULL,
+    target_id VARCHAR(100) , /* TRUNCTATION envents will take NULL value */
     annot_target_start INTEGER,
     annot_target_end INTEGER,
     target_start INTEGER NOT NULL,
@@ -113,6 +113,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
     id_B VARCHAR(100) NOT NULL,
+    type_B VARCHAR(100) NOT NULL,
     B_annot_start INTEGER NOT NULL,
     B_annot_end INTEGER NOT NULL,
     target_B_start INTEGER NOT NULL,
@@ -394,11 +395,12 @@ def instert_truncation_event(db_path, timeout_db, tuples_list):
     target_start,
     target_end,
     id_B,
+    type_B,
     B_annot_start,
     B_annot_end,
     target_B_start,
     target_B_end)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     cursor.executemany(insert_trunc_event_table_param, tuples_list)
     db.commit()
