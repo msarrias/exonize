@@ -57,7 +57,8 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     query_id VARCHAR(100) NOT NULL,
     query_start INTEGER NOT NULL,
     query_end INTEGER NOT NULL,
-    target_id VARCHAR(100) , /* TRUNCTATION envents will take NULL value */
+    event_type VARCHAR(100) NOT NULL,
+    target_id VARCHAR(100), /* TRUNCTATION envents will take NULL value */
     annot_target_start INTEGER,
     annot_target_end INTEGER,
     target_start INTEGER NOT NULL,
@@ -332,6 +333,7 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     query_id,
     query_start,
     query_end,
+    event_type,
     target_id,
     annot_target_start,
     annot_target_end,
@@ -342,7 +344,7 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     target,
     both,
     evalue)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
     """
     cursor.executemany(insert_full_length_event_table_param, tuples_list)
     db.commit()
