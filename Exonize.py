@@ -321,6 +321,12 @@ class Exonize(object):
         db.commit()
         db.close()
 
+    def filter_structure(self, structure, target_intv, annotation_type):
+        return [(i['id'], i['coord']) for i in structure
+                if (i['coord'].contains(target_intv)
+                    and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
+                    and annotation_type in i['type'])]
+
     def find_full_length_duplications(self):
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
@@ -331,7 +337,7 @@ class Exonize(object):
             for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
                 found = False
                 trans_coord = trans_dict['coord']
-                neither, query, target, target_full, target_insertion, both = 0, 0, 0, 0, 0, 0
+                neither, query, target, target_full, target_insertion, target_trunctation, both = 0, 0, 0, 0, 0, 0, 0
                 query_CDS, target_CDS = "-", "-"
                 annot_target_start, annot_target_end, target_t = None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
@@ -361,35 +367,46 @@ class Exonize(object):
                 if len(target_only) > 1:
                     print(f'overlapping query CDSs: {target_only}')
                     continue
+                # ####### TARGET ONLY #######
                 elif target_only:
                     target_full = 1
                     found = True
                     target_t = "FULL"
                     target_CDS, t_CDS_coord = target_only[0]
                     annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                # ####### TARGET ONLY - INSERTION #######
+                # ####### INSERTION #######
                 if target_full == 0:
-                    insertion_CDS = [(i['id'], i['coord']) for i in trans_dict['structure']
-                                     if (i['coord'].contains(target_intv)
-                                         and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
-                                         and i['type'] == "CDS")]
-                    insertion_UTR = [(i['id'], i['coord']) for i in trans_dict['structure']
-                                     if (i['coord'].contains(target_intv)
-                                         and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
-                                         and "UTR" in i['type'])]
+                    insertion_CDS = self.filter_structure(trans_dict['structure'], target_intv, 'CDS')
                     if insertion_CDS:
                         target_insertion = 1
                         target_t = "INS_CDS"
                         found = True
                         target_CDS, t_CDS_coord = insertion_CDS[0]
                         annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                    elif insertion_UTR:
-                        target_insertion = 1
-                        target_t = "INS_UTR"
-                        found = True
-                        target_CDS, t_CDS_coord = insertion_UTR[0]
-                        annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                target = target_full + target_insertion
+                    else:
+                        insertion_UTR = self.filter_structure(trans_dict['structure'], target_intv, 'UTR')
+                        if insertion_UTR:
+                            target_insertion = 1
+                            target_t = "INS_UTR"
+                            found = True
+                            target_CDS, t_CDS_coord = insertion_UTR[0]
+                            annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
+                    # ####### TRUNCATION #######
+                    if not found:
+                        intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
+                        if intv_dict:
+                            target_trunctation = 1
+                            found = True
+                            target_t = "TRUNC"
+                            target_CDS, annot_target_start, annot_target_end = None, None, None
+                            for seg_b, value in intv_dict.items():
+                                coord_b = value['coord']
+                                tuples_truncation_events.append(
+                                    (fragment_id, gene_id, mrna, trans_coord.lower, trans_coord.upper,
+                                     query_CDS, cds_s, cds_e, query_s, query_e,
+                                     target_s, target_e, value['id'], value['type'],
+                                     coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+                target = target_full + target_insertion + target_trunctation
                 # ####### FULL LENGTH DUPL: BOTH #######
                 if query + target == 2:
                     both = 1
@@ -407,19 +424,7 @@ class Exonize(object):
                                                         target_CDS, annot_target_start, annot_target_end,
                                                         target_s, target_e,
                                                         neither, query, target, both, evalue))
-                # ####### FULL LENGTH DUPL: TRUNCATION #######
-                if not found:
-                    intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
-                    if intv_dict:
-                        for seg_b, value in intv_dict.items():
-                            coord_b = value['coord']
-                            tuples_truncation_events.append(
-                                (fragment_id, gene_id, mrna, trans_coord.lower, trans_coord.upper,
-                                 query_CDS, cds_s, cds_e, query_s, query_e,
-                                 target_s, target_e, value['id'],
-                                 coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                else:
-                    continue
+
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
         instert_truncation_event(self.results_db, self.timeout_db, tuples_truncation_events)
