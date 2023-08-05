@@ -348,12 +348,14 @@ class Exonize(object):
                 elif query_only:
                     query_CDS = query_only[0]
                     query = 1
+                    target_t = 'QUERY_ONLY'
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
                 if target_intv.lower < trans_coord.lower or trans_coord.upper < target_intv.upper:
                     if (query + target) == 0:
                         neither = 1
                     tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
                                                             cds_s, cds_e, query_CDS, query_s, query_e,
+                                                            "OUT_OF_MRNA",
                                                             target_CDS, annot_target_start, annot_target_end,
                                                             target_s, target_e,
                                                             neither, query, target, both, evalue))
@@ -386,18 +388,23 @@ class Exonize(object):
                     else:
                         insertion_UTR = self.filter_structure(trans_dict['structure'], target_intv, 'UTR')
                         if insertion_UTR:
-                            target_insertion = 1
                             target_t = "INS_UTR"
                             found = True
                             target_CDS, t_CDS_coord = insertion_UTR[0]
                             annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
+                        else:
+                            insertion_intron = self.filter_structure(trans_dict['structure'], target_intv, 'intron')
+                            if insertion_intron:
+                                target_t = "DEACTIVATED"
+                                found = True
+                                target_CDS, t_CDS_coord = insertion_intron[0]
+                                annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     # ####### TRUNCATION #######
                     if not found:
                         intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
                         if intv_dict:
                             target_trunctation = 1
-                            found = True
-                            target_t = "TRUNC"
+                            target_t = "TRUNCATION"
                             target_CDS, annot_target_start, annot_target_end = None, None, None
                             for seg_b, value in intv_dict.items():
                                 coord_b = value['coord']
@@ -411,6 +418,7 @@ class Exonize(object):
                 if query + target == 2:
                     both = 1
                     query, target = 0, 0
+                    target_t = "BOTH"
                     tuples_obligatory_events.append((fragment_id, gene_id, mrna,
                                                     trans_coord.lower, trans_coord.upper,
                                                     cds_s, cds_e,
@@ -419,11 +427,11 @@ class Exonize(object):
                                                     target_s, target_e, target_t))
                 elif query + target == 0:
                     neither = 1
+                    target_t = 'NEITHER'
                 tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
                                                         cds_s, cds_e, query_CDS, query_s, query_e,
-                                                        target_CDS, annot_target_start, annot_target_end,
-                                                        target_s, target_e,
-                                                        neither, query, target, both, evalue))
+                                                        target_t, target_CDS, annot_target_start, annot_target_end,
+                                                        target_s, target_e, neither, query, target, both, evalue))
 
         instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
         instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
@@ -434,24 +442,26 @@ class Exonize(object):
         skip_frag = []
         counter = 1
         full_matches_cp = list(full_matches)
-        for frag_a in full_matches:
-            frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
-            if frag_id_a not in skip_frag:
-                candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
-                if candidates:
-                    temp_cand = []
-                    for frag_b in candidates:
-                        frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
-                        intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
-                                      for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                                (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
-                        if all(perc > self.coverage_threshold for perc in intvs_pair):
-                            temp_cand.append(frag_id_b)
-                    if temp_cand:
-                        skip_frag.extend([frag_id_a, *temp_cand])
-                        fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
-                        full_matches_cp = list(set(skip_frag).difference(full_matches_cp))
-                        counter += 1
+        with tqdm(total=len(full_matches), position=0, leave=True) as progress_bar:
+            for frag_a in full_matches:
+                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
+                if frag_id_a not in skip_frag:
+                    candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
+                    if candidates:
+                        temp_cand = []
+                        for frag_b in candidates:
+                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
+                            intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
+                                          for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                                    (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                            if all(perc > self.coverage_threshold for perc in intvs_pair):
+                                temp_cand.append(frag_id_b)
+                        if temp_cand:
+                            skip_frag.extend([frag_id_a, *temp_cand])
+                            fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
+                            full_matches_cp = list(set(skip_frag).difference(full_matches_cp))
+                            counter += 1
+                progress_bar.update(1)
         return fragments
 
     def run_analysis(self) -> None:
@@ -480,7 +490,7 @@ class Exonize(object):
                   'if you want to re-run the analysis, '
                   'delete/rename the results DB.')
         tic = time.time()
-        print('- Identifying full length duplications', end=' ')
+        print('- Identifying full length duplications')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
@@ -488,13 +498,10 @@ class Exonize(object):
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print("~.~.~.~.~.~. Starting reconciliation process - this may take a while... ~.~.~.~.~.~.", end=' ')
-        tic_j = time.time()
         fragments = self.get_full_matches_records(full_matches)
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db,
                                                                        self.timeout_db,
                                                                        fragments)
-        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_j), '%H:%M:%S')
-        print(f' Done! [{hms_time}]')
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
         print(f' Done! [{hms_time}]')
