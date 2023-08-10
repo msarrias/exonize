@@ -276,7 +276,8 @@ class Exonize(object):
             if masking_perc > 0.8:
                 self.logs.append((f'Gene {gene_id} in chromosome {chrom} '
                                   f'and coordinates {str(gene_coord.lower)}, {str(gene_coord.upper)}'
-                                    f' is hardmasked.'))
+                                  f' is hardmasked.'))
+                insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
                 return
         except KeyError as e:
             print(f'Either there is missing a chromosome in the genome file '
