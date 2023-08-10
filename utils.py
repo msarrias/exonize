@@ -47,6 +47,16 @@ def reverse_complement(seq: str) -> str:
                     for nucleotide in seq][::-1])
 
 
+def filter_structure(structure, target_intv, annotation_type):
+    return [(i['id'], i['coord']) for i in structure
+            if (i['coord'].contains(target_intv)
+                and annotation_type in i['type'])]
+
+
+def sequence_masking_percentage(seq: str) -> float:
+    return seq.count('N') / len(seq)
+
+
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
     if frame < 0:
         rev_comp = reverse_complement(seq)
@@ -122,23 +132,16 @@ def get_fragment_tuple(gene_id: str, cds_coord, blast_hits: dict, hsp_idx: int) 
             hsp_dict['query_end'],
             hsp_dict['target_start'],
             hsp_dict['target_end'],
-            hsp_dict['query_dna_seq'],
-            hsp_dict['target_dna_seq'],
             hsp_dict['query_aln_prot_seq'],
             hsp_dict['target_aln_prot_seq'],
             hsp_dict['match'],
             hsp_dict['query_num_stop_codons'],
-            hsp_dict['target_num_stop_codons'],
-            hsp_dict['dna_perc_identity'],
-            hsp_dict['prot_perc_identity'])
+            hsp_dict['target_num_stop_codons']
+            )
 
 
 def get_hsp_dict(hsp, query_seq: str, hit_seq: str) -> dict:
     q_frame, t_frame = hsp.frame
-    q_dna_seq = get_dna_seq(query_seq, q_frame, (hsp.query_start - 1), hsp.query_end)
-    t_dna_seq = get_dna_seq(hit_seq, t_frame, (hsp.sbjct_start - 1), hsp.sbjct_end)
-    prot_perc_identity = round(hamming_distance(hsp.query, hsp.sbjct), 3)
-    dna_perc_identity = round(hamming_distance(q_dna_seq, t_dna_seq), 3)
     return dict(
             score=hsp.score,
             bits=hsp.bits,
@@ -149,18 +152,11 @@ def get_hsp_dict(hsp, query_seq: str, hit_seq: str) -> dict:
             query_end=hsp.query_end,
             target_start=hsp.sbjct_start - 1,
             target_end=hsp.sbjct_end,
-            query_dna_seq=q_dna_seq,
-            target_dna_seq=t_dna_seq,
             query_aln_prot_seq=hsp.query,
             target_aln_prot_seq=hsp.sbjct,
-            query_dna_align=q_dna_seq,
-            target_dna_align=t_dna_seq,
             query_num_stop_codons=hsp.query.count('*'),
             target_num_stop_codons=hsp.sbjct.count('*'),
-            match=hsp.match,
-            prot_perc_identity=prot_perc_identity,
-            dna_perc_identity=dna_perc_identity
-            )
+            match=hsp.match)
 
 
 def reformat_frame_strand(frame: int) -> tuple:
@@ -206,7 +202,7 @@ def get_average_overlapping_percentage(intv_a, intv_b):
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
 
 
-def resolve_overlappings(intv_list, threshold=0.7):
+def resolve_overlappings(intv_list, threshold=0.98):
     intv_a, intv_b = intv_list
     if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
         _, rec_itv = get_small_large_interv(intv_a, intv_b)
