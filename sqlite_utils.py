@@ -34,15 +34,11 @@ def connect_create_results_db(db_path, timeout_db) -> None:
     query_end INTEGER NOT NULL,
     target_start INTEGER NOT NULL,
     target_end INTEGER NOT NULL,
-    query_dna_seq VARCHAR NOT NULL,
-    target_dna_seq VARCHAR NOT NULL,
     query_aln_prot_seq VARCHAR NOT NULL,
     target_aln_prot_seq VARCHAR NOT NULL,
     match VARCHAR NOT NULL,
     query_num_stop_codons INTEGER NOT NULL,
     target_num_stop_codons INTEGER NOT NULL,
-    dna_perc_identity REAL NOT NULL,
-    prot_perc_identity REAL NOT NULL,
     FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
     UNIQUE(fragment_id, gene_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end))
     """)
@@ -145,6 +141,7 @@ def create_cumulative_counts_table(db_path, timeout_db) -> None:
     fn.query_end,
     fn.target_start,
     fn.target_end,
+    group_concat(fld.event_type) as concat_event_type,
     SUM(fld.both) AS cum_both,
     SUM(fld.query) AS cum_query,
     SUM(fld.target) AS cum_target,
@@ -223,6 +220,19 @@ def query_full_events(db_path, timeout_db) -> list:
     db.close()
     return full_matches
 
+def insert_identity_and_dna_algns_columns(db_path, timeout_db, fragments) -> None:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute(""" ALTER TABLE Fragments ADD COLUMN dna_perc_identity REAL;""")
+    cursor.execute(""" ALTER TABLE Fragments ADD COLUMN prot_perc_identity REAL;""")
+    cursor.execute(""" ALTER TABLE Fragments ADD COLUMN query_dna_seq VARCHAR;""")
+    cursor.execute(""" ALTER TABLE Fragments ADD COLUMN target_dna_seq VARCHAR;""")
+    cursor.executemany(""" 
+    UPDATE Fragments 
+    SET dna_perc_identity=?, prot_perc_identity=?, query_dna_seq=?, target_dna_seq=?  WHERE fragment_id=? 
+    """, fragments)
+    db.commit()
+    db.close()
 
 def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
@@ -295,17 +305,13 @@ def insert_fragments_calls():
     query_end,
     target_start,
     target_end,
-    query_dna_seq,
-    target_dna_seq,
     query_aln_prot_seq,
     target_aln_prot_seq,
     match,
     query_num_stop_codons,
-    target_num_stop_codons,
-    dna_perc_identity,
-    prot_perc_identity
+    target_num_stop_codons
     )
-    VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     insert_gene_table_param = """
     INSERT INTO Genes
@@ -578,6 +584,32 @@ def query_obligate_pairs(db_path, timeout_db) -> list:
     FROM Obligatory_events AS oe
     INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id=oe.fragment_id
     WHERE fle.cum_both=fle.mrna_count
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
+def query_fragments(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT 
+    f.fragment_id,
+    f.gene_id,
+    g.gene_start,
+    g.gene_end,
+    g.gene_chrom,
+    f.CDS_start,
+    f.CDS_end,
+    f.query_start,
+    f.query_end,
+    f.target_start,
+    f.target_end,
+    f.query_aln_prot_seq,
+    f.target_aln_prot_seq
+    FROM Fragments as f
+    INNER JOIN Genes as g ON g.gene_id=f.gene_id
     """)
     rows = cursor.fetchall()
     db.close()
