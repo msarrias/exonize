@@ -60,6 +60,7 @@ class Exonize(object):
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
+        self.logs=[]
 
     def create_parse_or_update_database(self) -> None:
         if not os.path.exists(self.db_path):
@@ -154,6 +155,11 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
+
+    def dump_logs(self):
+        with open(f'exonize_logs.txt', 'w') as f:
+            f.write('\n'.join(self.logs))
+
     def prepare_data(self) -> None:
         self.create_parse_or_update_database()
         if os.path.exists(self.gene_hierarchy_path):
@@ -231,8 +237,6 @@ class Exonize(object):
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
             if len(blast_record.alignments) == 0:
-                # query_len = len(query_seq)
-                # print(f"No alignments found {query_id} --- query length: {query_len}")
                 continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
@@ -244,7 +248,7 @@ class Exonize(object):
                 query_target_overlap_percentage = get_overlap_percentage(q_coord, blast_target_coord)
                 if (hsp.expect < self.evalue
                         and query_aligned_frac > self.min_align_len_perc
-                        and query_target_overlap_percentage < 0.5
+                        and query_target_overlap_percentage < 0.5  # self-hits are not allowed (max 50% overlap)
                         and target_query_overlap_percentage < 0.5):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
         return res_tblastx
@@ -266,6 +270,19 @@ class Exonize(object):
         CDS_blast_dict = {}
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        try:
+            gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+            masking_perc = sequence_masking_percentage(gene_seq)
+            if masking_perc > 0.8:
+                self.logs.append((f'Gene {gene_id} in chromosome {chrom} '
+                                  f'and coordinates {str(gene_coord.lower)}, {str(gene_coord.upper)}'
+                                    f' is hardmasked.'))
+                return
+        except KeyError as e:
+            print(f'Either there is missing a chromosome in the genome file '
+                  f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
+            sys.exit()
+
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS'])
@@ -274,15 +291,20 @@ class Exonize(object):
             CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
             overlaps_list = get_intervals_overlapping_list(CDS_coords_list)
             if overlaps_list:
-                CDS_coords_list = list(sorted([*[j for i in [resolve_overlappings(i) for i in overlaps_list] for j in i],
-                                               *[i for i in CDS_coords_list if
-                                                 i not in [j for i in overlaps_list for j in i]]],
+                CDS_coords_list = list(sorted([*[j for i in [resolve_overlappings(i) for i in overlaps_list]
+                                                 for j in i],
+                                               *[i for i in CDS_coords_list if i not in [j for i in overlaps_list
+                                                                                         for j in i]]],
                                               key=lambda x: (x.lower, x.upper)))
             for cds_coord in CDS_coords_list:
                 if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
                     try:
                         cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
-                        gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+                        cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
+                        if cds_seq_masking_perc > 0.8:
+                            self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100}% of CDS {cds_coord} '
+                                  f'located in chromosome {chrom} is hardmasked.'))
+                            continue
                     except KeyError as e:
                         print(f'Either there is missing a chromosome in the genome file '
                               f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
@@ -312,7 +334,6 @@ class Exonize(object):
         tuple_list = [get_fragment_tuple(gene_id, cds_coord, blast_hits, hsp_idx)
                       for cds_coord, blast_hits in blast_cds_dict.items()
                       for hsp_idx, hsp_dict in blast_hits.items()]
-
         insert_fragments_table_param, insert_gene_table_param = insert_fragments_calls()
         db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
         cursor = db.cursor()
@@ -320,12 +341,6 @@ class Exonize(object):
         cursor.executemany(insert_fragments_table_param, tuple_list)
         db.commit()
         db.close()
-
-    def filter_structure(self, structure, target_intv, annotation_type):
-        return [(i['id'], i['coord']) for i in structure
-                if (i['coord'].contains(target_intv)
-                    and get_overlap_percentage(target_intv, i['coord']) < self.coverage_threshold
-                    and annotation_type in i['type'])]
 
     def find_full_length_duplications(self):
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
@@ -378,7 +393,7 @@ class Exonize(object):
                     annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                 # ####### INSERTION #######
                 if target_full == 0:
-                    insertion_CDS = self.filter_structure(trans_dict['structure'], target_intv, 'CDS')
+                    insertion_CDS = filter_structure(trans_dict['structure'], target_intv, 'CDS')
                     if insertion_CDS:
                         target_insertion = 1
                         target_t = "INS_CDS"
@@ -386,14 +401,14 @@ class Exonize(object):
                         target_CDS, t_CDS_coord = insertion_CDS[0]
                         annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     else:
-                        insertion_UTR = self.filter_structure(trans_dict['structure'], target_intv, 'UTR')
+                        insertion_UTR = filter_structure(trans_dict['structure'], target_intv, 'UTR')
                         if insertion_UTR:
                             target_t = "INS_UTR"
                             found = True
                             target_CDS, t_CDS_coord = insertion_UTR[0]
                             annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                         else:
-                            insertion_intron = self.filter_structure(trans_dict['structure'], target_intv, 'intron')
+                            insertion_intron = filter_structure(trans_dict['structure'], target_intv, 'intron')
                             if insertion_intron:
                                 target_t = "DEACTIVATED"
                                 found = True
@@ -403,8 +418,7 @@ class Exonize(object):
                     if not found:
                         intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
                         if intv_dict:
-                            target_trunctation = 1
-                            target_t = "TRUNCATION"
+                            target_t = "TRUNC"
                             target_CDS, annot_target_start, annot_target_end = None, None, None
                             for seg_b, value in intv_dict.items():
                                 coord_b = value['coord']
@@ -413,7 +427,7 @@ class Exonize(object):
                                      query_CDS, cds_s, cds_e, query_s, query_e,
                                      target_s, target_e, value['id'], value['type'],
                                      coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                target = target_full + target_insertion + target_trunctation
+                target = target_full + target_insertion
                 # ####### FULL LENGTH DUPL: BOTH #######
                 if query + target == 2:
                     both = 1
@@ -464,6 +478,24 @@ class Exonize(object):
                 progress_bar.update(1)
         return fragments
 
+    def get_identity_and_sequence_tuples(self):
+        tuples_list = []
+        all_fragments = query_fragments(self.results_db, self.timeout_db)
+        for fragment in all_fragments:
+            (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
+             CDS_start, CDS_end, query_start, query_end, target_start, target_end,
+             query_aln_prot_seq, target_aln_prot_seq) = fragment
+            query_seq = self.genome[gene_chrom][CDS_start:CDS_end]
+            target_seq = self.genome[gene_chrom][gene_start:gene_end]
+            query_dna_seq = query_seq[query_start:query_end]
+            target_dna_seq = target_seq[target_start:target_end]
+            if len(query_dna_seq) != len(target_dna_seq):
+                raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
+            dna_identity = 1 - round(hamming_distance(query_dna_seq, target_dna_seq),3)
+            prot_identity = 1 - round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq),3)
+            tuples_list.append((dna_identity, prot_identity, query_dna_seq, target_dna_seq, fragment_id))
+        return tuples_list
+
     def run_analysis(self) -> None:
         exonize_asci_art()
         self.prepare_data()
@@ -490,18 +522,21 @@ class Exonize(object):
                   'if you want to re-run the analysis, '
                   'delete/rename the results DB.')
         tic = time.time()
-        print('- Identifying full length duplications')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
         self.find_full_length_duplications()
         create_cumulative_counts_table(self.results_db, self.timeout_db)
+        fragments_tuples = self.get_identity_and_sequence_tuples()
+        instert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, fragments_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
-        print("~.~.~.~.~.~. Starting reconciliation process - this may take a while... ~.~.~.~.~.~.", end=' ')
+        print('- Reconciling events')
         fragments = self.get_full_matches_records(full_matches)
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db,
                                                                        self.timeout_db,
                                                                        fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
+        self.dump_logs()
         print(f' Done! [{hms_time}]')
+
