@@ -491,8 +491,8 @@ class Exonize(object):
             target_dna_seq = target_seq[target_start:target_end]
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
-            dna_identity = 1 - round(hamming_distance(query_dna_seq, target_dna_seq),3)
-            prot_identity = 1 - round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq),3)
+            dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq),3)
+            prot_identity = round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq),3)
             tuples_list.append((dna_identity, prot_identity, query_dna_seq, target_dna_seq, fragment_id))
         return tuples_list
 
@@ -528,7 +528,7 @@ class Exonize(object):
         self.find_full_length_duplications()
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         fragments_tuples = self.get_identity_and_sequence_tuples()
-        instert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, fragments_tuples)
+        insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, fragments_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print('- Reconciling events')
         fragments = self.get_full_matches_records(full_matches)
