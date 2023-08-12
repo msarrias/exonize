@@ -180,46 +180,7 @@ def create_cumulative_counts_table(db_path, timeout_db) -> None:
     db.close()
 
 
-def query_candidates(db_path, timeout_db, pars) -> list:
-    db = sqlite3.connect(db_path, timeout=timeout_db)
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        SELECT 
-        f.fragment_id,
-        f.gene_id,
-        f.CDS_start - f.gene_start as CDS_start,
-        f.CDS_end - f.gene_start as CDS_end,
-        f.target_start,
-        f.target_end
-        FROM Full_length_events_cumulative_counts AS f
-        WHERE 
-        f.gene_id==?
-        AND f.fragment_id<>?
-        """, pars)
-    rows = cursor.fetchall()
-    db.close()
-    return rows
-
-
-def query_full_events(db_path, timeout_db) -> list:
-    db = sqlite3.connect(db_path, timeout=timeout_db)
-    cursor = db.cursor()
-    matches_q = """
-    SELECT 
-    f.fragment_id,
-    f.gene_id,
-    f.CDS_start - f.gene_start as CDS_start,
-    f.CDS_end - f.gene_start as CDS_end,
-    f.target_start,
-    f.target_end
-    FROM Full_length_events_cumulative_counts AS f
-    """
-    cursor.execute(matches_q)
-    full_matches = cursor.fetchall()
-    db.close()
-    return full_matches
-
+# #### INSERT INTO TABLES #####
 def insert_identity_and_dna_algns_columns(db_path, timeout_db, fragments) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -234,6 +195,7 @@ def insert_identity_and_dna_algns_columns(db_path, timeout_db, fragments) -> Non
     db.commit()
     db.close()
 
+
 def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -243,7 +205,7 @@ def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, time
     db.close()
 
 
-def insert_percent_query_column_to_fragments(db_path, timeout_db):
+def insert_percent_query_column_to_fragments(db_path, timeout_db) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute("""
@@ -268,7 +230,6 @@ def insert_percent_query_column_to_fragments(db_path, timeout_db):
     db.close()
 
 
-# #### INSERT INTO TABLES #####
 def insert_gene_ids_table(db_path, timeout_db, gene_args_tuple: tuple) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -287,7 +248,7 @@ def insert_gene_ids_table(db_path, timeout_db, gene_args_tuple: tuple) -> None:
     db.close()
 
 
-def insert_fragments_calls():
+def insert_fragments_calls() -> tuple:
     insert_fragments_table_param = """
     INSERT INTO Fragments (
     gene_id,
@@ -326,7 +287,7 @@ def insert_fragments_calls():
     return insert_fragments_table_param, insert_gene_table_param
 
 
-def instert_full_length_event(db_path, timeout_db, tuples_list):
+def instert_full_length_event(db_path, timeout_db, tuples_list) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     insert_full_length_event_table_param = """
@@ -357,7 +318,7 @@ def instert_full_length_event(db_path, timeout_db, tuples_list):
     db.close()
 
 
-def instert_obligatory_event(db_path, timeout_db, tuples_list):
+def instert_obligatory_event(db_path, timeout_db, tuples_list) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     insert_obl_event_table_param = """
@@ -385,7 +346,7 @@ def instert_obligatory_event(db_path, timeout_db, tuples_list):
     db.close()
 
 
-def instert_truncation_event(db_path, timeout_db, tuples_list):
+def instert_truncation_event(db_path, timeout_db, tuples_list) -> None:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
     insert_trunc_event_table_param = """
@@ -614,6 +575,47 @@ def query_fragments(db_path, timeout_db) -> list:
     rows = cursor.fetchall()
     db.close()
     return rows
+
+
+def query_candidates(db_path, timeout_db, pars) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute(
+        """
+        SELECT 
+        f.fragment_id,
+        f.gene_id,
+        f.CDS_start - f.gene_start as CDS_start,
+        f.CDS_end - f.gene_start as CDS_end,
+        f.target_start,
+        f.target_end
+        FROM Full_length_events_cumulative_counts AS f
+        WHERE 
+        f.gene_id==?
+        AND f.fragment_id<>?
+        """, pars)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
+def query_full_events(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    matches_q = """
+    SELECT 
+    f.fragment_id,
+    f.gene_id,
+    f.CDS_start - f.gene_start as CDS_start,
+    f.CDS_end - f.gene_start as CDS_end,
+    f.target_start,
+    f.target_end
+    FROM Full_length_events_cumulative_counts AS f
+    """
+    cursor.execute(matches_q)
+    full_matches = cursor.fetchall()
+    db.close()
+    return full_matches
 
 
 # ### CREATE VIEW ####
