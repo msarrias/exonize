@@ -7,7 +7,21 @@ class ExonizeEvents(object):
         self.results_db = exonize_res_db_path
         self.skip_duplicated_pairs = []
 
-    def check_for_duplications(self):
+    def sanity_check(self) -> None:
+        all_dict = self.get_events()
+        for mut_class, mut_dict in all_dict.items():
+            for mut_type, value_j in mut_dict.items():
+                if mut_type == 'pairs':
+                    ids.extend([k[0] for k in [m for j in [j for i, j in value_j.items()] for m in j]])
+                elif mut_type == "orphans":
+                    ids.extend([i[0] for i in value_j])
+                elif mut_type == "split_pairs":
+                    temp_splits = [m for j in [j for i, j in value_j.items()] for m in j]
+                    split_pairs.extend([m[0] for m in temp_splits])
+        if not (len(split_pairs) + len(ids) + len(self.skip_duplicated_pairs) == len(all_events)):
+            print('WARNING: some events are doubled counted or missing from the analysis')
+
+    def check_for_duplications(self) -> None:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -22,7 +36,7 @@ class ExonizeEvents(object):
             print('WARNING: overlapping events in the Full_length_events_cumulative_counts table,'
                   ' skipping said events')
 
-    def get_n_pair_ids(self):
+    def get_n_pair_ids(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -30,10 +44,10 @@ class ExonizeEvents(object):
             pair_id, 
             COUNT(*) 
         FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
-        res = {i[0]: i[1] for i in cursor.fetchall()}
-        return res
+        pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
+        return pair_ids_dict
 
-    def organize_event_dict(self, events_list):
+    def organize_event_dict(self, events_list) -> dict:
         pair_id_idx = -2
         pair_ids_dict = self.get_n_pair_ids()
         records = dict(pairs=dict(), orphans=[], split_pairs=[])
@@ -82,7 +96,7 @@ class ExonizeEvents(object):
         obligate_events_dict = self.organize_event_dict(obligate_events_list)
         return obligate_events_dict
 
-    def fetch_exclusive_events(self):
+    def fetch_exclusive_events(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -115,7 +129,7 @@ class ExonizeEvents(object):
         db.close()
         return MXEs_events_dict
 
-    def fetch_deactivated_event(self):
+    def fetch_deactivated_event(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -145,7 +159,7 @@ class ExonizeEvents(object):
         db.close()
         return deactivated_events_dict
 
-    def fetch_optional_events(self):
+    def fetch_optional_events(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -188,7 +202,7 @@ class ExonizeEvents(object):
         db.close()
         return optional_events_dict
 
-    def fetch_flexible_events(self):
+    def fetch_flexible_events(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
