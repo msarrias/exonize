@@ -60,7 +60,7 @@ class Exonize(object):
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
-        self.logs=[]
+        self.logs = []
 
     def create_parse_or_update_database(self) -> None:
         if not os.path.exists(self.db_path):
@@ -155,7 +155,6 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
-
     def dump_logs(self):
         with open(f'exonize_logs.txt', 'w') as f:
             f.write('\n'.join(self.logs))
@@ -218,20 +217,20 @@ class Exonize(object):
         with open(output_file, "r") as result_handle:
             blast_records = NCBIXML.parse(result_handle)
             try:
-                temp = self.parse_tblastx_output(blast_records, query_seq, hit_seq, query_coord, gene_coord)
+                temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
             except Exception as e:
                 print(e)
                 sys.exit()
         return temp
 
-    def parse_tblastx_output(self, blast_records, query_seq: str, hit_seq: str, q_coord, hit_coord) -> dict:
+    def parse_tblastx_output(self, blast_records, q_coord, hit_coord) -> dict:
         """
         We only want to consider hits that:
             (i)   have an e-value lower than the threshold,
             (ii)  have a minimum alignment length percentage of the query sequence and
             (iii) that do not overlap with the query sequence (self-hit),
                   with a maximum overlap of 50% of the query sequence.
-        :return: dict with the following structure: {target_id {hsp_id:{'score': '', 'bits': '','evalue': '',...}}}
+        :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
         res_tblastx = {}
         # since we are performing a single query against a single subject, there's only one blast_record
@@ -250,7 +249,7 @@ class Exonize(object):
                         and query_aligned_frac > self.min_align_len_perc
                         and query_target_overlap_percentage < 0.5  # self-hits are not allowed (max 50% overlap)
                         and target_query_overlap_percentage < 0.5):
-                    res_tblastx[hsp_idx] = get_hsp_dict(hsp, query_seq, hit_seq)
+                    res_tblastx[hsp_idx] = get_hsp_dict(hsp)
         return res_tblastx
 
     def get_gene_tuple(self, gene_id: str, bin_has_dup: int) -> tuple:
@@ -286,29 +285,27 @@ class Exonize(object):
 
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure'] if i['type'] == 'CDS'])
-                               )
+                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
         if CDS_coords_list:
             CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
             overlaps_list = get_intervals_overlapping_list(CDS_coords_list)
             if overlaps_list:
-                CDS_coords_list = list(sorted([*[j for i in [resolve_overlappings(i) for i in overlaps_list]
-                                                 for j in i],
-                                               *[i for i in CDS_coords_list if i not in [j for i in overlaps_list
-                                                                                         for j in i]]],
-                                              key=lambda x: (x.lower, x.upper)))
+                list_temp = [*[j for i in [resolve_overlappings(i) for i in overlaps_list] for j in i],
+                             *[i for i in CDS_coords_list if i not in [j for i in overlaps_list for j in i]]]
+                CDS_coords_list = list(sorted(list_temp, key=lambda x: (x.lower, x.upper)))
             for cds_coord in CDS_coords_list:
                 if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
                     try:
                         cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
                         cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
                         if cds_seq_masking_perc > 0.8:
-                            self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100}% of CDS {cds_coord} '
-                                  f'located in chromosome {chrom} is hardmasked.'))
+                            self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
+                                              f'% of CDS {cds_coord} '
+                                              f'located in chromosome {chrom} is hardmasked.'))
                             continue
                     except KeyError as e:
-                        print(f'Either there is missing a chromosome in the genome file '
-                              f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
+                        print(f'Either there is missing a chromosome in the genome file or the chromosome'
+                              f' identifiers in the GFF3 and FASTA files do not match {e}')
                         sys.exit()
                     temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
                     if temp:
@@ -523,8 +520,7 @@ class Exonize(object):
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
         else:
-            print('All genes already processed, '
-                  'if you want to re-run the analysis, '
+            print('All genes already processed if you want to re-run the analysis, '
                   'delete/rename the results DB.')
         tic = time.time()
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
@@ -537,11 +533,8 @@ class Exonize(object):
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print('- Reconciling events')
         fragments = self.get_full_matches_records(full_matches)
-        instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db,
-                                                                       self.timeout_db,
-                                                                       fragments)
+        instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
         self.dump_logs()
         print(f' Done! [{hms_time}]')
-
