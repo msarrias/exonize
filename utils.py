@@ -140,8 +140,7 @@ def get_fragment_tuple(gene_id: str, cds_coord, blast_hits: dict, hsp_idx: int) 
             )
 
 
-def get_hsp_dict(hsp, query_seq: str, hit_seq: str) -> dict:
-    q_frame, t_frame = hsp.frame
+def get_hsp_dict(hsp) -> dict:
     return dict(
             score=hsp.score,
             bits=hsp.bits,
@@ -321,6 +320,29 @@ def get_overlapping_dict(interval_dict):
         if idx != (len(interval_dict) - 1) and feat_interv.overlaps(intervals_list[idx + 1]):
             overlapping_dict[feat_interv] = intervals_list[idx+1]
     return overlapping_dict
+
+
+def generate_combinations(strings):
+    result = set()
+    for perm in permutations(strings):
+        result.add('-'.join(perm))
+    return list(result)
+
+
+def generate_event_list(events_list, event_type_idx=-2):
+    new_events_list = []
+    events_ids = []
+    for event in events_list:
+        mrna_concat_event_types = list(set(event[event_type_idx].rsplit(',')))
+        mrna_events_perm = generate_combinations(mrna_concat_event_types)
+        keys = [i for i in mrna_events_perm if i in events_ids]
+        if not keys:
+            events_ids.append(mrna_events_perm[0])
+            event_n = mrna_events_perm[0]
+        else:
+            event_n = keys[0]
+        new_events_list.append((*event, event_n))
+    return new_events_list
 
 
 def exonize_asci_art():
