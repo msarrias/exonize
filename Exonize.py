@@ -466,10 +466,14 @@ class Exonize(object):
                         temp_cand = []
                         for frag_b in candidates:
                             frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
-                            intvs_pair = [get_average_overlapping_percentage(x[0], x[1])
-                                          for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                                    (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
-                            if all(perc > self.coverage_threshold for perc in intvs_pair):
+                            reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
+                                                for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                                          (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                            overlapping_pairs = [get_average_overlapping_percentage(x[0], x[1])
+                                                 for x in [(P.open(q_s_a, q_e_a), P.open(q_s_b, q_e_b)),
+                                                           (P.open(t_s_a, t_e_a), P.open(t_s_b, t_e_b))]]
+                            if any(all(perc > self.coverage_threshold for perc in pair) for pair in
+                                   [reciprocal_pairs, overlapping_pairs]):
                                 temp_cand.append(frag_id_b)
                         if temp_cand:
                             skip_frag.extend([frag_id_a, *temp_cand])
@@ -492,8 +496,8 @@ class Exonize(object):
             target_dna_seq = target_seq[target_start:target_end]
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
-            dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq),3)
-            prot_identity = round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq),3)
+            dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq), 3)
+            prot_identity = round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq), 3)
             tuples_list.append((dna_identity, prot_identity, query_dna_seq, target_dna_seq, fragment_id))
         return tuples_list
 
