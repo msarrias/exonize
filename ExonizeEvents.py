@@ -5,11 +5,11 @@ import sqlite3
 class ExonizeEvents(object):
     def __init__(self, exonize_res_db_path):
         self.results_db = exonize_res_db_path
-        self.skip_duplicated_pairs = []
+        self.skip_duplicated_pairs = list()
+        self.all_events = dict()
 
-    def sanity_check(self) -> None:
-        all_dict = self.get_events()
-        for mut_class, mut_dict in all_dict.items():
+    def fragments_count_sanity_check(self) -> None:
+        for mut_class, mut_dict in self.all_events.items():
             for mut_type, value_j in mut_dict.items():
                 if mut_type == 'pairs':
                     ids.extend([k[0] for k in [m for j in [j for i, j in value_j.items()] for m in j]])
@@ -36,22 +36,11 @@ class ExonizeEvents(object):
             print('WARNING: overlapping events in the Full_length_events_cumulative_counts table,'
                   ' skipping said events')
 
-    def get_n_pair_ids(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT 
-            pair_id, 
-            COUNT(*) 
-        FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
-        pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
-        return pair_ids_dict
-
     def organize_event_dict(self, events_list) -> dict:
         pair_id_idx = -2
         pair_ids_dict = self.get_n_pair_ids()
-        records = dict(pairs=dict(), orphans=[], split_pairs=[])
-        processed_ids = []
+        records = dict(pairs=dict(), orphans=list(), split_pairs=list())
+        processed_ids = list()
         for record in events_list:
             if record[pair_id_idx] is not None:
                 if record[pair_id_idx] not in processed_ids:
@@ -67,6 +56,7 @@ class ExonizeEvents(object):
                 records['orphans'].append(record)
         return records
 
+    # ###### QUERY TABLES ########
     def fetch_obligate_pairs(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
@@ -245,3 +235,24 @@ class ExonizeEvents(object):
         flexible_events_dict = self.organize_event_dict(flexible_events_list)
         db.close()
         return flexible_events_dict
+
+    def get_n_pair_ids(self) -> dict:
+        db = sqlite3.connect(self.results_db)
+        cursor = db.cursor()
+        cursor.execute("""
+        SELECT 
+            pair_id, 
+            COUNT(*) 
+        FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
+        pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
+        return pair_ids_dict
+
+    def get_classification_schema(self):
+        self.all_events = dict(flexible_pairs=self.fetch_flexible_events(),
+                               optional_pairs=self.fetch_optional_events(),
+                               deactivated_pairs=self.fetch_deactivated_event(),
+                               MXEs_events=self.fetch_exclusive_events(),
+                               obligate_events=self.fetch_obligate_pairs())
+        self.fragments_count_sanity_check()
+
+
