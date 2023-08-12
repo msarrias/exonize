@@ -24,11 +24,12 @@ class Exonize(object):
                  spec_attribute='ID',
                  verbose=True,
                  hard_masking=False,
-                 evalue_threshold=1e-1,
+                 evalue_threshold=1e-2,
                  coverage_threshold=0.9,
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
                  min_exon_length=20,
+                 masking_perc_threshold=0.8,
                  batch_number=100,
                  threads=7,
                  timeout_db=160.0):
@@ -60,6 +61,7 @@ class Exonize(object):
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
+        self.masking_perc_threshold = masking_perc_threshold
         self.logs = []
 
     def create_parse_or_update_database(self) -> None:
@@ -126,7 +128,6 @@ class Exonize(object):
             try:
                 def intron_id(f) -> str:
                     return ','.join(f[self.id_spec_attribute])
-
                 introns_list = list(self.db.create_introns())
                 self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
             except ValueError as e:
@@ -155,7 +156,9 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
-    def dump_logs(self):
+    def dump_logs(self) -> None:
+        if not self.logs:
+            self.logs = ['Nothing to report']
         with open(f'exonize_logs.txt', 'w') as f:
             f.write('\n'.join(self.logs))
 
@@ -272,7 +275,7 @@ class Exonize(object):
         try:
             gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
             masking_perc = sequence_masking_percentage(gene_seq)
-            if masking_perc > 0.8:
+            if masking_perc > self.masking_perc_threshold:
                 self.logs.append((f'Gene {gene_id} in chromosome {chrom} '
                                   f'and coordinates {str(gene_coord.lower)}, {str(gene_coord.upper)}'
                                   f' is hardmasked.'))
@@ -282,7 +285,6 @@ class Exonize(object):
             print(f'Either there is missing a chromosome in the genome file '
                   f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
             sys.exit()
-
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
@@ -340,7 +342,7 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def find_full_length_duplications(self):
+    def find_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
         for row in rows:
@@ -480,7 +482,7 @@ class Exonize(object):
                 progress_bar.update(1)
         return fragments
 
-    def get_identity_and_sequence_tuples(self):
+    def get_identity_and_sequence_tuples(self) -> list:
         tuples_list = []
         all_fragments = query_fragments(self.results_db, self.timeout_db)
         for fragment in all_fragments:
