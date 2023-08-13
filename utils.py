@@ -9,6 +9,8 @@ import portion as P
 import re
 import random
 import copy
+from collections import Counter
+from itertools import permutations
 
 
 def read_pkl_file(filepath: str) -> dict:
@@ -260,8 +262,7 @@ def get_non_overlapping_coords_set(overlapping_coords_dict: dict) -> list:
 
 
 def sample_color(n=1) -> list:
-    return ["#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)])
-            for i in range(n)]
+    return ["#"+''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in range(n)]
 
 
 def strand_string_to_integer(strand: str) -> int:
