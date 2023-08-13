@@ -7,18 +7,18 @@ class ExonizeEvents(object):
         self.results_db = exonize_res_db_path
         self.skip_duplicated_pairs = list()
         self.all_events = dict()
+        self.pair_id_idx = -2
+        self.evalue_idx = -4
+        self.fragment_id_idx = 0
 
     def fragments_count_sanity_check(self) -> None:
+        pairs_ids_len = 0
+        split_pairs_len = 0
+        all_full_events = self.get_all_full_events()
         for mut_class, mut_dict in self.all_events.items():
-            for mut_type, value_j in mut_dict.items():
-                if mut_type == 'pairs':
-                    ids.extend([k[0] for k in [m for j in [j for i, j in value_j.items()] for m in j]])
-                elif mut_type == "orphans":
-                    ids.extend([i[0] for i in value_j])
-                elif mut_type == "split_pairs":
-                    temp_splits = [m for j in [j for i, j in value_j.items()] for m in j]
-                    split_pairs.extend([m[0] for m in temp_splits])
-        if not (len(split_pairs) + len(ids) + len(self.skip_duplicated_pairs) == len(all_events)):
+            pairs_ids_len += len([*mut_dict['pairs_fragment_ids'], *mut_dict['orphan_fragment_ids']])
+            split_pairs_len += len(mut_dict['splits_fragment_ids'])
+        if not (split_pairs_len + pairs_ids_len + len(self.skip_duplicated_pairs) == len(all_full_events)):
             print('WARNING: some events are doubled counted or missing from the analysis')
 
     def check_for_duplications(self) -> None:
@@ -37,26 +37,42 @@ class ExonizeEvents(object):
                   ' skipping said events')
 
     def organize_event_dict(self, events_list) -> dict:
-        pair_id_idx = -2
-        pair_ids_dict = self.get_n_pair_ids()
-        records = dict(pairs=dict(), orphans=list(), split_pairs=list())
+        pair_ids_dict = self.get_count_pair_ids()
+        records = dict(pairs_fragment_ids=list(), pairs_records=list(),
+                       splits_fragment_ids=list(), split_records=list(),
+                       orphan_fragment_ids=list(), orphan_records=list())
         processed_ids = list()
         for record in events_list:
-            if record[pair_id_idx] is not None:
-                if record[pair_id_idx] not in processed_ids:
-                    ids_list = [r for r in events_list if r[pair_id_idx] == record[pair_id_idx]]
-                    if record[pair_id_idx] not in self.skip_duplicated_pairs:
-                        if len(ids_list) == pair_ids_dict[record[pair_id_idx]]:
-                            records['pairs'][record[pair_id_idx]] = ids_list
-                            processed_ids.append(record[pair_id_idx])
-                        else:
-                            records['split_pairs'][record[pair_id_idx]] = ids_list
-                            processed_ids.append(record[pair_id_idx])
-            else:
-                records['orphans'].append(record)
+            if (record[self.pair_id_idx] is not None
+                    and record[self.pair_id_idx] not in processed_ids
+                    and record[self.pair_id_idx] not in self.skip_duplicated_pairs):
+                records_list = [r for r in events_list if r[self.pair_id_idx] == record[self.pair_id_idx]]
+                if len(records_list) == pair_ids_dict[record[self.pair_id_idx]]:
+                    records['pairs_fragment_ids'].extend([i[self.fragment_id_idx] for i in records_list])
+                    # we just want one event per pair, so we take the one with the lowest evalue
+                    records['pairs_records'].append(min(records_list, key=lambda x: x[self.evalue_idx]))
+                    processed_ids.append(record[self.pair_id_idx])
+                else:
+                    records['split_records'].extend(records_list)
+                    records['splits_fragment_ids'].extend([i[self.fragment_id_idx] for i in records_list])
+                    processed_ids.append(record[self.pair_id_idx])
+            elif record[self.pair_id_idx] is None:
+                records['orphan_records'].append(record)
+                records['orphan_fragment_ids'].append(record[self.fragment_id_idx])
         return records
 
     # ###### QUERY TABLES ########
+    def get_all_full_events(self):
+        db = sqlite3.connect(self.results_db)
+        cursor = db.cursor()
+        cursor.execute(""" 
+        SELECT 
+            DISTINCT(fragment_id)
+        FROM Full_length_events_cumulative_counts;""")
+        all_events = [i[0] for i in cursor.fetchall()]
+        db.close()
+        return all_events
+
     def fetch_obligate_pairs(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
@@ -236,7 +252,7 @@ class ExonizeEvents(object):
         db.close()
         return flexible_events_dict
 
-    def get_n_pair_ids(self) -> dict:
+    def get_count_pair_ids(self) -> dict:
         db = sqlite3.connect(self.results_db)
         cursor = db.cursor()
         cursor.execute("""
@@ -247,12 +263,10 @@ class ExonizeEvents(object):
         pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
         return pair_ids_dict
 
-    def get_classification_schema(self):
+    def get_classification_schema(self) -> None:
         self.all_events = dict(flexible_pairs=self.fetch_flexible_events(),
                                optional_pairs=self.fetch_optional_events(),
                                deactivated_pairs=self.fetch_deactivated_event(),
                                MXEs_events=self.fetch_exclusive_events(),
                                obligate_events=self.fetch_obligate_pairs())
         self.fragments_count_sanity_check()
-
-
