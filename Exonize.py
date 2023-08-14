@@ -432,7 +432,6 @@ class Exonize(object):
                 if query + target == 2:
                     both = 1
                     query, target = 0, 0
-                    target_t = "BOTH"
                     tuples_obligatory_events.append((fragment_id, gene_id, mrna,
                                                     trans_coord.lower, trans_coord.upper,
                                                     cds_s, cds_e,
