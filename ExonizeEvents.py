@@ -4,13 +4,14 @@ import sqlite3
 
 class ExonizeEvents(object):
     def __init__(self, exonize_res_db_path):
+        self.classified_events = {}
         self.results_db = exonize_res_db_path
         self.skip_duplicated_pairs = list()
         self.all_events = dict()
         self.pair_id_idx = -2
         self.evalue_idx = -4
         self.fragment_id_idx = 0
-        self.concat_event_type = -1
+        self.concat_event_type_idx = -1
 
     def fragments_count_sanity_check(self) -> None:
         pairs_ids_len = 0
@@ -39,7 +40,7 @@ class ExonizeEvents(object):
 
     def organize_event_dict(self, events_list) -> dict:
         pair_ids_dict = self.get_count_pair_ids()
-        records = dict(pairs_fragment_ids=list(), pairs_records=list(),
+        records = dict(pairs_fragment_ids=list(), pairs_unique_record=list(),
                        splits_fragment_ids=list(), split_records=list(),
                        orphan_fragment_ids=list(), orphan_records=list())
         processed_ids = list()
@@ -51,7 +52,10 @@ class ExonizeEvents(object):
                 if len(records_list) == pair_ids_dict[record[self.pair_id_idx]]:
                     records['pairs_fragment_ids'].extend([i[self.fragment_id_idx] for i in records_list])
                     # we just want one event per pair, so we take the one with the lowest evalue
-                    records['pairs_records'].append(min(records_list, key=lambda x: x[self.evalue_idx]))
+                    exclude_reciprocals = [i for i in records_list if 'TRUNC' not in i[self.concat_event_type_idx]]
+                    if not exclude_reciprocals:
+                        exclude_reciprocals = records_list
+                    records['pairs_unique_record'].append(min(exclude_reciprocals, key=lambda x: x[self.evalue_idx]))
                     processed_ids.append(record[self.pair_id_idx])
                 else:
                     records['split_records'].extend(records_list)
@@ -292,11 +296,10 @@ class ExonizeEvents(object):
                     if len(pairs) == 1:
                         pair = pairs[0]
                         if pair[self.fragment_id_idx] not in skip_frag_id:
-                            if 'TRUNC' in pair[self.concat_event_type]:
-                                pair_list = [split_event, pair]
+                            if 'TRUNC' in pair[self.concat_event_type_idx]:
                                 self.all_events[mut_type]['pairs_fragment_ids'].extend([i[self.fragment_id_idx]
-                                                                                        for i in pair_list])
-                                self.all_events[mut_type]['pairs_records'].extend(pair_list)
+                                                                                        for i in [split_event, pair]])
+                                self.all_events[mut_type]['pairs_unique_record'].append(split_event)
                                 # handle the reciprocal event
                                 new_split_records_ids = [i[self.fragment_id_idx] for i in new_split_records]
                                 if split_event[self.fragment_id_idx] in new_split_records_ids:
@@ -340,6 +343,18 @@ class ExonizeEvents(object):
                     new_remove_frag_id = list(set(new_remove_frag_id) - set(remove_ids))
         self.fragments_count_sanity_check()
 
+    def reorganize_schema_according_to_type(self) -> None:
+        for key, value in self.all_events.items():
+            all_events = [*value['orphan_records'], *value['pairs_unique_record']]
+            if key != 'optional_pairs':
+                self.classified_events[key] = {i: [j for j in all_events if j[self.concat_event_type_idx] == i]
+                                               for i in set([i[self.concat_event_type_idx] for i in all_events])}
+            else:
+                self.classified_events[key] = {i: {k: [j for j in all_events if j[self.concat_event_type_idx] == k]
+                                                   for k in set([i[self.concat_event_type_idx]
+                                                                 for i in [j for j in all_events if j[13] == i]])}
+                                               for i in set([i[13] for i in all_events])}
+
     def get_classification_schema(self) -> None:
         self.all_events = dict(flexible_pairs=self.fetch_flexible_events(),
                                optional_pairs=self.fetch_optional_events(),
@@ -348,5 +363,6 @@ class ExonizeEvents(object):
                                obligate_events=self.fetch_obligate_pairs())
         self.fragments_count_sanity_check()
         self.reassign_split_pairs()
+        self.reorganize_schema_according_to_type()
 
 
