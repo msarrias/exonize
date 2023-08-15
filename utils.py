@@ -203,7 +203,7 @@ def get_average_overlapping_percentage(intv_a, intv_b):
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
 
 
-def resolve_overlappings(intv_list, threshold=0.98):
+def resolve_overlappings(intv_list, threshold=0.9):
     intv_a, intv_b = intv_list
     if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
         _, rec_itv = get_small_large_interv(intv_a, intv_b)
@@ -284,9 +284,29 @@ def check_for_consecutive_intervals(list_intervals, target_intv):
         return False
 
 
-def get_interval_dictionary(trans_dict, target_intv):
+def get_unmatched_events(string1, string2):
+    a = string1.rsplit('-')
+    b = string2.rsplit('-')
+    a_copy = list(a)
+    for i in a:
+        if i in b:
+            b.remove(i)
+            a_copy.remove(i)
+    a_copy.extend(b)
+    return a_copy
+
+
+def get_interval_dictionary(trans_dict, target_intv, trans_coord):
     UTR_features = ['five_prime_UTR', 'three_prime_UTR']
     interval_dict = {}
+    if target_intv.lower < trans_coord.lower:
+        out_of_utr_coord = P.open(target_intv.lower, trans_coord.lower)
+        if out_of_utr_coord:
+            interval_dict[out_of_utr_coord] = {'id': 'out_of_UTR', 'type': 'out_of_UTR', 'coord': out_of_utr_coord}
+    elif trans_coord.upper < target_intv.upper:
+        out_of_utr_coord = P.open(trans_coord.upper, target_intv.upper)
+        if out_of_utr_coord:
+            interval_dict[out_of_utr_coord] = {'id': 'out_of_UTR', 'type': 'out_of_UTR', 'coord': out_of_utr_coord}
     for annot in trans_dict:
         if annot['coord'].overlaps(target_intv) and not annot['coord'].contains(target_intv):
             feature_inv = annot['coord']
