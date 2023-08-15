@@ -8,10 +8,28 @@ class ExonizeEvents(object):
         self.results_db = exonize_res_db_path
         self.skip_duplicated_pairs = list()
         self.all_events = dict()
+        self.coverage_threshold = 0.9
         self.pair_id_idx = -2
         self.evalue_idx = -4
         self.fragment_id_idx = 0
         self.concat_event_type_idx = -1
+        self.optional_group_category_idx = 13
+        self.query_start_idx = 5
+        self.query_end_idx = 6
+        self.target_start_idx = 7
+        self.target_end_idx = 8
+        self.coding_event_dict = {'1001': 'obligate_events',
+                                  '0111': 'MXEs_events',
+                                  '0101': 'deactivated',
+                                  '1111': 'flexible_pairs',
+                                  '1101': 'flexible_pairs',
+                                  '1011': 'flexible_pairs'}
+        self.deactiv_features = ['DEACTIVATED',
+                                 'OUT_OF_MRNA',
+                                 'INS_UTR',
+                                 'TRUNC',
+                                 'NEITHER']
+# b =
 
     def fragments_count_sanity_check(self) -> None:
         pairs_ids_len = 0
@@ -65,6 +83,120 @@ class ExonizeEvents(object):
                 records['orphan_records'].append(record)
                 records['orphan_fragment_ids'].append(record[self.fragment_id_idx])
         return records
+
+    def search_for_split_events(self):
+        new_dict = dict()
+        pair_ids_dict = self.get_count_pair_ids()
+        all_split_records = [record for event_dict in self.all_events.values() for record in event_dict['split_records']]
+        if all_split_records:
+            new_dict = {
+                i[self.pair_id_idx]: [j for j in all_split_records if i[self.pair_id_idx] == j[self.pair_id_idx]]
+                for i in all_split_records}
+            # ### CHECK THERE ARE NOT UNRECONCILED ANNOTATIONS
+            for key, value in new_dict.items():
+                if len(value) != pair_ids_dict[key]:
+                    print('WARNING: Unreconciled annotations in the split events')
+        return new_dict
+
+    def reassign_split_pairs(self):
+        split_events_dict = self.search_for_split_events()
+        skip_frag_id, skip_pair_id = list(), list()
+        for mut_type in self.all_events.keys():
+            new_split_records = list(self.all_events[mut_type]['split_records'])
+            new_split_fragments = list(self.all_events[mut_type]['splits_fragment_ids'])
+            for split_event in self.all_events[mut_type]['split_records']:
+                if split_event[self.fragment_id_idx] not in skip_frag_id:
+                    pairs = [i for i in split_events_dict[split_event[self.pair_id_idx]]
+                             if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]
+                             and split_event[self.pair_id_idx] not in skip_pair_id]
+                    if len(pairs) == 1:
+                        pair = pairs[0]
+                        if pair[self.fragment_id_idx] not in skip_frag_id:
+                            ins_event = False
+                            group_categ = get_unmatched_events(split_event[self.concat_event_type_idx],
+                                                               pair[self.concat_event_type_idx])
+                            if group_categ:
+                                ins_event = (any(element in self.deactiv_features for element in group_categ)
+                                             and any('INS' in element for element in group_categ)
+                                             and split_event[self.evalue_idx] < pair[self.evalue_idx])
+                            # check if the split event and the pair overlap
+                            pair_t = P.open(pair[self.target_start_idx], pair[self.target_end_idx])
+                            pair_q = P.open(pair[self.query_start_idx], pair[self.query_end_idx])
+                            split_t = P.open(split_event[self.target_start_idx], split_event[self.target_end_idx])
+                            split_q = P.open(split_event[self.query_start_idx], split_event[self.query_end_idx])
+                            overlap_se = ((get_average_overlapping_percentage(pair_t, split_t) > self.coverage_threshold
+                                           and get_average_overlapping_percentage(pair_q, split_q) > self.coverage_threshold)
+                                          and split_event[self.evalue_idx] < pair[self.evalue_idx])
+                            if ins_event or overlap_se or 'TRUNC' in pair[self.concat_event_type_idx]:
+                                self.all_events[mut_type]['pairs_fragment_ids'].extend([i[self.fragment_id_idx]
+                                                                                        for i in [split_event, pair]])
+                                self.all_events[mut_type]['pairs_unique_record'].append(split_event)
+                                # handle the reciprocal event
+                                new_split_records_ids = [i[self.fragment_id_idx] for i in new_split_records]
+                                if split_event[self.fragment_id_idx] in new_split_records_ids:
+                                    new_split_records.remove(split_event)
+                                    new_split_fragments.remove(split_event[self.fragment_id_idx])
+                                else:
+                                    skip_frag_id.append(split_event[self.fragment_id_idx])
+                                    skip_pair_id.append(split_event[self.pair_id_idx])
+                                # handle the event that is not reciprocal
+                                if pair in new_split_records:
+                                    new_split_records.remove(pair)
+                                    new_split_fragments.remove(pair[self.fragment_id_idx])
+                                else:
+                                    skip_frag_id.append(pair[self.fragment_id_idx])
+                                    skip_pair_id.append(pair[self.pair_id_idx])
+                        else:
+                            new_split_records.remove(pair)
+                            new_split_fragments.remove(pair[self.fragment_id_idx])
+                            skip_frag_id.remove(pair[self.fragment_id_idx])
+                            skip_pair_id.remove(pair[self.pair_id_idx])
+                else:
+                    new_split_records = [i for i in new_split_records
+                                         if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]]
+                    new_split_fragments.remove(split_event[self.fragment_id_idx])
+                    skip_frag_id.remove(split_event[self.fragment_id_idx])
+                    skip_pair_id.remove(split_event[self.pair_id_idx])
+            self.all_events[mut_type]['split_records'] = list(new_split_records)
+            self.all_events[mut_type]['splits_fragment_ids'] = list(new_split_fragments)
+        # If there are still events pending to re-assign
+        if skip_frag_id:
+            new_remove_frag_id = list(skip_frag_id)
+            for mut_type in self.all_events.keys():
+                split_records = list(self.all_events[mut_type]['split_records'])
+                split_fragments = list(self.all_events[mut_type]['splits_fragment_ids'])
+                records_split_ids = [i[self.fragment_id_idx] for i in self.all_events[mut_type]['split_records']]
+                remove_ids = list(set(new_remove_frag_id) & set(records_split_ids))
+                if remove_ids:
+                    self.all_events[mut_type]['split_records'] = [i for i in split_records if i[self.fragment_id_idx]
+                                                                  not in remove_ids]
+                    self.all_events[mut_type]['splits_fragment_ids'] = [i for i in split_fragments if i not in remove_ids]
+                    new_remove_frag_id = list(set(new_remove_frag_id) - set(remove_ids))
+        self.fragments_count_sanity_check()
+
+    def reorganize_schema_according_to_type(self) -> None:
+        for key, value in self.all_events.items():
+            all_events = [*value['orphan_records'], *value['pairs_unique_record']]
+            if key != 'optional_pairs':
+                self.classified_events[key] = {i: [j for j in all_events if j[self.concat_event_type_idx] == i]
+                                               for i in set([i[self.concat_event_type_idx] for i in all_events])}
+            else:
+                self.classified_events[key] = {self.coding_event_dict[i]: {
+                    k: [j for j in all_events if j[self.concat_event_type_idx] == k
+                        and j[self.optional_group_category_idx] == i]
+                    for k in set([i[self.concat_event_type_idx] for i in [j for j in all_events
+                                                                          if j[self.optional_group_category_idx] == i]])}
+                    for i in set([i[self.optional_group_category_idx] for i in all_events])}
+
+    def get_classification_schema(self) -> None:
+        self.all_events = dict(flexible_pairs=self.fetch_flexible_events(),
+                               optional_pairs=self.fetch_optional_events(),
+                               deactivated_pairs=self.fetch_deactivated_event(),
+                               MXEs_events=self.fetch_exclusive_events(),
+                               obligate_events=self.fetch_obligate_pairs())
+        self.fragments_count_sanity_check()
+        self.reassign_split_pairs()
+        self.reorganize_schema_according_to_type()
 
     # ###### QUERY TABLES ########
     def get_all_full_events(self):
@@ -162,7 +294,7 @@ class ExonizeEvents(object):
             f.concat_event_type,
             f.pair_id
         FROM Full_length_events_cumulative_counts AS f 
-        WHERE f.cum_query==f.mrna_count
+        WHERE f.cum_query=f.mrna_count
         ORDER BY f.pair_id;
             """)
         deactivated_events_list = generate_event_list(cursor.fetchall())
@@ -184,11 +316,11 @@ class ExonizeEvents(object):
             gs.query_end,
             gs.target_start,
             gs.target_end,
-            gs.cum_both AS cb,
+            gs.cum_both AS ct,
             gs.cum_query AS cq,
             gs.cum_target AS ct,
             gs.cum_neither AS cn,
-            gs.cq || gs.ct || gs.cb || gs.cn AS optional_group_category,
+            gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
             gs.evalue,
             gs.concat_event_type,
             gs.pair_id
@@ -231,7 +363,7 @@ class ExonizeEvents(object):
             gs.cum_query AS cq,
             gs.cum_target AS ct,
             gs.cum_neither AS cn,
-            gs.cq || gs.ct || gs.cb || gs.cn AS optional_group_category,
+            gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
             gs.evalue,
             gs.concat_event_type,
             gs.pair_id
@@ -267,102 +399,4 @@ class ExonizeEvents(object):
         FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
         pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
         return pair_ids_dict
-
-    def search_for_split_events(self):
-        new_dict = dict()
-        pair_ids_dict = self.get_count_pair_ids()
-        all_split_records = [record for event_dict in self.all_events.values() for record in event_dict['split_records']]
-        if all_split_records:
-            new_dict = {
-                i[self.pair_id_idx]: [j for j in all_split_records if i[self.pair_id_idx] == j[self.pair_id_idx]]
-                for i in all_split_records}
-            # ### CHECK THERE ARE NOT UNRECONCILED ANNOTATIONS
-            for key, value in new_dict.items():
-                if len(value) != pair_ids_dict[key]:
-                    print('WARNING: Unreconciled annotations in the split events')
-        return new_dict
-
-    def reassign_split_pairs(self):
-        split_events_dict = self.search_for_split_events()
-        skip_frag_id, skip_pair_id = list(), list()
-        for mut_type in self.all_events.keys():
-            new_split_records = list(self.all_events[mut_type]['split_records'])
-            new_split_fragments = list(self.all_events[mut_type]['splits_fragment_ids'])
-            for split_event in self.all_events[mut_type]['split_records']:
-                if split_event[self.fragment_id_idx] not in skip_frag_id:
-                    pairs = [i for i in split_events_dict[split_event[self.pair_id_idx]]
-                             if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]
-                             and split_event[self.pair_id_idx] not in skip_pair_id]
-                    if len(pairs) == 1:
-                        pair = pairs[0]
-                        if pair[self.fragment_id_idx] not in skip_frag_id:
-                            if 'TRUNC' in pair[self.concat_event_type_idx]:
-                                self.all_events[mut_type]['pairs_fragment_ids'].extend([i[self.fragment_id_idx]
-                                                                                        for i in [split_event, pair]])
-                                self.all_events[mut_type]['pairs_unique_record'].append(split_event)
-                                # handle the reciprocal event
-                                new_split_records_ids = [i[self.fragment_id_idx] for i in new_split_records]
-                                if split_event[self.fragment_id_idx] in new_split_records_ids:
-                                    new_split_records.remove(split_event)
-                                    new_split_fragments.remove(split_event[self.fragment_id_idx])
-                                else:
-                                    skip_frag_id.append(split_event[self.fragment_id_idx])
-                                    skip_pair_id.append(split_event[self.pair_id_idx])
-                                # handle the event that is not reciprocal
-                                if pair in new_split_records:
-                                    new_split_records.remove(pair)
-                                    new_split_fragments.remove(pair[self.fragment_id_idx])
-                                else:
-                                    skip_frag_id.append(pair[self.fragment_id_idx])
-                                    skip_pair_id.append(pair[self.pair_id_idx])
-                        else:
-                            new_split_records.remove(pair)
-                            new_split_fragments.remove(pair[self.fragment_id_idx])
-                            skip_frag_id.remove(pair[self.fragment_id_idx])
-                            skip_pair_id.remove(pair[self.pair_id_idx])
-                else:
-                    new_split_records = [i for i in new_split_records
-                                         if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]]
-                    new_split_fragments.remove(split_event[self.fragment_id_idx])
-                    skip_frag_id.remove(split_event[self.fragment_id_idx])
-                    skip_pair_id.remove(split_event[self.pair_id_idx])
-            self.all_events[mut_type]['split_records'] = list(new_split_records)
-            self.all_events[mut_type]['splits_fragment_ids'] = list(new_split_fragments)
-        # If there are still events pending to re-assign
-        if skip_frag_id:
-            new_remove_frag_id = list(skip_frag_id)
-            for mut_type in self.all_events.keys():
-                split_records = list(self.all_events[mut_type]['split_records'])
-                split_fragments = list(self.all_events[mut_type]['splits_fragment_ids'])
-                records_split_ids = [i[self.fragment_id_idx] for i in self.all_events[mut_type]['split_records']]
-                remove_ids = list(set(new_remove_frag_id) & set(records_split_ids))
-                if remove_ids:
-                    self.all_events[mut_type]['split_records'] = [i for i in split_records if i[self.fragment_id_idx]
-                                                                  not in remove_ids]
-                    self.all_events[mut_type]['splits_fragment_ids'] = [i for i in split_fragments if i not in remove_ids]
-                    new_remove_frag_id = list(set(new_remove_frag_id) - set(remove_ids))
-        self.fragments_count_sanity_check()
-
-    def reorganize_schema_according_to_type(self) -> None:
-        for key, value in self.all_events.items():
-            all_events = [*value['orphan_records'], *value['pairs_unique_record']]
-            if key != 'optional_pairs':
-                self.classified_events[key] = {i: [j for j in all_events if j[self.concat_event_type_idx] == i]
-                                               for i in set([i[self.concat_event_type_idx] for i in all_events])}
-            else:
-                self.classified_events[key] = {i: {k: [j for j in all_events if j[self.concat_event_type_idx] == k]
-                                                   for k in set([i[self.concat_event_type_idx]
-                                                                 for i in [j for j in all_events if j[13] == i]])}
-                                               for i in set([i[13] for i in all_events])}
-
-    def get_classification_schema(self) -> None:
-        self.all_events = dict(flexible_pairs=self.fetch_flexible_events(),
-                               optional_pairs=self.fetch_optional_events(),
-                               deactivated_pairs=self.fetch_deactivated_event(),
-                               MXEs_events=self.fetch_exclusive_events(),
-                               obligate_events=self.fetch_obligate_pairs())
-        self.fragments_count_sanity_check()
-        self.reassign_split_pairs()
-        self.reorganize_schema_according_to_type()
-
 
