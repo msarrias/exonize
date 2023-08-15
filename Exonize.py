@@ -29,7 +29,9 @@ class Exonize(object):
                  min_align_len_perc=0.3,
                  sleep_max_seconds=5,
                  min_exon_length=20,
+                 cds_overlapping_threshold=0.98,
                  masking_perc_threshold=0.8,
+                 self_hit_threshold=0.5,
                  batch_number=100,
                  threads=7,
                  timeout_db=160.0):
@@ -53,6 +55,8 @@ class Exonize(object):
         self.threads = threads                         # number of threads for BLAST calls
         self.id_spec_attribute = spec_attribute
         self.coverage_threshold = coverage_threshold
+        self.cds_overlapping_threshold = cds_overlapping_threshold
+        self.self_hit_threshold = self_hit_threshold
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
         self.results_db = results_db_name
@@ -250,8 +254,8 @@ class Exonize(object):
                 query_target_overlap_percentage = get_overlap_percentage(q_coord, blast_target_coord)
                 if (hsp.expect < self.evalue
                         and query_aligned_frac > self.min_align_len_perc
-                        and query_target_overlap_percentage < 0.5  # self-hits are not allowed (max 50% overlap)
-                        and target_query_overlap_percentage < 0.5):
+                        and query_target_overlap_percentage < self.self_hit_threshold  # self-hits are not allowed (max 50% overlap)
+                        and target_query_overlap_percentage < self.self_hit_threshold):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp)
         return res_tblastx
 
@@ -292,7 +296,7 @@ class Exonize(object):
             CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
             overlaps_list = get_intervals_overlapping_list(CDS_coords_list)
             if overlaps_list:
-                list_temp = [*[j for i in [resolve_overlappings(i) for i in overlaps_list] for j in i],
+                list_temp = [*[j for i in [resolve_overlappings(i, self.cds_overlapping_threshold) for i in overlaps_list] for j in i],
                              *[i for i in CDS_coords_list if i not in [j for i in overlaps_list for j in i]]]
                 CDS_coords_list = list(sorted(list_temp, key=lambda x: (x.lower, x.upper)))
             for cds_coord in CDS_coords_list:
@@ -300,7 +304,7 @@ class Exonize(object):
                     try:
                         cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
                         cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
-                        if cds_seq_masking_perc > 0.8:
+                        if cds_seq_masking_perc > self.masking_perc_threshold:
                             self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
                                               f'% of CDS {cds_coord} '
                                               f'located in chromosome {chrom} is hardmasked.'))
@@ -356,7 +360,9 @@ class Exonize(object):
                 query_CDS, target_CDS = "-", "-"
                 annot_target_start, annot_target_end, target_t = None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
-                query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS' and i['coord'] == cds_intv]
+                # account for allowed shifts in the resolve_overlappings function
+                query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
+                              and get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
                 if len(query_only) > 1:
                     print(f'overlapping query CDSs: {query_only}')
                     continue
@@ -365,7 +371,7 @@ class Exonize(object):
                     query = 1
                     target_t = 'QUERY_ONLY'
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
-                if target_intv.lower < trans_coord.lower or trans_coord.upper < target_intv.upper:
+                if target_intv.upper < trans_coord.lower or trans_coord.upper < target_intv.lower:
                     if (query + target) == 0:
                         neither = 1
                     tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
@@ -374,7 +380,6 @@ class Exonize(object):
                                                             target_CDS, annot_target_start, annot_target_end,
                                                             target_s, target_e,
                                                             neither, query, target, both, evalue))
-
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
                 target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
@@ -416,7 +421,7 @@ class Exonize(object):
                                 annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     # ####### TRUNCATION #######
                     if not found:
-                        intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv)
+                        intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv, trans_coord)
                         if intv_dict:
                             target_t = "TRUNC"
                             target_CDS, annot_target_start, annot_target_end = None, None, None
@@ -527,7 +532,11 @@ class Exonize(object):
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
+        print('- Classifying events', end=" ")
+        tic_ce = time.time()
         self.find_full_length_duplications()
+        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_ce), '%H:%M:%S')
+        print(f' Done! [{hms_time}]')
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         fragments_tuples = self.get_identity_and_sequence_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, fragments_tuples)
