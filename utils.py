@@ -45,14 +45,12 @@ def hamming_distance(seq_a: str, seq_b: str) -> float:
 
 
 def reverse_complement(seq: str) -> str:
-    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide]
-                    for nucleotide in seq][::-1])
+    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq][::-1])
 
 
-def filter_structure(structure, target_intv, annotation_type):
-    return [(i['id'], i['coord']) for i in structure
-            if (i['coord'].contains(target_intv)
-                and annotation_type in i['type'])]
+def filter_structure(structure: dict, target_intv, annotation_type: list) -> list:
+    return [(i['id'], i['coord']) for i in structure if (i['coord'].contains(target_intv)
+                                                         and annotation_type in i['type'])]
 
 
 def sequence_masking_percentage(seq: str) -> float:
@@ -101,7 +99,6 @@ def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
         """ Yield successive n-sized chunks from l."""
         for i in range(0, len(seq), n):
             yield seq[i:i + n]
-
     codons = [codon for codon in chunks(nucleotide_seq, 3)]  # splits nucleotides into codons (triplets)
     gaped_codons = []
     codon_count = 0
@@ -199,11 +196,11 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
         print('The input sequences are not aligned')
 
 
-def get_average_overlapping_percentage(intv_a, intv_b):
+def get_average_overlapping_percentage(intv_a, intv_b) -> float:
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
 
 
-def resolve_overlappings(intv_list, threshold=0.9):
+def resolve_overlappings(intv_list: list, threshold=0.9):
     intv_a, intv_b = intv_list
     if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
         _, rec_itv = get_small_large_interv(intv_a, intv_b)
@@ -218,7 +215,7 @@ def get_intervals_overlapping_list(intv_list: list) -> list:
             if feat_interv.overlaps(intv_list[idx + 1])]
 
 
-def get_small_large_interv(a, b):
+def get_small_large_interv(a, b) -> tuple:
     """
     Given two intervals, the function
     get_small_large_interv returns the smaller
@@ -271,7 +268,7 @@ def strand_string_to_integer(strand: str) -> int:
     return 1
 
 
-def check_for_consecutive_intervals(list_intervals, target_intv):
+def check_for_consecutive_intervals(list_intervals: list, target_intv) -> bool:
     first, last = list_intervals[0], list_intervals[-1]
     if first.lower <= target_intv.lower and target_intv.upper <= last.upper:
         if len(list_intervals) <= 1:
@@ -284,7 +281,7 @@ def check_for_consecutive_intervals(list_intervals, target_intv):
         return False
 
 
-def get_unmatched_events(string1, string2):
+def get_unmatched_events(string1: str, string2: str) -> list:
     a = string1.rsplit('-')
     b = string2.rsplit('-')
     a_copy = list(a)
@@ -296,7 +293,7 @@ def get_unmatched_events(string1, string2):
     return a_copy
 
 
-def get_interval_dictionary(trans_dict, target_intv, trans_coord):
+def get_interval_dictionary(trans_dict: dict, target_intv, trans_coord) -> dict:
     UTR_features = ['five_prime_UTR', 'three_prime_UTR']
     interval_dict = {}
     if target_intv.lower < trans_coord.lower:
@@ -329,7 +326,7 @@ def get_interval_dictionary(trans_dict, target_intv, trans_coord):
     return sort_key_intervals_dict(interval_dict)
 
 
-def get_overlapping_dict(interval_dict):
+def get_overlapping_dict(interval_dict: dict) -> dict:
     """
     gets the next overlap to the right
     for each interval in the interval
@@ -343,14 +340,14 @@ def get_overlapping_dict(interval_dict):
     return overlapping_dict
 
 
-def generate_combinations(strings):
+def generate_combinations(strings: list) -> list:
     result = set()
     for perm in permutations(strings):
         result.add('-'.join(perm))
     return list(result)
 
 
-def generate_event_list(events_list, event_type_idx=-2):
+def generate_event_list(events_list: list, event_type_idx=-2) -> list:
     new_events_list = []
     events_ids = []
     for event in events_list:
@@ -366,7 +363,7 @@ def generate_event_list(events_list, event_type_idx=-2):
     return new_events_list
 
 
-def exonize_asci_art():
+def exonize_asci_art() -> None:
     exonize_ansi_regular = """
     
     ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
