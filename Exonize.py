@@ -25,36 +25,34 @@ class Exonize(object):
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-2,
-                 coverage_threshold=0.9,
-                 min_align_len_perc=0.3,
+                 min_tblastx_align_len_perc=0.8,
                  sleep_max_seconds=5,
                  min_exon_length=20,
-                 cds_overlapping_threshold=0.98,
+                 cds_overlapping_threshold=0.9,
                  masking_perc_threshold=0.8,
                  self_hit_threshold=0.5,
                  batch_number=100,
                  threads=7,
                  timeout_db=160.0):
 
-        self.genome = None                             # genome sequence
-        self.gene_hierarchy_dict = None                # gene hierarchy dictionary (gene -> transcript -> exon)
-        self.db_features = None                        # features in the database
-        self.old_filename = None                       # old filename (if GTF file is provided)
-        self.db = None                                 # database object (gffutils)
-        self.specie_identifier = specie_identifier     # specie identifier
-        self.verbose = verbose                         # verbose mode (True/False)
-        self.in_file_path = gff_file_path              # input file path (GFF/GTF)
-        self.genome_path = genome_path                 # genome path (FASTA)
-        self.hard_masking = hard_masking               # hard masking (True/False)
-        self.secs = sleep_max_seconds                  # max seconds to sleep between BLAST calls
-        self.min_exon_len = min_exon_length            # minimum exon length (bp)
-        self.timeout_db = timeout_db                   # timeout for creating the database (seconds)
-        self.evalue = evalue_threshold                 # e-value threshold for BLAST
-        self.min_align_len_perc = min_align_len_perc   # minimum alignment length percentage of query length
-        self.batch_number = batch_number               # batch number for BLAST calls
-        self.threads = threads                         # number of threads for BLAST calls
+        self.genome = None                                              # genome sequence
+        self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
+        self.db_features = None                                         # features in the database
+        self.old_filename = None                                        # old filename (if GTF file is provided)
+        self.db = None                                                  # database object (gffutils)
+        self.specie_identifier = specie_identifier                      # specie identifier
+        self.verbose = verbose                                          # verbose mode (True/False)
+        self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
+        self.genome_path = genome_path                                  # genome path (FASTA)
+        self.hard_masking = hard_masking                                # hard masking (True/False)
+        self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
+        self.min_exon_len = min_exon_length                             # minimum exon length (bp)
+        self.timeout_db = timeout_db                                    # timeout for creating the database (seconds)
+        self.evalue = evalue_threshold                                  # e-value threshold for BLAST
+        self.min_tblastx_align_len_perc = min_tblastx_align_len_perc    # minimum alignment length percentage of query
+        self.batch_number = batch_number                                # batch number for BLAST calls
+        self.threads = threads                                          # number of threads for BLAST calls
         self.id_spec_attribute = spec_attribute
-        self.coverage_threshold = coverage_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.self_hit_threshold = self_hit_threshold
         self.stop_codons = ["TAG", "TGA", "TAA"]
@@ -253,7 +251,7 @@ class Exonize(object):
                 target_query_overlap_percentage = get_overlap_percentage(blast_target_coord, q_coord)
                 query_target_overlap_percentage = get_overlap_percentage(q_coord, blast_target_coord)
                 if (hsp.expect < self.evalue
-                        and query_aligned_frac > self.min_align_len_perc
+                        and query_aligned_frac > self.min_tblastx_align_len_perc
                         and query_target_overlap_percentage < self.self_hit_threshold  # self-hits are not allowed (max 50% overlap)
                         and target_query_overlap_percentage < self.self_hit_threshold):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp)
@@ -383,8 +381,8 @@ class Exonize(object):
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
                 target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
-                               if (get_overlap_percentage(target_intv, i['coord']) >= self.coverage_threshold
-                                   and get_overlap_percentage(i['coord'], target_intv) >= self.coverage_threshold
+                               if (get_overlap_percentage(target_intv, i['coord']) >= self.cds_overlapping_threshold
+                                   and get_overlap_percentage(i['coord'], target_intv) >= self.cds_overlapping_threshold
                                    and i['type'] == "CDS")]
                 if len(target_only) > 1:
                     print(f'overlapping query CDSs: {target_only}')
@@ -475,7 +473,7 @@ class Exonize(object):
                             overlapping_pairs = [get_average_overlapping_percentage(x[0], x[1])
                                                  for x in [(P.open(q_s_a, q_e_a), P.open(q_s_b, q_e_b)),
                                                            (P.open(t_s_a, t_e_a), P.open(t_s_b, t_e_b))]]
-                            if any(all(perc > self.coverage_threshold for perc in pair) for pair in
+                            if any(all(perc > self.cds_overlapping_threshold for perc in pair) for pair in
                                    [reciprocal_pairs, overlapping_pairs]):
                                 temp_cand.append(frag_id_b)
                         if temp_cand:
@@ -492,11 +490,15 @@ class Exonize(object):
         for fragment in all_fragments:
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
-             query_aln_prot_seq, target_aln_prot_seq) = fragment
+             query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
             query_seq = self.genome[gene_chrom][CDS_start:CDS_end]
             target_seq = self.genome[gene_chrom][gene_start:gene_end]
             query_dna_seq = query_seq[query_start:query_end]
             target_dna_seq = target_seq[target_start:target_end]
+            if query_strand == '-':
+                query_dna_seq = reverse_complement(query_dna_seq)
+            if target_strand == '-':
+                target_dna_seq = reverse_complement(target_dna_seq)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
             dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq), 3)
