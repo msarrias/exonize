@@ -13,17 +13,23 @@ class ExonizeEvents(object):
         self.evalue_idx = -4
         self.fragment_id_idx = 0
         self.concat_event_type_idx = -1
-        self.optional_group_category_idx = 13
+        self.optional_group_category_idx = 15
         self.query_start_idx = 5
         self.query_end_idx = 6
         self.target_start_idx = 7
         self.target_end_idx = 8
+        self.dna_perc_identity_idx = 9
+        self.prot_perc_identity_idx = 10
         self.coding_event_dict = {'1001': 'obligate_events',
                                   '0111': 'MXEs_events',
-                                  '0101': 'deactivated',
+                                  '0101': 'deactivated_pairs',
                                   '1111': 'flexible_pairs',
                                   '1101': 'flexible_pairs',
                                   '1011': 'flexible_pairs'}
+        self.event_coding_dict = {'obligate_events': ['1001'],
+                                  'MXEs_events': ['0111'],
+                                  'deactivated_pairs': ['0101'],
+                                  'flexible_pairs': ['1111', '1101', '1011']}
         self.deactiv_features = ['DEACTIVATED',
                                  'OUT_OF_MRNA',
                                  'INS_UTR',
@@ -104,11 +110,47 @@ class ExonizeEvents(object):
         for mut_type in self.all_events.keys():
             new_split_records = list(self.all_events[mut_type]['split_records'])
             new_split_fragments = list(self.all_events[mut_type]['splits_fragment_ids'])
+            new_split_records_ids = [i[self.fragment_id_idx] for i in new_split_records]
             for split_event in self.all_events[mut_type]['split_records']:
                 if split_event[self.fragment_id_idx] not in skip_frag_id:
                     pairs = [i for i in split_events_dict[split_event[self.pair_id_idx]]
                              if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]
                              and split_event[self.pair_id_idx] not in skip_pair_id]
+                    if len(pairs) > 1:
+                        id_min_evalue = None
+                        skip_id, annot_grouping, list_events = list(), list(), list()
+                        events_list = list(split_events_dict[split_event[self.pair_id_idx]])
+                        for annot in events_list:
+                            if annot[self.fragment_id_idx] not in skip_id:
+                                temp = [i for i in events_list if
+                                        i != annot and P.open(i[3], i[4]).overlaps(P.open(annot[3], annot[4]))]
+                                if temp:
+                                    skip_id.extend([annot[0], *[i[0] for i in temp]])
+                                annot_grouping.extend([[annot, *temp]])
+                        if len(annot_grouping) == 1:
+                            # this means that there is not a reciprocal hit
+                            id_min_evalue = min([(i[self.fragment_id_idx], i[self.evalue_idx])
+                                                 for i in annot_grouping[0]], key=lambda x: x[1])[0]
+                            list_events = annot_grouping[0]
+                        elif len(annot_grouping) == 2:  # pair of hit and reciprocal hit - or the other way around
+                            hit, recip_hit = annot_grouping
+                            if (all('INS' in i[self.concat_event_type_idx] for i in hit)
+                                    and any('TRUNC' in i[self.concat_event_type_idx] for i in recip_hit) or
+                                    all('INS' in i[self.concat_event_type_idx] for i in recip_hit)
+                                    and any('TRUNC' in i[self.concat_event_type_idx] for i in hit)):
+                                id_min_evalue = min([(i[self.fragment_id_idx], i[self.evalue_idx])
+                                                     for i in [*hit, *recip_hit]], key=lambda x: x[1])[0]
+                                list_events = [*hit, *recip_hit]
+                        if split_event[self.fragment_id_idx] == id_min_evalue:
+                            self.all_events[mut_type]['pairs_unique_record'].append(split_event)
+                            for event in list_events:
+                                self.all_events[mut_type]['pairs_fragment_ids'].append(event[self.fragment_id_idx])
+                                if event[self.fragment_id_idx] in new_split_records_ids:
+                                    new_split_records.remove(event)
+                                    new_split_fragments.remove(event[self.fragment_id_idx])
+                                else:
+                                    skip_frag_id.append(event[self.fragment_id_idx])
+                                    skip_pair_id.append(event[self.pair_id_idx])
                     if len(pairs) == 1:
                         pair = pairs[0]
                         if pair[self.fragment_id_idx] not in skip_frag_id:
@@ -132,7 +174,7 @@ class ExonizeEvents(object):
                                                                                         for i in [split_event, pair]])
                                 self.all_events[mut_type]['pairs_unique_record'].append(split_event)
                                 # handle the reciprocal event
-                                new_split_records_ids = [i[self.fragment_id_idx] for i in new_split_records]
+
                                 if split_event[self.fragment_id_idx] in new_split_records_ids:
                                     new_split_records.remove(split_event)
                                     new_split_fragments.remove(split_event[self.fragment_id_idx])
@@ -146,17 +188,6 @@ class ExonizeEvents(object):
                                 else:
                                     skip_frag_id.append(pair[self.fragment_id_idx])
                                     skip_pair_id.append(pair[self.pair_id_idx])
-                        else:
-                            new_split_records.remove(pair)
-                            new_split_fragments.remove(pair[self.fragment_id_idx])
-                            skip_frag_id.remove(pair[self.fragment_id_idx])
-                            skip_pair_id.remove(pair[self.pair_id_idx])
-                else:
-                    new_split_records = [i for i in new_split_records
-                                         if i[self.fragment_id_idx] != split_event[self.fragment_id_idx]]
-                    new_split_fragments.remove(split_event[self.fragment_id_idx])
-                    skip_frag_id.remove(split_event[self.fragment_id_idx])
-                    skip_pair_id.remove(split_event[self.pair_id_idx])
             self.all_events[mut_type]['split_records'] = list(new_split_records)
             self.all_events[mut_type]['splits_fragment_ids'] = list(new_split_fragments)
         # If there are still events pending to re-assign
@@ -224,6 +255,8 @@ class ExonizeEvents(object):
             f.query_end,
             f.target_start,
             f.target_end,
+            fr.dna_perc_identity,
+            fr.prot_perc_identity,
             f.cum_both AS cb,
             f.cum_query AS cq,
             f.cum_target AS ct,
@@ -232,6 +265,7 @@ class ExonizeEvents(object):
             f.concat_event_type,
             f.pair_id
         FROM Full_length_events_cumulative_counts AS f 
+        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.mrna_count = f.cum_both
         ORDER BY f.pair_id;
             """)
@@ -253,6 +287,8 @@ class ExonizeEvents(object):
             f.query_end,
             f.target_start,
             f.target_end,
+            fr.dna_perc_identity,
+            fr.prot_perc_identity,
             f.cum_both AS cb,
             f.cum_query AS cq,
             f.cum_target AS ct,
@@ -261,6 +297,7 @@ class ExonizeEvents(object):
             f.concat_event_type,
             f.pair_id
         FROM Full_length_events_cumulative_counts AS f 
+        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.mrna_count = (f.cum_query + f.cum_target) 
         AND f.cum_target < f.mrna_count 
         AND f.cum_target > 0
@@ -286,6 +323,8 @@ class ExonizeEvents(object):
             f.query_end,
             f.target_start,
             f.target_end,
+            fr.dna_perc_identity,
+            fr.prot_perc_identity,
             f.cum_both AS cb,
             f.cum_query AS cq,
             f.cum_target AS ct,
@@ -294,6 +333,7 @@ class ExonizeEvents(object):
             f.concat_event_type,
             f.pair_id
         FROM Full_length_events_cumulative_counts AS f 
+        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.cum_query=f.mrna_count
         ORDER BY f.pair_id;
             """)
@@ -316,7 +356,9 @@ class ExonizeEvents(object):
             gs.query_end,
             gs.target_start,
             gs.target_end,
-            gs.cum_both AS ct,
+            gs.dna_perc_identity,
+            gs.prot_perc_identity,
+            gs.cum_both AS cb,
             gs.cum_query AS cq,
             gs.cum_target AS ct,
             gs.cum_neither AS cn,
@@ -333,8 +375,28 @@ class ExonizeEvents(object):
         CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
         FROM (
         SELECT
-            fle.*
+            fle.fragment_id,
+            fle.gene_id,
+            fle.gene_start,
+            fle.gene_end,
+            fle.mrna_count,
+            fle.CDS_start,
+            fle.CDS_end,
+            fle.query_start,
+            fle.query_end,
+            fle.target_start,
+            fle.target_end,
+            fr.dna_perc_identity,
+            fr.prot_perc_identity,
+            fle.cum_both,
+            fle.cum_query,
+            fle.cum_target,
+            fle.cum_neither,
+            fle.evalue,
+            fle.concat_event_type,
+            fle.pair_id
         FROM Full_length_events_cumulative_counts AS fle
+        INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
         WHERE (fle.cum_neither > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0 OR fle.cum_both > 0))
         ) AS subquery
         ) AS gs
@@ -359,6 +421,8 @@ class ExonizeEvents(object):
             gs.query_end,
             gs.target_start,
             gs.target_end,
+            gs.dna_perc_identity,
+            gs.prot_perc_identity,
             gs.cum_both AS cb,
             gs.cum_query AS cq,
             gs.cum_target AS ct,
@@ -376,8 +440,28 @@ class ExonizeEvents(object):
         CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
         FROM (
         SELECT
-            fle.*
+            fle.fragment_id,
+            fle.gene_id,
+            fle.gene_start,
+            fle.gene_end,
+            fle.mrna_count,
+            fle.CDS_start,
+            fle.CDS_end,
+            fle.query_start,
+            fle.query_end,
+            fle.target_start,
+            fle.target_end,
+            fr.dna_perc_identity,
+            fr.prot_perc_identity,
+            fle.cum_both,
+            fle.cum_query,
+            fle.cum_target,
+            fle.cum_neither,
+            fle.evalue,
+            fle.concat_event_type,
+            fle.pair_id
         FROM Full_length_events_cumulative_counts AS fle
+        INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
         WHERE (fle.cum_both > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0) 
         AND fle.cum_neither = 0)
         ) AS subquery
@@ -399,4 +483,3 @@ class ExonizeEvents(object):
         FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
         pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
         return pair_ids_dict
-
