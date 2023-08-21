@@ -567,6 +567,8 @@ def query_fragments(db_path, timeout_db) -> list:
     f.query_end,
     f.target_start,
     f.target_end,
+    f.query_strand,
+    f.target_strand,
     f.query_aln_prot_seq,
     f.target_aln_prot_seq
     FROM Fragments as f
