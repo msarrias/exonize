@@ -272,7 +272,7 @@ class Exonize(object):
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
         CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
         if CDS_coords_list:
-            CDS_coords_list = resolve_overlaps_coords_list(CDS_coords_list)
+            CDS_coords_list = resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
             return CDS_coords_list
         return []
 
