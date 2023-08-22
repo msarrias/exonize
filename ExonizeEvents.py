@@ -10,9 +10,9 @@ class ExonizeEvents(object):
         self.all_events = dict()
         self.coverage_threshold = 0.9
         self.pair_id_idx = -2
-        self.evalue_idx = -4
+        self.evalue_idx = -3
         self.fragment_id_idx = 0
-        self.concat_event_type_idx = -1
+        self.event_type_idx = -1
         self.optional_group_category_idx = 15
         self.query_start_idx = 5
         self.query_end_idx = 6
@@ -76,7 +76,7 @@ class ExonizeEvents(object):
                 if len(records_list) == pair_ids_dict[record[self.pair_id_idx]]:
                     records['pairs_fragment_ids'].extend([i[self.fragment_id_idx] for i in records_list])
                     # we just want one event per pair, so we take the one with the lowest evalue
-                    exclude_reciprocals = [i for i in records_list if 'TRUNC' not in i[self.concat_event_type_idx]]
+                    exclude_reciprocals = [i for i in records_list if 'TRUNC' not in i[self.event_type_idx]]
                     if not exclude_reciprocals:
                         exclude_reciprocals = records_list
                     records['pairs_unique_record'].append(min(exclude_reciprocals, key=lambda x: x[self.evalue_idx]))
@@ -134,10 +134,10 @@ class ExonizeEvents(object):
                             list_events = annot_grouping[0]
                         elif len(annot_grouping) == 2:  # pair of hit and reciprocal hit - or the other way around
                             hit, recip_hit = annot_grouping
-                            if (all('INS' in i[self.concat_event_type_idx] for i in hit)
-                                    and any('TRUNC' in i[self.concat_event_type_idx] for i in recip_hit) or
-                                    all('INS' in i[self.concat_event_type_idx] for i in recip_hit)
-                                    and any('TRUNC' in i[self.concat_event_type_idx] for i in hit)):
+                            if (all('INS' in i[self.event_type_idx] for i in hit)
+                                    and any('TRUNC' in i[self.event_type_idx] for i in recip_hit) or
+                                    all('INS' in i[self.event_type_idx] for i in recip_hit)
+                                    and any('TRUNC' in i[self.event_type_idx] for i in hit)):
                                 id_min_evalue = min([(i[self.fragment_id_idx], i[self.evalue_idx])
                                                      for i in [*hit, *recip_hit]], key=lambda x: x[1])[0]
                                 list_events = [*hit, *recip_hit]
@@ -155,8 +155,8 @@ class ExonizeEvents(object):
                         pair = pairs[0]
                         if pair[self.fragment_id_idx] not in skip_frag_id:
                             ins_event = False
-                            group_categ = get_unmatched_events(split_event[self.concat_event_type_idx],
-                                                               pair[self.concat_event_type_idx])
+                            group_categ = get_unmatched_events(split_event[self.event_type_idx],
+                                                               pair[self.event_type_idx])
                             if group_categ:
                                 ins_event = (any(element in self.deactiv_features for element in group_categ)
                                              and any('INS' in element for element in group_categ)
@@ -169,7 +169,7 @@ class ExonizeEvents(object):
                             overlap_se = ((get_average_overlapping_percentage(pair_t, split_t) > self.coverage_threshold
                                            and get_average_overlapping_percentage(pair_q, split_q) > self.coverage_threshold)
                                           and split_event[self.evalue_idx] < pair[self.evalue_idx])
-                            if ins_event or overlap_se or 'TRUNC' in pair[self.concat_event_type_idx]:
+                            if ins_event or overlap_se or 'TRUNC' in pair[self.event_type_idx]:
                                 self.all_events[mut_type]['pairs_fragment_ids'].extend([i[self.fragment_id_idx]
                                                                                         for i in [split_event, pair]])
                                 self.all_events[mut_type]['pairs_unique_record'].append(split_event)
@@ -209,13 +209,13 @@ class ExonizeEvents(object):
         for key, value in self.all_events.items():
             all_events = [*value['orphan_records'], *value['pairs_unique_record']]
             if key != 'optional_pairs':
-                self.classified_events[key] = {i: [j for j in all_events if j[self.concat_event_type_idx] == i]
-                                               for i in set([i[self.concat_event_type_idx] for i in all_events])}
+                self.classified_events[key] = {i: [j for j in all_events if j[self.event_type_idx] == i]
+                                               for i in set([i[self.event_type_idx] for i in all_events])}
             else:
                 self.classified_events[key] = {self.coding_event_dict[i]: {
-                    k: [j for j in all_events if j[self.concat_event_type_idx] == k
+                    k: [j for j in all_events if j[self.event_type_idx] == k
                         and j[self.optional_group_category_idx] == i]
-                    for k in set([i[self.concat_event_type_idx] for i in [j for j in all_events
+                    for k in set([i[self.event_type_idx] for i in [j for j in all_events
                                                                           if j[self.optional_group_category_idx] == i]])}
                     for i in set([i[self.optional_group_category_idx] for i in all_events])}
 
@@ -262,15 +262,14 @@ class ExonizeEvents(object):
             f.cum_target AS ct,
             f.cum_neither AS cn,
             f.evalue,
-            f.concat_event_type,
-            f.pair_id
+            f.pair_id,
+            f.event_type
         FROM Full_length_events_cumulative_counts AS f 
         INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.mrna_count = f.cum_both
         ORDER BY f.pair_id;
             """)
-        obligate_events_list = generate_event_list(cursor.fetchall())
-        obligate_events_dict = self.organize_event_dict(obligate_events_list)
+        obligate_events_dict = self.organize_event_dict(cursor.fetchall())
         return obligate_events_dict
 
     def fetch_exclusive_events(self) -> dict:
@@ -294,8 +293,8 @@ class ExonizeEvents(object):
             f.cum_target AS ct,
             f.cum_neither AS cn,
             f.evalue,
-            f.concat_event_type,
-            f.pair_id
+            f.pair_id,
+            f.event_type
         FROM Full_length_events_cumulative_counts AS f 
         INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.mrna_count = (f.cum_query + f.cum_target) 
@@ -303,9 +302,7 @@ class ExonizeEvents(object):
         AND f.cum_target > 0
         ORDER BY f.pair_id;
             """)
-        MXEs_pairs = cursor.fetchall()
-        MXEs_events_dict = generate_event_list(MXEs_pairs)
-        MXEs_events_dict = self.organize_event_dict(MXEs_events_dict)
+        MXEs_events_dict = self.organize_event_dict(cursor.fetchall())
         db.close()
         return MXEs_events_dict
 
@@ -330,15 +327,14 @@ class ExonizeEvents(object):
             f.cum_target AS ct,
             f.cum_neither AS cn,
             f.evalue,
-            f.concat_event_type,
-            f.pair_id
+            f.pair_id,
+            f.event_type
         FROM Full_length_events_cumulative_counts AS f 
         INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
         WHERE f.cum_query=f.mrna_count
         ORDER BY f.pair_id;
             """)
-        deactivated_events_list = generate_event_list(cursor.fetchall())
-        deactivated_events_dict = self.organize_event_dict(deactivated_events_list)
+        deactivated_events_dict = self.organize_event_dict(cursor.fetchall())
         db.close()
         return deactivated_events_dict
 
@@ -364,8 +360,8 @@ class ExonizeEvents(object):
             gs.cum_neither AS cn,
             gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
             gs.evalue,
-            gs.concat_event_type,
-            gs.pair_id
+            gs.pair_id,
+            gs.event_type
         FROM (
         SELECT
             subquery.*,
@@ -393,8 +389,8 @@ class ExonizeEvents(object):
             fle.cum_target,
             fle.cum_neither,
             fle.evalue,
-            fle.concat_event_type,
-            fle.pair_id
+            fle.pair_id,
+            fle.event_type
         FROM Full_length_events_cumulative_counts AS fle
         INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
         WHERE (fle.cum_neither > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0 OR fle.cum_both > 0))
@@ -402,8 +398,7 @@ class ExonizeEvents(object):
         ) AS gs
         ORDER BY gs.pair_id;
         """)
-        optional_events_list = generate_event_list(cursor.fetchall())
-        optional_events_dict = self.organize_event_dict(optional_events_list)
+        optional_events_dict = self.organize_event_dict(cursor.fetchall())
         db.close()
         return optional_events_dict
 
@@ -429,8 +424,8 @@ class ExonizeEvents(object):
             gs.cum_neither AS cn,
             gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
             gs.evalue,
-            gs.concat_event_type,
-            gs.pair_id
+            gs.pair_id,
+            gs.event_type
         FROM (
         SELECT
             subquery.*,
@@ -458,8 +453,8 @@ class ExonizeEvents(object):
             fle.cum_target,
             fle.cum_neither,
             fle.evalue,
-            fle.concat_event_type,
-            fle.pair_id
+            fle.pair_id,
+            fle.event_type
         FROM Full_length_events_cumulative_counts AS fle
         INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
         WHERE (fle.cum_both > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0) 
@@ -468,8 +463,7 @@ class ExonizeEvents(object):
         ) AS gs
         ORDER BY gs.pair_id;
         """)
-        flexible_events_list = generate_event_list(cursor.fetchall())
-        flexible_events_dict = self.organize_event_dict(flexible_events_list)
+        flexible_events_dict = self.organize_event_dict(cursor.fetchall())
         db.close()
         return flexible_events_dict
 
