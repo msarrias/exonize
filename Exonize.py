@@ -33,7 +33,7 @@ class Exonize(object):
                  self_hit_threshold=0.5,
                  batch_number=100,
                  threads=7,
-                 timeout_db=160.0):
+                 timeout_db=160):
 
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
@@ -266,16 +266,15 @@ class Exonize(object):
                 gene_coord.upper,
                 bin_has_dup)
 
-    def get_non_overlapping_cds_coords(self, cds_coords_list: list) -> list:
-        cds_coords_list = list(sorted(cds_coords_list, key=lambda x: (x.lower, x.upper)))
-        overlaps_list = get_intervals_overlapping_list(cds_coords_list)
-        if overlaps_list:
-            list_temp = [
-                *[j for i in [resolve_overlappings(i, self.cds_overlapping_threshold)
-                              for i in overlaps_list] for j in i],
-                *[i for i in cds_coords_list if i not in [j for i in overlaps_list for j in i]]]
-            cds_coords_list = list(sorted(list_temp, key=lambda x: (x.lower, x.upper)))
-        return cds_coords_list
+    def get_candidate_CDS_coords(self, gene_id: str) -> list:
+        CDS_coords_list = list(set([i['coord']
+                                    for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
+                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
+        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
+        if CDS_coords_list:
+            CDS_coords_list = resolve_overlaps_coords_list(CDS_coords_list)
+            return CDS_coords_list
+        return []
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
@@ -298,28 +297,24 @@ class Exonize(object):
             print(f'Either there is missing a chromosome in the genome file '
                   f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
             sys.exit()
-        CDS_coords_list = list(set([i['coord']
-                                    for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
-        if CDS_coords_list:
-            CDS_coords_list = self.get_non_overlapping_cds_coords(CDS_coords_list)
-            for cds_coord in CDS_coords_list:
-                if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
-                    try:
-                        cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
-                        cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
-                        if cds_seq_masking_perc > self.masking_perc_threshold:
-                            self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
-                                              f'% of CDS {cds_coord} '
-                                              f'located in chromosome {chrom} is hardmasked.'))
-                            continue
-                    except KeyError as e:
-                        print(f'Either there is missing a chromosome in the genome file or the chromosome'
-                              f' identifiers in the GFF3 and FASTA files do not match {e}')
-                        sys.exit()
-                    temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
-                    if temp:
-                        CDS_blast_dict[cds_coord] = temp
+        CDS_coords_list = [cds_coord for cds_coord in self.get_candidate_CDS_coords(gene_id)
+                           if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len]
+        for cds_coord in CDS_coords_list:
+            try:
+                cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
+                cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
+                if cds_seq_masking_perc > self.masking_perc_threshold:
+                    self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
+                                      f'% of CDS {cds_coord} '
+                                      f'located in chromosome {chrom} is hardmasked.'))
+                    continue
+            except KeyError as e:
+                print(f'Either there is missing a chromosome in the genome file or the chromosome'
+                      f' identifiers in the GFF3 and FASTA files do not match {e}')
+                sys.exit()
+            temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
+            if temp:
+                CDS_blast_dict[cds_coord] = temp
         if CDS_blast_dict:
             self.insert_fragments_table(gene_id, CDS_blast_dict)
         else:
