@@ -359,7 +359,7 @@ def generate_unique_events_list(events_list: list, event_type_idx) -> list:
             event_n = mrna_events_perm[0]
         else:
             event_n = keys[0]
-        new_events_list.append((event[0], event_n))
+        new_events_list.append((event_n, event[0]))
     return new_events_list
 
 
