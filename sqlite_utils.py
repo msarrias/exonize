@@ -181,8 +181,8 @@ def create_cumulative_counts_table(db_path, timeout_db) -> None:
 
 
 # #### INSERT INTO TABLES #####
-def insert_identity_and_dna_algns_columns(db_path, timeout_db, fragments) -> None:
-    db = sqlite3.connect(db_path, timeout=timeout_db)
+def insert_identity_and_dna_algns_columns(results_db, timeout_db, fragments) -> None:
+    db = sqlite3.connect(results_db, timeout=timeout_db)
     cursor = db.cursor()
     cursor.execute(""" ALTER TABLE Fragments ADD COLUMN dna_perc_identity REAL;""")
     cursor.execute(""" ALTER TABLE Fragments ADD COLUMN prot_perc_identity REAL;""")
@@ -192,6 +192,15 @@ def insert_identity_and_dna_algns_columns(db_path, timeout_db, fragments) -> Non
     UPDATE Fragments 
     SET dna_perc_identity=?, prot_perc_identity=?, query_dna_seq=?, target_dna_seq=?  WHERE fragment_id=? 
     """, fragments)
+    db.commit()
+    db.close()
+
+
+def instert_event_categ_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_type VARCHAR(100);""")
+    cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET event_type=? WHERE fragment_id=? """, fragments)
     db.commit()
     db.close()
 
@@ -579,6 +588,20 @@ def query_fragments(db_path, timeout_db) -> list:
     return rows
 
 
+def query_concat_categ_pairs(db_path, timeout_db) -> list:
+    db = sqlite3.connect(db_path, timeout=timeout_db)
+    cursor = db.cursor()
+    cursor.execute("""
+    SELECT  
+    fragment_id,
+    concat_event_type
+    FROM Full_length_events_cumulative_counts 
+    """)
+    rows = cursor.fetchall()
+    db.close()
+    return rows
+
+
 def query_candidates(db_path, timeout_db, pars) -> list:
     db = sqlite3.connect(db_path, timeout=timeout_db)
     cursor = db.cursor()
@@ -590,7 +613,8 @@ def query_candidates(db_path, timeout_db, pars) -> list:
         f.CDS_start - f.gene_start as CDS_start,
         f.CDS_end - f.gene_start as CDS_end,
         f.target_start,
-        f.target_end
+        f.target_end,
+        f.event_type
         FROM Full_length_events_cumulative_counts AS f
         WHERE 
         f.gene_id==?
@@ -611,7 +635,8 @@ def query_full_events(db_path, timeout_db) -> list:
     f.CDS_start - f.gene_start as CDS_start,
     f.CDS_end - f.gene_start as CDS_end,
     f.target_start,
-    f.target_end
+    f.target_end,
+    f.event_type
     FROM Full_length_events_cumulative_counts AS f
     """
     cursor.execute(matches_q)
