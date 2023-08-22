@@ -200,10 +200,10 @@ def get_average_overlapping_percentage(intv_a, intv_b) -> float:
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
 
 
-def resolve_overlappings(intv_list: list, threshold=0.9):
+def resolve_overlappings(intv_list: list, threshold: float):
     intv_a, intv_b = intv_list
     if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
-        _, rec_itv = get_small_large_interv(intv_a, intv_b)
+        rec_itv, _ = get_small_large_interv(intv_a, intv_b)
         return rec_itv
     else:
         return intv_a, intv_b
