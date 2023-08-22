@@ -350,7 +350,7 @@ class Exonize(object):
         db.commit()
         db.close()
 
-    def find_full_length_duplications(self) -> None:
+    def identify_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
         for row in rows:
@@ -366,7 +366,7 @@ class Exonize(object):
                 # ####### QUERY ONLY - FULL LENGTH #######
                 # account for allowed shifts in the resolve_overlappings function
                 query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
-                              and get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
+                              and get_average_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
                 if len(query_only) > 1:
                     print(f'overlapping query CDSs: {query_only}')
                     continue
@@ -387,8 +387,7 @@ class Exonize(object):
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
                 target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
-                               if (get_overlap_percentage(target_intv, i['coord']) >= self.cds_overlapping_threshold
-                                   and get_overlap_percentage(i['coord'], target_intv) >= self.cds_overlapping_threshold
+                               if (get_average_overlapping_percentage(target_intv, i['coord']) >= self.cds_overlapping_threshold
                                    and i['type'] == "CDS")]
                 if len(target_only) > 1:
                     print(f'overlapping query CDSs: {target_only}')
@@ -463,25 +462,36 @@ class Exonize(object):
         fragments = []
         skip_frag = []
         counter = 1
+        full_matches = sorted(full_matches, key=lambda i: ("INS_CDS" in i[6], i))
         full_matches_cp = list(full_matches)
         with tqdm(total=len(full_matches), position=0, leave=True) as progress_bar:
             for frag_a in full_matches:
-                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a = frag_a
+                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
                 if frag_id_a not in skip_frag:
                     candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
                     if candidates:
                         temp_cand = []
                         for frag_b in candidates:
-                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b = frag_b
-                            reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
-                                                for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                                          (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
                             overlapping_pairs = [get_average_overlapping_percentage(x[0], x[1])
                                                  for x in [(P.open(q_s_a, q_e_a), P.open(q_s_b, q_e_b)),
                                                            (P.open(t_s_a, t_e_a), P.open(t_s_b, t_e_b))]]
-                            if any(all(perc > self.cds_overlapping_threshold for perc in pair) for pair in
-                                   [reciprocal_pairs, overlapping_pairs]):
-                                temp_cand.append(frag_id_b)
+                            reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
+                                                for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                                          (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                            if "INS_CDS" in event_type_a:
+                                if (any(all(perc > 0 for perc in pair)
+                                        for pair in [reciprocal_pairs, overlapping_pairs])
+                                        and "TRUNC" in event_type_b):
+                                    temp_cand.append(frag_id_b)
+                            else:
+                                reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
+                                                    for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
+                                                              (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                                if (any(all(perc > self.cds_overlapping_threshold for perc in pair)
+                                        for pair in [reciprocal_pairs, overlapping_pairs])
+                                        and "TRUNC" in event_type_b):
+                                    temp_cand.append(frag_id_b)
                         if temp_cand:
                             skip_frag.extend([frag_id_a, *temp_cand])
                             fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
@@ -542,12 +552,15 @@ class Exonize(object):
         create_mrna_counts_view(self.results_db, self.timeout_db)
         print('- Classifying events', end=" ")
         tic_ce = time.time()
-        self.find_full_length_duplications()
+        self.identify_full_length_duplications()
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_ce), '%H:%M:%S')
         print(f' Done! [{hms_time}]')
         create_cumulative_counts_table(self.results_db, self.timeout_db)
-        fragments_tuples = self.get_identity_and_sequence_tuples()
-        insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, fragments_tuples)
+        query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
+        reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
+        instert_event_categ_full_length_events_cumulative_counts(self.results_db, self.timeout_db, reduced_event_types_tuples)
+        identity_and_sequence_tuples = self.get_identity_and_sequence_tuples()
+        insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print('- Reconciling events')
         fragments = self.get_full_matches_records(full_matches)
