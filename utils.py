@@ -48,7 +48,7 @@ def reverse_complement(seq: str) -> str:
     return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq][::-1])
 
 
-def filter_structure(structure: dict, target_intv, annotation_type: list) -> list:
+def filter_structure(structure: dict, target_intv, annotation_type: str) -> list:
     return [(i['id'], i['coord']) for i in structure if (i['coord'].contains(target_intv)
                                                          and annotation_type in i['type'])]
 
@@ -207,6 +207,23 @@ def resolve_overlappings(intv_list: list, threshold: float):
         return rec_itv
     else:
         return intv_a, intv_b
+
+
+def resolve_overlaps_coords_list(coords_list):
+    new_list = []
+    overlaps_list = get_intervals_overlapping_list(coords_list)
+    if overlaps_list:
+        first_pair_a, first_pair_b = overlaps_list[0]
+        for idx, coord in enumerate(coords_list):
+            if coord != first_pair_a:
+                new_list.append(coord)
+            else:
+                shorter, _ = get_small_large_interv(first_pair_a, first_pair_b)
+                new_list.append(shorter)
+                new_list.extend(coords_list[idx + 2:])
+                return resolve_overlaps_coords_list(new_list)
+    else:
+        return coords_list
 
 
 def get_intervals_overlapping_list(intv_list: list) -> list:
