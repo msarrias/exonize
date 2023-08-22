@@ -347,7 +347,7 @@ def generate_combinations(strings: list) -> list:
     return list(result)
 
 
-def generate_event_list(events_list: list, event_type_idx=-2) -> list:
+def generate_unique_events_list(events_list: list, event_type_idx) -> list:
     new_events_list = []
     events_ids = []
     for event in events_list:
@@ -359,7 +359,7 @@ def generate_event_list(events_list: list, event_type_idx=-2) -> list:
             event_n = mrna_events_perm[0]
         else:
             event_n = keys[0]
-        new_events_list.append((*event, event_n))
+        new_events_list.append((event[0], event_n))
     return new_events_list
 
 
