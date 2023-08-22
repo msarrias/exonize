@@ -266,6 +266,17 @@ class Exonize(object):
                 gene_coord.upper,
                 bin_has_dup)
 
+    def get_non_overlapping_cds_coords(self, cds_coords_list: list) -> list:
+        cds_coords_list = list(sorted(cds_coords_list, key=lambda x: (x.lower, x.upper)))
+        overlaps_list = get_intervals_overlapping_list(cds_coords_list)
+        if overlaps_list:
+            list_temp = [
+                *[j for i in [resolve_overlappings(i, self.cds_overlapping_threshold)
+                              for i in overlaps_list] for j in i],
+                *[i for i in cds_coords_list if i not in [j for i in overlaps_list for j in i]]]
+            cds_coords_list = list(sorted(list_temp, key=lambda x: (x.lower, x.upper)))
+        return cds_coords_list
+
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
         The reading frame of the CDS queries is respected in the tblastx search.
@@ -291,12 +302,7 @@ class Exonize(object):
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
         if CDS_coords_list:
-            CDS_coords_list = list(sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper)))
-            overlaps_list = get_intervals_overlapping_list(CDS_coords_list)
-            if overlaps_list:
-                list_temp = [*[j for i in [resolve_overlappings(i, self.cds_overlapping_threshold) for i in overlaps_list] for j in i],
-                             *[i for i in CDS_coords_list if i not in [j for i in overlaps_list for j in i]]]
-                CDS_coords_list = list(sorted(list_temp, key=lambda x: (x.lower, x.upper)))
+            CDS_coords_list = self.get_non_overlapping_cds_coords(CDS_coords_list)
             for cds_coord in CDS_coords_list:
                 if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len:
                     try:
