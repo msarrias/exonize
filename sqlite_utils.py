@@ -2,14 +2,14 @@ import sqlite3                                         # for working with SQLite
 from utils import *
 
 
-def check_if_table_exists(db_path, table_name) -> bool:
+def check_if_table_exists(db_path: str, table_name: str) -> bool:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""SELECT name FROM sqlite_master WHERE type='table';""")
         return any(table_name == col[0] for col in cursor.fetchall())
 
 
-def check_if_column_in_table_exists(db_path, table_name, column_name) -> bool:
+def check_if_column_in_table_exists(db_path: str, table_name: str, column_name: str) -> bool:
     if check_if_table_exists(db_path, table_name):
         with sqlite3.connect(db_path, timeout=timeout_db) as db:
             cursor = db.cursor()
@@ -19,7 +19,7 @@ def check_if_column_in_table_exists(db_path, table_name, column_name) -> bool:
 
 
 # #### CREATE TABLES #####
-def connect_create_results_db(db_path, timeout_db) -> None:
+def connect_create_results_db(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -138,7 +138,7 @@ def connect_create_results_db(db_path, timeout_db) -> None:
         db.commit()
 
 
-def create_cumulative_counts_table(db_path, timeout_db) -> None:
+def create_cumulative_counts_table(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -195,16 +195,16 @@ def create_cumulative_counts_table(db_path, timeout_db) -> None:
 
 
 # #### INSERT INTO TABLES #####
-def insert_identity_and_dna_algns_columns(results_db, timeout_db, fragments) -> None:
-    with sqlite3.connect(results_db, timeout=timeout_db) as db:
+def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragments: list) -> None:
+    with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(results_db, 'Fragments', 'dna_perc_identity'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'dna_perc_identity'):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN dna_perc_identity;""")
-        if check_if_column_in_table_exists(results_db, 'Fragments', 'prot_perc_identity'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'prot_perc_identity'):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN prot_perc_identity;""")
-        if check_if_column_in_table_exists(results_db, 'Fragments', 'query_dna_seq'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'query_dna_seq'):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN query_dna_seq;""")
-        if check_if_column_in_table_exists(results_db, 'Fragments', 'target_dna_seq'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'target_dna_seq'):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN target_dna_seq;""")
         cursor.execute(""" ALTER TABLE Fragments ADD COLUMN dna_perc_identity REAL;""")
         cursor.execute(""" ALTER TABLE Fragments ADD COLUMN prot_perc_identity REAL;""")
@@ -217,30 +217,30 @@ def insert_identity_and_dna_algns_columns(results_db, timeout_db, fragments) -> 
         db.commit()
 
 
-def instert_event_categ_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
+def instert_event_categ_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(results_db, 'Full_length_events_cumulative_counts', 'event_type'):
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_type'):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN event_type;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_type VARCHAR(100);""")
         cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET event_type=? WHERE fragment_id=? """, fragments)
         db.commit()
 
 
-def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path, timeout_db, fragments) -> None:
+def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(results_db, 'Full_length_events_cumulative_counts', 'pair_id'):
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id'):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_id;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
         cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET pair_id=? WHERE fragment_id=? """, fragments)
         db.commit()
 
 
-def insert_percent_query_column_to_fragments(db_path, timeout_db) -> None:
+def insert_percent_query_column_to_fragments(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(results_db, 'Fragments', 'percent_query'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'percent_query'):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN percent_query;""")
         cursor.execute("""
         ALTER TABLE Fragments ADD COLUMN percent_query DECIMAL(10, 3);
@@ -263,7 +263,7 @@ def insert_percent_query_column_to_fragments(db_path, timeout_db) -> None:
         db.commit()
 
 
-def insert_gene_ids_table(db_path, timeout_db, gene_args_tuple: tuple) -> None:
+def insert_gene_ids_table(db_path: str, timeout_db: int, gene_args_tuple: tuple) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         insert_gene_table_param = """  
@@ -319,7 +319,7 @@ def insert_fragments_calls() -> tuple:
     return insert_fragments_table_param, insert_gene_table_param
 
 
-def instert_full_length_event(db_path, timeout_db, tuples_list) -> None:
+def instert_full_length_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         insert_full_length_event_table_param = """
@@ -349,7 +349,7 @@ def instert_full_length_event(db_path, timeout_db, tuples_list) -> None:
         db.commit()
 
 
-def instert_obligatory_event(db_path, timeout_db, tuples_list) -> None:
+def instert_obligatory_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         insert_obl_event_table_param = """
@@ -376,7 +376,7 @@ def instert_obligatory_event(db_path, timeout_db, tuples_list) -> None:
         db.commit()
 
 
-def instert_truncation_event(db_path, timeout_db, tuples_list) -> None:
+def instert_truncation_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         insert_trunc_event_table_param = """
@@ -406,7 +406,7 @@ def instert_truncation_event(db_path, timeout_db, tuples_list) -> None:
 
 
 # ###### QUERY TABLES ######
-def query_gene_ids_in_res_db(db_path, timeout_db) -> list:
+def query_gene_ids_in_res_db(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("SELECT gene_id FROM Genes")
@@ -435,7 +435,7 @@ def query_filtered_full_duplication_events(db_path: str, timeout_db: float) -> l
         return [i for i in cursor.fetchall()]
 
 
-def query_tuples_full_length_duplications(db_path, timeout_db) -> list:
+def query_tuples_full_length_duplications(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -445,7 +445,7 @@ def query_tuples_full_length_duplications(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_genes_with_duplicated_cds(db_path, timeout_db) -> list:
+def query_genes_with_duplicated_cds(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -456,7 +456,7 @@ def query_genes_with_duplicated_cds(db_path, timeout_db) -> list:
         return [i[0] for i in cursor.fetchall()]
 
 
-def query_obligatory_events(db_path, timeout_db) -> list:
+def query_obligatory_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -466,7 +466,7 @@ def query_obligatory_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_truncation_events(db_path, timeout_db) -> list:
+def query_truncation_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -476,7 +476,7 @@ def query_truncation_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_exclusive_events(db_path, timeout_db) -> list:
+def query_exclusive_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -486,7 +486,7 @@ def query_exclusive_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_queries_only(db_path, timeout_db) -> list:
+def query_queries_only(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -497,7 +497,7 @@ def query_queries_only(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_targets_only(db_path, timeout_db) -> list:
+def query_targets_only(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -508,7 +508,7 @@ def query_targets_only(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_flexible_events(db_path, timeout_db) -> list:
+def query_flexible_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -520,7 +520,7 @@ def query_flexible_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_unused_events(db_path, timeout_db) -> list:
+def query_unused_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -531,7 +531,7 @@ def query_unused_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_optional_events(db_path, timeout_db) -> list:
+def query_optional_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -542,7 +542,7 @@ def query_optional_events(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_obligate_pairs(db_path, timeout_db) -> list:
+def query_obligate_pairs(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -554,7 +554,7 @@ def query_obligate_pairs(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_fragments(db_path, timeout_db) -> list:
+def query_fragments(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -580,7 +580,7 @@ def query_fragments(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_concat_categ_pairs(db_path, timeout_db) -> list:
+def query_concat_categ_pairs(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -592,7 +592,7 @@ def query_concat_categ_pairs(db_path, timeout_db) -> list:
         return cursor.fetchall()
 
 
-def query_candidates(db_path, timeout_db, pars) -> list:
+def query_candidates(db_path: str, timeout_db: int, pars: tuple) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute(
@@ -613,7 +613,7 @@ def query_candidates(db_path, timeout_db, pars) -> list:
         return cursor.fetchall()
 
 
-def query_full_events(db_path, timeout_db) -> list:
+def query_full_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         matches_q = """
@@ -632,7 +632,7 @@ def query_full_events(db_path, timeout_db) -> list:
 
 
 # ### CREATE VIEW ####
-def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
+def create_filtered_full_length_events_view(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -703,7 +703,7 @@ def create_filtered_full_length_events_view(db_path, timeout_db) -> None:
         db.commit()
 
 
-def create_mrna_counts_view(db_path, timeout_db) -> None:
+def create_mrna_counts_view(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
@@ -717,7 +717,7 @@ def create_mrna_counts_view(db_path, timeout_db) -> None:
         db.commit()
 
 
-def create_exclusive_pairs_view(db_path, timeout_db) -> None:
+def create_exclusive_pairs_view(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
