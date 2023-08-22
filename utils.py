@@ -226,10 +226,12 @@ def resolve_overlaps_coords_list(coords_list):
         return coords_list
 
 
-def get_intervals_overlapping_list(intv_list: list) -> list:
+def get_intervals_overlapping_list(intv_list: list, overlap_threshold=0.9) -> list:
     return [(feat_interv, intv_list[idx + 1])
             for idx, feat_interv in enumerate(intv_list[:-1])
-            if feat_interv.overlaps(intv_list[idx + 1])]
+            if feat_interv.overlaps(intv_list[idx + 1])
+            and any([get_overlap_percentage(feat_interv, intv_list[idx + 1]) > overlap_threshold,
+                     get_overlap_percentage(intv_list[idx + 1], feat_interv) > overlap_threshold])]
 
 
 def get_small_large_interv(a, b) -> tuple:
