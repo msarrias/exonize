@@ -626,6 +626,10 @@ def query_full_events(db_path: str, timeout_db: int) -> list:
         f.target_end,
         f.event_type
         FROM Full_length_events_cumulative_counts AS f
+        ORDER BY
+            f.gene_id,
+            CASE WHEN f.event_type LIKE '%INS_CDS%' THEN 1 ELSE 2 END,
+            f.event_type;
         """
         cursor.execute(matches_q)
         return cursor.fetchall()
