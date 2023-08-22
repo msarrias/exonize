@@ -209,9 +209,9 @@ def resolve_overlappings(intv_list: list, threshold: float):
         return intv_a, intv_b
 
 
-def resolve_overlaps_coords_list(coords_list):
+def resolve_overlaps_coords_list(coords_list, overlap_threshold):
     new_list = []
-    overlaps_list = get_intervals_overlapping_list(coords_list)
+    overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
     if overlaps_list:
         first_pair_a, first_pair_b = overlaps_list[0]
         for idx, coord in enumerate(coords_list):
@@ -221,7 +221,7 @@ def resolve_overlaps_coords_list(coords_list):
                 shorter, _ = get_small_large_interv(first_pair_a, first_pair_b)
                 new_list.append(shorter)
                 new_list.extend(coords_list[idx + 2:])
-                return resolve_overlaps_coords_list(new_list)
+                return resolve_overlaps_coords_list(new_list, overlap_threshold)
     else:
         return coords_list
 
