@@ -221,6 +221,18 @@ def resolve_overlaps_coords_list(coords_list, overlap_threshold):
         return coords_list
 
 
+def find_overlapping_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
+    return [get_average_overlapping_percentage(x[0], x[1])
+            for x in [(q_intv_a, q_intv_b),
+                      (t_intv_a, t_intv_b)]]
+
+
+def find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
+    return [get_average_overlapping_percentage(x[0], x[1])
+            for x in [(t_intv_a, q_intv_b),
+                      (t_intv_b, q_intv_a)]]
+
+
 def get_intervals_overlapping_list(intv_list: list, overlap_threshold=0.9) -> list:
     return [(feat_interv, intv_list[idx + 1])
             for idx, feat_interv in enumerate(intv_list[:-1])
