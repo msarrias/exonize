@@ -217,7 +217,7 @@ def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragmen
         db.commit()
 
 
-def instert_event_categ_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
+def insert_event_categ_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_type'):
