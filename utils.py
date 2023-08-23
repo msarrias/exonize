@@ -204,6 +204,11 @@ def get_average_overlapping_percentage(intv_a, intv_b) -> float:
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
 
 
+def get_shorter_intv_overlapping_percentage(a, b) -> float:
+    shorter, larger = get_small_large_interv(a, b)
+    return get_overlap_percentage(larger, shorter)
+
+
 def resolve_overlaps_coords_list(coords_list, overlap_threshold):
     new_list = []
     overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
@@ -222,13 +227,13 @@ def resolve_overlaps_coords_list(coords_list, overlap_threshold):
 
 
 def find_overlapping_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
-    return [get_average_overlapping_percentage(x[0], x[1])
+    return [get_shorter_intv_overlapping_percentage(x[0], x[1])
             for x in [(q_intv_a, q_intv_b),
                       (t_intv_a, t_intv_b)]]
 
 
 def find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
-    return [get_average_overlapping_percentage(x[0], x[1])
+    return [get_shorter_intv_overlapping_percentage(x[0], x[1])
             for x in [(t_intv_a, q_intv_b),
                       (t_intv_b, q_intv_a)]]
 
@@ -255,7 +260,7 @@ def get_small_large_interv(a, b) -> tuple:
         return b, a
 
 
-def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
+def get_overlapping_set_of_coordinates(list_coords: list, overlapping_threshold=0.9) -> dict:
     overlapping_coords = {}
     skip_coords = []
     for idx, i in enumerate(list_coords):
@@ -264,8 +269,8 @@ def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
                 overlapping_coords[i] = []
             for j in list_coords[idx+1:]:
                 if j not in skip_coords:
-                    if all([get_overlap_percentage(i, j) > 0.9,
-                            get_overlap_percentage(j, i) > 0.9]):
+                    if all([get_overlap_percentage(i, j) > overlapping_threshold,
+                            get_overlap_percentage(j, i) > overlapping_threshold]):
                         overlapping_coords[i].append(j)
                         skip_coords.append(j)
             skip_coords.append(i)
@@ -273,15 +278,15 @@ def get_overlapping_set_of_coordinates(list_coords: list) -> dict:
 
 
 def check_if_non_overlapping(intv_list: list) -> bool:
-    for idx, intv in enumerate(intv_list[:-1]):
-        if intv.overlaps(intv_list[idx + 1]):
+    for idx, interval in enumerate(intv_list[:-1]):
+        if interval.overlaps(intv_list[idx + 1]):
             return False
     return True
 
 
 def get_non_overlapping_coords_set(overlapping_coords_dict: dict) -> list:
-    return [max([intv, *overlp_intv], key=lambda x: x.upper - x.lower)
-            for intv, overlp_intv in overlapping_coords_dict.items()]
+    return [max([interval, *overlp_intv], key=lambda x: x.upper - x.lower)
+            for interval, overlp_intv in overlapping_coords_dict.items()]
 
 
 def sample_color(n=1) -> list:
@@ -358,7 +363,7 @@ def get_overlapping_dict(interval_dict: dict) -> dict:
     for each interval in the interval
     dictionary keys `interval_dict`
     """
-    overlapping_dict = {intv: [] for intv in interval_dict}
+    overlapping_dict = {interval: [] for interval in interval_dict}
     intervals_list = list(interval_dict.keys())
     for idx, (feat_interv, feature_annot) in enumerate(interval_dict.items()):
         if idx != (len(interval_dict) - 1) and feat_interv.overlaps(intervals_list[idx + 1]):
