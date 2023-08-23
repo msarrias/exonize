@@ -349,7 +349,7 @@ class Exonize(object):
     def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
         return [(i['id'], i['coord']) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
-                and get_average_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
+                and get_shorter_intv_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
 
     def identify_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
@@ -460,14 +460,14 @@ class Exonize(object):
         fragments = []
         skip_frag = []
         counter = 1
-        full_matches_cp = list(full_matches)
         with tqdm(total=len(full_matches), position=0, leave=True) as progress_bar:
             for frag_a in full_matches:
                 frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
                 t_intv_a = P.open(t_s_a, t_e_a)
                 q_intv_a = P.open(q_s_a, q_e_a)
                 if frag_id_a not in skip_frag:
-                    candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
+                    # candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
+                    candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
                     if candidates:
                         temp_cand = []
                         for frag_b in candidates:
@@ -483,16 +483,15 @@ class Exonize(object):
                                     if all(perc > 0 for perc in reciprocal_pairs):
                                         temp_cand.append(frag_id_b)
                                     # q_1, q_2 and t_2, t_2 have to overlap
-                                    elif all(perc > self.cds_overlapping_threshold for perc in overlapping_pairs):
+                                    elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
                                         temp_cand.append(frag_id_b)
                                 # Full events, meaning that the target CDS and query CDS overlap for their greater part
-                                elif any(all(perc > self.cds_overlapping_threshold for perc in pair)  # full dups
+                                elif any(all(perc >= self.cds_overlapping_threshold for perc in pair)  # full dups
                                          for pair in [reciprocal_pairs, overlapping_pairs]):
                                     temp_cand.append(frag_id_b)
                         if temp_cand:
                             skip_frag.extend([frag_id_a, *temp_cand])
                             fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
-                            full_matches_cp = list(set(skip_frag).difference(full_matches_cp))
                             counter += 1
                 progress_bar.update(1)
         return fragments
