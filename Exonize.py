@@ -272,7 +272,9 @@ class Exonize(object):
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
         CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
         if CDS_coords_list:
-            CDS_coords_list = resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
+            CDS_coords_list = [cds_coord for cds_coord
+                               in resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
+                               if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len]
             return CDS_coords_list
         return []
 
@@ -297,8 +299,7 @@ class Exonize(object):
             print(f'Either there is missing a chromosome in the genome file '
                   f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
             sys.exit()
-        CDS_coords_list = [cds_coord for cds_coord in self.get_candidate_CDS_coords(gene_id)
-                           if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len]
+        CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
         for cds_coord in CDS_coords_list:
             try:
                 cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
@@ -345,6 +346,11 @@ class Exonize(object):
         db.commit()
         db.close()
 
+    def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
+        return [(i['id'], i['coord']) for i in trans_dict['structure']
+                if i['type'] == 'CDS'
+                and get_average_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
+
     def identify_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
@@ -360,13 +366,12 @@ class Exonize(object):
                 annot_target_start, annot_target_end, target_t = None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
                 # account for allowed shifts in the resolve_overlappings function
-                query_only = [i['id'] for i in trans_dict['structure'] if i['type'] == 'CDS'
-                              and get_average_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
+                query_only = self.find_overlapping_annot(trans_dict, cds_intv)
                 if len(query_only) > 1:
                     print(f'overlapping query CDSs: {query_only}')
                     continue
                 elif query_only:
-                    query_CDS = query_only[0]
+                    query_CDS, _ = query_only[0]
                     query = 1
                     target_t = 'QUERY_ONLY'
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
@@ -381,41 +386,39 @@ class Exonize(object):
                                                             neither, query, target, both, evalue))
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
-                target_only = [(i['id'], i['coord']) for i in trans_dict['structure']
-                               if (get_average_overlapping_percentage(target_intv, i['coord']) >= self.cds_overlapping_threshold
-                                   and i['type'] == "CDS")]
+                target_only = self.find_overlapping_annot(trans_dict, target_intv)
                 if len(target_only) > 1:
                     print(f'overlapping query CDSs: {target_only}')
                     continue
                 # ####### TARGET ONLY #######
                 elif target_only:
+                    target_CDS, t_CDS_coord = target_only[0]
                     target_full = 1
                     found = True
                     target_t = "FULL"
-                    target_CDS, t_CDS_coord = target_only[0]
                     annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                 # ####### INSERTION #######
                 if target_full == 0:
                     insertion_CDS = filter_structure(trans_dict['structure'], target_intv, 'CDS')
                     if insertion_CDS:
+                        target_CDS, t_CDS_coord = insertion_CDS[0]
                         target_insertion = 1
                         target_t = "INS_CDS"
                         found = True
-                        target_CDS, t_CDS_coord = insertion_CDS[0]
                         annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     else:
                         insertion_UTR = filter_structure(trans_dict['structure'], target_intv, 'UTR')
                         if insertion_UTR:
+                            target_CDS, t_CDS_coord = insertion_UTR[0]
                             target_t = "INS_UTR"
                             found = True
-                            target_CDS, t_CDS_coord = insertion_UTR[0]
                             annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                         else:
                             insertion_intron = filter_structure(trans_dict['structure'], target_intv, 'intron')
                             if insertion_intron:
+                                target_CDS, t_CDS_coord = insertion_intron[0]
                                 target_t = "DEACTIVATED"
                                 found = True
-                                target_CDS, t_CDS_coord = insertion_intron[0]
                                 annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
                     # ####### TRUNCATION #######
                     if not found:
@@ -553,7 +556,7 @@ class Exonize(object):
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
         reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
-        instert_event_categ_full_length_events_cumulative_counts(self.results_db, self.timeout_db, reduced_event_types_tuples)
+        insert_event_categ_full_length_events_cumulative_counts(self.results_db, self.timeout_db, reduced_event_types_tuples)
         identity_and_sequence_tuples = self.get_identity_and_sequence_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
