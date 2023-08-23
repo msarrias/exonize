@@ -31,6 +31,10 @@ def dump_fasta_file(out_filepath: str, seq_dict: dict) -> None:
             SeqIO.write(record, handle, "fasta")
 
 
+def intv(a, b):
+    return P.open(a, b)
+
+
 def sort_list_intervals_dict(list_dicts: list) -> list:
     return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']))
 
@@ -198,15 +202,6 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
 
 def get_average_overlapping_percentage(intv_a, intv_b) -> float:
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
-
-
-def resolve_overlappings(intv_list: list, threshold: float):
-    intv_a, intv_b = intv_list
-    if get_average_overlapping_percentage(intv_a, intv_b) >= threshold:
-        rec_itv, _ = get_small_large_interv(intv_a, intv_b)
-        return rec_itv
-    else:
-        return intv_a, intv_b
 
 
 def resolve_overlaps_coords_list(coords_list, overlap_threshold):
