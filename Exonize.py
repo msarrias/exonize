@@ -464,32 +464,31 @@ class Exonize(object):
         with tqdm(total=len(full_matches), position=0, leave=True) as progress_bar:
             for frag_a in full_matches:
                 frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
+                t_intv_a = P.open(t_s_a, t_e_a)
+                q_intv_a = P.open(q_s_a, q_e_a)
                 if frag_id_a not in skip_frag:
                     candidates = query_candidates(self.results_db, self.timeout_db, (gene_id_a, frag_id_a))
                     if candidates:
                         temp_cand = []
                         for frag_b in candidates:
                             frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
-                            overlapping_pairs = [get_average_overlapping_percentage(x[0], x[1])
-                                                 for x in [(P.open(q_s_a, q_e_a), P.open(q_s_b, q_e_b)),
-                                                           (P.open(t_s_a, t_e_a), P.open(t_s_b, t_e_b))]]
-                            reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
-                                                for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                                          (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
+                            t_intv_b = P.open(t_s_b, t_e_b)
+                            q_intv_b = P.open(q_s_b, q_e_b)
+                            overlapping_pairs = find_overlapping_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b)
+                            reciprocal_pairs = find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b)
                             if overlapping_pairs or reciprocal_pairs:
-                                if "INS_CDS" in event_type_a:
-                                    if "TRUNC" in event_type_b:
-                                        if all(perc > 0 for perc in reciprocal_pairs):
-                                            temp_cand.append(frag_id_b)
-                                        elif all(perc > cds_overlapping_threshold for perc in overlapping_pairs):
-                                            temp_cand.append(frag_id_b)
-                                else:
-                                    reciprocal_pairs = [get_average_overlapping_percentage(x[0], x[1])
-                                                        for x in [(P.open(t_s_a, t_e_a), P.open(q_s_b, q_e_b)),
-                                                                  (P.open(t_s_b, t_e_b), P.open(q_s_a, q_e_a))]]
-                                    if any(all(perc > cds_overlapping_threshold for perc in pair)
-                                           for pair in [reciprocal_pairs, overlapping_pairs]):
+                                # Insertion events
+                                if "INS_CDS" in event_type_a and "TRUNC" in event_type_b:
+                                    # q_1, t_2 and q_2, t_1 have to overlap
+                                    if all(perc > 0 for perc in reciprocal_pairs):
                                         temp_cand.append(frag_id_b)
+                                    # q_1, q_2 and t_2, t_2 have to overlap
+                                    elif all(perc > self.cds_overlapping_threshold for perc in overlapping_pairs):
+                                        temp_cand.append(frag_id_b)
+                                # Full events, meaning that the target CDS and query CDS overlap for their greater part
+                                elif any(all(perc > self.cds_overlapping_threshold for perc in pair)  # full dups
+                                         for pair in [reciprocal_pairs, overlapping_pairs]):
+                                    temp_cand.append(frag_id_b)
                         if temp_cand:
                             skip_frag.extend([frag_id_a, *temp_cand])
                             fragments.extend([(counter, frag) for frag in [frag_id_a, *temp_cand]])
