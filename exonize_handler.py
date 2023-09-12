@@ -6,7 +6,7 @@ import os                                              # for working with files
 import time                                            # for sleeping between BLAST calls and for timeout on DB creation
 import random                                          # for random sleep
 import re                                              # regular expressions for genome masking
-# import tempfile                                        # for creating temporary files
+import tempfile                                        # for creating temporary files
 from Bio import SeqIO                                  # for reading FASTA files
 from tqdm import tqdm                                  # progress bar
 from multiprocessing.pool import ThreadPool            # for parallelization
@@ -27,7 +27,7 @@ class Exonize(object):
                  hard_masking=False,
                  evalue_threshold=1e-2,
                  sleep_max_seconds=5,
-                 min_exon_length=20,
+                 min_exon_length=30,
                  cds_overlapping_threshold=0.9,
                  masking_perc_threshold=0.8,
                  self_hit_threshold=0.5,
@@ -118,7 +118,7 @@ class Exonize(object):
 
     def create_intron_annotations(self) -> None:
         if 'intron' not in self.db_features:
-            print('---------------------Warning------------------------------')
+            print('---------------------WARNING------------------------------')
             print("-The genomic annotations do not contain intron annotations")
             print('----------------------------------------------------------')
             if self.verbose:
@@ -198,6 +198,12 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
+        if self.save_input_files:
+            print('---------------------WARNING------------------------------')
+            print("-All tblastx input and output files will be saved. "
+                  "This may take a large amount of disk space. "
+                  "You can disable this option by setting the save_input_files parameter to False.")
+            print('----------------------------------------------------------')
 
     def execute_tblastx(self, query_filename, target_filename):
         tblastx_command = ['tblastx',
