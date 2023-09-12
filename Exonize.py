@@ -25,7 +25,6 @@ class Exonize(object):
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-2,
-                 min_tblastx_align_len_perc=0.8,
                  sleep_max_seconds=5,
                  min_exon_length=20,
                  cds_overlapping_threshold=0.9,
@@ -48,16 +47,15 @@ class Exonize(object):
         self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
         self.min_exon_len = min_exon_length                             # minimum exon length (bp)
         self.timeout_db = timeout_db                                    # timeout for creating the database (seconds)
-        self.evalue = evalue_threshold                                  # e-value threshold for BLAST
-        self.min_tblastx_align_len_perc = min_tblastx_align_len_perc    # minimum alignment length percentage of query
+        self.evalue = evalue_threshold                                  # e-value threshold for BLAST calls
         self.batch_number = batch_number                                # batch number for BLAST calls
         self.threads = threads                                          # number of threads for BLAST calls
-        self.id_spec_attribute = spec_attribute
-        self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.self_hit_threshold = self_hit_threshold
+        self.id_spec_attribute = spec_attribute                         # reference for writting intron annotations with gffutils
+        self.cds_overlapping_threshold = cds_overlapping_threshold      # CDS overlapping threshold (0-1)
+        self.self_hit_threshold = self_hit_threshold                    # self-hit threshold (0-1)
+        self.results_db = results_db_name                               # results database name
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
-        self.results_db = results_db_name
         if self.results_db == '':
             self.results_db = f'{self.specie_identifier}_results.db'
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
@@ -117,10 +115,6 @@ class Exonize(object):
             print('---------------------------------------------------------')
 
     def create_intron_annotations(self) -> None:
-        """
-        run only once otherwise duplicated
-        annotations will be created
-        """
         if 'intron' not in self.db_features:
             print('---------------------Warning------------------------------')
             print("-The genomic annotations do not contain intron annotations")
@@ -164,15 +158,6 @@ class Exonize(object):
         with open(f'exonize_logs.txt', 'w') as f:
             f.write('\n'.join(self.logs))
 
-    def prepare_data(self) -> None:
-        self.create_parse_or_update_database()
-        if os.path.exists(self.gene_hierarchy_path):
-            self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
-        else:
-            self.create_gene_hierarchy_dict()
-        self.read_genome()
-        connect_create_results_db(self.results_db, self.timeout_db)
-
     def create_gene_hierarchy_dict(self) -> None:
         """
         GFF coordinates are 1-based, so we need to subtract 1 from the start position to convert to 0-based.
@@ -202,6 +187,15 @@ class Exonize(object):
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
+    def prepare_data(self) -> None:
+        self.create_parse_or_update_database()
+        if os.path.exists(self.gene_hierarchy_path):
+            self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
+        else:
+            self.create_gene_hierarchy_dict()
+        self.read_genome()
+        connect_create_results_db(self.results_db, self.timeout_db)
+
     def run_tblastx(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
@@ -216,6 +210,8 @@ class Exonize(object):
             tblastx_command = ['tblastx',
                                '-query', query_filename,
                                '-subject', target_filename,
+                               '-evalue', str(self.evalue),
+                               '-qcov_hsp_perc', str(self.cds_overlapping_threshold * 100),
                                '-outfmt', '5',  # XML output format
                                '-out', output_file]
             subprocess.run(tblastx_command)
@@ -247,24 +243,21 @@ class Exonize(object):
                 print("More than one alignment per blast_record")
             for hsp_idx, hsp in enumerate(alignment.hsps):
                 blast_target_coord = P.open((hsp.sbjct_start - 1) + hit_coord.lower, hsp.sbjct_end + hit_coord.lower)
-                query_aligned_frac = round((hsp.align_length * 3) / blast_record.query_length, 3)
                 target_query_overlap_percentage = get_overlap_percentage(blast_target_coord, q_coord)
                 query_target_overlap_percentage = get_overlap_percentage(q_coord, blast_target_coord)
-                if (hsp.expect < self.evalue
-                        and query_aligned_frac > self.min_tblastx_align_len_perc
-                        and query_target_overlap_percentage < self.self_hit_threshold  # self-hits are not allowed (max 50% overlap)
+                if (query_target_overlap_percentage < self.self_hit_threshold  # self-hits are not allowed (max 50% overlap)
                         and target_query_overlap_percentage < self.self_hit_threshold):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp)
         return res_tblastx
 
-    def get_gene_tuple(self, gene_id: str, bin_has_dup: int) -> tuple:
+    def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         return (gene_id,
                 self.gene_hierarchy_dict[gene_id]['chrom'],
                 (self.gene_hierarchy_dict[gene_id]['strand']),
                 gene_coord.lower,
                 gene_coord.upper,
-                bin_has_dup)
+                has_dup_bin)
 
     def get_candidate_CDS_coords(self, gene_id: str) -> list:
         CDS_coords_list = list(set([i['coord']
@@ -349,7 +342,9 @@ class Exonize(object):
     def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
         return [(i['id'], i['coord']) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
-                and get_shorter_intv_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
+                and all([get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold,
+                         get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
+                # and get_shorter_intv_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
 
     def identify_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
