@@ -2,6 +2,23 @@ from exonize_handler import Exonize
 import argparse
 
 
+def check_requirements():
+    req_file_name = "requirements.txt"
+    if os.path.exists(req_file_name):
+        installed_packages = subprocess.getoutput("pip list").split("\n")[2:]  # The first two lines are headers
+        installed = [package.split()[0] for package in installed_packages]
+        with open(req_file_name, "r") as f:
+            required_packages = f.read().splitlines()
+        missing_packages = [package.split("==")[0] for package in required_packages
+                            if package.split("==")[0] not in installed]
+        if missing_packages:
+            print("The following packages are missing:")
+            for package in missing_packages:
+                print(package)
+            print("Please install them before running Exonize.")
+            sys.exit(1)
+
+
 def argument_parser():
     parser = argparse.ArgumentParser(description='Exonize Description')
     parser.add_argument('gff_file_path', type=str, help='Path to GFF file')
@@ -26,6 +43,7 @@ def argument_parser():
 
 
 def main():
+    check_requirements()
     args = argument_parser()
     Exonize(gff_file_path=args.gff_file_path,
             genome_path=args.genome_path,
