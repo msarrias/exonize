@@ -176,12 +176,13 @@ class Exonize(object):
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
                         if coord:
-                            temp_mrna_transcript.append({'id': child.id,  # ID attribute
-                                                         'coord': coord,  # ID coordinate starting at 0
-                                                         # One of '0', '1' or '2'. '0' indicates that the x base of
-                                                         # the feature is the x base of a codon
-                                                         'frame': child.frame,
-                                                         'type': child.featuretype}  # feature type name
+                            temp_mrna_transcript.append(dict(id=child.id,  # ID attribute
+                                                             coord=coord,  # ID coordinate starting at 0
+                                                             # One of '0', '1' or '2'. '0' indicates that the x base of
+                                                             # the feature is the x base of a codon
+                                                             frame=child.frame,
+                                                             type=child.featuretype,   # feature type name
+                                                             attributes=dict(child.attributes))  # feature type name
                                                         )
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
@@ -360,7 +361,7 @@ class Exonize(object):
                 query_CDS, target_CDS = "-", "-"
                 annot_target_start, annot_target_end, target_t = None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
-                # account for allowed shifts in the resolve_overlappings function
+                # account for allowed shifts in the resolve_overlaps_coords_list function
                 query_only = self.find_overlapping_annot(trans_dict, cds_intv)
                 if len(query_only) > 1:
                     print(f'overlapping query CDSs: {query_only}')
