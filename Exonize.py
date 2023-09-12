@@ -22,6 +22,7 @@ class Exonize(object):
                  specie_identifier,
                  results_db_name='',
                  spec_attribute='ID',
+                 save_input_files=False,
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-2,
@@ -62,6 +63,7 @@ class Exonize(object):
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
         self.masking_perc_threshold = masking_perc_threshold
+        self.save_input_files = save_input_files
         self.logs = []
 
     def create_parse_or_update_database(self) -> None:
@@ -197,33 +199,53 @@ class Exonize(object):
         self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
 
-    def run_tblastx(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
+    def execute_tblastx(self, query_filename, target_filename):
+        tblastx_command = ['tblastx',
+                           '-query', query_filename,
+                           '-subject', target_filename,
+                           '-evalue', str(self.evalue),
+                           '-qcov_hsp_perc', str(self.cds_overlapping_threshold * 100),
+                           '-outfmt', '5',  # XML output format
+                           '-out', output_file]
+        subprocess.run(tblastx_command)
+
+    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
-        output_file = f'output/{identifier}_output.xml'
-        if not os.path.exists(output_file):
-            query_filename = f'input/{identifier}_query.fa'
-            target_filename = f'input/{gene_id}_target.fa'
-            if not os.path.exists(target_filename):
-                dump_fasta_file(target_filename, {f"{gene_id}": hit_seq})
-            dump_fasta_file(query_filename, {identifier: query_seq})
-            tblastx_command = ['tblastx',
-                               '-query', query_filename,
-                               '-subject', target_filename,
-                               '-evalue', str(self.evalue),
-                               '-qcov_hsp_perc', str(self.cds_overlapping_threshold * 100),
-                               '-outfmt', '5',  # XML output format
-                               '-out', output_file]
-            subprocess.run(tblastx_command)
-        with open(output_file, "r") as result_handle:
-            blast_records = NCBIXML.parse(result_handle)
-            try:
-                temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
-            except Exception as e:
-                print(e)
-                sys.exit()
-        return temp
+        if self.save_input_files:
+            output_file = f'output/{identifier}_output.xml'
+            if not os.path.exists(output_file):
+                query_filename = f'input/{identifier}_query.fa'
+                target_filename = f'input/{gene_id}_target.fa'
+                if not os.path.exists(target_filename):
+                    dump_fasta_file(target_filename, {f"{gene_id}": hit_seq})
+                dump_fasta_file(query_filename, {identifier: query_seq})
+                self.execute_tblastx(query_filename, target_filename)
+            with open(output_file, "r") as result_handle:
+                blast_records = NCBIXML.parse(result_handle)
+                try:
+                    temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
+                except Exception as e:
+                    print(e)
+                    sys.exit()
+            return temp
+        else:
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                query_filename = f'{tmpdirname}/query.fa'
+                target_filename = f'{tmpdirname}/target.fa'
+                dump_fasta_file(query_filename, {'query': query_seq})
+                dump_fasta_file(target_filename, {'target': hit_seq})
+                output_file = f'{tmpdirname}/output.xml'
+                self.execute_tblastx(query_filename, target_filename)
+                with open(output_file, 'r') as result_handle:
+                    blast_records = NCBIXML.parse(result_handle)
+                    try:
+                        temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
+                    except Exception as e:
+                        print(e)
+                        sys.exit()
+            return temp
 
     def parse_tblastx_output(self, blast_records, q_coord, hit_coord) -> dict:
         """
@@ -307,7 +329,7 @@ class Exonize(object):
                 print(f'Either there is missing a chromosome in the genome file or the chromosome'
                       f' identifiers in the GFF3 and FASTA files do not match {e}')
                 sys.exit()
-            temp = self.run_tblastx(gene_id, cds_seq, gene_seq, cds_coord)
+            temp = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
             if temp:
                 CDS_blast_dict[cds_coord] = temp
         if CDS_blast_dict:
