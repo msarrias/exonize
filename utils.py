@@ -209,6 +209,14 @@ def get_shorter_intv_overlapping_percentage(a, b) -> float:
     return get_overlap_percentage(larger, shorter)
 
 
+def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
+    return [(feat_interv, intv_list[idx + 1])
+            for idx, feat_interv in enumerate(intv_list[:-1])
+            if feat_interv.overlaps(intv_list[idx + 1])
+            and all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
+                     get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])]
+
+
 def resolve_overlaps_coords_list(coords_list, overlap_threshold):
     new_list = []
     overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
@@ -236,14 +244,6 @@ def find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
     return [get_shorter_intv_overlapping_percentage(x[0], x[1])
             for x in [(t_intv_a, q_intv_b),
                       (t_intv_b, q_intv_a)]]
-
-
-def get_intervals_overlapping_list(intv_list: list, overlap_threshold=0.9) -> list:
-    return [(feat_interv, intv_list[idx + 1])
-            for idx, feat_interv in enumerate(intv_list[:-1])
-            if feat_interv.overlaps(intv_list[idx + 1])
-            and any([get_overlap_percentage(feat_interv, intv_list[idx + 1]) > overlap_threshold,
-                     get_overlap_percentage(intv_list[idx + 1], feat_interv) > overlap_threshold])]
 
 
 def get_small_large_interv(a, b) -> tuple:
