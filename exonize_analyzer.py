@@ -2,7 +2,7 @@ from utils import *
 import sqlite3
 
 
-class ExonizeEvents(object):
+class ExonizeClassifier(object):
     def __init__(self, exonize_res_db_path):
         self.classified_events = {}
         self.results_db = exonize_res_db_path
