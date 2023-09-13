@@ -88,19 +88,21 @@ def connect_create_results_db(db_path: str, timeout_db: int) -> None:
         ON Full_length_duplications (fragment_id, gene_id, mrna_id, CDS_start, CDS_end);
         """)
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Obligatory_events (
+        CREATE TABLE IF NOT EXISTS Obligate_events (
         event_id INTEGER PRIMARY KEY AUTOINCREMENT,
         fragment_id INTEGER NOT NULL,
         gene_id VARCHAR(100) NOT NULL,
         mrna_id VARCHAR(100) NOT NULL,
         mrna_start INTEGER NOT NULL,
         mrna_end INTEGER NOT NULL,
+        query_CDS_id VARCHAR(100) NOT NULL,
+        query_CDS_frame INTEGER NOT NULL,
         query_CDS_start INTEGER NOT NULL,
         query_CDS_end INTEGER NOT NULL,
-        query_CDS_id VARCHAR(100) NOT NULL,
         query_start INTEGER NOT NULL,
         query_end INTEGER NOT NULL,
         target_CDS_id VARCHAR(100) NOT NULL,
+        target_CDS_frame INTEGER NOT NULL,
         target_CDS_start INTEGER NOT NULL,
         target_CDS_end INTEGER NOT NULL,
         target_start INTEGER NOT NULL,
@@ -353,24 +355,26 @@ def instert_obligatory_event(db_path: str, timeout_db: int, tuples_list: list) -
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         insert_obl_event_table_param = """
-        INSERT OR IGNORE INTO Obligatory_events (
+        INSERT OR IGNORE INTO Obligate_events (
         fragment_id,
         gene_id,
         mrna_id,
         mrna_start,
         mrna_end,
+        query_CDS_id,
+        query_CDS_frame,
         query_CDS_start,
         query_CDS_end,
-        query_CDS_id,
         query_start,
         query_end,
         target_CDS_id,
+        target_CDS_frame,
         target_CDS_start,
         target_CDS_end,
         target_start,
         target_end,
         type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          """
         cursor.executemany(insert_obl_event_table_param, tuples_list)
         db.commit()
@@ -456,12 +460,12 @@ def query_genes_with_duplicated_cds(db_path: str, timeout_db: int) -> list:
         return [i[0] for i in cursor.fetchall()]
 
 
-def query_obligatory_events(db_path: str, timeout_db: int) -> list:
+def query_obligate_events(db_path: str, timeout_db: int) -> list:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""
         SELECT *
-        FROM Obligatory_events;
+        FROM Obligate_events;
         """)
         return cursor.fetchall()
 
@@ -547,7 +551,7 @@ def query_obligate_pairs(db_path: str, timeout_db: int) -> list:
         cursor = db.cursor()
         cursor.execute("""
         SELECT oe.* 
-        FROM Obligatory_events AS oe
+        FROM Obligate_events AS oe
         INNER JOIN Full_length_events_cumulative_counts AS fle ON fle.fragment_id=oe.fragment_id
         WHERE fle.cum_both=fle.mrna_count
         """)
