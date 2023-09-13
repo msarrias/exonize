@@ -205,7 +205,7 @@ class Exonize(object):
                   "You can disable this option by setting the save_input_files parameter to False.")
             print('----------------------------------------------------------')
 
-    def execute_tblastx(self, query_filename, target_filename):
+    def execute_tblastx(self, query_filename, target_filename, output_file):
         tblastx_command = ['tblastx',
                            '-query', query_filename,
                            '-subject', target_filename,
@@ -227,7 +227,7 @@ class Exonize(object):
                 if not os.path.exists(target_filename):
                     dump_fasta_file(target_filename, {f"{gene_id}": hit_seq})
                 dump_fasta_file(query_filename, {identifier: query_seq})
-                self.execute_tblastx(query_filename, target_filename)
+                self.execute_tblastx(query_filename, target_filename, output_file)
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
                 try:
@@ -243,7 +243,7 @@ class Exonize(object):
                 dump_fasta_file(query_filename, {'query': query_seq})
                 dump_fasta_file(target_filename, {'target': hit_seq})
                 output_file = f'{tmpdirname}/output.xml'
-                self.execute_tblastx(query_filename, target_filename)
+                self.execute_tblastx(query_filename, target_filename, output_file)
                 with open(output_file, 'r') as result_handle:
                     blast_records = NCBIXML.parse(result_handle)
                     try:
@@ -369,7 +369,7 @@ class Exonize(object):
         db.close()
 
     def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
-        return [(i['id'], i['coord']) for i in trans_dict['structure']
+        return [(i['id'], i['coord'], int(i['frame'])) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
                 and all([get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold,
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
@@ -387,7 +387,7 @@ class Exonize(object):
                 trans_coord = trans_dict['coord']
                 neither, query, target, target_full, target_insertion, target_trunctation, both = 0, 0, 0, 0, 0, 0, 0
                 query_CDS, target_CDS = "-", "-"
-                annot_target_start, annot_target_end, target_t = None, None, None
+                annot_target_start, annot_target_end, target_t, query_CDS_frame, target_CDS_frame = None, None, None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
                 # account for allowed shifts in the resolve_overlaps_coords_list function
                 query_only = self.find_overlapping_annot(trans_dict, cds_intv)
@@ -395,7 +395,7 @@ class Exonize(object):
                     print(f'overlapping query CDSs: {query_only}')
                     continue
                 elif query_only:
-                    query_CDS, _ = query_only[0]
+                    query_CDS, _, query_CDS_frame = query_only[0]
                     query = 1
                     target_t = 'QUERY_ONLY'
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
@@ -416,7 +416,7 @@ class Exonize(object):
                     continue
                 # ####### TARGET ONLY #######
                 elif target_only:
-                    target_CDS, t_CDS_coord = target_only[0]
+                    target_CDS, t_CDS_coord, target_CDS_frame = target_only[0]
                     target_full = 1
                     found = True
                     target_t = "FULL"
@@ -465,8 +465,8 @@ class Exonize(object):
                     tuples_obligatory_events.append((fragment_id, gene_id, mrna,
                                                     trans_coord.lower, trans_coord.upper,
                                                     cds_s, cds_e,
-                                                    query_CDS, query_s, query_e,
-                                                    target_CDS, annot_target_start, annot_target_end,
+                                                    query_CDS, query_CDS_frame, query_s, query_e,
+                                                    target_CDS, target_CDS_frame, annot_target_start, annot_target_end,
                                                     target_s, target_e, target_t))
                 elif query + target == 0:
                     neither = 1
