@@ -2,15 +2,15 @@ import sqlite3                                         # for working with SQLite
 from utils import *
 
 
-def check_if_table_exists(db_path: str, table_name: str) -> bool:
+def check_if_table_exists(db_path: str, table_name: str, timeout_db: int) -> bool:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         cursor.execute("""SELECT name FROM sqlite_master WHERE type='table';""")
         return any(table_name == col[0] for col in cursor.fetchall())
 
 
-def check_if_column_in_table_exists(db_path: str, table_name: str, column_name: str) -> bool:
-    if check_if_table_exists(db_path, table_name):
+def check_if_column_in_table_exists(db_path: str, table_name: str, column_name: str, timeout_db: int) -> bool:
+    if check_if_table_exists(db_path, table_name, timeout_db):
         with sqlite3.connect(db_path, timeout=timeout_db) as db:
             cursor = db.cursor()
             cursor.execute(f"PRAGMA table_info({table_name})")
@@ -200,13 +200,13 @@ def create_cumulative_counts_table(db_path: str, timeout_db: int) -> None:
 def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(db_path, 'Fragments', 'dna_perc_identity'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'dna_perc_identity', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN dna_perc_identity;""")
-        if check_if_column_in_table_exists(db_path, 'Fragments', 'prot_perc_identity'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'prot_perc_identity', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN prot_perc_identity;""")
-        if check_if_column_in_table_exists(db_path, 'Fragments', 'query_dna_seq'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'query_dna_seq', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN query_dna_seq;""")
-        if check_if_column_in_table_exists(db_path, 'Fragments', 'target_dna_seq'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'target_dna_seq', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN target_dna_seq;""")
         cursor.execute(""" ALTER TABLE Fragments ADD COLUMN dna_perc_identity REAL;""")
         cursor.execute(""" ALTER TABLE Fragments ADD COLUMN prot_perc_identity REAL;""")
@@ -222,7 +222,7 @@ def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragmen
 def insert_event_categ_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_type'):
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_type', timeout_db):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN event_type;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_type VARCHAR(100);""")
         cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET event_type=? WHERE fragment_id=? """, fragments)
@@ -232,7 +232,7 @@ def insert_event_categ_full_length_events_cumulative_counts(db_path: str, timeou
 def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id'):
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id', timeout_db):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_id;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
         cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET pair_id=? WHERE fragment_id=? """, fragments)
@@ -242,7 +242,7 @@ def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str,
 def insert_percent_query_column_to_fragments(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(db_path, 'Fragments', 'percent_query'):
+        if check_if_column_in_table_exists(db_path, 'Fragments', 'percent_query', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN percent_query;""")
         cursor.execute("""
         ALTER TABLE Fragments ADD COLUMN percent_query DECIMAL(10, 3);
