@@ -216,7 +216,7 @@ class ExonizeClassifier(object):
                     k: [j for j in all_events if j[self.event_type_idx] == k
                         and j[self.optional_group_category_idx] == i]
                     for k in set([i[self.event_type_idx] for i in [j for j in all_events
-                                                                          if j[self.optional_group_category_idx] == i]])}
+                                                                   if j[self.optional_group_category_idx] == i]])}
                     for i in set([i[self.optional_group_category_idx] for i in all_events])}
 
     def get_classification_schema(self) -> None:

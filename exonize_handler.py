@@ -186,7 +186,10 @@ class Exonize(object):
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes))  # feature type name
                                                         )
-                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript)
+                    reverse = False
+                    if gene.strand == '-':
+                        reverse = True
+                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript, reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
