@@ -291,11 +291,11 @@ class Exonize(object):
                 gene_coord.upper,
                 has_dup_bin)
 
-    def get_candidate_CDS_coords(self, gene_id: str, gene_strand: str) -> list:
+    def get_candidate_CDS_coords(self, gene_id: str) -> list:
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
-        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
+        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
         if CDS_coords_list:
             CDS_coords_list = [cds_coord for cds_coord
                                in resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
