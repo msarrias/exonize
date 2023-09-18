@@ -35,8 +35,8 @@ def intv(a, b):
     return P.open(a, b)
 
 
-def sort_list_intervals_dict(list_dicts: list) -> list:
-    return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']))
+def sort_list_intervals_dict(list_dicts: list, reverse=False) -> list:
+    return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']), reverse=reverse)
 
 
 def sort_key_intervals_dict(interval_dict: dict) -> dict:
