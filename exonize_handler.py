@@ -327,7 +327,7 @@ class Exonize(object):
             print(f'Either there is missing a chromosome in the genome file '
                   f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
             sys.exit()
-        CDS_coords_list = self.get_candidate_CDS_coords(gene_id, gene_strand)
+        CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
         if gene_strand == '-':
             reverse = True
         else:
