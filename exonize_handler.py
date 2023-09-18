@@ -291,11 +291,11 @@ class Exonize(object):
                 gene_coord.upper,
                 has_dup_bin)
 
-    def get_candidate_CDS_coords(self, gene_id: str) -> list:
+    def get_candidate_CDS_coords(self, gene_id: str, gene_strand: str) -> list:
         CDS_coords_list = list(set([i['coord']
                                     for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure'] if i['type'] == 'CDS']))
-        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
+        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
         if CDS_coords_list:
             CDS_coords_list = [cds_coord for cds_coord
                                in resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
@@ -311,8 +311,11 @@ class Exonize(object):
         CDS_blast_dict = {}
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        gene_strand = self.gene_hierarchy_dict[gene_id]['strand']
         try:
             gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+            if gene_strand == '-':
+                gene_seq = gene_seq.reverse_complement()
             masking_perc = sequence_masking_percentage(gene_seq)
             if masking_perc > self.masking_perc_threshold:
                 self.logs.append((f'Gene {gene_id} in chromosome {chrom} '
@@ -324,10 +327,17 @@ class Exonize(object):
             print(f'Either there is missing a chromosome in the genome file '
                   f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
             sys.exit()
-        CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
+        CDS_coords_list = self.get_candidate_CDS_coords(gene_id, gene_strand)
+        if gene_strand == '-':
+            reverse = True
+        else:
+            reverse = False
+        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
         for cds_coord in CDS_coords_list:
             try:
                 cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
+                if gene_strand == '-':
+                    cds_seq = self.cds_seq.reverse_complement()
                 cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
                 if cds_seq_masking_perc > self.masking_perc_threshold:
                     self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
