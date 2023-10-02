@@ -41,11 +41,11 @@ class ExonizeClassifier(object):
     def fragments_count_sanity_check(self) -> None:
         pairs_ids_len = 0
         split_pairs_len = 0
-        all_full_events = self.get_all_full_events()
+        all_full_events_ids = self.get_all_full_events_fragment_ids()
         for mut_class, mut_dict in self.all_events.items():
             pairs_ids_len += len([*mut_dict['pairs_fragment_ids'], *mut_dict['orphan_fragment_ids']])
             split_pairs_len += len(mut_dict['splits_fragment_ids'])
-        if not (split_pairs_len + pairs_ids_len + len(self.skip_duplicated_pairs) == len(all_full_events)):
+        if not (split_pairs_len + pairs_ids_len + len(self.skip_duplicated_pairs) == len(all_full_events_ids)):
             print('WARNING: some events are doubled counted or missing from the analysis')
 
     def check_for_duplications(self) -> None:
@@ -230,7 +230,7 @@ class ExonizeClassifier(object):
         self.reorganize_schema_according_to_type()
 
     # ###### QUERY TABLES ########
-    def get_all_full_events(self):
+    def get_all_full_events_fragment_ids(self):
         with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
             cursor = db.cursor()
             cursor.execute(""" 
