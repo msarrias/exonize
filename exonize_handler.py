@@ -67,45 +67,73 @@ class Exonize(object):
         self.logs = []
 
     def create_parse_or_update_database(self) -> None:
+        """
+        create_parse_or_update_database is a function that in the absence of a database it:
+        (i)   Provided a GTF file, it converts the file to a gff format.
+        (ii)  Creates DB with the gff file by means of the gffutils library.
+        Once the db exists it is loaded and the following steps are performed:
+        (i) Verifies that the database contains intron annotations, if not, it attempts to write them.
+        """
+        def convert_gtf_to_gff() -> None:
+            gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
+            subprocess.call(gffread_command)
+
+        def create_database() -> None:
+            try:
+                if self.verbose:
+                    print("- Creating annotations database", end=" ")
+                self.db = gffutils.create_db(self.in_file_path,
+                                             dbfn=self.db_path,
+                                             force=True,
+                                             keep_order=True,
+                                             merge_strategy='create_unique',
+                                             sort_attribute_values=True,
+                                             disable_infer_genes=True,
+                                             disable_infer_transcripts=True)
+                if self.verbose:
+                    print("Done!")
+            except ValueError as e:
+                print(' ')
+                print('---------------------ERROR-------------------------------')
+                print(f"Incorrect genome annotations file  {e}")
+                print('---------------------------------------------------------')
+                sys.exit()
+
+        def search_create_intron_annotations() -> None:
+            if 'intron' not in self.db_features:
+                print('---------------------WARNING------------------------------')
+                print("-The genomic annotations do not contain intron annotations")
+                print('----------------------------------------------------------')
+                if self.verbose:
+                    print(f"- Attempting to write intron annotations in database:", end=" ")
+                try:
+                    def intron_id(f) -> str:
+                        return ','.join(f[self.id_spec_attribute])
+
+                    introns_list = list(self.db.create_introns())
+                    self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
+                except ValueError as e:
+                    print("failed to write intron annotations in database, "
+                          "please try with a different spec attribute or provide a GFF3 file with intron annotations")
+                    print(e)
+                    sys.exit()
+                if self.verbose:
+                    print("Done!")
+
         if not os.path.exists(self.db_path):
             if 'gtf' in self.in_file_path:
                 self.old_filename = self.in_file_path
                 self.in_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
-                self.convert_gtf_to_gff()
+                convert_gtf_to_gff()
                 print('the GTF file has been converted into a GFF3 file')
                 print(f'with filename: {self.in_file_path}')
-            self.create_database()
+            create_database()
         if not self.db:
             print("- Reading annotations database:", end=" ")
             self.load_db()
             print("Done!")
         self.db_features = list(self.db.featuretypes())
-        self.create_intron_annotations()
-
-    def convert_gtf_to_gff(self) -> None:
-        gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
-        subprocess.call(gffread_command)
-
-    def create_database(self) -> None:
-        try:
-            if self.verbose:
-                print("- Creating annotations database", end=" ")
-            self.db = gffutils.create_db(self.in_file_path,
-                                         dbfn=self.db_path,
-                                         force=True,
-                                         keep_order=True,
-                                         merge_strategy='create_unique',
-                                         sort_attribute_values=True,
-                                         disable_infer_genes=True,
-                                         disable_infer_transcripts=True)
-            if self.verbose:
-                print("Done!")
-        except ValueError as e:
-            print(' ')
-            print('---------------------ERROR-------------------------------')
-            print(f"Incorrect genome annotations file  {e}")
-            print('---------------------------------------------------------')
-            sys.exit()
+        search_create_intron_annotations()
 
     def load_db(self) -> None:
         try:
@@ -115,25 +143,7 @@ class Exonize(object):
             print('---------------------ERROR-------------------------------')
             print(f"Incorrect data base path  {e}")
             print('---------------------------------------------------------')
-
-    def create_intron_annotations(self) -> None:
-        if 'intron' not in self.db_features:
-            print('---------------------WARNING------------------------------')
-            print("-The genomic annotations do not contain intron annotations")
-            print('----------------------------------------------------------')
-            if self.verbose:
-                print(f"- Attempting to write intron annotations in database:", end=" ")
-            try:
-                def intron_id(f) -> str:
-                    return ','.join(f[self.id_spec_attribute])
-                introns_list = list(self.db.create_introns())
-                self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
-            except ValueError as e:
-                print("failed to write intron annotations in database, "
-                      "please try with a different spec attribute or provide a GFF3 file with intron annotations")
-                print(e)
-            if self.verbose:
-                print("Done!")
+            sys.exit()
 
     def read_genome(self) -> None:
         try:
@@ -258,11 +268,13 @@ class Exonize(object):
 
     def parse_tblastx_output(self, blast_records, q_coord, hit_coord) -> dict:
         """
-        We only want to consider hits that:
+        the parse_tblastx_output function parses the output of a tblastx search, where a single sequence (CDS)
+        has been queried against a single target (gene). Meaning that we only expect to find one BLAST record.
+        We only  consider hits that:
             (i)   have an e-value lower than the threshold,
             (ii)  have a minimum alignment length percentage of the query sequence and
-            (iii) that do not overlap with the query sequence (self-hit),
-                  with a maximum overlap of 50% of the query sequence.
+            (iii) that do not overlap with the query sequence (self-hit), with a maximum overlap
+             (self.self_hit_threshold) of the query sequence.
         :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
         res_tblastx = {}
@@ -283,6 +295,10 @@ class Exonize(object):
         return res_tblastx
 
     def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
+        """
+        get_gene_tuple is a function that given a gene_id, returns a tuple with the following structure:
+        (gene_id, chromosome, strand, start_coord, end_coordinate, 1 if it has a duplication event, 0 otherwise)
+        """
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         return (gene_id,
                 self.gene_hierarchy_dict[gene_id]['chrom'],
@@ -296,12 +312,12 @@ class Exonize(object):
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
         If there are overlapping CDS coordinates, they are resolved according to the following criteria:
-            (i)  if one CDS is contained within the other, the shortest CDS is selected
+            (i)  if one CDS is contained within the next in the list, the shortest CDS is selected
             (ii) if the CDS coordinates overlap but are not contained within each other:
                  (a) if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold)
                   of both CDS lengths the shortest CDS is selected.
                  (b) both CDSs are selected otherwise
-        the rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
+        The rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
          to coverage thresholds.
         :return: list of representative CDS coordinates for the gene across all transcripts
         """
@@ -309,6 +325,9 @@ class Exonize(object):
             """
             get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
             with the overlapping pairs described in (i) and (ii) - (a).
+            :param intv_list: list of intervals
+            :param overlap_threshold: threshold for resolving overlaps
+            :return: list of tuples with pairs of overlapping intervals
             """
             return [(feat_interv, intv_list[idx + 1])
                     for idx, feat_interv in enumerate(intv_list[:-1])
@@ -341,7 +360,6 @@ class Exonize(object):
                         return resolve_overlaps_coords_list(new_list, overlap_threshold)
             else:
                 return coords_list
-
         CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure']
                                     if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
