@@ -71,14 +71,31 @@ class Exonize(object):
         create_parse_or_update_database is a function that in the absence of a database it:
         (i)   Provided a GTF file, it converts the file to a gff format.
         (ii)  Creates DB with the gff file by means of the gffutils library.
-        Once the db exists it is loaded and the following steps are performed:
+        Once the db exists it is loaded and the following step is performed:
         (i) Verifies that the database contains intron annotations, if not, it attempts to write them.
         """
         def convert_gtf_to_gff() -> None:
+            """
+            Convert a GTF file to GFF format using gffread. Flags description:
+            -'O': This flag is used to enable the output of the file in GFF3 format.
+            -'o': This flag is used to specify the output file name.
+            """
             gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
             subprocess.call(gffread_command)
 
         def create_database() -> None:
+            """
+            create_database is a function that creates a gffutils database from a GFF3 file.
+            - dbfn: path to the database file
+            - force: if True, the database will be overwritten if it already exists
+            - keep_order: if True, the order of the features in the GFF file will be preserved
+            - merge_strategy: if 'create_unique', the database will be created with unique IDs
+            - sort_attribute_values: if True, the attribute values will be sorted
+            - disable_infer_genes: if True, the function will not attempt to automatically infer
+            gene features from the input data.
+            - disable_infer_transcripts: if True, the function will not attempt to automatically infer
+            transcript features from the input data.
+            """
             try:
                 if self.verbose:
                     print("- Creating annotations database", end=" ")
@@ -100,6 +117,14 @@ class Exonize(object):
                 sys.exit()
 
         def search_create_intron_annotations() -> None:
+            """
+            search_create_intron_annotations is a function that verifies that the database contains intron
+            annotations, if not, it attempts to write them.
+            - make_backup: if True, a backup of the database will be created before updating it.
+            - id_spec: dictionary with the following structure: {feature_type: [intron_id]} where the
+            intron_id function returns the intron identifier based on the feature attribute (self.id_spec_attribute)
+             present in all annotations in the gff file. Common choices are: "ID" or "Parent".
+            """
             if 'intron' not in self.db_features:
                 print('---------------------WARNING------------------------------')
                 print("-The genomic annotations do not contain intron annotations")
@@ -107,14 +132,19 @@ class Exonize(object):
                 if self.verbose:
                     print(f"- Attempting to write intron annotations in database:", end=" ")
                 try:
-                    def intron_id(f) -> str:
+                    def intron_id(f: dict) -> str:
+                        """
+                        returns the new intron identifier
+                        : param f: annotation dictionary.
+                        """
                         return ','.join(f[self.id_spec_attribute])
 
                     introns_list = list(self.db.create_introns())
                     self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
                 except ValueError as e:
                     print("failed to write intron annotations in database, "
-                          "please try with a different spec attribute or provide a GFF3 file with intron annotations")
+                          "please try with a different spec attribute or provide"
+                          " a GFF3 file with intron annotations")
                     print(e)
                     sys.exit()
                 if self.verbose:
@@ -136,6 +166,13 @@ class Exonize(object):
         search_create_intron_annotations()
 
     def load_db(self) -> None:
+        """
+        load_db is a function that loads a gffutils database.
+        - dbfn: path to the database file
+        - keep_order: This is a parameter that is passed when creating the FeatureDB instance.
+         When keep_order is set to True, the order of attributes in the GFF/GTF file will be preserved
+         when they are retrieved from the database.
+        """
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
         except ValueError as e:
@@ -172,8 +209,22 @@ class Exonize(object):
 
     def create_gene_hierarchy_dict(self) -> None:
         """
-        GFF coordinates are 1-based, so we need to subtract 1 from the start position to convert to 0-based.
-        :return:
+        Constructs a nested dictionary to represent the hierarchical structure and attributes of genes and
+        their related mRNA transcripts based on genomic feature data. The created hierarchy is stored in the attribute
+        `self.gene_hierarchy_dict` and is also saved as a pickle file.
+
+        Note:
+        - GFF coordinates are 1-based. Thus, 1 is subtracted from the start position
+        - If the gene is in the negative strand the direction of transcription and translation
+        is opposite to the direction the DNA sequence is represented meaning that translation starts from the last CDS
+        to convert them to 0-based coordinates.
+
+        Structure of `self.gene_hierarchy_dict`:
+        {gene_id_1: {'coord': gene_coord_1, 'chrom': chromosome_1, 'strand': strand_1,
+                    'mRNAs': {mRNA_id_1: {'coord': mRNA_coord_1, 'strand': strand_1,
+                             'structure': [{'id': feature_id_1, 'coord': feature_coord_1, 'frame': frame_1,
+                             'type': feature_type_1, 'attributes': attribute_dict_1},...]
+                             },...}},...}
         """
         self.gene_hierarchy_dict = {}
         for gene in self.db.features_of_type('gene'):
@@ -195,11 +246,12 @@ class Exonize(object):
                                                              frame=child.frame,
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes))  # feature type name
-                                                        )
+                            )
                     reverse = False
-                    if gene.strand == '-':
+                    if gene.strand == '-':  # translation starts from the last CDS
                         reverse = True
-                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript, reverse)
+                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript,
+                                                                                              reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
@@ -275,6 +327,9 @@ class Exonize(object):
             (ii)  have a minimum alignment length percentage of the query sequence and
             (iii) that do not overlap with the query sequence (self-hit), with a maximum overlap
              (self.self_hit_threshold) of the query sequence.
+        :param blast_records: 'Record' object with blast records
+        :param q_coord: query coordinates (CDS) interval
+        :param hit_coord: hit coordinates
         :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
         res_tblastx = {}
