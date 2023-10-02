@@ -292,15 +292,62 @@ class Exonize(object):
                 has_dup_bin)
 
     def get_candidate_CDS_coords(self, gene_id: str) -> list:
-        CDS_coords_list = list(set([i['coord']
-                                    for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure'] if i['type'] == 'CDS']))
+        """
+        get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
+        greater than the minimum exon length (self.min_exon_len) across all transcript.
+        If there are overlapping CDS coordinates, they are resolved according to the following criteria:
+            (i)  if one CDS is contained within the other, the shortest CDS is selected
+            (ii) if the CDS coordinates overlap but are not contained within each other:
+                 (a) if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold)
+                  of both CDS lengths the shortest CDS is selected.
+                 (b) both CDSs are selected otherwise
+        the rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
+         to coverage thresholds.
+        :return: list of representative CDS coordinates for the gene across all transcripts
+        """
+        def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
+            """
+            get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
+            with the overlapping pairs described in (i) and (ii) - (a).
+            """
+            return [(feat_interv, intv_list[idx + 1])
+                    for idx, feat_interv in enumerate(intv_list[:-1])
+                    if (all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
+                            get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])
+                        or any([feat_interv.contains(intv_list[idx + 1]), intv_list[idx + 1].contains(feat_interv)]))]
+
+        def resolve_overlaps_coords_list(coords_list, overlap_threshold):
+            """
+            resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
+            to the criteria described above. Since the pairs described in (ii) - (b) are not considered to be
+            overlapping, they are both included in the search.
+            :param coords_list: list of coordinates
+            :param overlap_threshold: threshold for resolving overlaps
+            :return: list of coordinates without overlaps
+            """
+            new_list = []
+            overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
+            if overlaps_list:
+                # We only process the first pair of overlapping intervals.
+                # Rationale: the resolved overlap could also overlap with the next interval in the list.
+                intv_a, intv_b = overlaps_list[0]
+                for idx, coord in enumerate(coords_list):
+                    if coord != intv_a:
+                        new_list.append(coord)
+                    else:
+                        shorter, _ = get_shorter_longer_interv(intv_a, intv_b)
+                        new_list.append(shorter)
+                        new_list.extend(coords_list[idx + 2:])
+                        return resolve_overlaps_coords_list(new_list, overlap_threshold)
+            else:
+                return coords_list
+
+        CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
+                                    for i in mrna_annot['structure']
+                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
         CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
         if CDS_coords_list:
-            CDS_coords_list = [cds_coord for cds_coord
-                               in resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
-                               if (cds_coord.upper - cds_coord.lower) >= self.min_exon_len]
-            return CDS_coords_list
+            return resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
         return []
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
@@ -386,7 +433,6 @@ class Exonize(object):
                 if i['type'] == 'CDS'
                 and all([get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold,
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
-                # and get_shorter_intv_overlapping_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold]
 
     def identify_full_length_duplications(self) -> None:
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
