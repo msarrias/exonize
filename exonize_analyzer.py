@@ -20,6 +20,7 @@ class ExonizeClassifier(object):
         self.target_end_idx = 8
         self.dna_perc_identity_idx = 9
         self.prot_perc_identity_idx = 10
+        self.timeout_db = 160
         self.coding_event_dict = {'1001': 'obligate_events',
                                   '0111': 'MXEs_events',
                                   '0101': 'deactivated_pairs',
@@ -48,19 +49,18 @@ class ExonizeClassifier(object):
             print('WARNING: some events are doubled counted or missing from the analysis')
 
     def check_for_duplications(self) -> None:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT
-            pair_id 
-        FROM (SELECT pair_id, COUNT(*) as count 
-        FROM Full_length_events_cumulative_counts
-        GROUP BY pair_id) WHERE count < 2""")
-        self.skip_duplicated_pairs = [i[0] for i in cursor.fetchall()]
-        db.close()
-        if self.skip_duplicated_pairs:
-            print('WARNING: overlapping events in the Full_length_events_cumulative_counts table,'
-                  ' skipping said events')
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT
+                pair_id 
+            FROM (SELECT pair_id, COUNT(*) as count 
+            FROM Full_length_events_cumulative_counts
+            GROUP BY pair_id) WHERE count < 2""")
+            self.skip_duplicated_pairs = [i[0] for i in cursor.fetchall()]
+            if self.skip_duplicated_pairs:
+                print('WARNING: overlapping events in the Full_length_events_cumulative_counts table,'
+                      ' skipping said events')
 
     def organize_event_dict(self, events_list) -> dict:
         pair_ids_dict = self.get_count_pair_ids()
@@ -231,249 +231,237 @@ class ExonizeClassifier(object):
 
     # ###### QUERY TABLES ########
     def get_all_full_events(self):
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute(""" 
-        SELECT 
-            DISTINCT(fragment_id)
-        FROM Full_length_events_cumulative_counts;""")
-        all_events = [i[0] for i in cursor.fetchall()]
-        db.close()
-        return all_events
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute(""" 
+            SELECT 
+                DISTINCT(fragment_id)
+            FROM Full_length_events_cumulative_counts;""")
+            return [i[0] for i in cursor.fetchall()]
 
     def fetch_obligate_pairs(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT 
-            f.fragment_id,
-            f.gene_id,
-            f.mrna_count,
-            f.CDS_start - f.gene_start as CDS_start,
-            f.CDS_end - f.gene_start as CDS_end,
-            f.query_start,
-            f.query_end,
-            f.target_start,
-            f.target_end,
-            fr.dna_perc_identity,
-            fr.prot_perc_identity,
-            f.cum_both AS cb,
-            f.cum_query AS cq,
-            f.cum_target AS ct,
-            f.cum_neither AS cn,
-            f.evalue,
-            f.pair_id,
-            f.event_type
-        FROM Full_length_events_cumulative_counts AS f 
-        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
-        WHERE f.mrna_count = f.cum_both
-        ORDER BY f.pair_id;
-            """)
-        obligate_events_dict = self.organize_event_dict(cursor.fetchall())
-        return obligate_events_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                f.fragment_id,
+                f.gene_id,
+                f.mrna_count,
+                f.CDS_start - f.gene_start as CDS_start,
+                f.CDS_end - f.gene_start as CDS_end,
+                f.query_start,
+                f.query_end,
+                f.target_start,
+                f.target_end,
+                fr.dna_perc_identity,
+                fr.prot_perc_identity,
+                f.cum_both AS cb,
+                f.cum_query AS cq,
+                f.cum_target AS ct,
+                f.cum_neither AS cn,
+                f.evalue,
+                f.pair_id,
+                f.event_type
+            FROM Full_length_events_cumulative_counts AS f 
+            INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
+            WHERE f.mrna_count = f.cum_both
+            ORDER BY f.pair_id;
+                """)
+            return self.organize_event_dict(cursor.fetchall())
 
     def fetch_exclusive_events(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT 
-            f.fragment_id,
-            f.gene_id,
-            f.mrna_count,
-            f.CDS_start - f.gene_start as CDS_start,
-            f.CDS_end - f.gene_start as CDS_end,
-            f.query_start,
-            f.query_end,
-            f.target_start,
-            f.target_end,
-            fr.dna_perc_identity,
-            fr.prot_perc_identity,
-            f.cum_both AS cb,
-            f.cum_query AS cq,
-            f.cum_target AS ct,
-            f.cum_neither AS cn,
-            f.evalue,
-            f.pair_id,
-            f.event_type
-        FROM Full_length_events_cumulative_counts AS f 
-        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
-        WHERE f.mrna_count = (f.cum_query + f.cum_target) 
-        AND f.cum_target < f.mrna_count 
-        AND f.cum_target > 0
-        ORDER BY f.pair_id;
-            """)
-        MXEs_events_dict = self.organize_event_dict(cursor.fetchall())
-        db.close()
-        return MXEs_events_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                f.fragment_id,
+                f.gene_id,
+                f.mrna_count,
+                f.CDS_start - f.gene_start as CDS_start,
+                f.CDS_end - f.gene_start as CDS_end,
+                f.query_start,
+                f.query_end,
+                f.target_start,
+                f.target_end,
+                fr.dna_perc_identity,
+                fr.prot_perc_identity,
+                f.cum_both AS cb,
+                f.cum_query AS cq,
+                f.cum_target AS ct,
+                f.cum_neither AS cn,
+                f.evalue,
+                f.pair_id,
+                f.event_type
+            FROM Full_length_events_cumulative_counts AS f 
+            INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
+            WHERE f.mrna_count = (f.cum_query + f.cum_target) 
+            AND f.cum_target < f.mrna_count 
+            AND f.cum_target > 0
+            ORDER BY f.pair_id;
+                """)
+            return self.organize_event_dict(cursor.fetchall())
 
     def fetch_deactivated_event(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT 
-            f.fragment_id,
-            f.gene_id,
-            f.mrna_count,
-            f.CDS_start - f.gene_start as CDS_start,
-            f.CDS_end - f.gene_start as CDS_end,
-            f.query_start,
-            f.query_end,
-            f.target_start,
-            f.target_end,
-            fr.dna_perc_identity,
-            fr.prot_perc_identity,
-            f.cum_both AS cb,
-            f.cum_query AS cq,
-            f.cum_target AS ct,
-            f.cum_neither AS cn,
-            f.evalue,
-            f.pair_id,
-            f.event_type
-        FROM Full_length_events_cumulative_counts AS f 
-        INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
-        WHERE f.cum_query=f.mrna_count
-        ORDER BY f.pair_id;
-            """)
-        deactivated_events_dict = self.organize_event_dict(cursor.fetchall())
-        db.close()
-        return deactivated_events_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                f.fragment_id,
+                f.gene_id,
+                f.mrna_count,
+                f.CDS_start - f.gene_start as CDS_start,
+                f.CDS_end - f.gene_start as CDS_end,
+                f.query_start,
+                f.query_end,
+                f.target_start,
+                f.target_end,
+                fr.dna_perc_identity,
+                fr.prot_perc_identity,
+                f.cum_both AS cb,
+                f.cum_query AS cq,
+                f.cum_target AS ct,
+                f.cum_neither AS cn,
+                f.evalue,
+                f.pair_id,
+                f.event_type
+            FROM Full_length_events_cumulative_counts AS f 
+            INNER JOIN Fragments AS fr ON fr.fragment_id = f.fragment_id
+            WHERE f.cum_query=f.mrna_count
+            ORDER BY f.pair_id;
+                """)
+            return self.organize_event_dict(cursor.fetchall())
 
     def fetch_optional_events(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT
-            gs.fragment_id,
-            gs.gene_id,
-            gs.mrna_count,
-            gs.CDS_start - gs.gene_start as CDS_start,
-            gs.CDS_end - gs.gene_start as CDS_end,
-            gs.query_start,
-            gs.query_end,
-            gs.target_start,
-            gs.target_end,
-            gs.dna_perc_identity,
-            gs.prot_perc_identity,
-            gs.cum_both AS cb,
-            gs.cum_query AS cq,
-            gs.cum_target AS ct,
-            gs.cum_neither AS cn,
-            gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
-            gs.evalue,
-            gs.pair_id,
-            gs.event_type
-        FROM (
-        SELECT
-            subquery.*,
-        CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cq,
-        CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS ct,
-        CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cb,
-        CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
-        FROM (
-        SELECT
-            fle.fragment_id,
-            fle.gene_id,
-            fle.gene_start,
-            fle.gene_end,
-            fle.mrna_count,
-            fle.CDS_start,
-            fle.CDS_end,
-            fle.query_start,
-            fle.query_end,
-            fle.target_start,
-            fle.target_end,
-            fr.dna_perc_identity,
-            fr.prot_perc_identity,
-            fle.cum_both,
-            fle.cum_query,
-            fle.cum_target,
-            fle.cum_neither,
-            fle.evalue,
-            fle.pair_id,
-            fle.event_type
-        FROM Full_length_events_cumulative_counts AS fle
-        INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
-        WHERE (fle.cum_neither > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0 OR fle.cum_both > 0))
-        ) AS subquery
-        ) AS gs
-        ORDER BY gs.pair_id;
-        """)
-        optional_events_dict = self.organize_event_dict(cursor.fetchall())
-        db.close()
-        return optional_events_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT
+                gs.fragment_id,
+                gs.gene_id,
+                gs.mrna_count,
+                gs.CDS_start - gs.gene_start as CDS_start,
+                gs.CDS_end - gs.gene_start as CDS_end,
+                gs.query_start,
+                gs.query_end,
+                gs.target_start,
+                gs.target_end,
+                gs.dna_perc_identity,
+                gs.prot_perc_identity,
+                gs.cum_both AS cb,
+                gs.cum_query AS cq,
+                gs.cum_target AS ct,
+                gs.cum_neither AS cn,
+                gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
+                gs.evalue,
+                gs.pair_id,
+                gs.event_type
+            FROM (
+            SELECT
+                subquery.*,
+            CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cq,
+            CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS ct,
+            CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cb,
+            CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
+            FROM (
+            SELECT
+                fle.fragment_id,
+                fle.gene_id,
+                fle.gene_start,
+                fle.gene_end,
+                fle.mrna_count,
+                fle.CDS_start,
+                fle.CDS_end,
+                fle.query_start,
+                fle.query_end,
+                fle.target_start,
+                fle.target_end,
+                fr.dna_perc_identity,
+                fr.prot_perc_identity,
+                fle.cum_both,
+                fle.cum_query,
+                fle.cum_target,
+                fle.cum_neither,
+                fle.evalue,
+                fle.pair_id,
+                fle.event_type
+            FROM Full_length_events_cumulative_counts AS fle
+            INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
+            WHERE (fle.cum_neither > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0 OR fle.cum_both > 0))
+            ) AS subquery
+            ) AS gs
+            ORDER BY gs.pair_id;
+            """)
+            return self.organize_event_dict(cursor.fetchall())
 
     def fetch_flexible_events(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT
-            gs.fragment_id,
-            gs.gene_id,
-            gs.mrna_count,
-            gs.CDS_start - gs.gene_start as CDS_start,
-            gs.CDS_end - gs.gene_start as CDS_end,
-            gs.query_start,
-            gs.query_end,
-            gs.target_start,
-            gs.target_end,
-            gs.dna_perc_identity,
-            gs.prot_perc_identity,
-            gs.cum_both AS cb,
-            gs.cum_query AS cq,
-            gs.cum_target AS ct,
-            gs.cum_neither AS cn,
-            gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
-            gs.evalue,
-            gs.pair_id,
-            gs.event_type
-        FROM (
-        SELECT
-            subquery.*,
-        CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cq,
-        CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS ct,
-        CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cb,
-        CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
-        FROM (
-        SELECT
-            fle.fragment_id,
-            fle.gene_id,
-            fle.gene_start,
-            fle.gene_end,
-            fle.mrna_count,
-            fle.CDS_start,
-            fle.CDS_end,
-            fle.query_start,
-            fle.query_end,
-            fle.target_start,
-            fle.target_end,
-            fr.dna_perc_identity,
-            fr.prot_perc_identity,
-            fle.cum_both,
-            fle.cum_query,
-            fle.cum_target,
-            fle.cum_neither,
-            fle.evalue,
-            fle.pair_id,
-            fle.event_type
-        FROM Full_length_events_cumulative_counts AS fle
-        INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
-        WHERE (fle.cum_both > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0) 
-        AND fle.cum_neither = 0)
-        ) AS subquery
-        ) AS gs
-        ORDER BY gs.pair_id;
-        """)
-        flexible_events_dict = self.organize_event_dict(cursor.fetchall())
-        db.close()
-        return flexible_events_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT
+                gs.fragment_id,
+                gs.gene_id,
+                gs.mrna_count,
+                gs.CDS_start - gs.gene_start as CDS_start,
+                gs.CDS_end - gs.gene_start as CDS_end,
+                gs.query_start,
+                gs.query_end,
+                gs.target_start,
+                gs.target_end,
+                gs.dna_perc_identity,
+                gs.prot_perc_identity,
+                gs.cum_both AS cb,
+                gs.cum_query AS cq,
+                gs.cum_target AS ct,
+                gs.cum_neither AS cn,
+                gs.cb || gs.cq || gs.ct || gs.cn AS optional_group_category,
+                gs.evalue,
+                gs.pair_id,
+                gs.event_type
+            FROM (
+            SELECT
+                subquery.*,
+            CASE WHEN cum_query <> 0 THEN 1 ELSE 0 END AS cq,
+            CASE WHEN cum_target <> 0 THEN 1 ELSE 0 END AS ct,
+            CASE WHEN cum_both <> 0 THEN 1 ELSE 0 END AS cb,
+            CASE WHEN cum_neither <> 0 THEN 1 ELSE 0 END AS cn
+            FROM (
+            SELECT
+                fle.fragment_id,
+                fle.gene_id,
+                fle.gene_start,
+                fle.gene_end,
+                fle.mrna_count,
+                fle.CDS_start,
+                fle.CDS_end,
+                fle.query_start,
+                fle.query_end,
+                fle.target_start,
+                fle.target_end,
+                fr.dna_perc_identity,
+                fr.prot_perc_identity,
+                fle.cum_both,
+                fle.cum_query,
+                fle.cum_target,
+                fle.cum_neither,
+                fle.evalue,
+                fle.pair_id,
+                fle.event_type
+            FROM Full_length_events_cumulative_counts AS fle
+            INNER JOIN Fragments AS fr ON fr.fragment_id = fle.fragment_id
+            WHERE (fle.cum_both > 0 AND (fle.cum_query > 0 OR fle.cum_target > 0) 
+            AND fle.cum_neither = 0)
+            ) AS subquery
+            ) AS gs
+            ORDER BY gs.pair_id;
+            """)
+            return self.organize_event_dict(cursor.fetchall())
 
     def get_count_pair_ids(self) -> dict:
-        db = sqlite3.connect(self.results_db)
-        cursor = db.cursor()
-        cursor.execute("""
-        SELECT 
-            pair_id, 
-            COUNT(*) 
-        FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
-        pair_ids_dict = {i[0]: i[1] for i in cursor.fetchall()}
-        return pair_ids_dict
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                pair_id, 
+                COUNT(*) 
+            FROM Full_length_events_cumulative_counts GROUP BY pair_id""")
+            return {i[0]: i[1] for i in cursor.fetchall()}
