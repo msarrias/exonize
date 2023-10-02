@@ -246,16 +246,22 @@ class Exonize(object):
                                                              frame=child.frame,
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes))  # feature type name
-                            )
+                                                        )
                     reverse = False
                     if gene.strand == '-':  # translation starts from the last CDS
                         reverse = True
-                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript,
-                                                                                              reverse)
+                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript, reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
     def prepare_data(self) -> None:
+        """
+        prepare_data is a wrapper function that:
+        (i)   creates the database with the genomic annotations (if it does not exist)
+        (ii)  reads or creates the gene hierarchy dictionary
+        (iii) reads the genome sequence
+        (iv)  connects or creates the results database
+        """
         self.create_parse_or_update_database()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = read_pkl_file(self.gene_hierarchy_path)
@@ -271,6 +277,17 @@ class Exonize(object):
             print('----------------------------------------------------------')
 
     def execute_tblastx(self, query_filename, target_filename, output_file):
+        """
+        execute_tblastx is a function that executes a tblastx search with the following parameters:
+        - tblastx: tblastx: A BLAST tool that compares the six-frame translations of a nucleotide query sequence
+        against the six-frame translations of a nucleotide sequence database.
+        - query: query file name
+        - subject: subject file name
+        - evalue: Expectation value (E) threshold for reporting matches against database sequences.
+        - qcov_hsp_perc: Percent query coverage per hsp (high-scoring pair).
+        - outfmt: alignment view options - 5: XML output format
+        - out: output file name
+        """
         tblastx_command = ['tblastx',
                            '-query', query_filename,
                            '-subject', target_filename,
