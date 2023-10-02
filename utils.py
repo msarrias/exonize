@@ -205,33 +205,8 @@ def get_average_overlapping_percentage(intv_a, intv_b) -> float:
 
 
 def get_shorter_intv_overlapping_percentage(a, b) -> float:
-    shorter, larger = get_small_large_interv(a, b)
-    return get_overlap_percentage(larger, shorter)
-
-
-def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
-    return [(feat_interv, intv_list[idx + 1])
-            for idx, feat_interv in enumerate(intv_list[:-1])
-            if feat_interv.overlaps(intv_list[idx + 1])
-            and all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
-                     get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])]
-
-
-def resolve_overlaps_coords_list(coords_list, overlap_threshold):
-    new_list = []
-    overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
-    if overlaps_list:
-        first_pair_a, first_pair_b = overlaps_list[0]
-        for idx, coord in enumerate(coords_list):
-            if coord != first_pair_a:
-                new_list.append(coord)
-            else:
-                shorter, _ = get_small_large_interv(first_pair_a, first_pair_b)
-                new_list.append(shorter)
-                new_list.extend(coords_list[idx + 2:])
-                return resolve_overlaps_coords_list(new_list, overlap_threshold)
-    else:
-        return coords_list
+    shorter, longer = get_shorter_longer_interv(a, b)
+    return get_overlap_percentage(longer, shorter)
 
 
 def find_overlapping_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
@@ -246,10 +221,10 @@ def find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
                       (t_intv_b, q_intv_a)]]
 
 
-def get_small_large_interv(a, b) -> tuple:
+def get_shorter_longer_interv(a, b) -> tuple:
     """
     Given two intervals, the function
-    get_small_large_interv returns the smaller
+    get_shorter_longer_interv returns the smaller
     and the larger interval in length.
     """
     len_a = a.upper - a.lower
