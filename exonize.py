@@ -30,8 +30,8 @@ def argument_parser():
     parser.add_argument('-m', '--hard_masking', default=False, action='store_true', help='Hard masking flag')
     parser.add_argument('-e', '--evalue_threshold', default=1e-2, type=float, help='E-value threshold')
     parser.add_argument('-p', '--sleep_max_seconds', default=5, type=int, help='Max sleep seconds')
-    parser.add_argument( '-l', '--min_exon_length', type=int, default=30, help='Minimum exon length')
-    parser.add_argument('-h', '--self_hit_threshold', default=0.5, type=float, help='Self-hit threshold')
+    parser.add_argument('-l', '--min_exon_length', type=int, default=30, help='Minimum exon length')
+    parser.add_argument('-ht', '--self_hit_threshold', default=0.5, type=float, help='Self-hit threshold')
     parser.add_argument('-c', '--cds_overlapping_threshold', default=0.9, type=float, help='CDS overlapping threshold')
     parser.add_argument('-k', '--masking_perc_threshold', default=0.8, type=float, help='Masking percentage threshold')
     parser.add_argument('-b', '--batch_number', default=100, type=int, help='Batch number')
@@ -42,7 +42,7 @@ def argument_parser():
 
 
 def main():
-    check_requirements()
+    #check_requirements()
     args = argument_parser()
     exonize_obj = Exonize(gff_file_path=args.gff_file_path,
                           genome_path=args.genome_path,
