@@ -533,19 +533,6 @@ class Exonize(object):
             else:
                 insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
-    def get_fragments_matches_tuples(self, gene_id: str, match_mrna_id: str, event: list, target_coord) -> list:
-        cds_mrna_id, cds_id, cds_start, cds_end, query_start, query_end, target_start, target_end, _ = event
-        trans_structure = self.gene_hierarchy_dict[gene_id]['mRNAs'][match_mrna_id]
-        cds_mrna_coords = self.gene_hierarchy_dict[gene_id]['mRNAs'][cds_mrna_id]['coord']
-        return [(gene_id, cds_mrna_id, cds_mrna_coords.lower, cds_mrna_coords.upper,
-                 cds_id, cds_start, cds_end, query_start, query_end,
-                 target_start, target_end, match_mrna_id,
-                 trans_structure['coord'].lower, trans_structure['coord'].upper,
-                 annot['id'], annot['type'], annot['coord'].lower, annot['coord'].upper,
-                 round(get_overlap_percentage(annot['coord'], target_coord), 3),
-                 round(get_overlap_percentage(target_coord, annot['coord']), 3))
-                for annot in trans_structure['structure'] if target_coord.overlaps(annot['coord'])]
-
     def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
         tuple_list = [get_fragment_tuple(gene_id, cds_coord, blast_hits, hsp_idx)
                       for cds_coord, blast_hits in blast_cds_dict.items()
