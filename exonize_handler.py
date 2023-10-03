@@ -578,15 +578,18 @@ class Exonize(object):
 
     def identify_full_length_duplications(self) -> None:
         """
-        identify_full_length_duplications is a function that identifies full-length duplications following our
-        bilogical classification model. The function iterates over all tblastx hits and for each transcript assoaciated
-        with the gene harboring the event it identifies the following events:
-        - I. Full exon duplication: the match is a full-length duplication.
+        identify_full_length_duplications is a function that identifies full-length duplications following our classification
+        model. The function iterates over all tblastx hits and for each transcript assoaciated with the gene harboring
+        the event it identifies the following events:
+        - I. Full exon duplication: the match fully (following our coverage criteria) overlaps with a CDS annotation.
         - II. Insertion: the match is found within a larger CDS.
         - III. Deactivation or unnanotated: the match is found in an intron or UTR.
-        - IV. Trunctation: the match is spans more than one annotation (e.g., CDS, intron, UTR).
-        The identify_full_length_duplications function also looks for obligate events, which are defined as events where the
-        query CDS and the target CDS are included within the same transcript.
+        - IV. Trunctation: the match spans more than one annotation (e.g., CDS, intron, UTR).
+        The identify_full_length_duplications function also looks for:
+         - I. Obligate events: defined as events where the query CDS and the target CDS are included within the same
+          transcript.
+        - II. Neither events: defined as events where the query CDS is not found in the transcript and the target
+        figures a trunctation or deactivation.
         The identified events are stored in the results database (self.results_db) in the tables:
          - ObligatoryEvents: identifies both, query and target CDSs. A single record is stored per event.
          - TruncationEvents: identifies all covered annotations. The number of records per event will correspond to the
