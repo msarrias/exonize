@@ -612,8 +612,7 @@ class Exonize(object):
                                                                    target_s_, target_e_,
                                                                    self.__neither, self.__query, self.__target, self.__both, evalue_))
                     return True
-                else:
-                    return False
+            return False
 
         def indetify_full_target(trans_dict_, target_intv_):
             target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
