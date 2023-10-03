@@ -13,3 +13,4 @@ $ git clone git@github.com:msarrias/exonize.git
 $ cd exonize
 $ pip install .
 ```
+You should now be able to run `exonize -h`.
