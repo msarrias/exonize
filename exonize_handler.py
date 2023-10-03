@@ -579,7 +579,7 @@ class Exonize(object):
     def identify_full_length_duplications(self) -> None:
         """
         identify_full_length_duplications is a function that identifies full-length duplications following our classification
-        model. The function iterates over all tblastx hits and for each transcript assoaciated with the gene harboring
+        model. The function iterates over all representative tblastx hits and for each transcript associated with the gene harboring
         the event it identifies the following events:
         - I. Full exon duplication: the match fully (following our coverage criteria) overlaps with a CDS annotation.
         - II. Insertion: the match is found within a larger CDS.
@@ -828,29 +828,59 @@ class Exonize(object):
                 progress_bar.update(1)
         return fragments
 
-    def get_identity_and_sequence_tuples(self) -> list:
+    def get_identity_and_dna_seq_tuples(self) -> list:
+        """
+        get_identity_and_dna_seq_tuples is a function that retrieves the DNA sequences of the tblastx query and target
+        and computes their DNA and aminoacid identity. The function returns a list of tuples with the following structure:
+        (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
+        """
+        def fetch_dna_sequence(chrom, annot_start, annot_end, pos_annot_s, pos_annot_e, strand):
+            seq = self.genome[chrom][annot_start:annot_end][pos_annot_s:pos_annot_e]
+            if self.reverse_sequence_bool(strand):
+                seq = seq.reverse_complement()
+            return seq
+
+        def compute_identity(seq_1, seq_2):
+            return round(hamming_distance(seq_1, seq_2), 3)
+
         tuples_list = []
         all_fragments = query_fragments(self.results_db, self.timeout_db)
         for fragment in all_fragments:
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
-            query_seq = self.genome[gene_chrom][CDS_start:CDS_end]
-            target_seq = self.genome[gene_chrom][gene_start:gene_end]
-            query_dna_seq = query_seq[query_start:query_end]
-            target_dna_seq = target_seq[target_start:target_end]
-            if self.reverse_sequence_bool(query_strand):
-                query_dna_seq = reverse_complement(query_dna_seq)
-            if self.reverse_sequence_bool(target_strand):
-                target_dna_seq = reverse_complement(target_dna_seq)
+            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, strand)
+            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, strand)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
-            dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq), 3)
-            prot_identity = round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq), 3)
-            tuples_list.append((dna_identity, prot_identity, query_dna_seq, target_dna_seq, fragment_id))
+            tuples_list.append((compute_identity(query_dna_seq, target_dna_seq),
+                                compute_identity(query_aln_prot_seq, target_aln_prot_seq),
+                                query_dna_seq, target_dna_seq, fragment_id))
         return tuples_list
 
-    def run_analysis(self) -> None:
+    def run_exonize(self) -> None:
+        """
+        run_exonize is a function that runs the exonize pipeline. The function iterates over all genes in the
+        gene_hierarchy_dict attribute and performs a tblastx search for each representative CDS (see get_candidate_CDS_coords).
+        The steps are the following:
+        - 1. The function checks if the gene has already been processed. If so, the gene is skipped.
+        - 2. For each gene, the function iterates over all representative CDSs and performs a tblastx search.
+        - 3. The percent_query (hit query coverage) column is inserted in the Fragments table.
+        - 4. The Filtered_full_length_events View is created. This view contains all tblastx hits that have passed the
+        filtering step.
+        - 5. The Mrna_counts View is created. This view contains the number of transcripts associated with each gene.
+        - 6. The function creates the Cumulative_counts table. This table contains the cumulative counts of the different
+        event types across transcripts.
+        - 7. The function collects all the raw concatenated event types (see query_concat_categ_pairs).
+        - 8. The function generates the unique event types (see generate_unique_events_list) so that no event type is repeated.
+        - 9. The function inserts the unique event types in the Event_categ_full_length_events_cumulative_counts table.
+        - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
+        them in the Fragments table.
+        - 11. The function collects all events in the Full_length_events_cumulative_counts table.
+        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
+        - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
+        category.
+        """
         exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
@@ -887,7 +917,7 @@ class Exonize(object):
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
         reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
         insert_event_categ_full_length_events_cumulative_counts(self.results_db, self.timeout_db, reduced_event_types_tuples)
-        identity_and_sequence_tuples = self.get_identity_and_sequence_tuples()
+        identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print('- Reconciling events')
