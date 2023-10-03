@@ -469,6 +469,13 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
+        def reverse_sequence_bool(gene_strand_: str):
+            """
+            reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
+            :param gene_strand_: strand
+            """
+            return gene_strand_ == '-'
+
         def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
             """
             get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
@@ -485,7 +492,7 @@ class Exonize(object):
             """
             try:
                 seq_ = self.genome[chrom_][coords_.lower:coords_.upper]
-                if gene_strand_ == '-':
+                if reverse_sequence_bool(gene_strand_):
                     seq_ = seq_.reverse_complement()
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
@@ -503,15 +510,6 @@ class Exonize(object):
                 sys.exit()
             return seq_
 
-        def reverse_sequence_bool(gene_strand_):
-            """
-            reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
-            :param gene_strand_: strand
-            """
-            if gene_strand_ == '-':
-                return True
-            return False
-
         CDS_blast_dict = {}
         time.sleep(random.randrange(0, self.secs))
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
@@ -525,25 +523,39 @@ class Exonize(object):
             for cds_coord in CDS_coords_list:
                 cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
                 if cds_seq:
-                    temp = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
+                    tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
                     if temp:
-                        CDS_blast_dict[cds_coord] = temp
+                        CDS_blast_dict[cds_coord] = tblastx_o
             if CDS_blast_dict:
                 self.insert_fragments_table(gene_id, CDS_blast_dict)
             else:
                 insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
+        """
+        insert_fragments_table is a function that given a gene_id and a dictionary with the tblastx results for each
+        CDS, inserts in the (i) Genes, and (ii) Fragments table of the results (self.results_db) database.
+        These two steps are done in paralell to avoid incomplete data in case of a crash.
+        A single entry is recorded in the Genes table, while multiple entries can be recorded in the Fragments table.
+        The fragments refer to the tblastx HSPs (high-scoring pairs) that have passed the filtering criteria.
+        The fragments tuple has the following structure:
+        (gene_id, cds_coord_start, cds_coord_end, hit_query_frame, hit_query_strand, hit_target_frame, hit_target_strand,
+         score, bits, evalue, alignment_length, query_start, query_end, target_start, target_end, query_aln_prot_seq,
+         target_aln_prot_seq, match (alignment sequence), query_num_stop_codons (count of "*" in target alignment),
+         target_num_stop_codons (count of "*" in target alignment))
+        :param gene_id: gene identifier
+        :param blast_cds_dict: dictionary with the tblastx results. The dictionary has the following structure:
+        {cds_coord: {hsp_idx: {'score': '', 'bits': '','evalue': '',...}}}
+        """
         tuple_list = [get_fragment_tuple(gene_id, cds_coord, blast_hits, hsp_idx)
                       for cds_coord, blast_hits in blast_cds_dict.items()
                       for hsp_idx, hsp_dict in blast_hits.items()]
         insert_fragments_table_param, insert_gene_table_param = insert_fragments_calls()
-        db = sqlite3.connect(self.results_db, timeout=self.timeout_db)
-        cursor = db.cursor()
-        cursor.execute(insert_gene_table_param, self.get_gene_tuple(gene_id, 1))
-        cursor.executemany(insert_fragments_table_param, tuple_list)
-        db.commit()
-        db.close()
+        with sqlite3.connect(self.results_db, timeout=self.timeout_db) as db:
+            cursor = db.cursor()
+            cursor.execute(insert_gene_table_param, self.get_gene_tuple(gene_id, 1))
+            cursor.executemany(insert_fragments_table_param, tuple_list)
+            db.commit()
 
     def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
         return [(i['id'], i['coord'], int(i['frame'])) for i in trans_dict['structure']
