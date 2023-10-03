@@ -849,8 +849,8 @@ class Exonize(object):
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
-            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, strand)
-            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, strand)
+            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, query_strand)
+            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, target_strand)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
             tuples_list.append((compute_identity(query_dna_seq, target_dna_seq),
