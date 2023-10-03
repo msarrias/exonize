@@ -464,56 +464,74 @@ class Exonize(object):
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
-        The reading frame of the CDS queries is respected in the tblastx search.
+        find_coding_exon_duplicates is a function that given a gene_id, performs a tblastx for each representative CDS
+        (see get_candidate_CDS_coords). If the tblastx search returns hits, they are stored in the "results" database,
+        otherwise the gene is recorded as having no duplication event.
+        :param gene_id: gene identifier
         """
-        time.sleep(random.randrange(0, self.secs))
-        CDS_blast_dict = {}
-        chrom = self.gene_hierarchy_dict[gene_id]['chrom']
-        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
-        gene_strand = self.gene_hierarchy_dict[gene_id]['strand']
-        try:
-            gene_seq = self.genome[chrom][gene_coord.lower:gene_coord.upper]
-            if gene_strand == '-':
-                gene_seq = gene_seq.reverse_complement()
-            masking_perc = sequence_masking_percentage(gene_seq)
-            if masking_perc > self.masking_perc_threshold:
-                self.logs.append((f'Gene {gene_id} in chromosome {chrom} '
-                                  f'and coordinates {str(gene_coord.lower)}, {str(gene_coord.upper)}'
-                                  f' is hardmasked.'))
-                insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
-                return
-        except KeyError as e:
-            print(f'Either there is missing a chromosome in the genome file '
-                  f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e}')
-            sys.exit()
-        CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
-        if gene_strand == '-':
-            reverse = True
-        else:
-            reverse = False
-        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
-        for cds_coord in CDS_coords_list:
+        def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
+            """
+            get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
+            if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
+            threshold (self.masking_perc_threshold) the CDS duplication search is aborted and the gene is recorded
+            as having no duplication event. If the sequence is a CDS and the percentage of hardmasking is greater than
+            the threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored in the logs attribute
+            and later dumped into a file.
+            :param chrom_: chromosome identifier
+            :param gene_id_: gene identifier
+            :param coords_: coordinates
+            :param gene_strand_: strand
+            :param type_: type of sequence (gene or CDS)
+            """
             try:
-                cds_seq = self.genome[chrom][cds_coord.lower:cds_coord.upper]
-                if gene_strand == '-':
-                    cds_seq = self.cds_seq.reverse_complement()
-                cds_seq_masking_perc = sequence_masking_percentage(cds_seq)
-                if cds_seq_masking_perc > self.masking_perc_threshold:
-                    self.logs.append((f'Gene {gene_id} - {round(cds_seq_masking_perc, 2) * 100} '
-                                      f'% of CDS {cds_coord} '
-                                      f'located in chromosome {chrom} is hardmasked.'))
-                    continue
-            except KeyError as e:
-                print(f'Either there is missing a chromosome in the genome file or the chromosome'
-                      f' identifiers in the GFF3 and FASTA files do not match {e}')
+                seq_ = self.genome[chrom_][coords_.lower:coords_.upper]
+                if gene_strand_ == '-':
+                    seq_ = seq_.reverse_complement()
+                masking_perc = round(sequence_masking_percentage(seq_), 2)
+                if masking_perc > self.masking_perc_threshold:
+                    seq_ = ''
+                    if type_ == 'gene':
+                        self.logs.append((f'Gene {gene_id_} in chromosome {chrom_} '
+                                          f'and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.'))
+                        insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
+                    if type_ == 'CDS':
+                        self.logs.append((f'Gene {gene_id_} - {masking_perc * 100} '
+                                          f'% of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.'))
+            except KeyError as e_:
+                print(f'Either there is missing a chromosome in the genome file '
+                      f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
-            temp = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
-            if temp:
-                CDS_blast_dict[cds_coord] = temp
-        if CDS_blast_dict:
-            self.insert_fragments_table(gene_id, CDS_blast_dict)
-        else:
-            insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
+            return seq_
+
+        def reverse_sequence_bool(gene_strand_):
+            """
+            reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
+            :param gene_strand_: strand
+            """
+            if gene_strand_ == '-':
+                return True
+            return False
+
+        CDS_blast_dict = {}
+        time.sleep(random.randrange(0, self.secs))
+        chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
+                                          self.gene_hierarchy_dict[gene_id]['coord'],
+                                          self.gene_hierarchy_dict[gene_id]['strand'])
+        gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord, gene_strand, type_='gene')
+        if gene_seq:
+            reverse = reverse_sequence_bool(gene_strand)
+            CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
+            CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
+            for cds_coord in CDS_coords_list:
+                cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
+                if cds_seq:
+                    temp = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
+                    if temp:
+                        CDS_blast_dict[cds_coord] = temp
+            if CDS_blast_dict:
+                self.insert_fragments_table(gene_id, CDS_blast_dict)
+            else:
+                insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def get_fragments_matches_tuples(self, gene_id: str, match_mrna_id: str, event: list, target_coord) -> list:
         cds_mrna_id, cds_id, cds_start, cds_end, query_start, query_end, target_start, target_end, _ = event
