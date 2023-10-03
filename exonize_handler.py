@@ -210,9 +210,9 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
-    def dump_logs(self) -> None:
+    def dump_masking_logs(self) -> None:
         """
-
+        Dumps the logs recorded in the attribute `self.logs` to a file named `exonize_logs.txt`
         """
         if not self.logs:
             self.logs = ['Nothing to report']
@@ -472,7 +472,6 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-
         def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
             """
             get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
@@ -564,7 +563,7 @@ class Exonize(object):
         if we find hits for a CDS, we need to identify the CDS in the gene transcript. Recall that not all CDS are part
         of all transcripts (e.g. alternative splicing).
         - Following the classification criteria described in 'get_candidate_CDS_coords', we identify the query CDS described in
-        the (ii) - (a) cases, i.e, when they overlap by more than the overlapping threshold (self.cds_overlapping_threshold)
+        case a (get_candidate_CDS_coords), i.e, when they are considerd to overlap.
         """
         return [(i['id'], i['coord'], int(i['frame'])) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
@@ -572,6 +571,11 @@ class Exonize(object):
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
 
     def identify_full_length_duplications(self) -> None:
+        def insert_in_results_db(tuples_fld, tuples_oe, tuples_te):
+            instert_full_length_event(self.results_db, self.timeout_db, tuples_fld)
+            instert_obligatory_event(self.results_db, self.timeout_db, tuples_oe)
+            instert_truncation_event(self.results_db, self.timeout_db, tuples_te)
+
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
         tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
         for row in rows:
@@ -672,9 +676,7 @@ class Exonize(object):
                                                         target_t, target_CDS, annot_target_start, annot_target_end,
                                                         target_s, target_e, neither, query, target, both, evalue))
 
-        instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
-        instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
-        instert_truncation_event(self.results_db, self.timeout_db, tuples_truncation_events)
+                insert_in_results_db(tuples_fld, tuples_oe, tuples_te)
 
     def assign_pair_ids(self, full_matches) -> list:
         fragments = []
@@ -783,5 +785,5 @@ class Exonize(object):
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-        self.dump_logs()
+        self.dump_masking_logs()
         print(f' Done! [{hms_time}]')
