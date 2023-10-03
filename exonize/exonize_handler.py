@@ -65,6 +65,20 @@ class Exonize(object):
         self.masking_perc_threshold = masking_perc_threshold
         self.save_input_files = save_input_files
         self.logs = []
+        self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
+        self.__both = 0
+        self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
+        self.__query_CDS, self.__target_CDS = "-", "-"
+        self.__found = False
+        self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
+
+    @staticmethod
+    def reverse_sequence_bool(gene_strand_: str):
+        """
+        reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
+        :param gene_strand_: strand
+        """
+        return gene_strand_ == '-'
 
     def create_parse_or_update_database(self) -> None:
         """
@@ -202,9 +216,9 @@ class Exonize(object):
             print('---------------------------------------------------------')
             sys.exit()
 
-    def dump_logs(self) -> None:
+    def dump_masking_logs(self) -> None:
         """
-
+        Dumps the logs recorded in the attribute `self.logs` to a file named `exonize_logs.txt`
         """
         if not self.logs:
             self.logs = ['Nothing to report']
@@ -248,9 +262,7 @@ class Exonize(object):
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes))  # feature type name
                                                         )
-                    reverse = False
-                    if gene.strand == '-':  # translation starts from the last CDS
-                        reverse = True
+                    reverse = self.reverse_sequence_bool(gene.strand)
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript, reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
@@ -402,11 +414,9 @@ class Exonize(object):
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
         If there are overlapping CDS coordinates, they are resolved according to the following criteria:
-            (i)  if one CDS is contained within the next in the list, the shortest CDS is selected
-            (ii) if the CDS coordinates overlap but are not contained within each other:
-                - a: if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold) of both CDS
-                 lengths the shortest CDS is selected.
-                - b: both CDSs are selected otherwise
+            - a: if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold) of both CDS
+             lengths the shortest CDS is selected.
+            - b: both CDSs are selected otherwise
         The rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
         to coverage thresholds.
         :param gene_id: gene identifier
@@ -415,22 +425,21 @@ class Exonize(object):
         def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
             """
             get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
-            with the overlapping pairs described in (i) and (ii) - (a).
+            with the overlapping pairs described in case a (get_candidate_CDS_coords).
             :param intv_list: list of intervals
             :param overlap_threshold: threshold for resolving overlaps
             :return: list of tuples with pairs of overlapping intervals
             """
             return [(feat_interv, intv_list[idx + 1])
                     for idx, feat_interv in enumerate(intv_list[:-1])
-                    if (all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
-                            get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])
-                        or any([feat_interv.contains(intv_list[idx + 1]), intv_list[idx + 1].contains(feat_interv)]))]
+                    if all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
+                            get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])]
 
         def resolve_overlaps_coords_list(coords_list, overlap_threshold):
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
-            to the criteria described above. Since the pairs described in (ii) - (b) are not considered to be
-            overlapping, they are both included in the search.
+            to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
+            considered to be overlapping, they are both included in the search.
             :param coords_list: list of coordinates
             :param overlap_threshold: threshold for resolving overlaps
             :return: list of coordinates without overlaps
@@ -469,13 +478,6 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def reverse_sequence_bool(gene_strand_: str):
-            """
-            reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
-            :param gene_strand_: strand
-            """
-            return gene_strand_ == '-'
-
         def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
             """
             get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
@@ -491,9 +493,9 @@ class Exonize(object):
             :param type_: type of sequence (gene or CDS)
             """
             try:
-                seq_ = self.genome[chrom_][coords_.lower:coords_.upper]
-                if reverse_sequence_bool(gene_strand_):
-                    seq_ = seq_.reverse_complement()
+                seq_ = Seq(self.genome[chrom_][coords_.lower:coords_.upper])
+                if self.reverse_sequence_bool(gene_strand_):
+                    seq_ = str(seq_.reverse_complement())
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
@@ -517,14 +519,14 @@ class Exonize(object):
                                           self.gene_hierarchy_dict[gene_id]['strand'])
         gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord, gene_strand, type_='gene')
         if gene_seq:
-            reverse = reverse_sequence_bool(gene_strand)
+            reverse = self.reverse_sequence_bool(gene_strand)
             CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
             CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
             for cds_coord in CDS_coords_list:
                 cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
                 if cds_seq:
                     tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
-                    if temp:
+                    if tblastx_o:
                         CDS_blast_dict[cds_coord] = tblastx_o
             if CDS_blast_dict:
                 self.insert_fragments_table(gene_id, CDS_blast_dict)
@@ -557,116 +559,234 @@ class Exonize(object):
             cursor.executemany(insert_fragments_table_param, tuple_list)
             db.commit()
 
-    def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
+    def find_overlapping_annot(self, trans_dict: dict, cds_intv: P.Interval) -> list:
+        """
+        find_overlapping_annot is a function that given a transcript dictionary and a CDS interval, returns a list of
+        tuples with the following structure: (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
+        interval.
+        Note:
+        - The set of representative CDS only contains information about the coordinates of the CDSs, not their IDs.Hence,
+        if we find hits for a CDS, we need to identify the CDS in the gene transcript. Recall that not all CDS are part
+        of all transcripts (e.g. alternative splicing).
+        - Following the classification criteria described in 'get_candidate_CDS_coords', we identify the query CDS described in
+        case a (get_candidate_CDS_coords), i.e, when they are considerd to overlap.
+        """
         return [(i['id'], i['coord'], int(i['frame'])) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
                 and all([get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold,
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
 
     def identify_full_length_duplications(self) -> None:
+        """
+        identify_full_length_duplications is a function that identifies full-length duplications following our classification
+        model. The function iterates over all representative tblastx hits and for each transcript associated with the gene harboring
+        the event it identifies the following events:
+        - I. Full exon duplication: the match fully (following our coverage criteria) overlaps with a CDS annotation.
+        - II. Insertion: the match is found within a larger CDS.
+        - III. Deactivation or unnanotated: the match is found in an intron or UTR.
+        - IV. Trunctation: the match spans more than one annotation (e.g., CDS, intron, UTR).
+        The identify_full_length_duplications function also looks for:
+         - I. Obligate events: defined as events where the query CDS and the target CDS are included within the same
+          transcript.
+        - II. Neither events: defined as events where the query CDS is not found in the transcript and the target
+        figures a trunctation or deactivation.
+        The identified events are stored in the results database (self.results_db) in the tables:
+         - ObligatoryEvents: identifies both, query and target CDSs. A single record is stored per event.
+         - TruncationEvents: identifies all covered annotations. The number of records per event will correspond to the
+         number of annotations covered by the event.
+         - FullLengthDuplications tables: identifies full-length duplications. The number of records per event will correspond
+         to the number of transcripts associated with the gene harboring the event.
+        """
+        def initialize_variables() -> None:
+            """
+            initializes variables used in the identify_full_length_duplications function
+            """
+            self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
+            self.__both = 0
+            self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
+            self.__query_CDS, self.__target_CDS, self.__query_CDS_frame = "-", "-", "-"
+            self.__found = False
+
+        def initialize_list_of_tuples() -> None:
+            """
+            initializes the list of tuples used to store the identified events in the identify_full_length_duplications function
+            """
+            self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = [], [], []
+
+        def identify_query(trans_dict_: dict, cds_intv_: P.Interval) -> None:
+            """
+            identify_query is a function that identifies the tblastx query CDS in the gene transcript. A transcript
+            cannot have overlapping CDSs. If the query CDS overlaps with more than one CDS, the program exits.
+            """
+            query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
+            if len(query_only_) > 1:
+                print(' ')
+                print('---------------------ERROR-------------------------------')
+                print(f'overlapping query CDSs: {query_only_}, please review your GFF3 file')
+                print('---------------------------------------------------------')
+                sys.exit()
+            elif query_only_:
+                self.__query_CDS, _, self.__query_CDS_frame = query_only_[0]
+                self.__query = 1
+                self.__target_t = 'QUERY_ONLY'
+
+        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list) -> bool:
+            """
+            target_out_of_mRNA is a function that identifies tblastx hits that are outside the mRNA transcript.
+            """
+            fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
+            if target_intv_.upper < trans_coord_.lower or trans_coord_.upper < target_intv_.lower:
+                if (self.__query + self.__target) == 0:
+                    self.__neither = 1
+                    self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
+                                                                   cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_, "OUT_OF_MRNA",
+                                                                   self.__target_CDS, self.__annot_target_start, self.__annot_target_end,
+                                                                   target_s_, target_e_,
+                                                                   self.__neither, self.__query, self.__target, self.__both, evalue_))
+                    return True
+            return False
+
+        def indetify_full_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+            """
+            indetify_full_target is a function that identifies tblastx hits that are full-length duplications as described
+            in self.find_overlapping_annot
+            """
+            target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
+            if len(target_only_) > 1:
+                print(' ')
+                print('---------------------ERROR-------------------------------')
+                print(f'overlapping target CDSs: {target_only_}')
+                print('---------------------------------------------------------')
+                sys.exit()
+            elif target_only_:
+                self.__target_CDS, t_CDS_coord_, self.__target_CDS_frame = target_only_[0]
+                self.__target_full = 1
+                self.__found = True
+                self.__target_t = "FULL"
+                self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+
+        def indentify_insertion_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+            """
+            Identifies tblastx hits that are insertion duplications these can be:
+            - INS_CDS: if the insertion is in a CDS
+            - INS_UTR: if the insertion is in an untralated region
+            - DEACTIVATED: if the insertion is in an intron
+            """
+            insertion_CDS_ = filter_structure(trans_dict_['structure'], target_intv_, 'CDS')
+            if insertion_CDS_:
+                self.__target_CDS, t_CDS_coord_ = insertion_CDS_[0]
+                self.__target_insertion = 1
+                self.__target_t = "INS_CDS"
+                self.__found = True
+                self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+            else:
+                insertion_UTR_ = filter_structure(trans_dict_['structure'], target_intv_, 'UTR')
+                if insertion_UTR_:
+                    self.__target_CDS, t_CDS_coord_ = insertion_UTR_[0]
+                    self.__target_t = "INS_UTR"
+                    self.__found = True
+                    self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+                else:
+                    insertion_intron_ = filter_structure(trans_dict_['structure'], target_intv_, 'intron')
+                    if insertion_intron_:
+                        self.__target_CDS, t_CDS_coord_ = insertion_intron_[0]
+                        self.__target_t = "DEACTIVATED"
+                        self.__found = True
+                        self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+
+        def indentify_truncation_target(trans_dict_: dict, mrna_: str, row_: list) -> None:
+            """
+            Identifies tblastx hits that are truncation duplications. These are hits that span across more than one annotation
+            in the transcript architecture. We record a line per annotation that is truncated.
+            """
+            fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
+            intv_dict_ = get_interval_dictionary(trans_dict_['structure'], target_intv_, trans_dict_['coord'])
+            if intv_dict_:
+                self.__target_t = "TRUNC"
+                self.__target_CDS, self.__annot_target_start, self.__annot_target_end = None, None, None
+                for seg_b, value in intv_dict_.items():
+                    coord_b = value['coord']
+                    self.__tuples_truncation_events.append(
+                        (fragment_id_, gene_id_, mrna_, trans_dict_['coord'].lower, trans_dict_['coord'].upper,
+                         self.__query_CDS, cds_s_, cds_e_, query_s_, query_e_,
+                         target_s_, target_e_, value['id'], value['type'],
+                         coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+
+        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list) -> None:
+            """
+            Identifies tblastx hits that are obligate pairs. These are hits where the query and target show as CDSs in the
+            transcript in question.
+            """
+            fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            self.__both = 1
+            self.__query, self.__target = 0, 0
+            self.__tuples_obligatory_events.append((fragment_id_, gene_id_, mrna_, trans_coord_.lower, trans_coord_.upper,
+                                                    cds_s_, cds_e_, self.__query_CDS, self.__query_CDS_frame, query_s_, query_e_,
+                                                    self.__target_CDS, target_CDS_frame,
+                                                    self.__annot_target_start, self.__annot_target_end,
+                                                    target_s_, target_e_, self.__target_t))
+
+        def identify_neither_pair() -> None:
+            """
+            Identifies tblastx hits that are neither pairs. These are hits where the query and target do not show as CDSs in the
+            transcript in question.
+            """
+            self.__neither = 1
+            self.__target_t = 'NEITHER'
+
+        def insert_full_length_duplication_tuple(mrna_: str, row_: list):
+            """
+            insert_full_length_duplication_tuple is a function that appends the "row" event to the list of tuples.
+            """
+            fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
+                                                           cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_,
+                                                           self.__target_t, self.__target_CDS, self.__annot_target_start,
+                                                           self.__annot_target_end,
+                                                           target_s_, target_e_, self.__neither, self.__query, self.__target,
+                                                           self.__both, evalue_))
+
+        def insert_tuples_in_results_db() -> None:
+            """
+            insert_tuples_in_results_db is a function that inserts the list of tuples collected by the identify_full_length_duplications
+            function into the results database.
+            """
+            instert_full_length_event(self.results_db, self.timeout_db, self.__tuples_full_length_duplications)
+            instert_obligatory_event(self.results_db, self.timeout_db, self.__tuples_obligatory_events)
+            instert_truncation_event(self.results_db, self.timeout_db, self.__tuples_truncation_events)
+
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
-        tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
+        initialize_list_of_tuples()
         for row in rows:
-            fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e, evalue = row
-            cds_intv = P.open(cds_s, cds_e)
-            target_intv = P.open(target_s + gene_s, target_e + gene_s)
+            _, gene_id, gene_s, _, cds_s, cds_e, _, _, target_s, target_e, _ = row
+            cds_intv, target_intv = P.open(cds_s, cds_e), P.open(target_s + gene_s, target_e + gene_s)
             for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-                found = False
+                initialize_variables()
                 trans_coord = trans_dict['coord']
-                neither, query, target, target_full, target_insertion, target_trunctation, both = 0, 0, 0, 0, 0, 0, 0
-                query_CDS, target_CDS = "-", "-"
-                annot_target_start, annot_target_end, target_t, query_CDS_frame, target_CDS_frame = None, None, None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
-                # account for allowed shifts in the resolve_overlaps_coords_list function
-                query_only = self.find_overlapping_annot(trans_dict, cds_intv)
-                if len(query_only) > 1:
-                    print(f'overlapping query CDSs: {query_only}')
-                    continue
-                elif query_only:
-                    query_CDS, _, query_CDS_frame = query_only[0]
-                    query = 1
-                    target_t = 'QUERY_ONLY'
+                identify_query(trans_dict, cds_intv)
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
-                if target_intv.upper < trans_coord.lower or trans_coord.upper < target_intv.lower:
-                    if (query + target) == 0:
-                        neither = 1
-                    tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                            cds_s, cds_e, query_CDS, query_s, query_e,
-                                                            "OUT_OF_MRNA",
-                                                            target_CDS, annot_target_start, annot_target_end,
-                                                            target_s, target_e,
-                                                            neither, query, target, both, evalue))
+                if target_out_of_mRNA(trans_coord, mrna, row):
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
-                target_only = self.find_overlapping_annot(trans_dict, target_intv)
-                if len(target_only) > 1:
-                    print(f'overlapping query CDSs: {target_only}')
-                    continue
-                # ####### TARGET ONLY #######
-                elif target_only:
-                    target_CDS, t_CDS_coord, target_CDS_frame = target_only[0]
-                    target_full = 1
-                    found = True
-                    target_t = "FULL"
-                    annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                # ####### INSERTION #######
-                if target_full == 0:
-                    insertion_CDS = filter_structure(trans_dict['structure'], target_intv, 'CDS')
-                    if insertion_CDS:
-                        target_CDS, t_CDS_coord = insertion_CDS[0]
-                        target_insertion = 1
-                        target_t = "INS_CDS"
-                        found = True
-                        annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                    else:
-                        insertion_UTR = filter_structure(trans_dict['structure'], target_intv, 'UTR')
-                        if insertion_UTR:
-                            target_CDS, t_CDS_coord = insertion_UTR[0]
-                            target_t = "INS_UTR"
-                            found = True
-                            annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                        else:
-                            insertion_intron = filter_structure(trans_dict['structure'], target_intv, 'intron')
-                            if insertion_intron:
-                                target_CDS, t_CDS_coord = insertion_intron[0]
-                                target_t = "DEACTIVATED"
-                                found = True
-                                annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                    # ####### TRUNCATION #######
-                    if not found:
-                        intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv, trans_coord)
-                        if intv_dict:
-                            target_t = "TRUNC"
-                            target_CDS, annot_target_start, annot_target_end = None, None, None
-                            for seg_b, value in intv_dict.items():
-                                coord_b = value['coord']
-                                tuples_truncation_events.append(
-                                    (fragment_id, gene_id, mrna, trans_coord.lower, trans_coord.upper,
-                                     query_CDS, cds_s, cds_e, query_s, query_e,
-                                     target_s, target_e, value['id'], value['type'],
-                                     coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                target = target_full + target_insertion
-                # ####### FULL LENGTH DUPL: BOTH #######
-                if query + target == 2:
-                    both = 1
-                    query, target = 0, 0
-                    tuples_obligatory_events.append((fragment_id, gene_id, mrna,
-                                                    trans_coord.lower, trans_coord.upper,
-                                                    cds_s, cds_e,
-                                                    query_CDS, query_CDS_frame, query_s, query_e,
-                                                    target_CDS, target_CDS_frame, annot_target_start, annot_target_end,
-                                                    target_s, target_e, target_t))
-                elif query + target == 0:
-                    neither = 1
-                    target_t = 'NEITHER'
-                tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                        cds_s, cds_e, query_CDS, query_s, query_e,
-                                                        target_t, target_CDS, annot_target_start, annot_target_end,
-                                                        target_s, target_e, neither, query, target, both, evalue))
-
-        instert_full_length_event(self.results_db, self.timeout_db, tuples_full_length_duplications)
-        instert_obligatory_event(self.results_db, self.timeout_db, tuples_obligatory_events)
-        instert_truncation_event(self.results_db, self.timeout_db, tuples_truncation_events)
+                indetify_full_target(trans_dict, target_intv)
+                if self.__target_full == 0:
+                    # ####### INSERTION #######
+                    indentify_insertion_target(trans_dict, target_intv)
+                    if not self.__found:
+                        # ####### TRUNCATION #######
+                        indentify_truncation_target(trans_dict, mrna, row)
+                self.__target = self.__target_full + self.__target_insertion
+                # ####### OBLIGATE PAIR #######
+                if self.__query + self.__target == 2:
+                    identify_obligate_pair(trans_dict['coord'], mrna, row)
+                # ####### NEITHER PAIR #######
+                elif self.__query + self.__target == 0:
+                    identify_neither_pair()
+                insert_full_length_duplication_tuple(mrna, row)
+        insert_tuples_in_results_db()
 
     def assign_pair_ids(self, full_matches) -> list:
         fragments = []
@@ -708,29 +828,59 @@ class Exonize(object):
                 progress_bar.update(1)
         return fragments
 
-    def get_identity_and_sequence_tuples(self) -> list:
+    def get_identity_and_dna_seq_tuples(self) -> list:
+        """
+        get_identity_and_dna_seq_tuples is a function that retrieves the DNA sequences of the tblastx query and target
+        and computes their DNA and aminoacid identity. The function returns a list of tuples with the following structure:
+        (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
+        """
+        def fetch_dna_sequence(chrom, annot_start, annot_end, pos_annot_s, pos_annot_e, strand):
+            seq = Seq(self.genome[chrom][annot_start:annot_end][pos_annot_s:pos_annot_e])
+            if self.reverse_sequence_bool(strand):
+                seq = seq.reverse_complement()
+            return str(seq)
+
+        def compute_identity(seq_1, seq_2):
+            return round(hamming_distance(seq_1, seq_2), 3)
+
         tuples_list = []
         all_fragments = query_fragments(self.results_db, self.timeout_db)
         for fragment in all_fragments:
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
-            query_seq = self.genome[gene_chrom][CDS_start:CDS_end]
-            target_seq = self.genome[gene_chrom][gene_start:gene_end]
-            query_dna_seq = query_seq[query_start:query_end]
-            target_dna_seq = target_seq[target_start:target_end]
-            if query_strand == '-':
-                query_dna_seq = reverse_complement(query_dna_seq)
-            if target_strand == '-':
-                target_dna_seq = reverse_complement(target_dna_seq)
+            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, strand)
+            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, strand)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
-            dna_identity = round(hamming_distance(query_dna_seq, target_dna_seq), 3)
-            prot_identity = round(hamming_distance(query_aln_prot_seq, target_aln_prot_seq), 3)
-            tuples_list.append((dna_identity, prot_identity, query_dna_seq, target_dna_seq, fragment_id))
+            tuples_list.append((compute_identity(query_dna_seq, target_dna_seq),
+                                compute_identity(query_aln_prot_seq, target_aln_prot_seq),
+                                query_dna_seq, target_dna_seq, fragment_id))
         return tuples_list
 
-    def run_analysis(self) -> None:
+    def run_exonize(self) -> None:
+        """
+        run_exonize is a function that runs the exonize pipeline. The function iterates over all genes in the
+        gene_hierarchy_dict attribute and performs a tblastx search for each representative CDS (see get_candidate_CDS_coords).
+        The steps are the following:
+        - 1. The function checks if the gene has already been processed. If so, the gene is skipped.
+        - 2. For each gene, the function iterates over all representative CDSs and performs a tblastx search.
+        - 3. The percent_query (hit query coverage) column is inserted in the Fragments table.
+        - 4. The Filtered_full_length_events View is created. This view contains all tblastx hits that have passed the
+        filtering step.
+        - 5. The Mrna_counts View is created. This view contains the number of transcripts associated with each gene.
+        - 6. The function creates the Cumulative_counts table. This table contains the cumulative counts of the different
+        event types across transcripts.
+        - 7. The function collects all the raw concatenated event types (see query_concat_categ_pairs).
+        - 8. The function generates the unique event types (see generate_unique_events_list) so that no event type is repeated.
+        - 9. The function inserts the unique event types in the Event_categ_full_length_events_cumulative_counts table.
+        - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
+        them in the Fragments table.
+        - 11. The function collects all events in the Full_length_events_cumulative_counts table.
+        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
+        - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
+        category.
+        """
         exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
@@ -767,7 +917,7 @@ class Exonize(object):
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
         reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
         insert_event_categ_full_length_events_cumulative_counts(self.results_db, self.timeout_db, reduced_event_types_tuples)
-        identity_and_sequence_tuples = self.get_identity_and_sequence_tuples()
+        identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         print('- Reconciling events')
@@ -775,5 +925,5 @@ class Exonize(object):
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-        self.dump_logs()
+        self.dump_masking_logs()
         print(f' Done! [{hms_time}]')
