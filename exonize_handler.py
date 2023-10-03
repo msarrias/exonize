@@ -66,6 +66,14 @@ class Exonize(object):
         self.save_input_files = save_input_files
         self.logs = []
 
+    @staticmethod
+    def reverse_sequence_bool(gene_strand_: str):
+        """
+        reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
+        :param gene_strand_: strand
+        """
+        return gene_strand_ == '-'
+
     def create_parse_or_update_database(self) -> None:
         """
         create_parse_or_update_database is a function that in the absence of a database it:
@@ -248,9 +256,7 @@ class Exonize(object):
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes))  # feature type name
                                                         )
-                    reverse = False
-                    if gene.strand == '-':  # translation starts from the last CDS
-                        reverse = True
+                    reverse = self.reverse_sequence_bool(gene.strand)
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = sort_list_intervals_dict(temp_mrna_transcript, reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
@@ -469,12 +475,6 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def reverse_sequence_bool(gene_strand_: str):
-            """
-            reverse_sequence_bool checks if the gene is in the negative strand and returns True if it is.
-            :param gene_strand_: strand
-            """
-            return gene_strand_ == '-'
 
         def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
             """
@@ -492,7 +492,7 @@ class Exonize(object):
             """
             try:
                 seq_ = self.genome[chrom_][coords_.lower:coords_.upper]
-                if reverse_sequence_bool(gene_strand_):
+                if self.reverse_sequence_bool(gene_strand_):
                     seq_ = seq_.reverse_complement()
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
@@ -517,7 +517,7 @@ class Exonize(object):
                                           self.gene_hierarchy_dict[gene_id]['strand'])
         gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord, gene_strand, type_='gene')
         if gene_seq:
-            reverse = reverse_sequence_bool(gene_strand)
+            reverse = self.reverse_sequence_bool(gene_strand)
             CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
             CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
             for cds_coord in CDS_coords_list:
@@ -719,9 +719,9 @@ class Exonize(object):
             target_seq = self.genome[gene_chrom][gene_start:gene_end]
             query_dna_seq = query_seq[query_start:query_end]
             target_dna_seq = target_seq[target_start:target_end]
-            if query_strand == '-':
+            if self.reverse_sequence_bool(query_strand):
                 query_dna_seq = reverse_complement(query_dna_seq)
-            if target_strand == '-':
+            if self.reverse_sequence_bool(target_strand):
                 target_dna_seq = reverse_complement(target_dna_seq)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
