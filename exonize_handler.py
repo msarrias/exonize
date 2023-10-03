@@ -493,9 +493,9 @@ class Exonize(object):
             :param type_: type of sequence (gene or CDS)
             """
             try:
-                seq_ = self.genome[chrom_][coords_.lower:coords_.upper]
+                seq_ = Seq(self.genome[chrom_][coords_.lower:coords_.upper])
                 if self.reverse_sequence_bool(gene_strand_):
-                    seq_ = seq_.reverse_complement()
+                    seq_ = str(seq_.reverse_complement())
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
@@ -835,10 +835,10 @@ class Exonize(object):
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
         def fetch_dna_sequence(chrom, annot_start, annot_end, pos_annot_s, pos_annot_e, strand):
-            seq = self.genome[chrom][annot_start:annot_end][pos_annot_s:pos_annot_e]
+            seq = Seq(self.genome[chrom][annot_start:annot_end][pos_annot_s:pos_annot_e])
             if self.reverse_sequence_bool(strand):
                 seq = seq.reverse_complement()
-            return seq
+            return str(seq)
 
         def compute_identity(seq_1, seq_2):
             return round(hamming_distance(seq_1, seq_2), 3)
