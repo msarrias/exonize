@@ -526,7 +526,7 @@ class Exonize(object):
                 cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
                 if cds_seq:
                     tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
-                    if temp:
+                    if tblastx_o:
                         CDS_blast_dict[cds_coord] = tblastx_o
             if CDS_blast_dict:
                 self.insert_fragments_table(gene_id, CDS_blast_dict)
