@@ -408,11 +408,9 @@ class Exonize(object):
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
         If there are overlapping CDS coordinates, they are resolved according to the following criteria:
-            (i)  if one CDS is contained within the next in the list, the shortest CDS is selected
-            (ii) if the CDS coordinates overlap but are not contained within each other:
-                - a: if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold) of both CDS
-                 lengths the shortest CDS is selected.
-                - b: both CDSs are selected otherwise
+            - a: if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold) of both CDS
+             lengths the shortest CDS is selected.
+            - b: both CDSs are selected otherwise
         The rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
         to coverage thresholds.
         :param gene_id: gene identifier
@@ -421,22 +419,21 @@ class Exonize(object):
         def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
             """
             get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
-            with the overlapping pairs described in (i) and (ii) - (a).
+            with the overlapping pairs described in case a (get_candidate_CDS_coords).
             :param intv_list: list of intervals
             :param overlap_threshold: threshold for resolving overlaps
             :return: list of tuples with pairs of overlapping intervals
             """
             return [(feat_interv, intv_list[idx + 1])
                     for idx, feat_interv in enumerate(intv_list[:-1])
-                    if (all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
-                            get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])
-                        or any([feat_interv.contains(intv_list[idx + 1]), intv_list[idx + 1].contains(feat_interv)]))]
+                    if all([get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= overlap_threshold,
+                            get_overlap_percentage(intv_list[idx + 1], feat_interv) >= overlap_threshold])]
 
         def resolve_overlaps_coords_list(coords_list, overlap_threshold):
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
-            to the criteria described above. Since the pairs described in (ii) - (b) are not considered to be
-            overlapping, they are both included in the search.
+            to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
+            considered to be overlapping, they are both included in the search.
             :param coords_list: list of coordinates
             :param overlap_threshold: threshold for resolving overlaps
             :return: list of coordinates without overlaps
@@ -557,7 +554,18 @@ class Exonize(object):
             cursor.executemany(insert_fragments_table_param, tuple_list)
             db.commit()
 
-    def find_overlapping_annot(self, trans_dict, cds_intv) -> list:
+    def find_overlapping_annot(self, trans_dict: dict, cds_intv: P.Interval) -> list:
+        """
+        find_overlapping_annot is a function that given a transcript dictionary and a CDS interval, returns a list of
+        tuples with the following structure: (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
+        interval.
+        Note:
+        - The set of representative CDS only contains information about the coordinates of the CDSs, not their IDs.Hence,
+        if we find hits for a CDS, we need to identify the CDS in the gene transcript. Recall that not all CDS are part
+        of all transcripts (e.g. alternative splicing).
+        - Following the classification criteria described in 'get_candidate_CDS_coords', we identify the query CDS described in
+        the (ii) - (a) cases, i.e, when they overlap by more than the overlapping threshold (self.cds_overlapping_threshold)
+        """
         return [(i['id'], i['coord'], int(i['frame'])) for i in trans_dict['structure']
                 if i['type'] == 'CDS'
                 and all([get_overlap_percentage(i['coord'], cds_intv) >= self.cds_overlapping_threshold,
