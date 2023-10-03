@@ -577,22 +577,49 @@ class Exonize(object):
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
 
     def identify_full_length_duplications(self) -> None:
-        def initialize_variables():
+        """
+        identify_full_length_duplications is a function that identifies full-length duplications following our
+        bilogical classification model. The function iterates over all tblastx hits and for each transcript assoaciated
+        with the gene harboring the event it identifies the following events:
+        - I. Full exon duplication: the match is a full-length duplication.
+        - II. Insertion: the match is found within a larger CDS.
+        - III. Deactivation or unnanotated: the match is found in an intron or UTR.
+        - IV. Trunctation: the match is spans more than one annotation (e.g., CDS, intron, UTR).
+        The identify_full_length_duplications function also looks for obligate events, which are defined as events where the
+        query CDS and the target CDS are included within the same transcript.
+        The identified events are stored in the results database (self.results_db) in the tables:
+         - ObligatoryEvents: identifies both, query and target CDSs. A single record is stored per event.
+         - TruncationEvents: identifies all covered annotations. The number of records per event will correspond to the
+         number of annotations covered by the event.
+         - FullLengthDuplications tables: identifies full-length duplications. The number of records per event will correspond
+         to the number of transcripts associated with the gene harboring the event.
+        """
+        def initialize_variables() -> None:
+            """
+            initializes variables used in the identify_full_length_duplications function
+            """
             self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
             self.__both = 0
             self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
             self.__query_CDS, self.__target_CDS, self.__query_CDS_frame = "-", "-", "-"
             self.__found = False
 
-        def initialize_list_of_tuples():
+        def initialize_list_of_tuples() -> None:
+            """
+            initializes the list of tuples used to store the identified events in the identify_full_length_duplications function
+            """
             self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = [], [], []
 
-        def identify_query(trans_dict_, cds_intv_):
+        def identify_query(trans_dict_: dict, cds_intv_: P.Interval) -> None:
+            """
+            identify_query is a function that identifies the tblastx query CDS in the gene transcript. A transcript
+            cannot have overlapping CDSs. If the query CDS overlaps with more than one CDS, the program exits.
+            """
             query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
             if len(query_only_) > 1:
                 print(' ')
                 print('---------------------ERROR-------------------------------')
-                print(f'overlapping query CDSs: {query_only_}')
+                print(f'overlapping query CDSs: {query_only_}, please review your GFF3 file')
                 print('---------------------------------------------------------')
                 sys.exit()
             elif query_only_:
@@ -600,7 +627,10 @@ class Exonize(object):
                 self.__query = 1
                 self.__target_t = 'QUERY_ONLY'
 
-        def target_out_of_mRNA(trans_coord_, mrna_, row_):
+        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list) -> bool:
+            """
+            target_out_of_mRNA is a function that identifies tblastx hits that are outside the mRNA transcript.
+            """
             fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
             target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
             if target_intv_.upper < trans_coord_.lower or trans_coord_.upper < target_intv_.lower:
@@ -614,7 +644,11 @@ class Exonize(object):
                     return True
             return False
 
-        def indetify_full_target(trans_dict_, target_intv_):
+        def indetify_full_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+            """
+            indetify_full_target is a function that identifies tblastx hits that are full-length duplications as described
+            in self.find_overlapping_annot
+            """
             target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
             if len(target_only_) > 1:
                 print(' ')
@@ -629,7 +663,13 @@ class Exonize(object):
                 self.__target_t = "FULL"
                 self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
 
-        def indentify_insertion_target(trans_dict_, target_intv_):
+        def indentify_insertion_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+            """
+            Identifies tblastx hits that are insertion duplications these can be:
+            - INS_CDS: if the insertion is in a CDS
+            - INS_UTR: if the insertion is in an untralated region
+            - DEACTIVATED: if the insertion is in an intron
+            """
             insertion_CDS_ = filter_structure(trans_dict_['structure'], target_intv_, 'CDS')
             if insertion_CDS_:
                 self.__target_CDS, t_CDS_coord_ = insertion_CDS_[0]
@@ -652,7 +692,11 @@ class Exonize(object):
                         self.__found = True
                         self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
 
-        def indentify_truncation_target(trans_dict_, mrna_, row_):
+        def indentify_truncation_target(trans_dict_: dict, mrna_: str, row_: list) -> None:
+            """
+            Identifies tblastx hits that are truncation duplications. These are hits that span across more than one annotation
+            in the transcript architecture. We record a line per annotation that is truncated.
+            """
             fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
             target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
             intv_dict_ = get_interval_dictionary(trans_dict_['structure'], target_intv_, trans_dict_['coord'])
@@ -667,7 +711,11 @@ class Exonize(object):
                          target_s_, target_e_, value['id'], value['type'],
                          coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
 
-        def identify_obligate_pair(trans_coord_, mrna_, row_):
+        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list) -> None:
+            """
+            Identifies tblastx hits that are obligate pairs. These are hits where the query and target show as CDSs in the
+            transcript in question.
+            """
             fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
             self.__both = 1
             self.__query, self.__target = 0, 0
@@ -677,11 +725,18 @@ class Exonize(object):
                                                     self.__annot_target_start, self.__annot_target_end,
                                                     target_s_, target_e_, self.__target_t))
 
-        def identify_neither_pair():
+        def identify_neither_pair() -> None:
+            """
+            Identifies tblastx hits that are neither pairs. These are hits where the query and target do not show as CDSs in the
+            transcript in question.
+            """
             self.__neither = 1
             self.__target_t = 'NEITHER'
 
-        def insert_full_length_duplication_tuple(mrna_, row_):
+        def insert_full_length_duplication_tuple(mrna_: str, row_: list):
+            """
+            insert_full_length_duplication_tuple is a function that appends the "row" event to the list of tuples.
+            """
             fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
             self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
                                                            cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_,
@@ -691,6 +746,10 @@ class Exonize(object):
                                                            self.__both, evalue_))
 
         def insert_tuples_in_results_db() -> None:
+            """
+            insert_tuples_in_results_db is a function that inserts the list of tuples collected by the identify_full_length_duplications
+            function into the results database.
+            """
             instert_full_length_event(self.results_db, self.timeout_db, self.__tuples_full_length_duplications)
             instert_obligatory_event(self.results_db, self.timeout_db, self.__tuples_obligatory_events)
             instert_truncation_event(self.results_db, self.timeout_db, self.__tuples_truncation_events)
