@@ -91,10 +91,8 @@ class Exonize(object):
             - keep_order: if True, the order of the features in the GFF file will be preserved
             - merge_strategy: if 'create_unique', the database will be created with unique IDs
             - sort_attribute_values: if True, the attribute values will be sorted
-            - disable_infer_genes: if True, the function will not attempt to automatically infer
-            gene features from the input data.
-            - disable_infer_transcripts: if True, the function will not attempt to automatically infer
-            transcript features from the input data.
+            - disable_infer_genes: if True, the function will not attempt to automatically infer gene features
+            - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
                 if self.verbose:
@@ -118,12 +116,12 @@ class Exonize(object):
 
         def search_create_intron_annotations() -> None:
             """
-            search_create_intron_annotations is a function that verifies that the database contains intron
-            annotations, if not, it attempts to write them.
+            search_create_intron_annotations is a function that verifies that the gffutils database contains intron
+            annotations, if not, it attempts to write them. Some of the db.update() parameters description:
             - make_backup: if True, a backup of the database will be created before updating it.
-            - id_spec: dictionary with the following structure: {feature_type: [intron_id]} where the
-            intron_id function returns the intron identifier based on the feature attribute (self.id_spec_attribute)
-             present in all annotations in the gff file. Common choices are: "ID" or "Parent".
+            - id_spec: dictionary with the following structure: {feature_type: [intron_id]} where the intron_id function
+              returns the intron identifier based on the feature attribute (self.id_spec_attribute) present in all annotations
+              in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
                 print('---------------------WARNING------------------------------')
@@ -169,9 +167,8 @@ class Exonize(object):
         """
         load_db is a function that loads a gffutils database.
         - dbfn: path to the database file
-        - keep_order: This is a parameter that is passed when creating the FeatureDB instance.
-         When keep_order is set to True, the order of attributes in the GFF/GTF file will be preserved
-         when they are retrieved from the database.
+        - keep_order: This is a parameter that is passed when creating the FeatureDB instance. When keep_order is set to True,
+         the order of attributes in the GFF/GTF file will be preserved when they are retrieved from the database.
         """
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
@@ -183,6 +180,10 @@ class Exonize(object):
             sys.exit()
 
     def read_genome(self) -> None:
+        """
+        read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a dictionary.
+        The dictionary has the following structure: {chromosome: sequence}
+        """
         try:
             tic_genome = time.time()
             if self.verbose:
@@ -202,6 +203,9 @@ class Exonize(object):
             sys.exit()
 
     def dump_logs(self) -> None:
+        """
+
+        """
         if not self.logs:
             self.logs = ['Nothing to report']
         with open(f'exonize_logs.txt', 'w') as f:
@@ -212,13 +216,10 @@ class Exonize(object):
         Constructs a nested dictionary to represent the hierarchical structure and attributes of genes and
         their related mRNA transcripts based on genomic feature data. The created hierarchy is stored in the attribute
         `self.gene_hierarchy_dict` and is also saved as a pickle file.
-
         Note:
-        - GFF coordinates are 1-based. Thus, 1 is subtracted from the start position
-        - If the gene is in the negative strand the direction of transcription and translation
-        is opposite to the direction the DNA sequence is represented meaning that translation starts from the last CDS
-        to convert them to 0-based coordinates.
-
+        - GFF coordinates are 1-based. Thus, 1 is subtracted from the start position to convert them to 0-based coordinates.
+        - If the gene is in the negative strand the direction of transcription and translation is opposite to the direction
+         the DNA sequence is represented meaning that translation starts from the last CDS
         Structure of `self.gene_hierarchy_dict`:
         {gene_id_1: {'coord': gene_coord_1, 'chrom': chromosome_1, 'strand': strand_1,
                     'mRNAs': {mRNA_id_1: {'coord': mRNA_coord_1, 'strand': strand_1,
@@ -276,10 +277,10 @@ class Exonize(object):
                   "You can disable this option by setting the save_input_files parameter to False.")
             print('----------------------------------------------------------')
 
-    def execute_tblastx(self, query_filename, target_filename, output_file):
+    def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
         execute_tblastx is a function that executes a tblastx search with the following parameters:
-        - tblastx: tblastx: A BLAST tool that compares the six-frame translations of a nucleotide query sequence
+        - tblastx: A BLAST tool that compares the six-frame translations of a nucleotide query sequence
         against the six-frame translations of a nucleotide sequence database.
         - query: query file name
         - subject: subject file name
@@ -297,53 +298,70 @@ class Exonize(object):
                            '-out', output_file]
         subprocess.run(tblastx_command)
 
-    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord) -> dict:
-        chrom = self.gene_hierarchy_dict[gene_id]['chrom']
-        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
-        identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
-        if self.save_input_files:
-            output_file = f'output/{identifier}_output.xml'
+    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord: P.Interval) -> dict:
+        """
+        align_CDS is a function that performs a tblastx search between a query sequence (CDS) and a target sequence (gene).
+        :param gene_id: gene identifier
+        :param query_seq: query sequence (CDS)
+        :param hit_seq: target sequence (gene)
+        :param query_coord: query coordinates (CDS) interval
+        :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
+        """
+        def tblastx_with_saved_io(identifier_: str, gene_id_: str, hit_seq_: str, query_seq_: str,
+                                  query_coord_: P.Interval, gene_coord_: P.Interval):
+            output_file = f'output/{identifier_}_output.xml'
             if not os.path.exists(output_file):
-                query_filename = f'input/{identifier}_query.fa'
-                target_filename = f'input/{gene_id}_target.fa'
+                query_filename = f'input/{identifier_}_query.fa'
+                target_filename = f'input/{gene_id_}_target.fa'
                 if not os.path.exists(target_filename):
-                    dump_fasta_file(target_filename, {f"{gene_id}": hit_seq})
-                dump_fasta_file(query_filename, {identifier: query_seq})
+                    dump_fasta_file(target_filename, {f"{gene_id_}": hit_seq_})
+                dump_fasta_file(query_filename, {identifier_: query_seq_})
                 self.execute_tblastx(query_filename, target_filename, output_file)
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
                 try:
-                    temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
+                    temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                 except Exception as e:
                     print(e)
                     sys.exit()
-            return temp
-        else:
+            return temp_
+
+        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str,
+                                            query_coord_: P.Interval, gene_coord_: P.Interval):
             with tempfile.TemporaryDirectory() as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
                 target_filename = f'{tmpdirname}/target.fa'
-                dump_fasta_file(query_filename, {'query': query_seq})
-                dump_fasta_file(target_filename, {'target': hit_seq})
+                dump_fasta_file(query_filename, {'query': query_seq_})
+                dump_fasta_file(target_filename, {'target': hit_seq_})
                 output_file = f'{tmpdirname}/output.xml'
                 self.execute_tblastx(query_filename, target_filename, output_file)
                 with open(output_file, 'r') as result_handle:
                     blast_records = NCBIXML.parse(result_handle)
                     try:
-                        temp = self.parse_tblastx_output(blast_records, query_coord, gene_coord)
+                        temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                     except Exception as e:
                         print(e)
                         sys.exit()
-            return temp
+                return temp_
 
-    def parse_tblastx_output(self, blast_records, q_coord, hit_coord) -> dict:
+        chrom = self.gene_hierarchy_dict[gene_id]['chrom']
+        gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
+        identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
+        if self.save_input_files:
+            temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord)
+        else:
+            temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord)
+        return temp
+
+    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval) -> dict:
         """
         the parse_tblastx_output function parses the output of a tblastx search, where a single sequence (CDS)
         has been queried against a single target (gene). Meaning that we only expect to find one BLAST record.
         We only  consider hits that:
             (i)   have an e-value lower than the threshold,
             (ii)  have a minimum alignment length percentage of the query sequence and
-            (iii) that do not overlap with the query sequence (self-hit), with a maximum overlap
-             (self.self_hit_threshold) of the query sequence.
+            (iii) that do not overlap with the query sequence (self-hit), with a maximum overlap (self.self_hit_threshold)
+                  of the query sequence.
         :param blast_records: 'Record' object with blast records
         :param q_coord: query coordinates (CDS) interval
         :param hit_coord: hit coordinates
@@ -369,7 +387,7 @@ class Exonize(object):
     def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id, returns a tuple with the following structure:
-        (gene_id, chromosome, strand, start_coord, end_coordinate, 1 if it has a duplication event, 0 otherwise)
+        (gene_id, chromosome, strand, start_coord, end_coord, 1 if it has a duplication event 0 otherwise)
         """
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         return (gene_id,
@@ -386,11 +404,12 @@ class Exonize(object):
         If there are overlapping CDS coordinates, they are resolved according to the following criteria:
             (i)  if one CDS is contained within the next in the list, the shortest CDS is selected
             (ii) if the CDS coordinates overlap but are not contained within each other:
-                 (a) if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold)
-                  of both CDS lengths the shortest CDS is selected.
-                 (b) both CDSs are selected otherwise
+                - a: if they overlap by more than the overlapping threshold (self.cds_overlapping_threshold) of both CDS
+                 lengths the shortest CDS is selected.
+                - b: both CDSs are selected otherwise
         The rationale behind choosing the shortest CDS is that it will reduce exclusion of short duplications due
-         to coverage thresholds.
+        to coverage thresholds.
+        :param gene_id: gene identifier
         :return: list of representative CDS coordinates for the gene across all transcripts
         """
         def get_intervals_overlapping_list(intv_list: list, overlap_threshold: float) -> list:
@@ -419,8 +438,8 @@ class Exonize(object):
             new_list = []
             overlaps_list = get_intervals_overlapping_list(coords_list, overlap_threshold)
             if overlaps_list:
-                # We only process the first pair of overlapping intervals.
-                # Rationale: the resolved overlap could also overlap with the next interval in the list.
+                # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
+                # with the next interval in the list.
                 intv_a, intv_b = overlaps_list[0]
                 for idx, coord in enumerate(coords_list):
                     if coord != intv_a:
@@ -432,9 +451,12 @@ class Exonize(object):
                         return resolve_overlaps_coords_list(new_list, overlap_threshold)
             else:
                 return coords_list
-        CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
+
+        CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot
+                                    in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
+                                    if(i['type'] == 'CDS'
+                                       and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
         CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
         if CDS_coords_list:
             return resolve_overlaps_coords_list(CDS_coords_list, self.cds_overlapping_threshold)
