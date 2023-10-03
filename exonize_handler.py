@@ -65,6 +65,12 @@ class Exonize(object):
         self.masking_perc_threshold = masking_perc_threshold
         self.save_input_files = save_input_files
         self.logs = []
+        self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
+        self.__both = 0
+        self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
+        self.__query_CDS, self.__target_CDS = "-", "-"
+        self.__found = False
+        self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
 
     @staticmethod
     def reverse_sequence_bool(gene_strand_: str):
@@ -571,112 +577,155 @@ class Exonize(object):
                          get_overlap_percentage(cds_intv, i['coord']) >= self.cds_overlapping_threshold])]
 
     def identify_full_length_duplications(self) -> None:
-        def insert_in_results_db(tuples_fld, tuples_oe, tuples_te):
-            instert_full_length_event(self.results_db, self.timeout_db, tuples_fld)
-            instert_obligatory_event(self.results_db, self.timeout_db, tuples_oe)
-            instert_truncation_event(self.results_db, self.timeout_db, tuples_te)
+        def initialize_variables():
+            self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
+            self.__both = 0
+            self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
+            self.__query_CDS, self.__target_CDS, self.__query_CDS_frame = "-", "-", "-"
+            self.__found = False
+
+        def initialize_list_of_tuples():
+            self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = [], [], []
+
+        def identify_query(trans_dict_, cds_intv_):
+            query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
+            if len(query_only_) > 1:
+                print(' ')
+                print('---------------------ERROR-------------------------------')
+                print(f'overlapping query CDSs: {query_only_}')
+                print('---------------------------------------------------------')
+                sys.exit()
+            elif query_only_:
+                self.__query_CDS, _, self.__query_CDS_frame = query_only_[0]
+                self.__query = 1
+                self.__target_t = 'QUERY_ONLY'
+
+        def target_out_of_mRNA(trans_coord_, mrna_, row_):
+            fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
+            if target_intv_.upper < trans_coord_.lower or trans_coord_.upper < target_intv_.lower:
+                if (self.__query + self.__target) == 0:
+                    self.__neither = 1
+                    self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
+                                                                   cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_, "OUT_OF_MRNA",
+                                                                   self.__target_CDS, self.__annot_target_start, self.__annot_target_end,
+                                                                   target_s_, target_e_,
+                                                                   self.__neither, self.__query, self.__target, self.__both, evalue_))
+                    return True
+                else:
+                    return False
+
+        def indetify_full_target(trans_dict_, target_intv_):
+            target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
+            if len(target_only_) > 1:
+                print(' ')
+                print('---------------------ERROR-------------------------------')
+                print(f'overlapping target CDSs: {target_only_}')
+                print('---------------------------------------------------------')
+                sys.exit()
+            elif target_only_:
+                self.__target_CDS, t_CDS_coord_, self.__target_CDS_frame = target_only_[0]
+                self.__target_full = 1
+                self.__found = True
+                self.__target_t = "FULL"
+                self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+
+        def indentify_insertion_target(trans_dict_, target_intv_):
+            insertion_CDS_ = filter_structure(trans_dict_['structure'], target_intv_, 'CDS')
+            if insertion_CDS_:
+                self.__target_CDS, t_CDS_coord_ = insertion_CDS_[0]
+                self.__target_insertion = 1
+                self.__target_t = "INS_CDS"
+                self.__found = True
+                self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+            else:
+                insertion_UTR_ = filter_structure(trans_dict_['structure'], target_intv_, 'UTR')
+                if insertion_UTR_:
+                    self.__target_CDS, t_CDS_coord_ = insertion_UTR_[0]
+                    self.__target_t = "INS_UTR"
+                    self.__found = True
+                    self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+                else:
+                    insertion_intron_ = filter_structure(trans_dict_['structure'], target_intv_, 'intron')
+                    if insertion_intron_:
+                        self.__target_CDS, t_CDS_coord_ = insertion_intron_[0]
+                        self.__target_t = "DEACTIVATED"
+                        self.__found = True
+                        self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+
+        def indentify_truncation_target(trans_dict_, mrna_, row_):
+            fragment_id_, gene_id_, gene_s_, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            target_intv_ = P.open(target_s_ + gene_s_, target_e_ + gene_s_)
+            intv_dict_ = get_interval_dictionary(trans_dict_['structure'], target_intv_, trans_dict_['coord'])
+            if intv_dict_:
+                self.__target_t = "TRUNC"
+                self.__target_CDS, self.__annot_target_start, self.__annot_target_end = None, None, None
+                for seg_b, value in intv_dict_.items():
+                    coord_b = value['coord']
+                    self.__tuples_truncation_events.append(
+                        (fragment_id_, gene_id_, mrna_, trans_dict_['coord'].lower, trans_dict_['coord'].upper,
+                         self.__query_CDS, cds_s_, cds_e_, query_s_, query_e_,
+                         target_s_, target_e_, value['id'], value['type'],
+                         coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
+
+        def identify_obligate_pair(trans_coord_, mrna_, row_):
+            fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            self.__both = 1
+            self.__query, self.__target = 0, 0
+            self.__tuples_obligatory_events.append((fragment_id_, gene_id_, mrna_, trans_coord_.lower, trans_coord_.upper,
+                                                    cds_s_, cds_e_, self.__query_CDS, self.__query_CDS_frame, query_s_, query_e_,
+                                                    self.__target_CDS, target_CDS_frame,
+                                                    self.__annot_target_start, self.__annot_target_end,
+                                                    target_s_, target_e_, self.__target_t))
+
+        def identify_neither_pair():
+            self.__neither = 1
+            self.__target_t = 'NEITHER'
+
+        def insert_full_length_duplication_tuple(mrna_, row_):
+            fragment_id_, gene_id_, _, _, cds_s_, cds_e_, query_s_, query_e_, target_s_, target_e_, evalue_ = row_
+            self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
+                                                           cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_,
+                                                           self.__target_t, self.__target_CDS, self.__annot_target_start,
+                                                           self.__annot_target_end,
+                                                           target_s_, target_e_, self.__neither, self.__query, self.__target,
+                                                           self.__both, evalue_))
+
+        def insert_tuples_in_results_db() -> None:
+            instert_full_length_event(self.results_db, self.timeout_db, self.__tuples_full_length_duplications)
+            instert_obligatory_event(self.results_db, self.timeout_db, self.__tuples_obligatory_events)
+            instert_truncation_event(self.results_db, self.timeout_db, self.__tuples_truncation_events)
 
         rows = query_filtered_full_duplication_events(self.results_db, self.timeout_db)
-        tuples_full_length_duplications, tuples_obligatory_events, tuples_truncation_events = [], [], []
+        initialize_list_of_tuples()
         for row in rows:
-            fragment_id, gene_id, gene_s, gene_e, cds_s, cds_e, query_s, query_e, target_s, target_e, evalue = row
-            cds_intv = P.open(cds_s, cds_e)
-            target_intv = P.open(target_s + gene_s, target_e + gene_s)
+            _, gene_id, gene_s, _, cds_s, cds_e, _, _, target_s, target_e, _ = row
+            cds_intv, target_intv = P.open(cds_s, cds_e), P.open(target_s + gene_s, target_e + gene_s)
             for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-                found = False
+                initialize_variables()
                 trans_coord = trans_dict['coord']
-                neither, query, target, target_full, target_insertion, target_trunctation, both = 0, 0, 0, 0, 0, 0, 0
-                query_CDS, target_CDS = "-", "-"
-                annot_target_start, annot_target_end, target_t, query_CDS_frame, target_CDS_frame = None, None, None, None, None
                 # ####### QUERY ONLY - FULL LENGTH #######
-                # account for allowed shifts in the resolve_overlaps_coords_list function
-                query_only = self.find_overlapping_annot(trans_dict, cds_intv)
-                if len(query_only) > 1:
-                    print(f'overlapping query CDSs: {query_only}')
-                    continue
-                elif query_only:
-                    query_CDS, _, query_CDS_frame = query_only[0]
-                    query = 1
-                    target_t = 'QUERY_ONLY'
+                identify_query(trans_dict, cds_intv)
                 # ###### CHECK: TARGET REGION NOT IN mRNA #######
-                if target_intv.upper < trans_coord.lower or trans_coord.upper < target_intv.lower:
-                    if (query + target) == 0:
-                        neither = 1
-                    tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                            cds_s, cds_e, query_CDS, query_s, query_e,
-                                                            "OUT_OF_MRNA",
-                                                            target_CDS, annot_target_start, annot_target_end,
-                                                            target_s, target_e,
-                                                            neither, query, target, both, evalue))
+                if target_out_of_mRNA(trans_coord, mrna, row):
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
-                target_only = self.find_overlapping_annot(trans_dict, target_intv)
-                if len(target_only) > 1:
-                    print(f'overlapping query CDSs: {target_only}')
-                    continue
-                # ####### TARGET ONLY #######
-                elif target_only:
-                    target_CDS, t_CDS_coord, target_CDS_frame = target_only[0]
-                    target_full = 1
-                    found = True
-                    target_t = "FULL"
-                    annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                # ####### INSERTION #######
-                if target_full == 0:
-                    insertion_CDS = filter_structure(trans_dict['structure'], target_intv, 'CDS')
-                    if insertion_CDS:
-                        target_CDS, t_CDS_coord = insertion_CDS[0]
-                        target_insertion = 1
-                        target_t = "INS_CDS"
-                        found = True
-                        annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                    else:
-                        insertion_UTR = filter_structure(trans_dict['structure'], target_intv, 'UTR')
-                        if insertion_UTR:
-                            target_CDS, t_CDS_coord = insertion_UTR[0]
-                            target_t = "INS_UTR"
-                            found = True
-                            annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                        else:
-                            insertion_intron = filter_structure(trans_dict['structure'], target_intv, 'intron')
-                            if insertion_intron:
-                                target_CDS, t_CDS_coord = insertion_intron[0]
-                                target_t = "DEACTIVATED"
-                                found = True
-                                annot_target_start, annot_target_end = t_CDS_coord.lower, t_CDS_coord.upper
-                    # ####### TRUNCATION #######
-                    if not found:
-                        intv_dict = get_interval_dictionary(trans_dict['structure'], target_intv, trans_coord)
-                        if intv_dict:
-                            target_t = "TRUNC"
-                            target_CDS, annot_target_start, annot_target_end = None, None, None
-                            for seg_b, value in intv_dict.items():
-                                coord_b = value['coord']
-                                tuples_truncation_events.append(
-                                    (fragment_id, gene_id, mrna, trans_coord.lower, trans_coord.upper,
-                                     query_CDS, cds_s, cds_e, query_s, query_e,
-                                     target_s, target_e, value['id'], value['type'],
-                                     coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
-                target = target_full + target_insertion
-                # ####### FULL LENGTH DUPL: BOTH #######
-                if query + target == 2:
-                    both = 1
-                    query, target = 0, 0
-                    tuples_obligatory_events.append((fragment_id, gene_id, mrna,
-                                                    trans_coord.lower, trans_coord.upper,
-                                                    cds_s, cds_e,
-                                                    query_CDS, query_CDS_frame, query_s, query_e,
-                                                    target_CDS, target_CDS_frame, annot_target_start, annot_target_end,
-                                                    target_s, target_e, target_t))
-                elif query + target == 0:
-                    neither = 1
-                    target_t = 'NEITHER'
-                tuples_full_length_duplications.append((fragment_id, gene_id, mrna,
-                                                        cds_s, cds_e, query_CDS, query_s, query_e,
-                                                        target_t, target_CDS, annot_target_start, annot_target_end,
-                                                        target_s, target_e, neither, query, target, both, evalue))
-
-                insert_in_results_db(tuples_fld, tuples_oe, tuples_te)
+                indetify_full_target(trans_dict, target_intv)
+                if self.__target_full == 0:
+                    # ####### INSERTION #######
+                    indentify_insertion_target(trans_dict, target_intv)
+                    if not self.__found:
+                        # ####### TRUNCATION #######
+                        indentify_truncation_target(trans_dict, mrna, row)
+                self.__target = self.__target_full + self.__target_insertion
+                # ####### OBLIGATE PAIR #######
+                if self.__query + self.__target == 2:
+                    identify_obligate_pair(trans_dict['coord'], mrna, row)
+                # ####### NEITHER PAIR #######
+                elif self.__query + self.__target == 0:
+                    identify_neither_pair()
+                insert_full_length_duplication_tuple(mrna, row)
+        insert_tuples_in_results_db()
 
     def assign_pair_ids(self, full_matches) -> list:
         fragments = []
