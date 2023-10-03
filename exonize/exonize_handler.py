@@ -1,4 +1,4 @@
-from sqlite_utils import *
+from .sqlite_utils import *
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
 import portion as P                                    # for working with intervals
