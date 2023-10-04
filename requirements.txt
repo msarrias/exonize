@@ -1,4 +1,4 @@
-gffutils==0.11.1
+gffutils==0.12
 tqdm==4.65.0
 portion==2.4.0
 biopython==1.81
