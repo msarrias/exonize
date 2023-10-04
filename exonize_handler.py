@@ -21,7 +21,6 @@ class Exonize(object):
                  genome_path,
                  specie_identifier,
                  results_db_name='',
-                 spec_attribute='ID',
                  save_input_files=False,
                  verbose=True,
                  hard_masking=False,
@@ -51,7 +50,6 @@ class Exonize(object):
         self.evalue = evalue_threshold                                  # e-value threshold for BLAST calls
         self.batch_number = batch_number                                # batch number for BLAST calls
         self.threads = threads                                          # number of threads for BLAST calls
-        self.id_spec_attribute = spec_attribute                         # reference for writting intron annotations with gffutils
         self.cds_overlapping_threshold = cds_overlapping_threshold      # CDS overlapping threshold (0-1)
         self.self_hit_threshold = self_hit_threshold                    # self-hit threshold (0-1)
         self.results_db = results_db_name                               # results database name
@@ -144,15 +142,7 @@ class Exonize(object):
                 if self.verbose:
                     print(f"- Attempting to write intron annotations in database:", end=" ")
                 try:
-                    def intron_id(f: dict) -> str:
-                        """
-                        returns the new intron identifier
-                        : param f: annotation dictionary.
-                        """
-                        return ','.join(f[self.id_spec_attribute])
-
-                    introns_list = list(self.db.create_introns())
-                    self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
+                    self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
                     print("failed to write intron annotations in database, "
                           "please try with a different spec attribute or provide"
