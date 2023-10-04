@@ -724,7 +724,7 @@ class Exonize(object):
             self.__query, self.__target = 0, 0
             self.__tuples_obligatory_events.append((fragment_id_, gene_id_, mrna_, trans_coord_.lower, trans_coord_.upper,
                                                     cds_s_, cds_e_, self.__query_CDS, self.__query_CDS_frame, query_s_, query_e_,
-                                                    self.__target_CDS, target_CDS_frame,
+                                                    self.__target_CDS, self.__target_CDS_frame,
                                                     self.__annot_target_start, self.__annot_target_end,
                                                     target_s_, target_e_, self.__target_t))
 
@@ -849,8 +849,8 @@ class Exonize(object):
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
-            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, strand)
-            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, strand)
+            query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, query_strand)
+            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, target_strand)
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
             tuples_list.append((compute_identity(query_dna_seq, target_dna_seq),
