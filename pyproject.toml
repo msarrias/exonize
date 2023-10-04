@@ -1,0 +1,21 @@
+[project]
+name = "Exonize"
+description = "Find duplicated exons"
+authors = [
+       {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"}
+       ]
+version = "0.1"
+dependencies = [
+	     "gffutils>=0.11.1",
+	     "tqdm>=4.65.0",
+	     "portion>=2.4.0",
+	     "biopython>=1.81",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project.scripts]
+exonize = "exonize.exonize:main"
