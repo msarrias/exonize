@@ -820,33 +820,35 @@ class Exonize(object):
 
     def get_identity_and_dna_seq_tuples(self) -> list:
         """
-        get_identity_and_dna_seq_tuples is a function that retrieves the DNA sequences of the tblastx query and target
-        and computes their DNA and aminoacid identity. The function returns a list of tuples with the following structure:
+        Retrieves DNA sequences from tblastx query and target, computes their DNA and amino acid identity,
+        and returns a list of tuples with the structure:
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
+
         def fetch_dna_sequence(chrom, annot_start, annot_end, pos_annot_s, pos_annot_e, strand):
             seq = Seq(self.genome[chrom][annot_start:annot_end][pos_annot_s:pos_annot_e])
-            if self.reverse_sequence_bool(strand):
-                seq = seq.reverse_complement()
-            return str(seq)
+            return str(seq.reverse_complement()) if self.reverse_sequence_bool(strand) else str(seq)
 
         def compute_identity(seq_1, seq_2):
             return round(hamming_distance(seq_1, seq_2), 3)
 
-        tuples_list = []
-        all_fragments = query_fragments(self.results_db, self.timeout_db)
-        for fragment in all_fragments:
+        def process_fragment(fragment):
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
+
             query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, query_strand)
-            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end, target_strand)
+            target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end,
+                                                target_strand)
+
             if len(query_dna_seq) != len(target_dna_seq):
                 raise ValueError(f'{gene_id}: CDS {(CDS_start, CDS_end)} search - sequences must have the same length.')
-            tuples_list.append((compute_identity(query_dna_seq, target_dna_seq),
-                                compute_identity(query_aln_prot_seq, target_aln_prot_seq),
-                                query_dna_seq, target_dna_seq, fragment_id))
-        return tuples_list
+
+            return (compute_identity(query_dna_seq, target_dna_seq),
+                    compute_identity(query_aln_prot_seq, target_aln_prot_seq),
+                    query_dna_seq, target_dna_seq, fragment_id)
+
+        return [process_fragment(fragment) for fragment in query_fragments(self.results_db, self.timeout_db)]
 
     def run_exonize(self) -> None:
         """
