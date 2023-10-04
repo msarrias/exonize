@@ -149,10 +149,17 @@ class Exonize(object):
                         returns the new intron identifier
                         : param f: annotation dictionary.
                         """
+                        print(type(f))
+                        if 'ID' in f:
+                            print(f['ID'])
+                        elif 'Parent' in f:
+                            print(f['Parent'])
+                        else:
+                            print('Noooo')
                         return ','.join(f[self.id_spec_attribute])
 
                     introns_list = list(self.db.create_introns())
-                    self.db.update(introns_list, id_spec={'intron': [intron_id]}, make_backup=False)
+                    self.db.update(introns_list, make_backup=False)
                 except ValueError as e:
                     print("failed to write intron annotations in database, "
                           "please try with a different spec attribute or provide"
