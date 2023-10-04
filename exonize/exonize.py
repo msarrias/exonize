@@ -22,7 +22,7 @@ def argument_parser():
     parser = argparse.ArgumentParser(description='Exonize Description')
     parser.add_argument('gff_file_path', type=str, help='Path to GFF file')
     parser.add_argument('genome_path', type=str, help='Path to genome file')
-    parser.add_argument('specie_identifier', type=str, help='Species identifier')
+    parser.add_argument('specie_identifier', type=str, help='Species identifier used for constructing output filenames')
     parser.add_argument('-r', '--results_db_name', default='', type=str, help='Results database name')
     parser.add_argument('-a', '--spec_attribute', default='ID', type=str, help='Feature reference for writting intron annotations with gffutils')
     parser.add_argument('-s', '--save_input_files', default=False, action='store_true', help='Saves input and output tblastx files')
