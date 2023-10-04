@@ -1,4 +1,4 @@
-from exonize_handler import *
+from .exonize_handler import *
 import argparse
 
 
