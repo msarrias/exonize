@@ -139,7 +139,7 @@ class Exonize(object):
             """
             if 'intron' not in self.db_features:
                 print('---------------------WARNING------------------------------')
-                print("-The genomic annotations do not contain intron annotations")
+                print("-The GFF file do not contain intron annotations")
                 print('----------------------------------------------------------')
                 if self.verbose:
                     print(f"- Attempting to write intron annotations in database:", end=" ")
