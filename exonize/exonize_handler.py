@@ -713,15 +713,15 @@ class Exonize(object):
             self.__both = 1
             self.__query, self.__target = 0, 0
             self.__tuples_obligatory_events.append((fragment_id_, gene_id_, mrna_, trans_coord_.lower, trans_coord_.upper,
-                                                    cds_s_, cds_e_, self.__query_CDS, self.__query_CDS_frame, query_s_, query_e_,
-                                                    self.__target_CDS, self.__target_CDS_frame,
+                                                    cds_s_, cds_e_, self.__query_CDS, self.__query_CDS_frame,
+                                                    query_s_, query_e_, self.__target_CDS, self.__target_CDS_frame,
                                                     self.__annot_target_start, self.__annot_target_end,
                                                     target_s_, target_e_, self.__target_t))
 
         def identify_neither_pair() -> None:
             """
-            Identifies tblastx hits that are neither pairs. These are hits where the query and target do not show as CDSs in the
-            transcript in question.
+            Identifies tblastx hits that are neither pairs. These are hits where the query and target do not show as CDSs
+            in the transcript in question.
             """
             self.__neither = 1
             self.__target_t = 'NEITHER'
