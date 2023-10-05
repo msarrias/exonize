@@ -13,6 +13,13 @@ from multiprocessing.pool import ThreadPool            # for parallelization
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
 from datetime import datetime as dt
 import sys
+import logging
+import datetime
+
+log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s',
+                    handlers=[logging.StreamHandler(), logging.FileHandler(log_file_name, mode='w')])
+logger = logging.getLogger(__name__)
 
 
 class Exonize(object):
@@ -22,7 +29,6 @@ class Exonize(object):
                  specie_identifier,
                  results_db_name='',
                  enable_debug=False,
-                 verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-2,
                  sleep_max_seconds=5,
@@ -41,7 +47,6 @@ class Exonize(object):
         self.old_filename = None                                        # old filename (if GTF file is provided)
         self.db = None                                                  # database object (gffutils)
         self.specie_identifier = specie_identifier                      # specie identifier
-        self.verbose = verbose                                          # verbose mode (True/False)
         self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
         self.genome_path = genome_path                                  # genome path (FASTA)
         self.hard_masking = hard_masking                                # hard masking (True/False)
@@ -63,7 +68,6 @@ class Exonize(object):
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
         self.masking_perc_threshold = masking_perc_threshold
         self.save_input_files = save_input_files
-        self.logs = []
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
@@ -152,8 +156,7 @@ class Exonize(object):
             - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
-                if self.verbose:
-                    print("- Creating annotations database", end=" ")
+                print("- Creating annotations database", end=" ")
                 self.db = gffutils.create_db(self.in_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -162,13 +165,9 @@ class Exonize(object):
                                              sort_attribute_values=True,
                                              disable_infer_genes=True,
                                              disable_infer_transcripts=True)
-                if self.verbose:
-                    print("Done!")
+                print("Done!")
             except ValueError as e:
-                print(' ')
-                print('---------------------ERROR-------------------------------')
-                print(f"Incorrect genome annotations file  {e}")
-                print('---------------------------------------------------------')
+                logger.exception(f"Incorrect genome annotations file {e}")
                 sys.exit()
 
         def search_create_intron_annotations() -> None:
@@ -181,21 +180,15 @@ class Exonize(object):
               in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                print('---------------------WARNING------------------------------')
-                print("-The GFF file do not contain intron annotations")
-                print('----------------------------------------------------------')
-                if self.verbose:
-                    print(f"- Attempting to write intron annotations in database:", end=" ")
+                logger.warning("The GFF file does not contain intron annotations")
+                print(f"- Attempting to write intron annotations in database:", end=" ")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
-                    print("failed to write intron annotations in database, "
-                          "please try with a different spec attribute or provide"
-                          " a GFF3 file with intron annotations")
-                    print(e)
+                    logger.exception(f"failed to write intron annotations in database. "
+                                     f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
-                if self.verbose:
-                    print("Done!")
+                print("Done!")
 
         if not os.path.exists(self.db_path):
             if 'gtf' in self.in_file_path:
@@ -222,10 +215,7 @@ class Exonize(object):
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
         except ValueError as e:
-            print(' ')
-            print('---------------------ERROR-------------------------------')
-            print(f"Incorrect data base path  {e}")
-            print('---------------------------------------------------------')
+            logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
     def read_genome(self) -> None:
@@ -235,8 +225,7 @@ class Exonize(object):
         """
         try:
             tic_genome = time.time()
-            if self.verbose:
-                print("- Reading genome file:", end=" ")
+            print("- Reading genome file:", end=" ")
             parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
             if self.hard_masking:
                 self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
@@ -245,20 +234,8 @@ class Exonize(object):
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
             print(f"Done! [{hms_time}]")
         except (ValueError, FileNotFoundError) as e:
-            print(' ')
-            print('---------------------ERROR-------------------------------')
-            print(f"Incorrect genome file path {e}")
-            print('---------------------------------------------------------')
+            logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
-
-    def dump_masking_logs(self) -> None:
-        """
-        Dumps the logs recorded in the attribute `self.logs` to a file named `exonize_logs.txt`
-        """
-        if not self.logs:
-            self.logs = ['Nothing to report']
-        with open(f'exonize_logs.txt', 'w') as f:
-            f.write('\n'.join(self.logs))
 
     def create_gene_hierarchy_dict(self) -> None:
         """
@@ -317,12 +294,8 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
-        if self.save_input_files:
-            print('---------------------WARNING------------------------------')
-            print("-All tblastx input and output files will be saved. "
-                  "This may take a large amount of disk space. "
-                  "You can disable this option by setting the save_input_files parameter to False.")
-            print('----------------------------------------------------------')
+        if self.DEBUG_MODE:
+            logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
@@ -385,7 +358,7 @@ class Exonize(object):
                 try:
                     temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                 except Exception as e:
-                    print(e)
+                    logger.exception(e)
                     sys.exit()
             return temp_
 
@@ -409,7 +382,7 @@ class Exonize(object):
                     try:
                         temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                     except Exception as e:
-                        print(e)
+                        logger.exception(e)
                         sys.exit()
                 return temp_
 
@@ -577,16 +550,14 @@ class Exonize(object):
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logs.append((f'Gene {gene_id_} in chromosome {chrom_} '
-                                          f'and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.'))
+                        logger.info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logs.append((f'Gene {gene_id_} - {masking_perc * 100} '
-                                          f'% of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.'))
+                        logger.info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.')
                 return seq_
             except KeyError as e_:
-                print(f'Either there is missing a chromosome in the genome file '
-                      f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
+                logger.exception(f'Either there is missing a chromosome in the genome file '
+                                 f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
 
         CDS_blast_dict = {}
@@ -718,10 +689,7 @@ class Exonize(object):
             """
             query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
             if len(query_only_) > 1:
-                print(' ')
-                print('---------------------ERROR-------------------------------')
-                print(f'overlapping query CDSs: {query_only_}, please review your GFF3 file')
-                print('---------------------------------------------------------')
+                logger.error(f'Overlapping query CDSs: {query_only_}, please review your GFF3 file')
                 sys.exit()
             elif query_only_:
                 self.__query_CDS, _, self.__query_CDS_frame = query_only_[0]
@@ -752,10 +720,7 @@ class Exonize(object):
             """
             target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
             if len(target_only_) > 1:
-                print(' ')
-                print('---------------------ERROR-------------------------------')
-                print(f'overlapping target CDSs: {target_only_}')
-                print('---------------------------------------------------------')
+                logger.error(f'overlapping target CDSs: {target_only_}')
                 sys.exit()
             elif target_only_:
                 self.__target_CDS, t_CDS_coord_, self.__target_CDS_frame = target_only_[0]
