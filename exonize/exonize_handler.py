@@ -21,7 +21,7 @@ class Exonize(object):
                  genome_path,
                  specie_identifier,
                  results_db_name='',
-                 save_input_files=False,
+                 debug=False,
                  verbose=True,
                  hard_masking=False,
                  evalue_threshold=1e-2,
@@ -34,6 +34,7 @@ class Exonize(object):
                  threads=7,
                  timeout_db=160):
 
+        self.debug = debug                                              # debug mode (True/False)
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
         self.db_features = None                                         # features in the database
@@ -309,15 +310,21 @@ class Exonize(object):
         :param query_coord: query coordinates (CDS) interval
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(identifier_: str, gene_id_: str, hit_seq_: str, query_seq_: str,
-                                  query_coord_: P.Interval, gene_coord_: P.Interval):
-            output_file = f'output/{identifier_}_output.xml'
+        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+            """
+            tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
+            function is used for debugging purposes. The input and output files are saved in the following paths:
+            - input: input/{ident}_query.fa and input/{gene_id_}_target.fa where ident is the identifier of the query
+            sequence (CDS) and gene_id_ is the identifier of the target sequence (gene).
+            - output: output/{ident}_output.xml where ident is the identifier of the query sequence (CDS).
+            """
+            output_file = f'output/{ident}_output.xml'
             if not os.path.exists(output_file):
-                query_filename = f'input/{identifier_}_query.fa'
+                query_filename = f'input/{ident}_query.fa'
                 target_filename = f'input/{gene_id_}_target.fa'
                 if not os.path.exists(target_filename):
                     dump_fasta_file(target_filename, {f"{gene_id_}": hit_seq_})
-                dump_fasta_file(query_filename, {identifier_: query_seq_})
+                dump_fasta_file(query_filename, {ident: query_seq_})
                 self.execute_tblastx(query_filename, target_filename, output_file)
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
@@ -328,8 +335,14 @@ class Exonize(object):
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str,
-                                            query_coord_: P.Interval, gene_coord_: P.Interval):
+        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+            """
+            execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
+            :param hit_seq_: target sequence (gene)
+            :param query_seq_: query sequence (CDS)
+            :param query_coord_: query coordinates (CDS) interval
+            :param gene_coord_: target coordinates (gene) interval
+            """
             with tempfile.TemporaryDirectory() as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
                 target_filename = f'{tmpdirname}/target.fa'
@@ -349,7 +362,7 @@ class Exonize(object):
         chrom = self.gene_hierarchy_dict[gene_id]['chrom']
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
-        if self.save_input_files:
+        if self.debug:
             temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord)
         else:
             temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord)
