@@ -13,79 +13,15 @@ from collections import Counter
 from itertools import permutations
 
 
-def read_pkl_file(filepath: str) -> dict:
-    with open(filepath, 'rb') as handle:
-        read_file = pickle.load(handle)
-    return read_file
-
-
-def dump_pkl_file(out_filepath: str, obj: dict) -> None:
-    with open(out_filepath, 'wb') as handle:
-        pickle.dump(obj, handle)
-
-
-def dump_fasta_file(out_filepath: str, seq_dict: dict) -> None:
-    with open(out_filepath, "w") as handle:
-        for annot_id, annot_seq in seq_dict.items():
-            record = SeqRecord(Seq(annot_seq), id=str(annot_id), description='')
-            SeqIO.write(record, handle, "fasta")
-
-
-def intv(a, b):
-    return P.open(a, b)
-
-
-def sort_list_intervals_dict(list_dicts: list, reverse=False) -> list:
-    return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']), reverse=reverse)
-
-
-def sort_key_intervals_dict(interval_dict: dict) -> dict:
-    sorted_intervals = sorted(list(interval_dict.keys()), key=lambda item: (item.lower, item.upper))
-    return {coord: interval_dict[coord] for coord in sorted_intervals}
-
-
-def hamming_distance(seq_a: str, seq_b: str) -> float:
-    return sum([i == j for i, j in zip(seq_a, seq_b)]) / len(seq_b)
-
-
-def reverse_complement(seq: str) -> str:
-    return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq][::-1])
-
-
-def filter_structure(structure: dict, target_intv, annotation_type: str) -> list:
-    return [(i['id'], i['coord']) for i in structure if (i['coord'].contains(target_intv)
-                                                         and annotation_type in i['type'])]
-
-
-def sequence_masking_percentage(seq: str) -> float:
-    return seq.count('N') / len(seq)
-
-
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
+    def reverse_complement(seq_: str) -> str:
+        return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq_][::-1])
+
     if frame < 0:
         rev_comp = reverse_complement(seq)
         return rev_comp[start:end]
     else:
         return seq[start:end]
-
-
-def batch(iterable: list, n=1) -> list:
-    it_length = len(iterable)
-    for ndx in range(0, it_length, n):
-        yield iterable[ndx:min(ndx + n, it_length)]
-
-
-def get_overlap_percentage(a, b) -> float:
-    """
-    Given two intervals, the function
-    get_overlap_percentage returns the percentage
-    of the overlapping region relative to an interval b.
-    """
-    intersection = a & b
-    if intersection:
-        return (intersection.upper - intersection.lower) / (b.upper - b.lower)
-    else:
-        return 0
 
 
 def codon_alignment(dna_seq_a: str, dna_seq_b: str, peptide_seq_a: str, peptide_seq_b: str) -> tuple:
@@ -113,60 +49,6 @@ def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
         else:
             gaped_codons.append('---')
     return ''.join(gaped_codons)
-
-
-def get_fragment_tuple(gene_id: str, cds_coord, blast_hits: dict, hsp_idx: int) -> tuple:
-    hsp_dict = blast_hits[hsp_idx]
-    hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
-    hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
-    hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-    return (gene_id,
-            cds_coord.lower,
-            cds_coord.upper,
-            hit_q_f,
-            hit_q_s,
-            hit_t_f,
-            hit_t_s,
-            hsp_dict['score'],
-            hsp_dict['bits'],
-            hsp_dict['evalue'],
-            hsp_dict['alignment_len'],
-            hsp_dict['query_start'],
-            hsp_dict['query_end'],
-            hsp_dict['target_start'],
-            hsp_dict['target_end'],
-            hsp_dict['query_aln_prot_seq'],
-            hsp_dict['target_aln_prot_seq'],
-            hsp_dict['match'],
-            hsp_dict['query_num_stop_codons'],
-            hsp_dict['target_num_stop_codons']
-            )
-
-
-def get_hsp_dict(hsp) -> dict:
-    return dict(
-            score=hsp.score,
-            bits=hsp.bits,
-            evalue=hsp.expect,
-            alignment_len=hsp.align_length * 3,
-            hit_frame=hsp.frame,
-            query_start=hsp.query_start - 1,
-            query_end=hsp.query_end,
-            target_start=hsp.sbjct_start - 1,
-            target_end=hsp.sbjct_end,
-            query_aln_prot_seq=hsp.query,
-            target_aln_prot_seq=hsp.sbjct,
-            query_num_stop_codons=hsp.query.count('*'),
-            target_num_stop_codons=hsp.sbjct.count('*'),
-            match=hsp.match)
-
-
-def reformat_frame_strand(frame: int) -> tuple:
-    n_frame = abs(frame) - 1
-    n_strand = '+'
-    if frame < 0:
-        n_strand = '-'
-    return n_frame, n_strand
 
 
 def muscle_pairwise_alignment(seq1: str, seq2: str, muscle_exe="muscle"):
@@ -202,37 +84,6 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
 
 def get_average_overlapping_percentage(intv_a, intv_b) -> float:
     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
-
-
-def get_shorter_intv_overlapping_percentage(a, b) -> float:
-    shorter, longer = get_shorter_longer_interv(a, b)
-    return get_overlap_percentage(longer, shorter)
-
-
-def find_overlapping_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
-    return [get_shorter_intv_overlapping_percentage(x[0], x[1])
-            for x in [(q_intv_a, q_intv_b),
-                      (t_intv_a, t_intv_b)]]
-
-
-def find_reciprocal_pairs(q_intv_a, q_intv_b, t_intv_a, t_intv_b) -> list:
-    return [get_shorter_intv_overlapping_percentage(x[0], x[1])
-            for x in [(t_intv_a, q_intv_b),
-                      (t_intv_b, q_intv_a)]]
-
-
-def get_shorter_longer_interv(a, b) -> tuple:
-    """
-    Given two intervals, the function
-    get_shorter_longer_interv returns the smaller
-    and the larger interval in length.
-    """
-    len_a = a.upper - a.lower
-    len_b = b.upper - b.lower
-    if len_a < len_b:
-        return a, b
-    else:
-        return b, a
 
 
 def get_overlapping_set_of_coordinates(list_coords: list, overlapping_threshold=0.9) -> dict:
@@ -300,6 +151,11 @@ def get_unmatched_events(string1: str, string2: str) -> list:
 
 
 def get_interval_dictionary(trans_dict: dict, target_intv, trans_coord) -> dict:
+
+    def sort_key_intervals_dict(intv_dict: dict) -> dict:
+        sorted_intervals = sorted(list(intv_dict.keys()), key=lambda item: (item.lower, item.upper))
+        return {coord: intv_dict[coord] for coord in sorted_intervals}
+
     UTR_features = ['five_prime_UTR', 'three_prime_UTR']
     interval_dict = {}
     if target_intv.lower < trans_coord.lower:
@@ -367,16 +223,3 @@ def generate_unique_events_list(events_list: list, event_type_idx) -> list:
             event_n = keys[0]
         new_events_list.append((event_n, event[0]))
     return new_events_list
-
-
-def exonize_asci_art() -> None:
-    exonize_ansi_regular = """
-    
-    ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
-    ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
-    █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
-    ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
-    ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
-    ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
-    """
-    print(exonize_ansi_regular)

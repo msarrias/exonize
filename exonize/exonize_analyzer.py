@@ -36,7 +36,6 @@ class ExonizeClassifier(object):
                                  'INS_UTR',
                                  'TRUNC',
                                  'NEITHER']
-# b =
 
     def fragments_count_sanity_check(self) -> None:
         pairs_ids_len = 0
