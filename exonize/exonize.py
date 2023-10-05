@@ -40,7 +40,7 @@ def main():
                           batch_number=args.batch_number,
                           threads=args.threads,
                           timeout_db=args.timeout_db)
-    exonize_obj.run_exonize()
+    exonize_obj.run_exonize_pipeline()
 
 
 if __name__ == '__main__':

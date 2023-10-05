@@ -66,7 +66,6 @@ class Exonize(object):
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
         self.masking_perc_threshold = masking_perc_threshold
-        self.save_input_files = save_input_files
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
@@ -957,7 +956,7 @@ class Exonize(object):
 
         return [process_fragment(fragment) for fragment in query_fragments(self.results_db, self.timeout_db)]
 
-    def run_exonize(self) -> None:
+    def run_exonize_pipeline(self) -> None:
         """
         run_exonize is a function that runs the exonize pipeline. The function iterates over all genes in the
         gene_hierarchy_dict attribute and performs a tblastx search for each representative CDS (see get_candidate_CDS_coords).
