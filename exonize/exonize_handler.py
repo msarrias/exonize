@@ -29,6 +29,8 @@ class Exonize(object):
                  results_db_name='',
                  enable_debug=False,
                  hard_masking=False,
+                 soft_force=False,
+                 hard_force=False,
                  evalue_threshold=1e-2,
                  sleep_max_seconds=5,
                  min_exon_length=30,
@@ -41,6 +43,8 @@ class Exonize(object):
 
         self.configure_logger()
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
+        self._SOFT_FORCE = soft_force                                        # (True/False) - will remove results database if it exists
+        self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
         self.db_features = None                                         # features in the database
@@ -72,6 +76,12 @@ class Exonize(object):
         self.__query_CDS, self.__target_CDS = "-", "-"
         self.__found = False
         self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
+        if self._HARD_FORCE:
+            self.remove_file_if_exists(self.db_path)
+            self.remove_file_if_exists(self.gene_hierarchy_path)
+            self.remove_file_if_exists(self.results_db)
+        elif self._SOFT_FORCE:
+            self.remove_file_if_exists(self.results_db)
 
     def configure_logger(self):
         log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
@@ -137,6 +147,14 @@ class Exonize(object):
         """
         return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']), reverse=reverse)
 
+    @staticmethod
+    def remove_file_if_exists(filepath):
+        """
+        Removes a file if it exists.
+        """
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
     def create_parse_or_update_database(self) -> None:
         """
         create_parse_or_update_database is a function that in the absence of a database it:
@@ -199,7 +217,6 @@ class Exonize(object):
                                           f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
                 print("Done!")
-
         if not os.path.exists(self.db_path):
             if 'gtf' in self.in_file_path:
                 self.old_filename = self.in_file_path
@@ -839,7 +856,7 @@ class Exonize(object):
             _, gene_id, gene_s, _, cds_s, cds_e, _, _, target_s, target_e, _ = row
             cds_intv, target_intv = P.open(cds_s, cds_e), P.open(target_s + gene_s, target_e + gene_s)
             for mrna, trans_dict in self.gene_hierarchy_dict[gene_id]['mRNAs'].items():
-                initialize_variables()
+                initialize_variables()  # we want to classify each transcript independently
                 trans_coord = trans_dict['coord']
                 # ####### QUERY ONLY - FULL LENGTH #######
                 identify_query(trans_dict, cds_intv)
@@ -937,12 +954,15 @@ class Exonize(object):
             # Calculate the Hamming distance and return it
             return round(sum(i == j for i, j in zip(seq_1, seq_2)) / len(seq_2), 3)
 
-        def process_fragment(fragment):
-
+        def process_fragment(fragment: list) -> tuple:
+            """
+            process fragment recovers the query/target DNA sequences (since the tblastx alignment is done in amino acids)
+            and computes the DNA and amino acid identity. This information is returned in a tuple and later used to update the
+            Fragments table.
+            """
             (fragment_id, gene_id, gene_start, gene_end, gene_chrom,
              CDS_start, CDS_end, query_start, query_end, target_start, target_end,
              query_strand, target_strand, query_aln_prot_seq, target_aln_prot_seq) = fragment
-
             query_dna_seq = fetch_dna_sequence(gene_chrom, CDS_start, CDS_end, query_start, query_end, query_strand)
             target_dna_seq = fetch_dna_sequence(gene_chrom, gene_start, gene_end, target_start, target_end,
                                                 target_strand)
@@ -958,8 +978,8 @@ class Exonize(object):
 
     def run_exonize_pipeline(self) -> None:
         """
-        run_exonize is a function that runs the exonize pipeline. The function iterates over all genes in the
-        gene_hierarchy_dict attribute and performs a tblastx search for each representative CDS (see get_candidate_CDS_coords).
+        run_exonize_pipeline iterates over all genes in the gene_hierarchy_dict attribute and performs a tblastx search
+        for each representative CDS (see get_candidate_CDS_coords).
         The steps are the following:
         - 1. The function checks if the gene has already been processed. If so, the gene is skipped.
         - 2. For each gene, the function iterates over all representative CDSs and performs a tblastx search.
@@ -979,7 +999,6 @@ class Exonize(object):
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-
         def exonize_asci_art() -> None:
             exonize_ansi_regular = """
 
@@ -993,9 +1012,12 @@ class Exonize(object):
             print(exonize_ansi_regular)
 
         def batch(iterable: list, n=1) -> list:
+            """
+            batch is a function that given a list and a batch size, returns an iterable of lists of size n.
+            """
             it_length = len(iterable)
-            for ndx in range(0, it_length, n):
-                yield iterable[ndx:min(ndx + n, it_length)]
+            for indx in range(0, it_length, n):
+                yield iterable[ndx:min(indx + n, it_length)]
 
         exonize_asci_art()
         self.prepare_data()
@@ -1018,8 +1040,7 @@ class Exonize(object):
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
         else:
-            print('All genes already processed if you want to re-run the analysis, '
-                  'delete/rename the results DB.')
+            print('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
         tic = time.time()
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
