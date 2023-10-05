@@ -1,3 +1,5 @@
+from logging import Logger
+
 from .sqlite_utils import *
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
@@ -16,13 +18,10 @@ import sys
 import logging
 import datetime
 
-log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s',
-                    handlers=[logging.StreamHandler(), logging.FileHandler(log_file_name, mode='w')])
-logger = logging.getLogger(__name__)
-
 
 class Exonize(object):
+    logger: Logger
+
     def __init__(self,
                  gff_file_path,
                  genome_path,
@@ -40,6 +39,7 @@ class Exonize(object):
                  threads=7,
                  timeout_db=160):
 
+        self.configure_logger()
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
@@ -61,8 +61,7 @@ class Exonize(object):
         self.results_db = results_db_name                               # results database name
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
-        if self.results_db == '':
-            self.results_db = f'{self.specie_identifier}_results.db'
+        self.results_db = self.results_db or f'{self.specie_identifier}_results.db'
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
@@ -74,6 +73,18 @@ class Exonize(object):
         self.__query_CDS, self.__target_CDS = "-", "-"
         self.__found = False
         self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
+
+    def configure_logger(self):
+        log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+        logging.basicConfig(
+            level=logging.INFO,
+            format='[%(levelname)s]: %(message)s',
+            handlers=[
+                logging.FileHandler(log_file_name, mode='w'),
+                logging.StreamHandler()
+            ]
+        )
+        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def dump_pkl_file(out_filepath: str, obj: dict) -> None:
@@ -167,7 +178,7 @@ class Exonize(object):
                                              disable_infer_transcripts=True)
                 print("Done!")
             except ValueError as e:
-                logger.exception(f"Incorrect genome annotations file {e}")
+                self.logger.exception(f"Incorrect genome annotations file {e}")
                 sys.exit()
 
         def search_create_intron_annotations() -> None:
@@ -180,13 +191,13 @@ class Exonize(object):
               in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                logger.warning("The GFF file does not contain intron annotations")
+                self.logger.warning("The GFF file does not contain intron annotations")
                 print(f"- Attempting to write intron annotations in database:", end=" ")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
-                    logger.exception(f"failed to write intron annotations in database. "
-                                     f"Please provide a GFF3 file with intron annotations {e}")
+                    self.logger.exception(f"failed to write intron annotations in database. "
+                                          f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
                 print("Done!")
 
@@ -215,7 +226,7 @@ class Exonize(object):
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
         except ValueError as e:
-            logger.exception(f"Incorrect data base path {e}")
+            self.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
     def read_genome(self) -> None:
@@ -234,7 +245,7 @@ class Exonize(object):
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
             print(f"Done! [{hms_time}]")
         except (ValueError, FileNotFoundError) as e:
-            logger.exception(f"Incorrect genome file path {e}")
+            self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
 
     def create_gene_hierarchy_dict(self) -> None:
@@ -295,7 +306,7 @@ class Exonize(object):
         self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self.DEBUG_MODE:
-            logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
+            self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
@@ -358,7 +369,7 @@ class Exonize(object):
                 try:
                     temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                 except Exception as e:
-                    logger.exception(e)
+                    self.logger.exception(e)
                     sys.exit()
             return temp_
 
@@ -382,7 +393,7 @@ class Exonize(object):
                     try:
                         temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
                     except Exception as e:
-                        logger.exception(e)
+                        self.logger.exception(e)
                         sys.exit()
                 return temp_
 
@@ -550,14 +561,14 @@ class Exonize(object):
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        logger.info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.')
+                        self.logger.info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        logger.info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.')
+                        self.logger.info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.')
                 return seq_
             except KeyError as e_:
-                logger.exception(f'Either there is missing a chromosome in the genome file '
-                                 f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
+                self.logger.exception(f'Either there is missing a chromosome in the genome file '
+                                      f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
 
         CDS_blast_dict = {}
@@ -689,7 +700,7 @@ class Exonize(object):
             """
             query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
             if len(query_only_) > 1:
-                logger.error(f'Overlapping query CDSs: {query_only_}, please review your GFF3 file')
+                self.logger.error(f'Overlapping query CDSs: {query_only_}, please review your GFF3 file')
                 sys.exit()
             elif query_only_:
                 self.__query_CDS, _, self.__query_CDS_frame = query_only_[0]
@@ -720,7 +731,7 @@ class Exonize(object):
             """
             target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
             if len(target_only_) > 1:
-                logger.error(f'overlapping target CDSs: {target_only_}')
+                self.logger.error(f'overlapping target CDSs: {target_only_}')
                 sys.exit()
             elif target_only_:
                 self.__target_CDS, t_CDS_coord_, self.__target_CDS_frame = target_only_[0]
