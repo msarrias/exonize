@@ -48,7 +48,6 @@ def main():
                           genome_path=args.genome_path,
                           specie_identifier=args.specie_identifier,
                           results_db_name=args.results_db_name,
-                          spec_attribute=args.spec_attribute,
                           save_input_files=args.save_input_files,
                           verbose=args.verbose,
                           hard_masking=args.hard_masking,
