@@ -1,4 +1,4 @@
-from sqlite_utils import *
+from .sqlite_utils import *
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
 import portion as P                                    # for working with intervals
@@ -496,11 +496,11 @@ class Exonize(object):
                     if type_ == 'CDS':
                         self.logs.append((f'Gene {gene_id_} - {masking_perc * 100} '
                                           f'% of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.'))
+                return seq_
             except KeyError as e_:
                 print(f'Either there is missing a chromosome in the genome file '
                       f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
-            return seq_
 
         CDS_blast_dict = {}
         time.sleep(random.randrange(0, self.secs))
