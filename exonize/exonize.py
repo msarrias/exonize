@@ -8,8 +8,7 @@ def argument_parser():
     parser.add_argument('genome_path', type=str, help='Path to genome file')
     parser.add_argument('specie_identifier', type=str, help='Species identifier')
     parser.add_argument('-r', '--results_db_name', default='', type=str, help='Results database name')
-    parser.add_argument('-s', '--save_input_files', default=False, action='store_true', help='Saves input and output tblastx files')
-    parser.add_argument('-v', '--verbose', default=True, action='store_true', help='Verbose mode')
+    parser.add_argument('-s', '--enable_debug', default=False, action='store_true', help='DEBUG MODE - Saves input and output tblastx files')
     parser.add_argument('-m', '--hard_masking', default=False, action='store_true', help='Hard masking flag')
     parser.add_argument('-e', '--evalue_threshold', default=1e-2, type=float, help='E-value threshold')
     parser.add_argument('-p', '--sleep_max_seconds', default=5, type=int, help='Max sleep seconds')
@@ -30,8 +29,7 @@ def main():
                           genome_path=args.genome_path,
                           specie_identifier=args.specie_identifier,
                           results_db_name=args.results_db_name,
-                          save_input_files=args.save_input_files,
-                          verbose=args.verbose,
+                          enable_debug=args.enable_debug,
                           hard_masking=args.hard_masking,
                           evalue_threshold=args.evalue_threshold,
                           sleep_max_seconds=args.sleep_max_seconds,
