@@ -1017,7 +1017,7 @@ class Exonize(object):
             """
             it_length = len(iterable)
             for indx in range(0, it_length, n):
-                yield iterable[ndx:min(indx + n, it_length)]
+                yield iterable[indx:min(indx + n, it_length)]
 
         exonize_asci_art()
         self.prepare_data()
