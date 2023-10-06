@@ -38,6 +38,7 @@ def connect_create_results_db(db_path: str, timeout_db: int) -> None:
         gene_id  VARCHAR(100) NOT NULL,
         CDS_start INTEGER NOT NULL,
         CDS_end INTEGER NOT NULL,  
+        CDS_frame VARCHAR NOT NULL,
         query_frame INTEGER NOT NULL,
         query_strand VARCHAR(1) NOT NULL,
         target_frame INTEGER NOT NULL,
@@ -288,6 +289,7 @@ def insert_fragments_calls() -> tuple:
     gene_id,
     CDS_start,
     CDS_end,
+    CDS_frame,
     query_frame,
     query_strand,
     target_frame,
@@ -306,7 +308,7 @@ def insert_fragments_calls() -> tuple:
     query_num_stop_codons,
     target_num_stop_codons
     )
-    VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     insert_gene_table_param = """
     INSERT INTO Genes
@@ -789,3 +791,15 @@ def create_exclusive_pairs_view(db_path: str, timeout_db: int) -> None:
         ORDER BY fm3.fragment_id, target, query;
         """)
         db.commit()
+
+#
+# SELECT f.fragment_id, f.gene_id, g.gene_strand, f.CDS_start, f.CDS_end, f.query_start , f.query_end,  f.target_start,
+# f.target_end, f.query_frame qf, f.query_strand qs ,f.target_frame as tf, f.target_strand ts, f.query_dna_seq as qdnq,
+# f.target_dna_seq as tdna FROM Fragments as f
+# inner join Genes as g on f.gene_id=g.gene_id
+# where f.gene_id=="ENSG00000130635";
+# limit 100;
+# where gene_id=="ENSG00000172348"
+#
+#
+# LIMIT 10;
