@@ -1,5 +1,3 @@
-from logging import Logger
-
 from .sqlite_utils import *
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
@@ -20,7 +18,7 @@ import datetime
 
 
 class Exonize(object):
-    logger: Logger
+    logger: logging.Logger
 
     def __init__(self,
                  gff_file_path,
@@ -43,7 +41,7 @@ class Exonize(object):
 
         self.configure_logger()
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
-        self._SOFT_FORCE = soft_force                                        # (True/False) - will remove results database if it exists
+        self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
         self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
@@ -82,18 +80,25 @@ class Exonize(object):
             self.remove_file_if_exists(self.results_db)
         elif self._SOFT_FORCE:
             self.remove_file_if_exists(self.results_db)
+        print(self._DEBUG_MODE)
 
     def configure_logger(self):
+        """
+        configure_logger is a function that configures the logger.
+        INFO level is used for the log file and WARNING and ERROR level for the console.
+        """
         log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
-        logging.basicConfig(
-            level=logging.INFO,
-            format='[%(levelname)s]: %(message)s',
-            handlers=[
-                logging.FileHandler(log_file_name, mode='w'),
-                logging.StreamHandler()
-            ]
-        )
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter('[%(levelname)s]: %(message)s')
+        file_handler = logging.FileHandler(log_file_name, mode='w')
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(logging.Formatter('%(message)s'))
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.WARNING)
+        console_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
 
     @staticmethod
     def dump_pkl_file(out_filepath: str, obj: dict) -> None:
@@ -305,12 +310,9 @@ class Exonize(object):
                         if coord:
                             temp_mrna_transcript.append(dict(id=child.id,  # ID attribute
                                                              coord=coord,  # ID coordinate starting at 0
-                                                             # One of '0', '1' or '2'. '0' indicates that the x base of
-                                                             # the feature is the x base of a codon
-                                                             frame=child.frame,
+                                                             frame=child.frame,  # One of '0', '1' or '2'.
                                                              type=child.featuretype,   # feature type name
-                                                             attributes=dict(child.attributes))  # feature type name
-                                                        )
+                                                             attributes=dict(child.attributes)))  # feature type name
                     reverse = self.reverse_sequence_bool(gene.strand)
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(temp_mrna_transcript, reverse)
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
@@ -899,7 +901,7 @@ class Exonize(object):
             return [get_shorter_intv_overlapping_percentage(pair[0], pair[1]) for pair in pairs]
 
         fragments, skip_frag, pair_id_counter = [], [], 1
-        with tqdm(total=len(full_matches), position=0, leave=True) as progress_bar:
+        with tqdm(total=len(full_matches), position=0, leave=True, ncols=50) as progress_bar:
             for frag_a in full_matches:
                 frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
                 t_intv_a = P.open(t_s_a, t_e_a)
@@ -1031,7 +1033,7 @@ class Exonize(object):
             tic = time.time()
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
             print(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
-            with tqdm(total=len(args_list), position=0, leave=True) as progress_bar:
+            with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
                     t.map(self.find_coding_exon_duplicates, arg_batch)
@@ -1063,5 +1065,4 @@ class Exonize(object):
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
         hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-        self.dump_masking_logs()
         print(f' Done! [{hms_time}]')
