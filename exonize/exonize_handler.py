@@ -1040,9 +1040,8 @@ class Exonize(object):
             args_list = [i for i in args_list if i not in processed_gene_ids]
         if args_list:
             batches_list = [i for i in batch(args_list, self.batch_number)]
-            tic = time.time()
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            print(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
+            self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
             with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
@@ -1050,11 +1049,8 @@ class Exonize(object):
                     t.close()
                     t.join()
                     progress_bar.update(len(arg_batch))
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-            print(f' Done! [{hms_time}]')
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
-        tic = time.time()
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
@@ -1070,9 +1066,7 @@ class Exonize(object):
         identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
-        print('- Reconciling events')
+        self.logger.info('- Reconciling events')
         fragments = self.assign_pair_ids(full_matches)
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
-        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
-        print(f' Done! [{hms_time}]')
