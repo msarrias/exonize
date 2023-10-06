@@ -194,9 +194,9 @@ class Exonize(object):
             gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
             subprocess.call(gffread_command)
 
-        def create_database() -> None:
+        def create_genome_database() -> None:
             """
-            create_database is a function that creates a gffutils database from a GFF3 file.
+            create_genome_database is a function that creates a gffutils database from a GFF3 file.
             - dbfn: path to the database file
             - force: if True, the database will be overwritten if it already exists
             - keep_order: if True, the order of the features in the GFF file will be preserved
@@ -246,7 +246,7 @@ class Exonize(object):
                 convert_gtf_to_gff()
                 self.logger.info('the GTF file has been converted into a GFF3 file')
                 self.logger.info(f'with filename: {self.in_file_path}')
-            create_database()
+            create_genome_database()
         if not self.db:
             print("- Reading annotations database:", end=" ")
             self.load_db()
@@ -302,6 +302,37 @@ class Exonize(object):
                              'type': feature_type_1, 'attributes': attribute_dict_1},...]
                              },...}},...}
         """
+        def construct_mRNA_sequence(chrom_, strand_, coords_):
+            seq = ''
+            for coord_ in coords_:
+                start, end = coord_['coord'].lower, coord_['coord'].upper
+                exon_ = self.genome[chrom_][start:end]
+                if strand_ == '-':
+                    exon_ = str(Seq(exon_).reverse_complement())
+                seq += exon_
+            return seq
+
+        def construct_protein_sequence(gene_, trans_id_, mRNA_seq_, coords_):
+            CDs_temp_list_ = {}
+            prot_seq_, temp, start_coord = '', [], 0
+            for coord_idx, coord_ in enumerate(coords_):
+                frame = int(coord_['frame'])
+                s, e = coord_['coord'].lower, coord_['coord'].upper
+                len_coord, frame_next = e - s, 0
+                end_coord = len_coord + start_coord
+                if coord_idx != len(coords_) - 1:
+                    frame_next = int(coords_[coord_idx + 1]['frame'])
+                exon_seq = mRNA_seq_[start_coord + frame:  end_coord + frame_next]
+                exon_prot = str(Seq(exon_seq).translate())
+                prot_seq_ += exon_prot
+                temp.append(len(exon_seq) % 3)
+                start_coord, frame = end_coord, frame_next
+                CDs_temp_list_[coord_['id']] = dict(frame=frame, coord=P.open(s, e), dna_seq=exon_seq, pep_seq=exon_prot)
+            if max(temp) > 0:
+                if not (temp[-1] != 0) and all(item == 0 for item in temp[:-1]):
+                    print(f'check here: {gene_}, {trans_id_}')
+            return prot_seq_, CDs_temp_list_
+
         self.gene_hierarchy_dict = {}
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -310,7 +341,8 @@ class Exonize(object):
                 mrna_dict = dict(coord=gene_coord, chrom=gene.chrom, strand=gene.strand, mRNAs={})
                 for mrna_annot in mrna_transcripts:
                     mrna_coord = P.open(mrna_annot.start - 1, mrna_annot.end)
-                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand, structure=[])
+                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand,
+                                                             structure=[], pep_seq=None, cds_seqs=[])
                     temp_mrna_transcript = []
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
@@ -320,8 +352,16 @@ class Exonize(object):
                                                              frame=child.frame,  # One of '0', '1' or '2'.
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes)))  # feature type name
+                    # if the gene is in the negative strand the direction of transcription and translation
+                    # is opposite to the direction the DNA sequence is represented meaning that translation starts
+                    # from the last CDS
                     reverse = self.reverse_sequence_bool(gene.strand)
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(temp_mrna_transcript, reverse)
+                    list_cds_annot = [i for i in mrna_dict['mRNAs'][mrna_annot.id]['structure'] if i['type'] == 'CDS']
+                    mRNA_seq = construct_mRNA_sequence(gene.chrom, gene.strand, list_cds_annot)
+                    prot_seq, CDS_seqs_list = construct_protein_sequence(gene, gene.strand, mRNA_seq, list_cds_annot)
+                    mrna_dict['mRNAs'][mrna_annot.id]['pep_seq'] = prot_seq
+                    mrna_dict['mRNAs'][mrna_annot.id]['CDSs'] = CDS_seqs_list
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
@@ -334,11 +374,11 @@ class Exonize(object):
         (iv)  connects or creates the results database
         """
         self.create_parse_or_update_database()
+        self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
             self.create_gene_hierarchy_dict()
-        self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self._DEBUG_MODE:
             self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
@@ -559,7 +599,7 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
+        def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, type_='gene'):
             """
             get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
             if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
@@ -570,7 +610,6 @@ class Exonize(object):
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
             :param coords_: coordinates
-            :param gene_strand_: strand
             :param type_: type of sequence (gene or CDS)
             """
 
@@ -582,8 +621,6 @@ class Exonize(object):
                 return seq.count('N') / len(seq)
             try:
                 seq_ = str(Seq(self.genome[chrom_][coords_.lower:coords_.upper]))
-                # if self.reverse_sequence_bool(gene_strand_):
-                #     seq_ = str(seq_.reverse_complement())
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
@@ -605,13 +642,13 @@ class Exonize(object):
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
-        gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord, gene_strand, type_='gene')
+        gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord,  type_='gene')
         if gene_seq:
             reverse = self.reverse_sequence_bool(gene_strand)
             CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
             CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
             for cds_coord in CDS_coords_list:
-                cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
+                cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord,  type_='CDS')
                 if cds_seq:
                     tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
                     if tblastx_o:
