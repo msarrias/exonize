@@ -342,7 +342,7 @@ class Exonize(object):
                 for mrna_annot in mrna_transcripts:
                     mrna_coord = P.open(mrna_annot.start - 1, mrna_annot.end)
                     mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand,
-                                                             structure=[], pep_seq=None, cds_seqs=[])
+                                                             structure=[], pep_seq=None, CDSs=[])
                     temp_mrna_transcript = []
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
@@ -404,16 +404,17 @@ class Exonize(object):
                            '-out', output_file]
         subprocess.run(tblastx_command)
 
-    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord: P.Interval) -> dict:
+    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord: P.Interval, cds_frame: str) -> dict:
         """
         align_CDS is a function that performs a tblastx search between a query sequence (CDS) and a target sequence (gene).
         :param gene_id: gene identifier
         :param query_seq: query sequence (CDS)
         :param hit_seq: target sequence (gene)
         :param query_coord: query coordinates (CDS) interval
+        :param cds_frame: frame of the CDS
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
             """
             tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
             function is used for debugging purposes. The input and output files are saved in the following paths:
@@ -433,19 +434,15 @@ class Exonize(object):
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
                 try:
-                    temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
+                    temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                 except Exception as e:
                     self.logger.exception(e)
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
-            :param hit_seq_: target sequence (gene)
-            :param query_seq_: query sequence (CDS)
-            :param query_coord_: query coordinates (CDS) interval
-            :param gene_coord_: target coordinates (gene) interval
             """
             with tempfile.TemporaryDirectory() as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
@@ -457,7 +454,7 @@ class Exonize(object):
                 with open(output_file, 'r') as result_handle:
                     blast_records = NCBIXML.parse(result_handle)
                     try:
-                        temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
+                        temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                     except Exception as e:
                         self.logger.exception(e)
                         sys.exit()
@@ -467,12 +464,12 @@ class Exonize(object):
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
         if self._DEBUG_MODE:
-            temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord)
+            temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord, cds_frame)
         else:
-            temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord)
+            temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord, cds_frame)
         return temp
 
-    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval) -> dict:
+    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval, cds_frame_: str) -> dict:
         """
         the parse_tblastx_output function parses the output of a tblastx search, where a single sequence (CDS)
         has been queried against a single target (gene). Meaning that we only expect to find one BLAST record.
@@ -484,10 +481,12 @@ class Exonize(object):
         :param blast_records: 'Record' object with blast records
         :param q_coord: query coordinates (CDS) interval
         :param hit_coord: hit coordinates
+        :param cds_frame_: frame of the CDS
         :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
-        def get_hsp_dict(hsp) -> dict:
+        def get_hsp_dict(hsp, cds_frame: str) -> dict:
             return dict(
+                cds_frame=cds_frame,
                 score=hsp.score,
                 bits=hsp.bits,
                 evalue=hsp.expect,
@@ -516,7 +515,7 @@ class Exonize(object):
                 blast_target_coord = P.open((hsp_rec.sbjct_start - 1) + hit_coord.lower, hsp_rec.sbjct_end + hit_coord.lower)
                 if (self.get_overlap_percentage(q_coord, blast_target_coord) < self.self_hit_threshold
                         and self.get_overlap_percentage(blast_target_coord, q_coord) < self.self_hit_threshold):
-                    res_tblastx[hsp_idx] = get_hsp_dict(hsp_rec)
+                    res_tblastx[hsp_idx] = get_hsp_dict(hsp_rec, cds_frame_)
         return res_tblastx
 
     def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
@@ -532,7 +531,7 @@ class Exonize(object):
                 gene_coord.upper,
                 has_dup_bin)
 
-    def get_candidate_CDS_coords(self, gene_id: str) -> list:
+    def get_candidate_CDS_coords(self, gene_id: str) -> dict:
         """
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
@@ -557,7 +556,7 @@ class Exonize(object):
                     if all([self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold,
                             self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold])]
 
-        def resolve_overlaps_coords_list(coords_list):
+        def resolve_overlaps_coords_list(coords_list) -> list:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
@@ -582,15 +581,22 @@ class Exonize(object):
             else:
                 return coords_list
 
-        CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot
+        CDS_coords_list = list(set([(i['coord'],
+                                     str(mrna_annot['CDSs'][i['id']]['frame']),
+                                     mrna_annot['CDSs'][i['id']]['dna_seq']) for mrna_id, mrna_annot
                                     in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS'
-                                       and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
-        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
+                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
         if CDS_coords_list:
-            return resolve_overlaps_coords_list(CDS_coords_list)
-        return []
+            cds_dict = {}
+            for cds_coord, frame, dna_seq in CDS_coords_list:
+                if cds_coord in cds_dict:
+                    cds_dict[cds_coord]['frame'] += f'_{str(frame)}'
+                else:
+                    cds_dict[cds_coord] = {'frame': frame, 'dna_seq': dna_seq}
+            CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
+            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), seqs=cds_dict)
+        return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
@@ -599,7 +605,7 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, type_='gene'):
+        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
             """
             get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
             if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
@@ -609,7 +615,7 @@ class Exonize(object):
             and later dumped into a file.
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
-            :param coords_: coordinates
+            :param seq_: sequence
             :param type_: type of sequence (gene or CDS)
             """
 
@@ -620,7 +626,6 @@ class Exonize(object):
                 """
                 return seq.count('N') / len(seq)
             try:
-                seq_ = str(Seq(self.genome[chrom_][coords_.lower:coords_.upper]))
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
@@ -642,21 +647,23 @@ class Exonize(object):
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
-        gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord,  type_='gene')
+        temp_gs = str(Seq(self.genome[chrom][gene_coord.lower:gene_coord.upper]))
+        gene_seq = check_for_masking(chrom, gene_id, temp_gs, type_='gene')
         if gene_seq:
-            reverse = self.reverse_sequence_bool(gene_strand)
-            CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
-            CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
-            for cds_coord in CDS_coords_list:
-                cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord,  type_='CDS')
-                if cds_seq:
-                    tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
-                    if tblastx_o:
-                        CDS_blast_dict[cds_coord] = tblastx_o
-            if CDS_blast_dict:
-                self.insert_fragments_table(gene_id, CDS_blast_dict)
-            else:
-                insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
+            CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
+            if CDS_coords_dict:
+                for cds_coord in CDS_coords_dict['set_coords']:
+                    temp_cds = CDS_coords_dict['seqs'][cds_coord]['dna_seq']
+                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
+                    if cds_seq:
+                        cds_frame_ = CDS_coords_dict['seqs'][cds_coord]['frame']
+                        tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
+                        if tblastx_o:
+                            CDS_blast_dict[cds_coord] = tblastx_o
+                if CDS_blast_dict:
+                    self.insert_fragments_table(gene_id, CDS_blast_dict)
+                else:
+                    insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
         """
@@ -688,7 +695,7 @@ class Exonize(object):
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
             hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-            return (gene_id_, cds_coord.lower, cds_coord.upper,
+            return (gene_id_, cds_coord.lower, cds_coord.upper, hsp_dict['cds_frame'],
                     hit_q_f, hit_q_s, hit_t_f, hit_t_s,
                     hsp_dict['score'], hsp_dict['bits'], hsp_dict['evalue'],
                     hsp_dict['alignment_len'], hsp_dict['query_start'], hsp_dict['query_end'],
