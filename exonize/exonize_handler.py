@@ -104,6 +104,16 @@ class Exonize(object):
             pickle.dump(obj, handle)
 
     @staticmethod
+    def dump_fasta_file(out_filepath: str, seq_dict: dict) -> None:
+        """
+        dump_fasta_file is a function that dumps a dictionary with sequences into a FASTA file.
+        """
+        with open(out_filepath, "w") as handle:
+            for annot_id, annot_seq in seq_dict.items():
+                record = SeqRecord(Seq(annot_seq), id=str(annot_id), description='')
+                SeqIO.write(record, handle, "fasta")
+
+    @staticmethod
     def read_pkl_file(filepath: str) -> dict:
         """
         read_pkl_file is a function that reads a pickle file and returns the object stored in it.
@@ -363,22 +373,13 @@ class Exonize(object):
             - output: output/{ident}_output.xml where ident is the identifier of the query sequence (CDS).
             """
 
-            def dump_fasta_file(out_filepath: str, seq_dict: dict) -> None:
-                """
-                dump_fasta_file is a function that dumps a dictionary with sequences into a FASTA file.
-                """
-                with open(out_filepath, "w") as handle:
-                    for annot_id, annot_seq in seq_dict.items():
-                        record = SeqRecord(Seq(annot_seq), id=str(annot_id), description='')
-                        SeqIO.write(record, handle, "fasta")
-
             output_file = f'output/{ident}_output.xml'
             if not os.path.exists(output_file):
                 query_filename = f'input/{ident}_query.fa'
                 target_filename = f'input/{gene_id_}_target.fa'
                 if not os.path.exists(target_filename):
-                    dump_fasta_file(target_filename, {f"{gene_id_}": hit_seq_})
-                dump_fasta_file(query_filename, {ident: query_seq_})
+                    self.dump_fasta_file(target_filename, {f"{gene_id_}": hit_seq_})
+                self.dump_fasta_file(query_filename, {ident: query_seq_})
                 self.execute_tblastx(query_filename, target_filename, output_file)
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
@@ -400,8 +401,8 @@ class Exonize(object):
             with tempfile.TemporaryDirectory() as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
                 target_filename = f'{tmpdirname}/target.fa'
-                dump_fasta_file(query_filename, {'query': query_seq_})
-                dump_fasta_file(target_filename, {'target': hit_seq_})
+                self.dump_fasta_file(query_filename, {'query': query_seq_})
+                self.dump_fasta_file(target_filename, {'target': hit_seq_})
                 output_file = f'{tmpdirname}/output.xml'
                 self.execute_tblastx(query_filename, target_filename, output_file)
                 with open(output_file, 'r') as result_handle:
