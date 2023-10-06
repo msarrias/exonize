@@ -1,11 +1,9 @@
-from Exonize import *
+from exonize.exonize import *
 
 test_object = Exonize('',
                       '',
                       'test',
                       results_db_name='',
-                      spec_attribute='ID',
-                      min_tblastx_align_len_perc=0.8,
                       min_exon_length=20,
                       cds_overlapping_threshold=0.8,
                       masking_perc_threshold=0.8,
