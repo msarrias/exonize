@@ -19,6 +19,7 @@ import datetime
 
 class Exonize(object):
     logger: logging.Logger
+    FILE_ONLY_INFO = 9  # Custom logging level between INFO (20) and WARNING (30)
 
     def __init__(self,
                  gff_file_path,
@@ -39,6 +40,7 @@ class Exonize(object):
                  threads=7,
                  timeout_db=160):
 
+        logging.addLevelName(self.FILE_ONLY_INFO, 'FILE_ONLY_INFO')
         self.configure_logger()
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
@@ -82,6 +84,11 @@ class Exonize(object):
             self.remove_file_if_exists(self.results_db)
         print(self._DEBUG_MODE)
 
+    # noinspection PyProtectedMember
+    def file_only_info(self, message, *args, **kws):
+        if self.logger.isEnabledFor(self.FILE_ONLY_INFO):
+            self.logger._log(self.FILE_ONLY_INFO, message, args, **kws)
+
     def configure_logger(self):
         """
         configure_logger is a function that configures the logger.
@@ -91,13 +98,14 @@ class Exonize(object):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         file_handler = logging.FileHandler(log_file_name, mode='w')
-        file_handler.setLevel(logging.INFO)
+        file_handler.setLevel(self.FILE_ONLY_INFO)
         file_handler.setFormatter(logging.Formatter('%(message)s'))
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.WARNING)
+        console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
+        logging.Logger.file_only_info = self.file_only_info
 
     @staticmethod
     def dump_pkl_file(out_filepath: str, obj: dict) -> None:
@@ -222,7 +230,7 @@ class Exonize(object):
               in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                self.logger.warning("The GFF file does not contain intron annotations")
+                self.logger.info("The GFF file does not contain intron annotations")
                 print(f"- Attempting to write intron annotations in database:", end=" ")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
@@ -236,8 +244,8 @@ class Exonize(object):
                 self.old_filename = self.in_file_path
                 self.in_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
                 convert_gtf_to_gff()
-                print('the GTF file has been converted into a GFF3 file')
-                print(f'with filename: {self.in_file_path}')
+                self.logger.info('the GTF file has been converted into a GFF3 file')
+                self.logger.info(f'with filename: {self.in_file_path}')
             create_database()
         if not self.db:
             print("- Reading annotations database:", end=" ")
@@ -462,7 +470,8 @@ class Exonize(object):
                 continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
-                print("More than one alignment per blast_record")
+                self.logger.error("More than one alignment per blast_record")
+                sys.exit()
             for hsp_idx, hsp_rec in enumerate(alignment.hsps):
                 blast_target_coord = P.open((hsp_rec.sbjct_start - 1) + hit_coord.lower, hsp_rec.sbjct_end + hit_coord.lower)
                 if (self.get_overlap_percentage(q_coord, blast_target_coord) < self.self_hit_threshold
@@ -579,10 +588,12 @@ class Exonize(object):
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logger.info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, {str(coords_.upper)} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, '
+                                                   f'{str(coords_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logger.info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} located in chromosome {chrom_} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} '
+                                                   f'located in chromosome {chrom_} is hardmasked.')
                 return seq_
             except KeyError as e_:
                 self.logger.exception(f'Either there is missing a chromosome in the genome file '
@@ -1042,7 +1053,7 @@ class Exonize(object):
             hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic), '%H:%M:%S')
             print(f' Done! [{hms_time}]')
         else:
-            print('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
+            self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
         tic = time.time()
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
