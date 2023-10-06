@@ -61,13 +61,13 @@ class Exonize(object):
         self.cds_overlapping_threshold = cds_overlapping_threshold      # CDS overlapping threshold (0-1)
         self.self_hit_threshold = self_hit_threshold                    # self-hit threshold (0-1)
         self.results_db = results_db_name                               # results database name
+        self.masking_perc_threshold = masking_perc_threshold
         self.stop_codons = ["TAG", "TGA", "TAA"]
         self.db_path = f'{self.specie_identifier}_genome_annotations.db'
         self.results_db = self.results_db or f'{self.specie_identifier}_results.db'
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
         self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
-        self.masking_perc_threshold = masking_perc_threshold
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
@@ -90,7 +90,6 @@ class Exonize(object):
         log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('[%(levelname)s]: %(message)s')
         file_handler = logging.FileHandler(log_file_name, mode='w')
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(logging.Formatter('%(message)s'))
