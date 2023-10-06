@@ -304,7 +304,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
-        if self.DEBUG_MODE:
+        if self._DEBUG_MODE:
             self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
