@@ -581,9 +581,9 @@ class Exonize(object):
                 """
                 return seq.count('N') / len(seq)
             try:
-                seq_ = Seq(self.genome[chrom_][coords_.lower:coords_.upper])
-                if self.reverse_sequence_bool(gene_strand_):
-                    seq_ = str(seq_.reverse_complement())
+                seq_ = str(Seq(self.genome[chrom_][coords_.lower:coords_.upper]))
+                # if self.reverse_sequence_bool(gene_strand_):
+                #     seq_ = str(seq_.reverse_complement())
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
