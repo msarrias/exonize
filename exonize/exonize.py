@@ -18,7 +18,8 @@ def exonize_ascii_art_logo() -> None:
           "Supervised by: Lars Arvestad, Mathematics Department, Stockholm University\n"
           "               & Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "      Contact: marina.sarrias@math.su.se\n"
-          "       GitHub: https://github.com/msarrias/exonize")
+          "       GitHub: https://github.com/msarrias/exonize\n"
+          "\n")
 
 
 def argument_parser():
