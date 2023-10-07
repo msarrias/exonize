@@ -359,7 +359,7 @@ class Exonize(object):
             """
             CDs_temp_list_ = {}
             prot_seq_, temp, start_coord = '', [], 0
-            n_coords = len(coords_)-1
+            n_coords = len(coords_)
             for coord_idx, coord_ in enumerate(coords_):
                 frame = int(coord_['frame'])
                 s, e = coord_['coord'].lower, coord_['coord'].upper
@@ -1098,18 +1098,6 @@ class Exonize(object):
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def exonize_asci_art() -> None:
-            exonize_ansi_regular = """
-
-            ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
-            ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
-            █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
-            ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
-            ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
-            ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
-            """
-            print(exonize_ansi_regular)
-
         def batch(iterable: list, n=1) -> list:
             """
             batch is a function that given a list and a batch size, returns an iterable of lists of size n.
@@ -1118,7 +1106,6 @@ class Exonize(object):
             for indx in range(0, it_length, n):
                 yield iterable[indx:min(indx + n, it_length)]
 
-        exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
