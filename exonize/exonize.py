@@ -2,7 +2,7 @@ from .exonize_handler import *
 import argparse
 
 
-def exonize_asci_art() -> None:
+def exonize_ascii_art_logo() -> None:
     exonize_ansi_regular = """
     
     ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
@@ -45,7 +45,7 @@ def argument_parser():
 
 
 def main():
-    exonize_asci_art()
+    exonize_ascii_art_logo()
     args = argument_parser()
     exonize_obj = Exonize(gff_file_path=args.gff_file_path,
                           genome_path=args.genome_path,
