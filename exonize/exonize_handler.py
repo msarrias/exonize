@@ -316,6 +316,16 @@ class Exonize(object):
                 seq += exon_
             return seq
 
+        def check_for_overhangs(seq: str, cds_idx: int, n_CDSs: int, gene_id: str, trans_id: str) -> str:
+            overhang = len(seq) % 3
+            if overhang:
+                if cds_idx == (n_CDSs - 1):
+                    seq = seq[:-overhang]
+                else:
+                    self.logger.error(f'check here: {gene_id}, {trans_id}')
+                    sys.exit()
+            return seq
+
         def construct_protein_sequence(gene_, trans_id_, mRNA_seq_, coords_):
             """
             Construct a protein sequence from transcriptomic coordinates and collect corresponding CDSs in both DNA and
@@ -341,12 +351,15 @@ class Exonize(object):
                 cds4: (7311, 7442)
             ----------------
             Note:
-                The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
+                - The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
                 reading frame of 2 for cds2.
-            This function, therefore, ensures accurate translation and splicing of CDSs by adhering to specified reading frames.
+                - It is not uncommon that the length of the last CDS is not a multiple of 3. This is because the reading
+                frames of different CDSs across transcripts are not necessarily aligned. So that the extra nucleotides
+                are necesary for satisfying completition of all transcripts.
             """
             CDs_temp_list_ = {}
             prot_seq_, temp, start_coord = '', [], 0
+            n_coords = len(coords_)-1
             for coord_idx, coord_ in enumerate(coords_):
                 frame = int(coord_['frame'])
                 s, e = coord_['coord'].lower, coord_['coord'].upper
@@ -354,16 +367,12 @@ class Exonize(object):
                 end_coord = len_coord + start_coord
                 if coord_idx != len(coords_) - 1:
                     frame_next = int(coords_[coord_idx + 1]['frame'])
-                exon_seq = mRNA_seq_[start_coord + frame:  end_coord + frame_next]
+                exon_seq = check_for_overhangs(mRNA_seq_[start_coord + frame:  end_coord + frame_next],
+                                               coord_idx, n_coords, gene_, trans_id_)
                 exon_prot = str(Seq(exon_seq).translate())
                 prot_seq_ += exon_prot
-                temp.append(len(exon_seq) % 3)
                 start_coord, frame = end_coord, frame_next
                 CDs_temp_list_[coord_['id']] = dict(frame=frame, coord=P.open(s, e), dna_seq=exon_seq, pep_seq=exon_prot)
-            if max(temp) > 0:
-                if not (temp[-1] != 0) and all(item == 0 for item in temp[:-1]):
-                    self.logger.error(f'check here: {gene_}, {trans_id_}')
-                    sys.exit()
             return prot_seq_, CDs_temp_list_
 
         self.gene_hierarchy_dict = {}
@@ -640,7 +649,7 @@ class Exonize(object):
         """
         def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
             """
-            get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
+            check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
             if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
             threshold (self.masking_perc_threshold) the CDS duplication search is aborted and the gene is recorded
             as having no duplication event. If the sequence is a CDS and the percentage of hardmasking is greater than
@@ -686,7 +695,7 @@ class Exonize(object):
             CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
             if CDS_coords_dict:
                 for cds_coord in CDS_coords_dict['set_coords']:
-                    temp_cds = CDS_coords_dict['seqs'][cds_coord]['dna_seq']
+                    temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
                     cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
                     if cds_seq:
                         cds_frame_ = CDS_coords_dict['seqs'][cds_coord]['frame']
