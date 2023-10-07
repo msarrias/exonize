@@ -325,7 +325,7 @@ class Exonize(object):
             across possibly intron-interrupted CDS regions.
             In the context of a GFF file, feature coordinates are generally relative to the genomic sequence, which implies
             that reading frames may be disrupted by introns.
-
+            ----------------
             Example:
                 Consider the following genomic coordinates of CDSs and their reading frames:
                 cds1: (0,127)      reading frame: 0
@@ -339,8 +339,8 @@ class Exonize(object):
                 cds2: (4547, 4682)
                 cds3: (6460, 6589)
                 cds4: (7311, 7442)
-
-                Note:
+            ----------------
+            Note:
                 The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
                 reading frame of 2 for cds2.
             This function, therefore, ensures accurate translation and splicing of CDSs by adhering to specified reading frames.
@@ -362,7 +362,8 @@ class Exonize(object):
                 CDs_temp_list_[coord_['id']] = dict(frame=frame, coord=P.open(s, e), dna_seq=exon_seq, pep_seq=exon_prot)
             if max(temp) > 0:
                 if not (temp[-1] != 0) and all(item == 0 for item in temp[:-1]):
-                    print(f'check here: {gene_}, {trans_id_}')
+                    self.logger.error(f'check here: {gene_}, {trans_id_}')
+                    sys.exit()
             return prot_seq_, CDs_temp_list_
 
         self.gene_hierarchy_dict = {}
