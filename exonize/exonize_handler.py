@@ -303,6 +303,10 @@ class Exonize(object):
                              },...}},...}
         """
         def construct_mRNA_sequence(chrom_, strand_, coords_):
+            """
+            construct_mRNA_sequence is a function that constructs the mRNA sequence based on genomic coordinates of the
+            CDSs and the strand of the gene.
+            """
             seq = ''
             for coord_ in coords_:
                 start, end = coord_['coord'].lower, coord_['coord'].upper
@@ -313,6 +317,34 @@ class Exonize(object):
             return seq
 
         def construct_protein_sequence(gene_, trans_id_, mRNA_seq_, coords_):
+            """
+            Construct a protein sequence from transcriptomic coordinates and collect corresponding CDSs in both DNA and
+            protein formats.
+            Given the transcriptomic coordinates and considering the reading frames specified in a GFF file, this function
+            constructs a protein sequence while managing the intricacies of exon stitching and reading frame maintenance
+            across possibly intron-interrupted CDS regions.
+            In the context of a GFF file, feature coordinates are generally relative to the genomic sequence, which implies
+            that reading frames may be disrupted by introns.
+
+            Example:
+                Consider the following genomic coordinates of CDSs and their reading frames:
+                cds1: (0,127)      reading frame: 0
+                cds2: (4545,4682)  reading frame: 2
+                cds3: (6460,6589)  reading frame: 0
+                cds4: (7311,7442)  reading frame: 0
+
+                When translated to transcriptomic coordinates (while still referring to genomic positions), considering
+                reading frames, the coordinates become:
+                cds1: (0, 127), (4545, 4547)
+                cds2: (4547, 4682)
+                cds3: (6460, 6589)
+                cds4: (7311, 7442)
+
+                Note:
+                The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
+                reading frame of 2 for cds2.
+            This function, therefore, ensures accurate translation and splicing of CDSs by adhering to specified reading frames.
+            """
             CDs_temp_list_ = {}
             prot_seq_, temp, start_coord = '', [], 0
             for coord_idx, coord_ in enumerate(coords_):
