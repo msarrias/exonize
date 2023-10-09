@@ -2,13 +2,13 @@
 name = "Exonize"
 description = "Find duplicated exons"
 authors = [
-	"Marina Herrera Sarrias <marina.sarrias_at_math.su.se>",
-	"Lars Arvestad <arvestad_at_math.su.se>",
-	"Liam Longo <llongo_at_elsi.jp>"
+	{name = "Lars Arvestad", email = "marina.sarrias_at_math.su.se"},
+	{name = "Liam Longo", email = "llongo_at_elsi.jp"},
+	{name = "Marina Herrera Sarrias", email = "marina.sarrias_at_math.su.se"}
 ]
 maintainers = [
-	"Marina Herrera Sarrias <marina.sarrias_at_math.su.se>",
-	"Lars Arvestad <arvestad_at_math.su.se>"
+	{name = "Marina Herrera Sarrias", email = "marina.sarrias_at_math.su.se"},
+	{name = "Lars Arvestad", email = "marina.sarrias_at_math.su.se"}
 ]
 version = "0.1"
 dependencies = [
