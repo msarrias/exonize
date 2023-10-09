@@ -82,7 +82,6 @@ class Exonize(object):
             self.remove_file_if_exists(self.results_db)
         elif self._SOFT_FORCE:
             self.remove_file_if_exists(self.results_db)
-        print(self._DEBUG_MODE)
 
     # noinspection PyProtectedMember
     def file_only_info(self, message, *args, **kws):
@@ -464,7 +463,6 @@ class Exonize(object):
             sequence (CDS) and gene_id_ is the identifier of the target sequence (gene).
             - output: output/{ident}_output.xml where ident is the identifier of the query sequence (CDS).
             """
-
             output_file = f'output/{ident}_output.xml'
             if not os.path.exists(output_file):
                 query_filename = f'input/{ident}_query.fa'
@@ -649,18 +647,16 @@ class Exonize(object):
         """
         def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
             """
-            check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
-            if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
-            threshold (self.masking_perc_threshold) the CDS duplication search is aborted and the gene is recorded
-            as having no duplication event. If the sequence is a CDS and the percentage of hardmasking is greater than
-            the threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored in the logs attribute
-            and later dumped into a file.
+            check_for_masking is a function that checks if it is hardmasked. If the sequence is a gene and the percentage
+            of hardmasking is greater than the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
+            and the gene is recorded as having no duplication event. If the sequence is a CDS and the percentage of
+            hardmasking is greater than the threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored
+            in the logs attribute and later dumped into a file.
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
             :param seq_: sequence
             :param type_: type of sequence (gene or CDS)
             """
-
             def sequence_masking_percentage(seq: str) -> float:
                 """
                 sequence_masking_percentage is a function that given a sequence, returns the percentage of hardmasking
