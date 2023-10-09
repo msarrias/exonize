@@ -2,13 +2,13 @@
 name = "Exonize"
 description = "Find duplicated exons"
 authors = [
-	{name = "Lars Arvestad", email = "marina.sarrias_at_math.su.se"},
-	{name = "Liam Longo", email = "llongo_at_elsi.jp"},
-	{name = "Marina Herrera Sarrias", email = "marina.sarrias_at_math.su.se"}
+	{name = "Lars Arvestad", email = "arvestad@math.su.se"},
+	{name = "Liam Longo", email = "llongo@elsi.jp"},
+	{name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"}
 ]
 maintainers = [
-	{name = "Marina Herrera Sarrias", email = "marina.sarrias_at_math.su.se"},
-	{name = "Lars Arvestad", email = "marina.sarrias_at_math.su.se"}
+	{name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
+	{name = "Lars Arvestad", email = "arvestad@math.su.se"}
 ]
 version = "0.1"
 dependencies = [
@@ -20,7 +20,5 @@ dependencies = [
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
-
-
 [project.scripts]
 exonize = "exonize.exonize:main"
