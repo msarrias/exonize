@@ -791,15 +791,3 @@ def create_exclusive_pairs_view(db_path: str, timeout_db: int) -> None:
         ORDER BY fm3.fragment_id, target, query;
         """)
         db.commit()
-
-#
-# SELECT f.fragment_id, f.gene_id, g.gene_strand, f.CDS_start, f.CDS_end, f.query_start , f.query_end,  f.target_start,
-# f.target_end, f.query_frame qf, f.query_strand qs ,f.target_frame as tf, f.target_strand ts, f.query_dna_seq as qdnq,
-# f.target_dna_seq as tdna FROM Fragments as f
-# inner join Genes as g on f.gene_id=g.gene_id
-# where f.gene_id=="ENSG00000130635";
-# limit 100;
-# where gene_id=="ENSG00000172348"
-#
-#
-# LIMIT 10;
