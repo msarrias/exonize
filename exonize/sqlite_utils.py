@@ -647,68 +647,81 @@ def create_filtered_full_length_events_view(db_path: str, timeout_db: int) -> No
         cursor = db.cursor()
         cursor.execute("""
         CREATE VIEW IF NOT EXISTS Filtered_full_length_events AS
-        WITH filtered_overlapping_queries AS (
-        WITH overlaping_fragments AS (
-        WITH gene_id_counts AS (
-        SELECT f.gene_id, f.CDS_start, f.CDS_end
-        FROM Fragments AS f
-        WHERE f.percent_query >= 0.9
-        GROUP BY f.gene_id, f.CDS_start, f.CDS_end
-        HAVING COUNT(*) > 1)
+        WITH
+        -- Identify candidate fragments that satisfy our coverage and in-frame criteria.
+        in_frame_candidate_fragments AS (
+        SELECT f.fragment_id, f.gene_id, g.gene_start, g.gene_end, f.CDS_frame, f.query_frame, 
+        g.gene_strand, f.query_strand,
+        f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end, f.evalue
+        FROM Fragments f
+        JOIN Genes g ON g.gene_id = f.gene_id
+        WHERE f.percent_query >= 0.9 AND f.CDS_frame = f.query_frame
+        ),
+        -- Identify gene_ids with more than one fragment
+        multi_fragment_genes AS (
+        SELECT cf.*
+        FROM in_frame_candidate_fragments cf
+        GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
+        HAVING COUNT(*) > 1
+        ),
+        -- Handling multiple fragment genes
+        overlaping_fragments AS (
         SELECT
-        f.fragment_id, f.gene_id, g.gene_start,
-        g.gene_end, f.CDS_start, f.CDS_end,
-        f.query_start, f.query_end,
-        f.target_start, f.target_end,
-        MIN(f.evalue) as evalue
-        FROM Fragments as f
-        JOIN Genes AS g ON g.gene_id = f.gene_id
-        JOIN gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.CDS_start = f.CDS_start AND gc.CDS_end = f.CDS_end
-        WHERE f.percent_query >= 0.9
-        GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
-        ) 
-        SELECT f1.*
-        FROM overlaping_fragments AS f1
-        LEFT JOIN overlaping_fragments AS f2
-        ON f1.gene_id = f2.gene_id
-        AND f1.CDS_start = f2.CDS_start
-        AND f1.CDS_end = f2.CDS_end
-        AND f1.fragment_id <> f2.fragment_id
-        AND f1.target_start <= f2.target_end
-        AND f1.target_end >= f2.target_start
-        WHERE f2.fragment_id IS NULL OR f1.evalue = (
-        SELECT MIN(evalue)
-        FROM overlaping_fragments
-        WHERE gene_id = f1.gene_id
-        AND CDS_start = f2.CDS_start
-        AND CDS_end = f2.CDS_end
-        AND target_start <= f2.target_end
-        AND target_end >= f2.target_start
-        )
-        GROUP BY f1.fragment_id
-        ORDER BY f1.fragment_id),
+        cf.*
+        FROM in_frame_candidate_fragments cf
+        -- Joining with Genes and filtered gene_ids
+        JOIN multi_fragment_genes mfg ON mfg.gene_id = cf.gene_id
+                                         AND mfg.CDS_start = cf.CDS_start
+                                         AND mfg.CDS_end = cf.CDS_end
+        ),
+        filtered_overlapping_fragments AS (
+        SELECT DISTINCT f1.*
+        FROM overlaping_fragments f1
+        LEFT JOIN overlaping_fragments f2 ON f1.gene_id = f2.gene_id
+                                          AND f1.CDS_start = f2.CDS_start
+                                          AND f1.CDS_end = f2.CDS_end
+                                          AND f1.fragment_id <> f2.fragment_id
+                                          AND f1.target_start <= f2.target_end
+                                          AND f1.target_end >= f2.target_start
+        -- If step 2 works, introduce step 3, then 4 and so on.
+        WHERE f2.fragment_id IS NULL 
+        OR f1.evalue = ( 
+            SELECT evalue
+            FROM overlaping_fragments 
+            WHERE gene_id = f1.gene_id
+            AND CDS_start = f2.CDS_start
+            AND CDS_end = f2.CDS_end
+            AND target_start <= f2.target_end
+            AND target_end >= f2.target_start
+            ORDER BY
+            CASE WHEN gene_strand = query_strand THEN 1 ELSE 2 END,
+            evalue
+            LIMIT 1
+            )
+        ORDER BY f1.fragment_id
+        ),
+        -- Identify gene_ids with exactly one fragment
+        single_fragment_genes AS (
+        SELECT *
+        FROM in_frame_candidate_fragments cf
+        GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
+        HAVING COUNT(*) = 1
+        ),
+        -- Handling single fragment genes
         single_gene_fragments AS (
-        WITH single_gene_id_counts AS(
-        SELECT f.fragment_id, f.gene_id
-        FROM Fragments AS f
-        WHERE f.percent_query >= 0.9
-        GROUP BY f.gene_id, f.CDS_start, f.CDS_end
-        HAVING COUNT(*) = 1)
-        SELECT
-        f.fragment_id, f.gene_id, g.gene_start, g.gene_end,
-        f.CDS_start, f.CDS_end, f.query_start, f.query_end,
-        f.target_start, f.target_end, MIN(f.evalue) as evalue
-        FROM Fragments as f
-        JOIN Genes AS g ON g.gene_id = f.gene_id
-        JOIN single_gene_id_counts AS gc ON gc.gene_id = f.gene_id AND gc.fragment_id = f.fragment_id
-        WHERE f.percent_query >= 0.9
-        GROUP BY f.gene_id, f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end
-        ORDER BY f.fragment_id)
-        SELECT * FROM (
-        SELECT * FROM single_gene_fragments AS sgf
+        SELECT cf.*
+        FROM in_frame_candidate_fragments cf
+        JOIN single_fragment_genes sfg ON sfg.gene_id = cf.gene_id
+                                          AND sfg.fragment_id = cf.fragment_id
+        )
+        -- Combining the results of single_gene_fragments and filtered_overlapping_fragments
+        SELECT *
+        FROM (
+        SELECT * FROM single_gene_fragments
         UNION ALL
-        SELECT * FROM filtered_overlapping_queries AS foq)
-        ORDER BY fragment_id;
+        SELECT * FROM filtered_overlapping_fragments
+        )
+        ORDER BY fragment_id, gene_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end;
         """)
         db.commit()
 
