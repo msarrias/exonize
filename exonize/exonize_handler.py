@@ -73,7 +73,7 @@ class Exonize(object):
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
-        self.__query_CDS, self.__target_CDS = "-", "-"
+        self.__query_CDS, self.__target_CDS, self.__query_CDS_frame, self.__target_CDS_frame = "-", "-", " ", " "
         self.__found = False
         self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
         if self._HARD_FORCE:
@@ -566,7 +566,7 @@ class Exonize(object):
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         return (gene_id,
                 self.gene_hierarchy_dict[gene_id]['chrom'],
-                (self.gene_hierarchy_dict[gene_id]['strand']),
+                self.gene_hierarchy_dict[gene_id]['strand'],
                 gene_coord.lower,
                 gene_coord.upper,
                 has_dup_bin)
@@ -719,16 +719,17 @@ class Exonize(object):
         :param blast_cds_dict: dictionary with the tblastx results. The dictionary has the following structure:
         {cds_coord: {hsp_idx: {'score': '', 'bits': '','evalue': '',...}}}
         """
-        def get_fragment_tuple(gene_id_: str, cds_coord: P.Interval, blast_hits: dict, hsp_idx: int) -> tuple:
-            def reformat_frame_strand(frame: int) -> tuple:
-                """
-                reformat_frame_strand is a function that converts the frame to a 0-based index and defines a strand variable
-                based on the frame sign.
-                """
-                n_frame = abs(frame) - 1
-                n_strand = '-' if frame < 0 else '+'
-                return n_frame, n_strand
 
+        def reformat_frame_strand(frame: int) -> tuple:
+            """
+            reformat_frame_strand is a function that converts the frame to a 0-based index and defines a strand variable
+            based on the frame sign.
+            """
+            n_frame = abs(frame) - 1
+            n_strand = '-' if frame < 0 else '+'
+            return n_frame, n_strand
+
+        def get_fragment_tuple(gene_id_: str, cds_coord: P.Interval, blast_hits: dict, hsp_idx: int) -> tuple:
             hsp_dict = blast_hits[hsp_idx]
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
@@ -795,7 +796,7 @@ class Exonize(object):
             self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
             self.__both = 0
             self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
-            self.__query_CDS, self.__target_CDS, self.__query_CDS_frame = "-", "-", "-"
+            self.__query_CDS, self.__target_CDS, self.__query_CDS_frame, self.__target_CDS_frame = "-", "-", " ", " "
             self.__found = False
 
         def initialize_list_of_tuples() -> None:
