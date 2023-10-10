@@ -649,78 +649,75 @@ def create_filtered_full_length_events_view(db_path: str, timeout_db: int) -> No
         CREATE VIEW IF NOT EXISTS Filtered_full_length_events AS
         WITH
         -- Identify candidate fragments that satisfy our coverage and in-frame criteria.
-        in_frame_candidate_fragments AS (
-        SELECT f.fragment_id, f.gene_id, g.gene_start, g.gene_end, f.CDS_frame, f.query_frame, 
-        g.gene_strand, f.query_strand,
-        f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end, f.evalue
-        FROM Fragments f
-        JOIN Genes g ON g.gene_id = f.gene_id
-        WHERE f.percent_query >= 0.9 AND f.CDS_frame = f.query_frame
-        ),
-        -- Identify gene_ids with more than one fragment
-        multi_fragment_genes AS (
-        SELECT cf.*
-        FROM in_frame_candidate_fragments cf
-        GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
-        HAVING COUNT(*) > 1
-        ),
+	    in_frame_candidate_fragments AS (
+        	SELECT f.fragment_id, f.gene_id, g.gene_start, g.gene_end, f.CDS_frame, f.query_frame, 
+		       g.gene_strand, f.query_strand,
+		       f.CDS_start, f.CDS_end, f.query_start, f.query_end, f.target_start, f.target_end, f.evalue
+ 		FROM Fragments AS f
+		JOIN Genes g ON g.gene_id = f.gene_id
+ 		WHERE f.percent_query >= 0.9 AND f.CDS_frame = f.query_frame
+		),
+        -- Identify gene_ids+CDSs with more than one dupl fragment
+            multi_fragment_genes AS (
+	        SELECT cf.gene_id, cf.CDS_start, cf.CDS_end 
+        	FROM in_frame_candidate_fragments AS cf
+        	GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
+        	HAVING COUNT(*) > 1
+	    ),
         -- Handling multiple fragment genes
-        overlaping_fragments AS (
-        SELECT
-        cf.*
-        FROM in_frame_candidate_fragments cf
-        -- Joining with Genes and filtered gene_ids
-        JOIN multi_fragment_genes mfg ON mfg.gene_id = cf.gene_id
-                                         AND mfg.CDS_start = cf.CDS_start
-                                         AND mfg.CDS_end = cf.CDS_end
-        ),
-        filtered_overlapping_fragments AS (
-        SELECT DISTINCT f1.*
-        FROM overlaping_fragments f1
-        LEFT JOIN overlaping_fragments f2 ON f1.gene_id = f2.gene_id
-                                          AND f1.CDS_start = f2.CDS_start
-                                          AND f1.CDS_end = f2.CDS_end
-                                          AND f1.fragment_id <> f2.fragment_id
-                                          AND f1.target_start <= f2.target_end
-                                          AND f1.target_end >= f2.target_start
-        -- If step 2 works, introduce step 3, then 4 and so on.
-        WHERE f2.fragment_id IS NULL 
-        OR f1.evalue = ( 
-            SELECT evalue
-            FROM overlaping_fragments 
-            WHERE gene_id = f1.gene_id
-            AND CDS_start = f2.CDS_start
-            AND CDS_end = f2.CDS_end
-            AND target_start <= f2.target_end
-            AND target_end >= f2.target_start
-            ORDER BY
-            CASE WHEN gene_strand = query_strand THEN 1 ELSE 2 END,
-            evalue
-            LIMIT 1
-            )
-        ORDER BY f1.fragment_id
-        ),
-        -- Identify gene_ids with exactly one fragment
-        single_fragment_genes AS (
-        SELECT *
-        FROM in_frame_candidate_fragments cf
-        GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
-        HAVING COUNT(*) = 1
-        ),
+	--   Fragments from genes with more than one fragment are kept
+            overlapping_fragments AS (
+                SELECT cf.*
+	    	FROM in_frame_candidate_fragments AS cf
+		        -- Joining with Genes and filtered gene_ids
+        	JOIN multi_fragment_genes AS mfg ON mfg.gene_id = cf.gene_id
+                                                 AND mfg.CDS_start = cf.CDS_start
+ 					         AND mfg.CDS_end = cf.CDS_end
+            ),
+            filtered_overlapping_fragments AS (
+                SELECT DISTINCT f1.*
+            	FROM overlapping_fragments AS f1
+            	LEFT JOIN overlapping_fragments AS f2 ON f1.gene_id = f2.gene_id
+            	                               AND f1.CDS_start = f2.CDS_start
+ 					       AND f1.CDS_end = f2.CDS_end
+                                               AND f1.fragment_id <> f2.fragment_id
+                                               AND f1.target_start <= f2.target_end
+                                               AND f1.target_end >= f2.target_start
+                -- If step 2 works, introduce step 3, then 4 and so on.
+	    	WHERE f2.fragment_id IS NULL -- Keep f1 because it lacks an overlapping fragment
+            	      OR f1.fragment_id = ( 
+            	          SELECT fragment_id
+            	      	  FROM overlapping_fragments AS ofr
+            	      	  WHERE ofr.gene_id = f1.gene_id
+		              AND ofr.CDS_start = f2.CDS_start
+		              AND ofr.CDS_end = f2.CDS_end
+            		      AND ofr.target_start <= f2.target_end
+            		      AND ofr.target_end >= f2.target_start
+            		  ORDER BY
+            		      CASE WHEN gene_strand = query_strand THEN 1 ELSE 2 END,
+            		      evalue
+            		  LIMIT 1
+            	     )
+                 ORDER BY f1.fragment_id
+            ),
+        -- Identify gene_ids+CDSs with exactly one dupl fragment
+            single_fragment_genes AS (
+                SELECT *
+                FROM in_frame_candidate_fragments AS cf
+                GROUP BY cf.gene_id, cf.CDS_start, cf.CDS_end
+                HAVING COUNT(*) = 1
+            ),
         -- Handling single fragment genes
-        single_gene_fragments AS (
-        SELECT cf.*
-        FROM in_frame_candidate_fragments cf
-        JOIN single_fragment_genes sfg ON sfg.gene_id = cf.gene_id
-                                          AND sfg.fragment_id = cf.fragment_id
-        )
+            single_gene_fragments AS (
+                SELECT cf.*
+		FROM in_frame_candidate_fragments AS cf
+        	JOIN single_fragment_genes sfg ON sfg.gene_id = cf.gene_id
+ 		     AND sfg.fragment_id = cf.fragment_id
+            )
         -- Combining the results of single_gene_fragments and filtered_overlapping_fragments
-        SELECT *
-        FROM (
         SELECT * FROM single_gene_fragments
         UNION ALL
         SELECT * FROM filtered_overlapping_fragments
-        )
         ORDER BY fragment_id, gene_id, CDS_start, CDS_end, query_start, query_end, target_start, target_end;
         """)
         db.commit()
