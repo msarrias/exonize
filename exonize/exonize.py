@@ -23,24 +23,44 @@ def exonize_ascii_art_logo() -> None:
 
 
 def argument_parser():
-    parser = argparse.ArgumentParser(description='Exonize Description')
-    parser.add_argument('gff_file_path', type=str, help='Path to GFF file')
-    parser.add_argument('genome_path', type=str, help='Path to genome file')
-    parser.add_argument('specie_identifier', type=str, help='Species identifier')
-    parser.add_argument('-o', '--results_db_name', default='', type=str, help='Results database name')
-    parser.add_argument('-db', '--enable_debug', default=False, help='DEBUG MODE - Saves input and output tblastx files')
-    parser.add_argument('-sf', '--soft_force', default=False, help='soft force - if True, the results database will be overwritten if it already exists')
-    parser.add_argument('-hf', '--hard_force', default=False, help='soft force - if True, all internal files will be overwritten if they already exist')
-    parser.add_argument('-hm', '--hard_masking', default=False, action='store_true', help='Hard masking flag')
-    parser.add_argument('-p', '--sleep_max_seconds', default=5, type=int, help='Max sleep seconds')
-    parser.add_argument('-el', '--min_exon_length', type=int, default=30, help='Minimum exon length')
-    parser.add_argument('-et', '--evalue_threshold', default=1e-2, type=float, help='E-value threshold')
-    parser.add_argument('-ht', '--self_hit_threshold', default=0.5, type=float, help='Self-hit threshold')
-    parser.add_argument('-ot', '--cds_overlapping_threshold', default=0.9, type=float, help='CDS overlapping threshold')
-    parser.add_argument('-mt', '--masking_perc_threshold', default=0.8, type=float, help='Masking percentage threshold')
-    parser.add_argument('-bn', '--batch_number', default=100, type=int, help='Batch number')
-    parser.add_argument('-t', '--threads', default=7, type=int, help='Number of threads')
-    parser.add_argument('-to', '--timeout_db', default=160, type=int, help='Database timeout')
+    parser = argparse.ArgumentParser(description='Exonize: A tool for discovering exon duplications.')
+    # Required Arguments
+    parser.add_argument('gff_file_path', type=str, help='Path to GFF file.')
+    parser.add_argument('genome_path', type=str, help='Path to genome file.')
+    parser.add_argument('specie_identifier', type=str, help='Species identifier.')
+    # Optional Arguments for Paths and Files
+    parser.add_argument('-o', '--results_db_name', default='', type=str,
+                        help='Name for the results database. Defaults to an empty string.')
+    # Optional Arguments for Flags
+    parser.add_argument('--debug', dest='debug_mode', action='store_true', default=False,
+                        help='Enable DEBUG mode, which saves input and output tblastx files.')
+    parser.add_argument('--soft-force', dest='soft_force', action='store_true', default=False,
+                        help='If set, the results database will be overwritten if it already exists.')
+    parser.add_argument('--hard-force', dest='hard_force', action='store_true', default=False,
+                        help='If set, all internal files will be overwritten if they already exist.')
+    parser.add_argument('--hard-masking', dest='hard_masking', action='store_true', default=False,
+                        help='Enable hard masking.')
+    # Optional Arguments for Numerical Values and Thresholds
+    parser.add_argument('-p', '--sleep-max-seconds', default=5, type=int,
+                        help='Max seconds to sleep. Default is 5.')
+    parser.add_argument('-el', '--min-exon-length', type=int, default=30,
+                        help='Minimum exon length. Default is 30.')
+    parser.add_argument('-et', '--evalue-threshold', default=1e-2, type=float,
+                        help='E-value threshold. Default is 1e-2.')
+    parser.add_argument('-ht', '--self_hit_threshold', default=0.5, type=float,
+                        help='Self-hit threshold. Default is 0.5.')
+    parser.add_argument('-ot', '--cds_overlapping_threshold', default=0.9, type=float,
+                        help='CDS overlapping threshold. Default is 0.9.')
+    parser.add_argument('-mt', '--masking_perc_threshold', default=0.8, type=float,
+                        help='Masking percentage threshold. Default is 0.8.')
+    # Optional Arguments for Parallel and Batch Processing
+    parser.add_argument('-bn', '--batch-number', default=100, type=int,
+                        help='Number of batches. Default is 100.')
+    parser.add_argument('-t', '--threads', default=7, type=int,
+                        help='Number of threads to use. Default is 7.')
+    # Optional Argument for Timeout
+    parser.add_argument('-to', '--timeout-db', default=160, type=int,
+                        help='Database timeout. Default is 160.')
     args = parser.parse_args()
     return args
 
@@ -52,7 +72,7 @@ def main():
                           genome_path=args.genome_path,
                           specie_identifier=args.specie_identifier,
                           results_db_name=args.results_db_name,
-                          enable_debug=args.enable_debug,
+                          enable_debug=args.debug_mode,
                           soft_force=args.soft_force,
                           hard_force=args.hard_force,
                           hard_masking=args.hard_masking,
