@@ -2,6 +2,26 @@ from .exonize_handler import *
 import argparse
 
 
+def exonize_ascii_art_logo() -> None:
+    exonize_ansi_regular = """
+    
+    ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
+    ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
+    █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
+    ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
+    ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
+        """
+    print(exonize_ansi_regular)
+    print("Exonize v1.0\n"
+          " Developed by: Marina Herrera Sarrias, Mathematics Department, Stockholm University\n"
+          "Supervised by: Lars Arvestad, Mathematics Department, Stockholm University\n"
+          "               & Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
+          "      Contact: marina.sarrias@math.su.se\n"
+          "       GitHub: https://github.com/msarrias/exonize\n"
+          "\n")
+
+
 def argument_parser():
     parser = argparse.ArgumentParser(description='Exonize Description')
     parser.add_argument('gff_file_path', type=str, help='Path to GFF file')
@@ -26,6 +46,7 @@ def argument_parser():
 
 
 def main():
+    exonize_ascii_art_logo()
     args = argument_parser()
     exonize_obj = Exonize(gff_file_path=args.gff_file_path,
                           genome_path=args.genome_path,

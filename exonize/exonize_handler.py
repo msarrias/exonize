@@ -82,7 +82,6 @@ class Exonize(object):
             self.remove_file_if_exists(self.results_db)
         elif self._SOFT_FORCE:
             self.remove_file_if_exists(self.results_db)
-        print(self._DEBUG_MODE)
 
     # noinspection PyProtectedMember
     def file_only_info(self, message, *args, **kws):
@@ -194,9 +193,9 @@ class Exonize(object):
             gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
             subprocess.call(gffread_command)
 
-        def create_database() -> None:
+        def create_genome_database() -> None:
             """
-            create_database is a function that creates a gffutils database from a GFF3 file.
+            create_genome_database is a function that creates a gffutils database from a GFF3 file.
             - dbfn: path to the database file
             - force: if True, the database will be overwritten if it already exists
             - keep_order: if True, the order of the features in the GFF file will be preserved
@@ -246,7 +245,7 @@ class Exonize(object):
                 convert_gtf_to_gff()
                 self.logger.info('the GTF file has been converted into a GFF3 file')
                 self.logger.info(f'with filename: {self.in_file_path}')
-            create_database()
+            create_genome_database()
         if not self.db:
             print("- Reading annotations database:", end=" ")
             self.load_db()
@@ -302,6 +301,79 @@ class Exonize(object):
                              'type': feature_type_1, 'attributes': attribute_dict_1},...]
                              },...}},...}
         """
+        def construct_mRNA_sequence(chrom_, strand_, coords_):
+            """
+            construct_mRNA_sequence is a function that constructs the mRNA sequence based on genomic coordinates of the
+            CDSs and the strand of the gene.
+            """
+            seq = ''
+            for coord_ in coords_:
+                start, end = coord_['coord'].lower, coord_['coord'].upper
+                exon_ = self.genome[chrom_][start:end]
+                if strand_ == '-':
+                    exon_ = str(Seq(exon_).reverse_complement())
+                seq += exon_
+            return seq
+
+        def check_for_overhangs(seq: str, cds_idx: int, n_CDSs: int, gene_id: str, trans_id: str) -> str:
+            overhang = len(seq) % 3
+            if overhang:
+                if cds_idx == (n_CDSs - 1):
+                    seq = seq[:-overhang]
+                else:
+                    self.logger.error(f'check here: {gene_id}, {trans_id}')
+                    sys.exit()
+            return seq
+
+        def construct_protein_sequence(gene_, trans_id_, mRNA_seq_, coords_):
+            """
+            Construct a protein sequence from transcriptomic coordinates and collect corresponding CDSs in both DNA and
+            protein formats.
+            Given the transcriptomic coordinates and considering the reading frames specified in a GFF file, this function
+            constructs a protein sequence while managing the intricacies of exon stitching and reading frame maintenance
+            across possibly intron-interrupted CDS regions.
+            In the context of a GFF file, feature coordinates are generally relative to the genomic sequence, which implies
+            that reading frames may be disrupted by introns.
+            ----------------
+            Example:
+                Consider the following genomic coordinates of CDSs and their reading frames:
+                cds1: (0,127)      reading frame: 0
+                cds2: (4545,4682)  reading frame: 2
+                cds3: (6460,6589)  reading frame: 0
+                cds4: (7311,7442)  reading frame: 0
+
+                When translated to transcriptomic coordinates (while still referring to genomic positions), considering
+                reading frames, the coordinates become:
+                cds1: (0, 127), (4545, 4547)
+                cds2: (4547, 4682)
+                cds3: (6460, 6589)
+                cds4: (7311, 7442)
+            ----------------
+            Note:
+                - The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
+                reading frame of 2 for cds2.
+                - It is not uncommon that the length of the last CDS is not a multiple of 3. This is because the reading
+                frames of different CDSs across transcripts are not necessarily aligned. So that the extra nucleotides
+                are necesary for satisfying completition of all transcripts.
+            """
+            CDs_temp_list_ = {}
+            prot_seq_, temp, start_coord = '', [], 0
+            n_coords = len(coords_)
+            for coord_idx, coord_ in enumerate(coords_):
+                frame = int(coord_['frame'])
+                s, e = coord_['coord'].lower, coord_['coord'].upper
+                len_coord, frame_next = e - s, 0
+                end_coord = len_coord + start_coord
+                if coord_idx != len(coords_) - 1:
+                    frame_next = int(coords_[coord_idx + 1]['frame'])
+                exon_seq = check_for_overhangs(mRNA_seq_[start_coord + frame:  end_coord + frame_next],
+                                               coord_idx, n_coords, gene_, trans_id_)
+                exon_prot = str(Seq(exon_seq).translate())
+                prot_seq_ += exon_prot
+                start_coord, frame = end_coord, frame_next
+                CDs_temp_list_[coord_['id']] = dict(frame=frame, coord=P.open(s, e), dna_seq=exon_seq, pep_seq=exon_prot)
+            return prot_seq_, CDs_temp_list_
+
         self.gene_hierarchy_dict = {}
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -310,7 +382,8 @@ class Exonize(object):
                 mrna_dict = dict(coord=gene_coord, chrom=gene.chrom, strand=gene.strand, mRNAs={})
                 for mrna_annot in mrna_transcripts:
                     mrna_coord = P.open(mrna_annot.start - 1, mrna_annot.end)
-                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand, structure=[])
+                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand,
+                                                             structure=[], pep_seq=None, CDSs=[])
                     temp_mrna_transcript = []
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
@@ -320,8 +393,16 @@ class Exonize(object):
                                                              frame=child.frame,  # One of '0', '1' or '2'.
                                                              type=child.featuretype,   # feature type name
                                                              attributes=dict(child.attributes)))  # feature type name
+                    # if the gene is in the negative strand the direction of transcription and translation
+                    # is opposite to the direction the DNA sequence is represented meaning that translation starts
+                    # from the last CDS
                     reverse = self.reverse_sequence_bool(gene.strand)
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(temp_mrna_transcript, reverse)
+                    list_cds_annot = [i for i in mrna_dict['mRNAs'][mrna_annot.id]['structure'] if i['type'] == 'CDS']
+                    mRNA_seq = construct_mRNA_sequence(gene.chrom, gene.strand, list_cds_annot)
+                    prot_seq, CDS_seqs_list = construct_protein_sequence(gene, gene.strand, mRNA_seq, list_cds_annot)
+                    mrna_dict['mRNAs'][mrna_annot.id]['pep_seq'] = prot_seq
+                    mrna_dict['mRNAs'][mrna_annot.id]['CDSs'] = CDS_seqs_list
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
@@ -334,11 +415,11 @@ class Exonize(object):
         (iv)  connects or creates the results database
         """
         self.create_parse_or_update_database()
+        self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
             self.create_gene_hierarchy_dict()
-        self.read_genome()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self._DEBUG_MODE:
             self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
@@ -364,16 +445,17 @@ class Exonize(object):
                            '-out', output_file]
         subprocess.run(tblastx_command)
 
-    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord: P.Interval) -> dict:
+    def align_CDS(self, gene_id: str, query_seq: str, hit_seq: str, query_coord: P.Interval, cds_frame: str) -> dict:
         """
         align_CDS is a function that performs a tblastx search between a query sequence (CDS) and a target sequence (gene).
         :param gene_id: gene identifier
         :param query_seq: query sequence (CDS)
         :param hit_seq: target sequence (gene)
         :param query_coord: query coordinates (CDS) interval
+        :param cds_frame: frame of the CDS
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
             """
             tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
             function is used for debugging purposes. The input and output files are saved in the following paths:
@@ -381,7 +463,6 @@ class Exonize(object):
             sequence (CDS) and gene_id_ is the identifier of the target sequence (gene).
             - output: output/{ident}_output.xml where ident is the identifier of the query sequence (CDS).
             """
-
             output_file = f'output/{ident}_output.xml'
             if not os.path.exists(output_file):
                 query_filename = f'input/{ident}_query.fa'
@@ -393,19 +474,15 @@ class Exonize(object):
             with open(output_file, "r") as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
                 try:
-                    temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
+                    temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                 except Exception as e:
                     self.logger.exception(e)
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval):
+        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
-            :param hit_seq_: target sequence (gene)
-            :param query_seq_: query sequence (CDS)
-            :param query_coord_: query coordinates (CDS) interval
-            :param gene_coord_: target coordinates (gene) interval
             """
             with tempfile.TemporaryDirectory() as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
@@ -417,7 +494,7 @@ class Exonize(object):
                 with open(output_file, 'r') as result_handle:
                     blast_records = NCBIXML.parse(result_handle)
                     try:
-                        temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_)
+                        temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                     except Exception as e:
                         self.logger.exception(e)
                         sys.exit()
@@ -427,12 +504,12 @@ class Exonize(object):
         gene_coord = self.gene_hierarchy_dict[gene_id]['coord']
         identifier = f'{gene_id}_{chrom}_{str(query_coord.lower)}_{query_coord.upper}'.replace(':', '_')
         if self._DEBUG_MODE:
-            temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord)
+            temp = tblastx_with_saved_io(identifier, gene_id, hit_seq, query_seq, query_coord, gene_coord, cds_frame)
         else:
-            temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord)
+            temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord, cds_frame)
         return temp
 
-    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval) -> dict:
+    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval, cds_frame_: str) -> dict:
         """
         the parse_tblastx_output function parses the output of a tblastx search, where a single sequence (CDS)
         has been queried against a single target (gene). Meaning that we only expect to find one BLAST record.
@@ -444,10 +521,12 @@ class Exonize(object):
         :param blast_records: 'Record' object with blast records
         :param q_coord: query coordinates (CDS) interval
         :param hit_coord: hit coordinates
+        :param cds_frame_: frame of the CDS
         :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
-        def get_hsp_dict(hsp) -> dict:
+        def get_hsp_dict(hsp, cds_frame: str) -> dict:
             return dict(
+                cds_frame=cds_frame,
                 score=hsp.score,
                 bits=hsp.bits,
                 evalue=hsp.expect,
@@ -476,7 +555,7 @@ class Exonize(object):
                 blast_target_coord = P.open((hsp_rec.sbjct_start - 1) + hit_coord.lower, hsp_rec.sbjct_end + hit_coord.lower)
                 if (self.get_overlap_percentage(q_coord, blast_target_coord) < self.self_hit_threshold
                         and self.get_overlap_percentage(blast_target_coord, q_coord) < self.self_hit_threshold):
-                    res_tblastx[hsp_idx] = get_hsp_dict(hsp_rec)
+                    res_tblastx[hsp_idx] = get_hsp_dict(hsp_rec, cds_frame_)
         return res_tblastx
 
     def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
@@ -492,7 +571,7 @@ class Exonize(object):
                 gene_coord.upper,
                 has_dup_bin)
 
-    def get_candidate_CDS_coords(self, gene_id: str) -> list:
+    def get_candidate_CDS_coords(self, gene_id: str) -> dict:
         """
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
@@ -517,7 +596,7 @@ class Exonize(object):
                     if all([self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold,
                             self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold])]
 
-        def resolve_overlaps_coords_list(coords_list):
+        def resolve_overlaps_coords_list(coords_list) -> list:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
@@ -542,15 +621,22 @@ class Exonize(object):
             else:
                 return coords_list
 
-        CDS_coords_list = list(set([i['coord'] for mrna_id, mrna_annot
+        CDS_coords_list = list(set([(i['coord'],
+                                     str(mrna_annot['CDSs'][i['id']]['frame']),
+                                     mrna_annot['CDSs'][i['id']]['dna_seq']) for mrna_id, mrna_annot
                                     in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS'
-                                       and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
-        CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper))
+                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
         if CDS_coords_list:
-            return resolve_overlaps_coords_list(CDS_coords_list)
-        return []
+            cds_dict = {}
+            for cds_coord, frame, dna_seq in CDS_coords_list:
+                if cds_coord in cds_dict:
+                    cds_dict[cds_coord]['frame'] += f'_{str(frame)}'
+                else:
+                    cds_dict[cds_coord] = {'frame': frame, 'dna_seq': dna_seq}
+            CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
+            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), seqs=cds_dict)
+        return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
         """
@@ -559,21 +645,18 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def get_sequence_and_check_for_masking(chrom_: str, gene_id_: str, coords_: P.Interval, gene_strand_: str, type_='gene'):
+        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
             """
-            get_sequence_and_check_for_masking is a function that retrieves a gene/CDS sequence from the genome and checks
-            if it is hardmasked. If the sequence is a gene and the percentage of hardmasking is greater than the
-            threshold (self.masking_perc_threshold) the CDS duplication search is aborted and the gene is recorded
-            as having no duplication event. If the sequence is a CDS and the percentage of hardmasking is greater than
-            the threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored in the logs attribute
-            and later dumped into a file.
+            check_for_masking is a function that checks if it is hardmasked. If the sequence is a gene and the percentage
+            of hardmasking is greater than the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
+            and the gene is recorded as having no duplication event. If the sequence is a CDS and the percentage of
+            hardmasking is greater than the threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored
+            in the logs attribute and later dumped into a file.
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
-            :param coords_: coordinates
-            :param gene_strand_: strand
+            :param seq_: sequence
             :param type_: type of sequence (gene or CDS)
             """
-
             def sequence_masking_percentage(seq: str) -> float:
                 """
                 sequence_masking_percentage is a function that given a sequence, returns the percentage of hardmasking
@@ -581,9 +664,6 @@ class Exonize(object):
                 """
                 return seq.count('N') / len(seq)
             try:
-                seq_ = str(Seq(self.genome[chrom_][coords_.lower:coords_.upper]))
-                # if self.reverse_sequence_bool(gene_strand_):
-                #     seq_ = str(seq_.reverse_complement())
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
@@ -605,21 +685,23 @@ class Exonize(object):
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
-        gene_seq = get_sequence_and_check_for_masking(chrom, gene_id, gene_coord, gene_strand, type_='gene')
+        temp_gs = str(Seq(self.genome[chrom][gene_coord.lower:gene_coord.upper]))
+        gene_seq = check_for_masking(chrom, gene_id, temp_gs, type_='gene')
         if gene_seq:
-            reverse = self.reverse_sequence_bool(gene_strand)
-            CDS_coords_list = self.get_candidate_CDS_coords(gene_id)
-            CDS_coords_list = sorted(CDS_coords_list, key=lambda x: (x.lower, x.upper), reverse=reverse)
-            for cds_coord in CDS_coords_list:
-                cds_seq = get_sequence_and_check_for_masking(chrom, gene_id, cds_coord, gene_strand, type_='CDS')
-                if cds_seq:
-                    tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord)
-                    if tblastx_o:
-                        CDS_blast_dict[cds_coord] = tblastx_o
-            if CDS_blast_dict:
-                self.insert_fragments_table(gene_id, CDS_blast_dict)
-            else:
-                insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
+            CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
+            if CDS_coords_dict:
+                for cds_coord in CDS_coords_dict['set_coords']:
+                    temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
+                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
+                    if cds_seq:
+                        cds_frame_ = CDS_coords_dict['seqs'][cds_coord]['frame']
+                        tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
+                        if tblastx_o:
+                            CDS_blast_dict[cds_coord] = tblastx_o
+                if CDS_blast_dict:
+                    self.insert_fragments_table(gene_id, CDS_blast_dict)
+                else:
+                    insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
     def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
         """
@@ -651,7 +733,7 @@ class Exonize(object):
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
             hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-            return (gene_id_, cds_coord.lower, cds_coord.upper,
+            return (gene_id_, cds_coord.lower, cds_coord.upper, hsp_dict['cds_frame'],
                     hit_q_f, hit_q_s, hit_t_f, hit_t_s,
                     hsp_dict['score'], hsp_dict['bits'], hsp_dict['evalue'],
                     hsp_dict['alignment_len'], hsp_dict['query_start'], hsp_dict['query_end'],
@@ -1012,18 +1094,6 @@ class Exonize(object):
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def exonize_asci_art() -> None:
-            exonize_ansi_regular = """
-
-            ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
-            ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
-            █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
-            ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
-            ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
-            ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
-            """
-            print(exonize_ansi_regular)
-
         def batch(iterable: list, n=1) -> list:
             """
             batch is a function that given a list and a batch size, returns an iterable of lists of size n.
@@ -1032,7 +1102,6 @@ class Exonize(object):
             for indx in range(0, it_length, n):
                 yield iterable[indx:min(indx + n, it_length)]
 
-        exonize_asci_art()
         self.prepare_data()
         args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
