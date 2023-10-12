@@ -216,7 +216,7 @@ class Exonize(object):
             - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
-                print("- Creating annotations database", end=" ")
+                print("- Creating annotations database:", end=" ")
                 self.db = gffutils.create_db(self.in_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -385,6 +385,8 @@ class Exonize(object):
                 cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
             return prot_seq_, cds_list_tuples
 
+        print("- Fetching gene-hierarchy data:", end=" ")
+        tic_gh = time.time()
         self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -420,6 +422,8 @@ class Exonize(object):
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
+        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_gh), '%H:%M:%S')
+        print(f' Done! [{hms_time}]')
 
     def prepare_data(self) -> None:
         """
