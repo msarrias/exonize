@@ -666,7 +666,7 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
+        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, coord_: P.Interval, type_='gene'):
             """
             check_for_masking is a function that checks if it is hardmasked. If the sequence is a gene and the percentage
             of hardmasking is greater than the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
@@ -676,6 +676,7 @@ class Exonize(object):
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
             :param seq_: sequence
+            :param coord_: coordinates
             :param type_: type of sequence (gene or CDS)
             """
             def sequence_masking_percentage(seq: str) -> float:
@@ -684,18 +685,20 @@ class Exonize(object):
                 (N) in the sequence.
                 """
                 return seq.count('N') / len(seq)
+
             try:
                 masking_perc = round(sequence_masking_percentage(seq_), 2)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, '
-                                                   f'{str(coords_.upper)} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
+                                                   f'{str(coord_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} '
-                                                   f'located in chromosome {chrom_} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
+                                                   f' {str(coord_.upper)} located in chromosome {chrom_} is hardmasked.')
                 return seq_
+
             except KeyError as e_:
                 self.logger.exception(f'Either there is missing a chromosome in the genome file '
                                       f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
@@ -707,13 +710,13 @@ class Exonize(object):
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
         temp_gs = str(Seq(self.genome[chrom][gene_coord.lower:gene_coord.upper]))
-        gene_seq = check_for_masking(chrom, gene_id, temp_gs, type_='gene')
+        gene_seq = check_for_masking(chrom, gene_id, temp_gs, gene_coord, type_='gene')
         if gene_seq:
             CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
             if CDS_coords_dict:
                 for cds_coord in CDS_coords_dict['set_coords']:
                     temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
-                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
+                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, cds_coord, type_='CDS')
                     if cds_seq:
                         cds_frame_ = CDS_coords_dict['cds_frame_dict'][cds_coord]['frame']
                         tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
