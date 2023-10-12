@@ -1,4 +1,5 @@
 from .sqlite_utils import *
+import gc
 import gffutils                                        # for creating/loading DBs
 import subprocess                                      # for calling gffread
 import portion as P                                    # for working with intervals
@@ -1130,12 +1131,38 @@ class Exonize(object):
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
             self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
             with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
+                gc.collect()
+                gc.freeze()
+                transactions_pks: set[int]
+                status: int
+                code: int
+                forks: int = 0
                 for arg_batch in batches_list:
-                    t = ThreadPool(processes=self.threads)
-                    t.map(self.find_coding_exon_duplicates, arg_batch)
-                    t.close()
-                    t.join()
-                    progress_bar.update(len(arg_batch))
+                    if os.fork():
+                        forks += 1
+                        if forks >= 10:
+                            _, status = os.wait()
+                            code = os.waitstatus_to_exitcode(status)
+                            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                            assert code != os.EX_SOFTWARE
+                            forks -= 1
+                    else:
+                        status = os.EX_OK
+                        try:
+                            self.find_coding_exon_duplicates(arg_batch)
+                            progress_bar.update(len(arg_batch))
+                        except Exception as exception:
+                            sys.stdout.write(exception)
+                            status = os.EX_SOFTWARE
+                        finally:
+                            os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+                while forks > 0:
+                    _, status = os.wait()
+                    code = os.waitstatus_to_exitcode(status)
+                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                    assert code != os.EX_SOFTWARE
+                    forks -= 1
+                gc.unfreeze()
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
