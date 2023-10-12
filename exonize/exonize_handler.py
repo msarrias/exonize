@@ -1002,6 +1002,12 @@ class Exonize(object):
         insert_tuples_in_results_db()
 
     def assign_pair_ids(self, full_matches: list) -> list:
+        """
+        assign_pair_ids is a function that given a list of tblastx hits, assigns a pair identifier to those hits that
+        have a reciprocal match, such as full matches and some insertion matches, namely INS_CDS and TRUNC.
+        :param full_matches: list of "full matches", i.e., those tblastx hits that have passed the filtering criteria
+        :return: list of tblastx hits with a pair identifier
+        """
         def get_shorter_intv_overlapping_percentage(a: P.Interval, b: P.Interval) -> float:
             """
             get_shorter_intv_overlapping_percentage is a function that given two intervals, returns the percentage of
@@ -1024,25 +1030,36 @@ class Exonize(object):
                 t_intv_a = P.open(t_s_a, t_e_a)
                 q_intv_a = P.open(q_s_a, q_e_a)
                 if frag_id_a not in skip_frag:
-                    candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
-                    if candidates:
+                    # we want to find all the other "candidate" matches in the same gene.
+                    gene_candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
+                    if gene_candidates:
                         temp_cand = list()
-                        for frag_b in candidates:
+                        for frag_b in gene_candidates:
                             frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
-                            t_intv_b = P.open(t_s_b, t_e_b)
-                            q_intv_b = P.open(q_s_b, q_e_b)
+                            t_intv_b = P.open(t_s_b, t_e_b)  # target interval
+                            q_intv_b = P.open(q_s_b, q_e_b)  # query interval
+                            # the candidate match can be either a reciprocal match, an overlapping match or an independent match
                             overlapping_pairs = find_pairs_overlapping_perc([(q_intv_a, q_intv_b), (t_intv_a, t_intv_b)])
                             reciprocal_pairs = find_pairs_overlapping_perc([(t_intv_a, q_intv_b), (t_intv_b, q_intv_a)])
                             if overlapping_pairs or reciprocal_pairs:
-                                # Insertion events
+                                # Because of how we are building the set of representative CDSs (90% reciprocal overlap)
+                                # If the shortest CDS is contained within the longest and the longest is duplicated.
+                                # We will have two reciprocal matches with types (INS_CDS and TRUNC)
+                                # The fragments are sorted in a way so that for all genes, INS_CDS goes always first.
+                                # i.e., if such cases exist event_type_a will always be INS_CDS
+                                # and event_type_b will always be TRUNC
                                 if "INS_CDS" in event_type_a and "TRUNC" in event_type_b:
-                                    # q_1, t_2 and q_2, t_1 have to overlap
+                                    # (query_short_exon, target_long_exon) and (query_long_exon, target_short_exon) have to overlap
                                     if all(perc > 0 for perc in reciprocal_pairs):
                                         temp_cand.append(frag_id_b)
                                     # q_1, q_2 and t_2, t_2 have to overlap
                                     elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
+                                        # this shouldn't happen, but just in case
+                                        self.logger.info(f'- overlapp INS - TRUNC {frag_id_a}_{frag_id_b}_{gene_id_a}.')
+                                        print(frag_id_a, frag_id_b)
                                         temp_cand.append(frag_id_b)
                                 # Full events, meaning that the target CDS and query CDS overlap for their greater part
+                                # We include in the same event both, reciprocal and overlapping matches
                                 elif any(all(perc >= self.cds_overlapping_threshold for perc in pair)  # full dups
                                          for pair in [reciprocal_pairs, overlapping_pairs]):
                                     temp_cand.append(frag_id_b)
