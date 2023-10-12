@@ -28,9 +28,6 @@ def argument_parser():
     parser.add_argument('gff_file_path', type=str, help='Path to GFF file.')
     parser.add_argument('genome_path', type=str, help='Path to genome file.')
     parser.add_argument('specie_identifier', type=str, help='Species identifier.')
-    # Optional Arguments for Paths and Files
-    parser.add_argument('-o', '--results_db_name', default='', type=str,
-                        help='Name for the results database. Defaults to an empty string.')
     # Optional Arguments for Flags
     parser.add_argument('--debug', dest='debug_mode', action='store_true', default=False,
                         help='Enable DEBUG mode, which saves input and output tblastx files.')
@@ -71,7 +68,6 @@ def main():
     exonize_obj = Exonize(gff_file_path=args.gff_file_path,
                           genome_path=args.genome_path,
                           specie_identifier=args.specie_identifier,
-                          results_db_name=args.results_db_name,
                           enable_debug=args.debug_mode,
                           soft_force=args.soft_force,
                           hard_force=args.hard_force,

@@ -19,13 +19,11 @@ import datetime
 
 class Exonize(object):
     logger: logging.Logger
-    FILE_ONLY_INFO = 9  # Custom logging level between INFO (20) and WARNING (30)
 
     def __init__(self,
                  gff_file_path,
                  genome_path,
                  specie_identifier,
-                 results_db_name='',
                  enable_debug=False,
                  hard_masking=False,
                  soft_force=False,
@@ -40,11 +38,10 @@ class Exonize(object):
                  threads=7,
                  timeout_db=160):
 
-        logging.addLevelName(self.FILE_ONLY_INFO, 'FILE_ONLY_INFO')
-        self.configure_logger()
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
         self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
+        self.__FILE_ONLY_INFO = 9                                       # Custom logging level between INFO (20) and WARNING (30)
         self.genome = None                                              # genome sequence
         self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
         self.db_features = None                                         # features in the database
@@ -62,49 +59,71 @@ class Exonize(object):
         self.threads = threads                                          # number of threads for BLAST calls
         self.cds_overlapping_threshold = cds_overlapping_threshold      # CDS overlapping threshold (0-1)
         self.self_hit_threshold = self_hit_threshold                    # self-hit threshold (0-1)
-        self.results_db = results_db_name                               # results database name
         self.masking_perc_threshold = masking_perc_threshold
         self.stop_codons = ["TAG", "TGA", "TAA"]
-        self.db_path = f'{self.specie_identifier}_genome_annotations.db'
-        self.results_db = self.results_db or f'{self.specie_identifier}_results.db'
+        self.working_dir = f'{self.specie_identifier}_exonize'
+        self.db_path = os.path.join(self.working_dir, f'{self.specie_identifier}_genome_annotations.db')
+        self.protein_db_path = os.path.join(self.working_dir, f'{self.specie_identifier}_protein.db')
+        self.results_db = os.path.join(self.working_dir, f'{self.specie_identifier}_results.db')
+        self.gene_hierarchy_path = os.path.join(self.working_dir, f"{self.specie_identifier}_gene_hierarchy.pkl")
         self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
-        self.gene_hierarchy_path = f"{self.specie_identifier}_gene_hierarchy.pkl"
         self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
         self.__query_CDS, self.__target_CDS, self.__query_CDS_frame, self.__target_CDS_frame = "-", "-", " ", " "
         self.__found = False
-        self.__tuples_full_length_duplications, self.__tuples_insertion_duplications, self.__tuples_truncation_events = [], [], []
+        self.__tuples_full_length_duplications = list()
+        self.__tuples_insertion_duplications = list()
+        self.__tuples_truncation_events = list()
+
         if self._HARD_FORCE:
-            self.remove_file_if_exists(self.db_path)
-            self.remove_file_if_exists(self.gene_hierarchy_path)
-            self.remove_file_if_exists(self.results_db)
+            if os.path.exists(self.working_dir):
+                for item in os.listdir(self.working_dir):
+                    os.remove(os.path.join(self.working_dir, item))
+                os.rmdir(self.working_dir)
         elif self._SOFT_FORCE:
-            self.remove_file_if_exists(self.results_db)
+            if os.path.exists(self.results_db):
+                os.remove(self.results_db)
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.configure_logger()
 
     # noinspection PyProtectedMember
     def file_only_info(self, message, *args, **kws):
-        if self.logger.isEnabledFor(self.FILE_ONLY_INFO):
-            self.logger._log(self.FILE_ONLY_INFO, message, args, **kws)
+        if self.logger.isEnabledFor(self.__FILE_ONLY_INFO):
+            self.logger._log(self.__FILE_ONLY_INFO, message, args, **kws)
 
     def configure_logger(self):
         """
         configure_logger is a function that configures the logger.
         INFO level is used for the log file and WARNING and ERROR level for the console.
         """
-        log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+        logging.addLevelName(self.__FILE_ONLY_INFO, 'FILE_ONLY_INFO')
+        logging.Logger.file_only_info = self.file_only_info
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
+
+        # Define a filter that allows all messages EXCEPT those at INFO level
+        class ExcludeInfoFilter(logging.Filter):
+            def filter(self, record):
+                return record.levelno != logging.INFO
+
+        # Define file handler for the "FILE_ONLY_INFO" level
+        log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+        log_file_name = os.path.join(self.working_dir, log_file_name)
         file_handler = logging.FileHandler(log_file_name, mode='w')
-        file_handler.setLevel(self.FILE_ONLY_INFO)
+        file_handler.setLevel(self.__FILE_ONLY_INFO)  # Changed level to custom level
+        file_handler.addFilter(ExcludeInfoFilter())  # Added filter
         file_handler.setFormatter(logging.Formatter('%(message)s'))
+
+        # Define console handler for the "INFO" level and above ("DEBUG", "WARNING", "EXCEPTION").
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
+
+        # Add handlers to the logger
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
-        logging.Logger.file_only_info = self.file_only_info
 
     @staticmethod
     def dump_pkl_file(out_filepath: str, obj: dict) -> None:
@@ -167,14 +186,6 @@ class Exonize(object):
         intervals present in the dictionaries. The list is sorted in ascending order by default.
         """
         return sorted(list_dicts, key=lambda x: (x['coord'].lower, x['coord']), reverse=reverse)
-
-    @staticmethod
-    def remove_file_if_exists(filepath):
-        """
-        Removes a file if it exists.
-        """
-        if os.path.exists(filepath):
-            os.remove(filepath)
 
     def create_parse_or_update_database(self) -> None:
         """
@@ -325,7 +336,7 @@ class Exonize(object):
                     sys.exit()
             return seq
 
-        def construct_protein_sequence(gene_, trans_id_, mRNA_seq_, coords_):
+        def construct_protein_sequence(gene_id, trans_id_, mRNA_seq_, coords_):
             """
             Construct a protein sequence from transcriptomic coordinates and collect corresponding CDSs in both DNA and
             protein formats.
@@ -356,9 +367,9 @@ class Exonize(object):
                 frames of different CDSs across transcripts are not necessarily aligned. So that the extra nucleotides
                 are necesary for satisfying completition of all transcripts.
             """
-            CDs_temp_list_ = {}
-            prot_seq_, temp, start_coord = '', [], 0
+            prot_seq_, temp, start_coord = '', list(), 0
             n_coords = len(coords_)
+            cds_list_tuples = list()
             for coord_idx, coord_ in enumerate(coords_):
                 frame = int(coord_['frame'])
                 s, e = coord_['coord'].lower, coord_['coord'].upper
@@ -367,24 +378,24 @@ class Exonize(object):
                 if coord_idx != len(coords_) - 1:
                     frame_next = int(coords_[coord_idx + 1]['frame'])
                 exon_seq = check_for_overhangs(mRNA_seq_[start_coord + frame:  end_coord + frame_next],
-                                               coord_idx, n_coords, gene_, trans_id_)
+                                               coord_idx, n_coords, gene_id, trans_id_)
                 exon_prot = str(Seq(exon_seq).translate())
                 prot_seq_ += exon_prot
                 start_coord, frame = end_coord, frame_next
-                CDs_temp_list_[coord_['id']] = dict(frame=frame, coord=P.open(s, e), dna_seq=exon_seq, pep_seq=exon_prot)
-            return prot_seq_, CDs_temp_list_
+                cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
+            return prot_seq_, cds_list_tuples
 
-        self.gene_hierarchy_dict = {}
+        self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
             if mrna_transcripts:
                 gene_coord = P.open(gene.start - 1, gene.end)
-                mrna_dict = dict(coord=gene_coord, chrom=gene.chrom, strand=gene.strand, mRNAs={})
+                mrna_dict = dict(coord=gene_coord, chrom=gene.chrom, strand=gene.strand, mRNAs=dict())
+                protein_arg_list_tuples = list()
                 for mrna_annot in mrna_transcripts:
                     mrna_coord = P.open(mrna_annot.start - 1, mrna_annot.end)
-                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand,
-                                                             structure=[], pep_seq=None, CDSs=[])
-                    temp_mrna_transcript = []
+                    mrna_dict['mRNAs'][mrna_annot.id] = dict(coord=mrna_coord, strand=gene.strand, structure=list())
+                    temp_mrna_transcript = list()
                     for child in self.db.children(mrna_annot.id, featuretype=self.feat_of_interest, order_by='start'):
                         coord = P.open(child.start - 1, child.end)
                         if coord:
@@ -400,10 +411,14 @@ class Exonize(object):
                     mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(temp_mrna_transcript, reverse)
                     list_cds_annot = [i for i in mrna_dict['mRNAs'][mrna_annot.id]['structure'] if i['type'] == 'CDS']
                     mRNA_seq = construct_mRNA_sequence(gene.chrom, gene.strand, list_cds_annot)
-                    prot_seq, CDS_seqs_list = construct_protein_sequence(gene, gene.strand, mRNA_seq, list_cds_annot)
-                    mrna_dict['mRNAs'][mrna_annot.id]['pep_seq'] = prot_seq
-                    mrna_dict['mRNAs'][mrna_annot.id]['CDSs'] = CDS_seqs_list
+                    prot_seq, CDS_list_tuples = construct_protein_sequence(gene.id, gene.strand, mRNA_seq, list_cds_annot)
+                    insert_into_CDSs(self.protein_db_path, self.timeout_db, CDS_list_tuples)
+                    protein_arg_list_tuples.append((gene.id, gene.chrom, gene.strand,
+                                                    gene_coord.lower, gene_coord.upper,
+                                                    mrna_annot.id, mrna_coord.lower, mrna_coord.upper,
+                                                    prot_seq))
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
+                insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
     def prepare_data(self) -> None:
@@ -414,7 +429,11 @@ class Exonize(object):
         (iii) reads the genome sequence
         (iv)  connects or creates the results database
         """
+        if self._DEBUG_MODE:
+            os.makedirs(os.path.join(self.working_dir, 'input'), exist_ok=True)
+            os.makedirs(os.path.join(self.working_dir, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
+        create_protein_table(self.protein_db_path, self.timeout_db)
         self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
@@ -463,10 +482,10 @@ class Exonize(object):
             sequence (CDS) and gene_id_ is the identifier of the target sequence (gene).
             - output: output/{ident}_output.xml where ident is the identifier of the query sequence (CDS).
             """
-            output_file = f'output/{ident}_output.xml'
+            output_file = os.path.join(self.working_dir, f'output/{ident}_output.xml')
             if not os.path.exists(output_file):
-                query_filename = f'input/{ident}_query.fa'
-                target_filename = f'input/{gene_id_}_target.fa'
+                query_filename = os.path.join(self.working_dir, f'input/{ident}_query.fa')
+                target_filename = os.path.join(self.working_dir, f'input/{gene_id_}_target.fa')
                 if not os.path.exists(target_filename):
                     self.dump_fasta_file(target_filename, {f"{gene_id_}": hit_seq_})
                 self.dump_fasta_file(query_filename, {ident: query_seq_})
@@ -484,7 +503,7 @@ class Exonize(object):
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
             """
-            with tempfile.TemporaryDirectory() as tmpdirname:
+            with tempfile.TemporaryDirectory(dir=self.working_dir) as tmpdirname:
                 query_filename = f'{tmpdirname}/query.fa'
                 target_filename = f'{tmpdirname}/target.fa'
                 self.dump_fasta_file(query_filename, {'query': query_seq_})
@@ -542,7 +561,7 @@ class Exonize(object):
                 target_num_stop_codons=hsp.sbjct.count('*'),
                 match=hsp.match)
 
-        res_tblastx = {}
+        res_tblastx = dict()
         # since we are performing a single query against a single subject, there's only one blast_record
         for blast_record in blast_records:
             if len(blast_record.alignments) == 0:
@@ -604,7 +623,7 @@ class Exonize(object):
             :param coords_list: list of coordinates
             :return: list of coordinates without overlaps
             """
-            new_list = []
+            new_list = list()
             overlaps_list = get_intervals_overlapping_list(coords_list)
             if overlaps_list:
                 # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
@@ -621,21 +640,19 @@ class Exonize(object):
             else:
                 return coords_list
 
-        CDS_coords_list = list(set([(i['coord'],
-                                     str(mrna_annot['CDSs'][i['id']]['frame']),
-                                     mrna_annot['CDSs'][i['id']]['dna_seq']) for mrna_id, mrna_annot
+        CDS_coords_list = list(set([(i['coord'], i['frame']) for mrna_id, mrna_annot
                                     in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
                                     for i in mrna_annot['structure']
                                     if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
         if CDS_coords_list:
-            cds_dict = {}
-            for cds_coord, frame, dna_seq in CDS_coords_list:
-                if cds_coord in cds_dict:
-                    cds_dict[cds_coord]['frame'] += f'_{str(frame)}'
+            repr_cds_frame_dict = dict()
+            for cds_coord, frame in CDS_coords_list:
+                if cds_coord in repr_cds_frame_dict:
+                    repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
                 else:
-                    cds_dict[cds_coord] = {'frame': frame, 'dna_seq': dna_seq}
+                    repr_cds_frame_dict[cds_coord] = {'frame': frame}
             CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
-            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), seqs=cds_dict)
+            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
         return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
@@ -680,7 +697,7 @@ class Exonize(object):
                                       f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
 
-        CDS_blast_dict = {}
+        CDS_blast_dict = dict()
         time.sleep(random.randrange(0, self.secs))
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
@@ -694,7 +711,7 @@ class Exonize(object):
                     temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
                     cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
                     if cds_seq:
-                        cds_frame_ = CDS_coords_dict['seqs'][cds_coord]['frame']
+                        cds_frame_ = CDS_coords_dict['cds_frame_dict'][cds_coord]['frame']
                         tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
                         if tblastx_o:
                             CDS_blast_dict[cds_coord] = tblastx_o
@@ -803,7 +820,7 @@ class Exonize(object):
             """
             initializes the list of tuples used to store the identified events in the identify_full_length_duplications function
             """
-            self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = [], [], []
+            self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = list(), list(), list()
 
         def identify_query(trans_dict_: dict, cds_intv_: P.Interval) -> None:
             """
@@ -993,7 +1010,7 @@ class Exonize(object):
             """
             return [get_shorter_intv_overlapping_percentage(pair[0], pair[1]) for pair in pairs]
 
-        fragments, skip_frag, pair_id_counter = [], [], 1
+        fragments, skip_frag, pair_id_counter = list(), list(), 1
         with tqdm(total=len(full_matches), position=0, leave=True, ncols=50) as progress_bar:
             for frag_a in full_matches:
                 frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
@@ -1002,7 +1019,7 @@ class Exonize(object):
                 if frag_id_a not in skip_frag:
                     candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
                     if candidates:
-                        temp_cand = []
+                        temp_cand = list()
                         for frag_b in candidates:
                             frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
                             t_intv_b = P.open(t_s_b, t_e_b)
