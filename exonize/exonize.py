@@ -14,11 +14,13 @@ def exonize_ascii_art_logo() -> None:
         """
     print(exonize_ansi_regular)
     print("Exonize v1.0\n"
-          " Developed by: Marina Herrera Sarrias, Mathematics Department, Stockholm University\n"
-          "Supervised by: Lars Arvestad, Mathematics Department, Stockholm University\n"
-          "               & Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
-          "      Contact: marina.sarrias@math.su.se\n"
-          "       GitHub: https://github.com/msarrias/exonize\n"
+          "    authors: Marina Herrera Sarrias, Mathematics Department, Stockholm University,\n"
+          "             Lars Arvestad, Mathematics Department, Stockholm University\n"
+          "             & Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
+          "maintainers: Marina Herrera Sarrias, Mathematics Department, Stockholm University,\n"
+          "             Lars Arvestad, Mathematics Department, Stockholm University\n"
+          "    Contact: marina.sarrias@math.su.se\n"
+          "     GitHub: https://github.com/msarrias/exonize\n"
           "\n")
 
 
