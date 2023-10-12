@@ -141,6 +141,40 @@ def connect_create_results_db(db_path: str, timeout_db: int) -> None:
         db.commit()
 
 
+def create_protein_table(db_path: str, timeout_db: int) -> None:
+    with sqlite3.connect(db_path, timeout=timeout_db) as db:
+        cursor = db.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Proteins (
+        gene_id VARCHAR(100) NOT NULL,
+        gene_chrom VARCHAR(100) NOT NULL,
+        gene_strand VARCHAR(1) NOT NULL,
+        gene_start INTEGER NOT NULL,
+        gene_end INTEGER NOT NULL,
+        transcript_id VARCHAR(100) NOT NULL,
+        transcript_start INTEGER NOT NULL,
+        transcript_end INTEGER NOT NULL,
+        prot_seq VARCHAR NOT NULL,
+        primary key (gene_id, transcript_id)
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS CDSs (
+        gene_id VARCHAR(100) NOT NULL,
+        transcript_id VARCHAR(100) NOT NULL,
+        rank INTEGER NOT NULL,
+        cds_id VARCHAR(100) NOT NULL,
+        cds_frame INTEGER NOT NULL,
+        cds_start INTEGER NOT NULL,
+        cds_end INTEGER NOT NULL,
+        cds_dna_seq VARCHAR NOT NULL,
+        cds_prot_seq VARCHAR NOT NULL,
+        primary key (gene_id, transcript_id, rank, cds_id)
+        )
+        """)
+        db.commit()
+
+
 def create_cumulative_counts_table(db_path: str, timeout_db: int) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
@@ -408,6 +442,46 @@ def instert_truncation_event(db_path: str, timeout_db: int, tuples_list: list) -
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         cursor.executemany(insert_trunc_event_table_param, tuples_list)
+        db.commit()
+
+
+def insert_into_proteins(db_path: str, timeout_db: int, gene_args_list_tuple: list) -> None:
+    with sqlite3.connect(db_path, timeout=timeout_db) as db:
+        cursor = db.cursor()
+        insert_gene_table_param = """  
+        INSERT INTO Proteins (
+        gene_id,
+        gene_chrom,
+        gene_strand,
+        gene_start, 
+        gene_end, 
+        transcript_id,
+        transcript_start,
+        transcript_end,
+        prot_seq) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.executemany(insert_gene_table_param, gene_args_list_tuple)
+        db.commit()
+
+
+def insert_into_CDSs(db_path: str, timeout_db: int, gene_args_tuple_list: list) -> None:
+    with sqlite3.connect(db_path, timeout=timeout_db) as db:
+        cursor = db.cursor()
+        insert_gene_table_param = """  
+        INSERT INTO CDSs (
+        gene_id,
+        transcript_id,
+        rank,
+        cds_id,
+        cds_frame,
+        cds_start,
+        cds_end, 
+        cds_dna_seq, 
+        cds_prot_seq) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.executemany(insert_gene_table_param, gene_args_tuple_list)
         db.commit()
 
 
