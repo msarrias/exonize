@@ -37,7 +37,9 @@ class Exonize(object):
                  self_hit_threshold=0.5,
                  batch_number=100,
                  threads=7,
-                 timeout_db=160):
+                 timeout_db=160,
+                 genome_pickled_file_path=None,
+                 ):
 
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
@@ -51,6 +53,7 @@ class Exonize(object):
         self.specie_identifier = specie_identifier                      # specie identifier
         self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
         self.genome_path = genome_path                                  # genome path (FASTA)
+        self.genome_pickled_filepath = genome_pickled_file_path         # genome pickled file path
         self.hard_masking = hard_masking                                # hard masking (True/False)
         self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
         self.min_exon_len = min_exon_length                             # minimum exon length (bp)
@@ -278,21 +281,39 @@ class Exonize(object):
             self.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
-    def read_genome(self) -> None:
+    def read_genome(self, pickled_filepath: str = None) -> None:
         """
         read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a dictionary.
         The dictionary has the following structure: {chromosome: sequence}
         """
+        hard_masking_regex = re.compile('[a-z]')
         try:
             tic_genome = time.time()
             print("- Reading genome file:", end=" ")
-            parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
-            if self.hard_masking:
-                self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
-            else:
-                self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
-            print(f"Done! [{hms_time}]")
+            if pickled_filepath is not None:
+                try:
+                    with open(pickled_filepath, 'rb') as handle:
+                        self.genome = pickle.load(handle)
+                except FileNotFoundError:
+                    self.logger.exception(f"File doesn't exist yet: {pickled_filepath}")
+            if self.genome is not None:
+                return
+            with open(self.genome_path) as genome_file:
+                parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                if self.hard_masking:
+                    self.genome = {
+                        fasta.id: hard_masking_regex.sub('N', str(fasta.seq))
+                        for fasta in parsed_genome
+                    }
+                else:
+                    self.genome = {
+                        fasta.id: str(fasta.seq)
+                        for fasta in parsed_genome
+                    }
+                hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
+                print(f"Done! [{hms_time}]")
+                if pickled_filepath is not None:
+                    self.dump_pkl_file(pickled_filepath, self.genome)
         except (ValueError, FileNotFoundError) as e:
             self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
@@ -422,7 +443,7 @@ class Exonize(object):
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-    def prepare_data(self) -> None:
+    def prepare_data(self, pickled_filepath: str = None) -> None:
         """
         prepare_data is a wrapper function that:
         (i)   creates the database with the genomic annotations (if it does not exist)
@@ -435,7 +456,7 @@ class Exonize(object):
             os.makedirs(os.path.join(self.working_dir, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
         create_protein_table(self.protein_db_path, self.timeout_db)
-        self.read_genome()
+        self.read_genome(pickled_filepath=pickled_filepath)
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
@@ -1121,7 +1142,7 @@ class Exonize(object):
             for indx in range(0, it_length, n):
                 yield iterable[indx:min(indx + n, it_length)]
 
-        self.prepare_data()
+        self.prepare_data(pickled_filepath=self.genome_pickled_filepath)
         args_list = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
         if processed_gene_ids:

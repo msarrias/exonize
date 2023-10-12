@@ -62,6 +62,9 @@ def argument_parser():
     # Optional Argument for Timeout
     parser.add_argument('-to', '--timeout-db', default=160, type=int,
                         help='Database timeout. Default is 160.')
+    # Optional Argument for saving the parsed genome as a pickle file
+    parser.add_argument('--genome_pickled_file_path', default='.parsed_genome.pkl', type=str,
+                        help='Parsed genome pickled file path. Default is .parsed_genome.pkl.')
     args = parser.parse_args()
     return args
 
@@ -84,7 +87,9 @@ def main():
                           self_hit_threshold=args.self_hit_threshold,
                           batch_number=args.batch_number,
                           threads=args.threads,
-                          timeout_db=args.timeout_db)
+                          timeout_db=args.timeout_db,
+                          genome_pickled_file_path=args.genome_pickled_file_path,
+                          )
     exonize_obj.run_exonize_pipeline()
 
 
