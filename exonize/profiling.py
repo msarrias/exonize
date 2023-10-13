@@ -3,9 +3,9 @@ Module that will perform some profiling tasks, namely wrapping of functions for 
 """
 
 import pstats
+from pathlib import Path
 
-
-PROFILE_PATH = '/home/arthur/experimental/exonize/cProfile_dump_stats'
+PROFILE_PATH = (Path(__file__).resolve().parent / 'cProfile_dump_stats').as_posix()
 
 
 def get_run_performance_profile(filename_for_profile_output):

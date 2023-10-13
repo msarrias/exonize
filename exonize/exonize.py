@@ -1,9 +1,8 @@
+import argparse
 import cProfile
 
-from .exonize_handler import *
-import argparse
-
-from exonize.profiling import get_run_performance_profile
+from exonize.exonize_handler import Exonize
+from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 
 def exonize_ascii_art_logo() -> None:
@@ -94,7 +93,6 @@ def main():
 
 
 if __name__ == '__main__':
-    PROFILE_PATH = '/home/arthur/experimental/exonize/cProfile_dump_stats'
 
     pr = cProfile.Profile()
     pr.enable()
