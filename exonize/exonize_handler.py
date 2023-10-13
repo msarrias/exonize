@@ -1,21 +1,53 @@
-from .sqlite_utils import *
+import datetime
 import gc
 import gffutils                                        # for creating/loading DBs
-import subprocess                                      # for calling gffread
-import portion as P                                    # for working with intervals
+import logging
 import os                                              # for working with files
-import time                                            # for sleeping between BLAST calls and for timeout on DB creation
+import pickle
+import portion as P                                    # for working with intervals
 import random                                          # for random sleep
 import re                                              # regular expressions for genome masking
-import tempfile                                        # for creating temporary files
-from Bio import SeqIO                                  # for reading FASTA files
-from tqdm import tqdm                                  # progress bar
-from multiprocessing.pool import ThreadPool            # for parallelization
-from Bio.Blast import NCBIXML                          # for parsing BLAST results
-from datetime import datetime as dt
+import sqlite3
+import subprocess                                      # for calling gffread
 import sys
-import logging
-import datetime
+import tempfile                                        # for creating temporary files
+import time                                            # for sleeping between BLAST calls and for timeout on DB creation
+from datetime import datetime as dt
+from tqdm import tqdm                                  # progress bar
+
+from Bio import SeqIO                                  # for reading FASTA files
+from Bio.Blast import NCBIXML                          # for parsing BLAST results
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+
+from exonize.sqlite_utils import (
+    connect_create_results_db,
+    create_cumulative_counts_table,
+    create_exclusive_pairs_view,
+    create_filtered_full_length_events_view,
+    create_mrna_counts_view,
+    create_protein_table,
+    insert_event_categ_full_length_events_cumulative_counts,
+    instert_full_length_event,
+    insert_identity_and_dna_algns_columns,
+    insert_into_CDSs,
+    insert_into_proteins,
+    insert_gene_ids_table,
+    insert_fragments_calls,
+    instert_obligatory_event,
+    instert_pair_id_column_to_full_length_events_cumulative_counts,
+    insert_percent_query_column_to_fragments,
+    instert_truncation_event,
+    query_gene_ids_in_res_db,
+    query_fragments,
+    query_filtered_full_duplication_events,
+    query_concat_categ_pairs,
+    query_full_events,
+)
+from exonize.utils import (
+    get_interval_dictionary,
+    generate_unique_events_list,
+)
 
 
 class Exonize(object):

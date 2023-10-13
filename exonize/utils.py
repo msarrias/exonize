@@ -1,10 +1,11 @@
+import portion as P
+import random
+import re
+import tempfile
+from itertools import permutations
+
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
-import tempfile
-import portion as P
-import re
-import random
-from itertools import permutations
 
 
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:

@@ -1,5 +1,4 @@
 import sqlite3                                         # for working with SQLite
-from .utils import *
 
 
 def check_if_table_exists(db_path: str, table_name: str, timeout_db: int) -> bool:
