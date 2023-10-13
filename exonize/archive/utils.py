@@ -80,25 +80,25 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
 # The following two functions are not used and depends on an undefined
 # function:get_overlap_percentage
 #
-def get_average_overlapping_percentage(intv_a, intv_b) -> float:
-    return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
-
-
-def get_overlapping_set_of_coordinates(list_coords: list, overlapping_threshold=0.9) -> dict:
-    overlapping_coords = {}
-    skip_coords = []
-    for idx, i in enumerate(list_coords):
-        if i not in skip_coords:
-            if i not in overlapping_coords:
-                overlapping_coords[i] = []
-            for j in list_coords[idx+1:]:
-                if j not in skip_coords:
-                    if all([get_overlap_percentage(i, j) > overlapping_threshold,
-                            get_overlap_percentage(j, i) > overlapping_threshold]):
-                        overlapping_coords[i].append(j)
-                        skip_coords.append(j)
-            skip_coords.append(i)
-    return overlapping_coords
+# def get_average_overlapping_percentage(intv_a, intv_b) -> float:
+#     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
+#
+#
+# def get_overlapping_set_of_coordinates(list_coords: list, overlapping_threshold=0.9) -> dict:
+#     overlapping_coords = {}
+#     skip_coords = []
+#     for idx, i in enumerate(list_coords):
+#         if i not in skip_coords:
+#             if i not in overlapping_coords:
+#                 overlapping_coords[i] = []
+#             for j in list_coords[idx+1:]:
+#                 if j not in skip_coords:
+#                     if all([get_overlap_percentage(i, j) > overlapping_threshold,
+#                             get_overlap_percentage(j, i) > overlapping_threshold]):
+#                         overlapping_coords[i].append(j)
+#                         skip_coords.append(j)
+#             skip_coords.append(i)
+#     return overlapping_coords
 
 
 def check_if_non_overlapping(intv_list: list) -> bool:
@@ -146,7 +146,6 @@ def get_unmatched_events(string1: str, string2: str) -> list:
             a_copy.remove(i)
     a_copy.extend(b)
     return a_copy
-
 
 
 def get_overlapping_dict(interval_dict: dict) -> dict:

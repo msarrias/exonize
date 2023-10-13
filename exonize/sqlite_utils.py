@@ -759,7 +759,7 @@ def create_filtered_full_length_events_view(db_path: str, timeout_db: int) -> No
                                                AND f1.target_end >= f2.target_start
                 -- If step 2 works, introduce step 3, then 4 and so on.
 	    	WHERE f2.fragment_id IS NULL -- Keep f1 because it lacks an overlapping fragment
-            	      OR f1.fragment_id = ( 
+            	      OR f1.fragment_id = (
             	          SELECT fragment_id
             	      	  FROM overlapping_fragments AS ofr
             	      	  WHERE ofr.gene_id = f1.gene_id
@@ -816,7 +816,7 @@ def create_exclusive_pairs_view(db_path: str, timeout_db: int) -> None:
         cursor = db.cursor()
         cursor.execute("""
         CREATE VIEW IF NOT EXISTS Exclusive_pairs AS
-        SELECT 
+        SELECT
         fm3.fragment_id,
         fm3.gene_id,
         fld.mrna_id,
@@ -849,8 +849,8 @@ def create_exclusive_pairs_view(db_path: str, timeout_db: int) -> None:
         fld.neither,
         fms.evalue
         FROM (
-        SELECT 
-        * 
+        SELECT
+        *
         FROM Full_length_events_cumulative_counts AS fle
         WHERE (fle.cum_query==(fle.mrna_count-fle.cum_target)
         AND fle.cum_target>0

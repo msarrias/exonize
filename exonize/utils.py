@@ -1,15 +1,9 @@
-import pickle  # saving and loading dictionaries
-from Bio.SeqRecord import SeqRecord
-from Bio.Seq import Seq
-from Bio import SeqIO
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
 import tempfile
 import portion as P
 import re
 import random
-import copy
-from collections import Counter
 from itertools import permutations
 
 
@@ -72,9 +66,9 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
         seq1_match, seq2_match = p.search(seq1), p.search(seq2)
         s1, e1 = seq1_match.start(1), seq1_match.end(1)
         s2, e2 = seq2_match.start(1), seq2_match.end(1)
-        if (e2-s2) == (e1-s1):
+        if (e2 - s2) == (e1 - s1):
             return seq1, seq2
-        elif (e2-s2) < (e1-s1):
+        elif (e2 - s2) < (e1 - s1):
             return seq1[s2:e2], seq2[s2:e2]
         else:
             return seq1[s1:e1], seq2[s1:e1]
@@ -119,7 +113,7 @@ def get_non_overlapping_coords_set(overlapping_coords_dict: dict) -> list:
 
 
 def sample_color(n=1) -> list:
-    return ["#"+''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in range(n)]
+    return ["#" + ''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in range(n)]
 
 
 def strand_string_to_integer(strand: str) -> int:
@@ -201,7 +195,7 @@ def get_overlapping_dict(interval_dict: dict) -> dict:
     intervals_list = list(interval_dict.keys())
     for idx, (feat_interv, feature_annot) in enumerate(interval_dict.items()):
         if idx != (len(interval_dict) - 1) and feat_interv.overlaps(intervals_list[idx + 1]):
-            overlapping_dict[feat_interv] = intervals_list[idx+1]
+            overlapping_dict[feat_interv] = intervals_list[idx + 1]
     return overlapping_dict
 
 
