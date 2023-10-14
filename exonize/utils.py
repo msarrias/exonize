@@ -46,21 +46,6 @@ def gaps_from_peptide(peptide_seq: str, nucleotide_seq: str) -> str:
     return ''.join(gaped_codons)
 
 
-def muscle_pairwise_alignment(seq1: str, seq2: str, muscle_exe="muscle"):
-    with tempfile.TemporaryDirectory() as temp_dir_name:
-        input_file = f'{temp_dir_name}/input.fa'
-        out_file = f'{temp_dir_name}/out.fa'
-        with open(input_file, "w") as f:
-            f.write(seq1 + "\n")
-            f.write(seq2 + "\n")
-        # Run MUSCLE for pairwise alignment
-        muscle_cline = MuscleCommandline(muscle_exe, input=input_file, out=out_file)
-        muscle_cline()
-        # Parse the alignment from the output file
-        alignment = AlignIO.read(out_file, "fasta")
-    return alignment
-
-
 def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple:
     if len(seq1) == len(seq2):
         p = re.compile(r'^-*([^-\s].*?[^-])-*$')

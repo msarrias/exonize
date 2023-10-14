@@ -93,11 +93,4 @@ def main():
 
 
 if __name__ == '__main__':
-
-    pr = cProfile.Profile()
-    pr.enable()
     main()
-
-    pr.disable()
-    pr.dump_stats(PROFILE_PATH)
-    get_run_performance_profile(PROFILE_PATH)

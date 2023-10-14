@@ -1,3 +1,4 @@
+import cProfile
 import datetime
 import gc
 import gffutils                                        # for creating/loading DBs
@@ -20,6 +21,7 @@ from Bio.Blast import NCBIXML                          # for parsing BLAST resul
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.sqlite_utils import (
     connect_create_results_db,
     create_cumulative_counts_table,
@@ -664,10 +666,14 @@ class Exonize(object):
             :param intv_list: list of intervals
             :return: list of tuples with pairs of overlapping intervals
             """
-            return [(feat_interv, intv_list[idx + 1])
-                    for idx, feat_interv in enumerate(intv_list[:-1])
-                    if all([self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold,
-                            self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold])]
+            return [
+                (feat_interv, intv_list[idx + 1])
+                for idx, feat_interv in enumerate(intv_list[:-1])
+                if (
+                    self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold
+                    and self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold
+                )
+            ]
 
         def resolve_overlaps_coords_list(coords_list) -> list:
             """
@@ -755,18 +761,20 @@ class Exonize(object):
                 sys.exit()
 
         CDS_blast_dict = dict()
-        time.sleep(random.randrange(0, self.secs))
+        # time.sleep(random.randrange(0, self.secs))
+        print("check gene_id")
+        print(gene_id)
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
-        temp_gs = str(Seq(self.genome[chrom][gene_coord.lower:gene_coord.upper]))
-        gene_seq = check_for_masking(chrom, gene_id, temp_gs, gene_coord, type_='gene')
+        gene_sequence = self.genome[chrom][gene_coord.lower:gene_coord.upper]
+        gene_seq = check_for_masking(chrom, gene_id, gene_sequence, gene_coord, type_='gene')
         if gene_seq:
             CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
             if CDS_coords_dict:
                 for cds_coord in CDS_coords_dict['set_coords']:
-                    temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
-                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, cds_coord, type_='CDS')
+                    cd_sequence = self.genome[chrom][cds_coord.lower:cds_coord.upper]
+                    cds_seq = check_for_masking(chrom, gene_id, cd_sequence, cds_coord, type_='CDS')
                     if cds_seq:
                         cds_frame_ = CDS_coords_dict['cds_frame_dict'][cds_coord]['frame']
                         tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
@@ -1183,20 +1191,37 @@ class Exonize(object):
         if processed_gene_ids:
             args_list = [i for i in args_list if i not in processed_gene_ids]
         if args_list:
-            batches_list = [i for i in batch(args_list, self.batch_number)]
+            # batches_list = [i for i in batch(args_list, self.batch_number)]
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
             self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
+            # pr = cProfile.Profile()
+            # pr.enable()
+            # for arg_batch in batches_list:
+            #     for gene_id in arg_batch:
+            #         self.find_coding_exon_duplicates(gene_id)
+            # pr.disable()
+            # pr.dump_stats(PROFILE_PATH)
+            # get_run_performance_profile(PROFILE_PATH)
             with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
+                # Benchmark without any parallel computation:
+                # for arg_batch in batches_list:
+                #     for gene_id in arg_batch:
+                #         self.find_coding_exon_duplicates(gene_id)
+                #     progress_bar.update(len(arg_batch))
+                # Benchmark with parallel computation using os.fork:
+                pr = cProfile.Profile()
+                pr.enable()
                 gc.collect()
                 gc.freeze()
                 transactions_pks: set[int]
                 status: int
                 code: int
                 forks: int = 0
-                for arg_batch in batches_list:
+                for gene_id in args_list:
                     if os.fork():
                         forks += 1
-                        if forks >= 10:
+                        if forks >= 12:
+                            print("waiting")
                             _, status = os.wait()
                             code = os.waitstatus_to_exitcode(status)
                             assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
@@ -1205,8 +1230,8 @@ class Exonize(object):
                     else:
                         status = os.EX_OK
                         try:
-                            self.find_coding_exon_duplicates(arg_batch)
-                            progress_bar.update(len(arg_batch))
+                            self.find_coding_exon_duplicates(gene_id)
+                            progress_bar.update(1)
                         except Exception as exception:
                             sys.stdout.write(exception)
                             status = os.EX_SOFTWARE
@@ -1219,6 +1244,9 @@ class Exonize(object):
                     assert code != os.EX_SOFTWARE
                     forks -= 1
                 gc.unfreeze()
+                pr.disable()
+                pr.dump_stats(PROFILE_PATH)
+                get_run_performance_profile(PROFILE_PATH)
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
