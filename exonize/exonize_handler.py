@@ -13,8 +13,10 @@ import subprocess                                      # for calling gffread
 import sys
 import tempfile                                        # for creating temporary files
 import time                                            # for sleeping between BLAST calls and for timeout on DB creation
+from collections.abc import Sequence, Iterator
 from datetime import datetime as dt
 from tqdm import tqdm                                  # progress bar
+from typing import Any
 
 from Bio import SeqIO                                  # for reading FASTA files
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
@@ -762,8 +764,6 @@ class Exonize(object):
 
         CDS_blast_dict = dict()
         # time.sleep(random.randrange(0, self.secs))
-        print("check gene_id")
-        print(gene_id)
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
@@ -1185,29 +1185,33 @@ class Exonize(object):
             for indx in range(0, it_length, n):
                 yield iterable[indx:min(indx + n, it_length)]
 
+        def even_batches(data: Sequence[Any], number_of_batches: int = 1) -> Iterator[Any]:
+            """
+            Given a list and a number of batches, returns 'number_of_batches' consecutive subsets elements of 'data' of
+            even size each, except for the last one whose size is the remainder of the division of the length of 'data'
+            by 'number_of_batches'.
+            """
+            # We round to the next integer the size of each batch
+            even_batch_size = (len(data) // number_of_batches) + 1
+            for batch_number in range(number_of_batches):
+                batch_start_index = batch_number * even_batch_size
+                batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
+                yield data[batch_start_index:batch_end_index]
+
         self.prepare_data(pickled_filepath=self.genome_pickled_filepath)
-        args_list = list(self.gene_hierarchy_dict.keys())
-        processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
-        if processed_gene_ids:
-            args_list = [i for i in args_list if i not in processed_gene_ids]
-        if args_list:
-            # batches_list = [i for i in batch(args_list, self.batch_number)]
+        gene_ids = list(self.gene_hierarchy_dict.keys())
+        processed_gene_ids = set(query_gene_ids_in_res_db(self.results_db, self.timeout_db))
+        unprocessed_gene_ids = [i for i in gene_ids if i not in processed_gene_ids]
+        if unprocessed_gene_ids:
+            self.logger.info(f'- Starting tblastx search for {len(unprocessed_gene_ids)} unprocessed genes.')
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
-            # pr = cProfile.Profile()
-            # pr.enable()
-            # for arg_batch in batches_list:
-            #     for gene_id in arg_batch:
-            #         self.find_coding_exon_duplicates(gene_id)
-            # pr.disable()
-            # pr.dump_stats(PROFILE_PATH)
-            # get_run_performance_profile(PROFILE_PATH)
-            with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
+            self.logger.info(f'- Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
+            with tqdm(total=len(unprocessed_gene_ids), position=0, leave=True, ncols=50) as progress_bar:
                 # Benchmark without any parallel computation:
-                # for arg_batch in batches_list:
-                #     for gene_id in arg_batch:
-                #         self.find_coding_exon_duplicates(gene_id)
-                #     progress_bar.update(len(arg_batch))
+                # for arg_batch in unprocessed_gene_ids:
+                #     self.find_coding_exon_duplicates(gene_id)
+                #     progress_bar.update(1)
+
                 # Benchmark with parallel computation using os.fork:
                 pr = cProfile.Profile()
                 pr.enable()
@@ -1217,26 +1221,46 @@ class Exonize(object):
                 status: int
                 code: int
                 forks: int = 0
-                for gene_id in args_list:
+                FORKS_NUMBER = 12
+                for balanced_genes_batch in even_batches(
+                    data=unprocessed_gene_ids,
+                    number_of_batches=FORKS_NUMBER,
+                ):
+                    # This part effectively forks a child process, independent of the parent process, and that
+                    # will be responsible for processing the genes in the batch, parallel to the other children forked
+                    # in the same way during the rest of the loop.
+                    # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
+                    # of the child process in the parent process. So the parent process always goes to the part
+                    # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
+                    # to false (0 is evaluated to False)
+                    # The parallel part happens because the main parent process will keep along the for loop, and will
+                    # fork more children, until the number of children reaches the maximum number of children allowed,
+                    # doing nothing else but forking until 'FORKS_NUMBER + 1' is reached.
                     if os.fork():
                         forks += 1
-                        if forks >= 12:
-                            print("waiting")
+                        if forks >= FORKS_NUMBER:
                             _, status = os.wait()
                             code = os.waitstatus_to_exitcode(status)
                             assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                             assert code != os.EX_SOFTWARE
                             forks -= 1
+
                     else:
                         status = os.EX_OK
                         try:
-                            self.find_coding_exon_duplicates(gene_id)
-                            progress_bar.update(1)
+                            for gene_id in balanced_genes_batch:
+                                self.find_coding_exon_duplicates(gene_id)
+                            progress_bar.update(len(balanced_genes_batch))
                         except Exception as exception:
                             sys.stdout.write(exception)
                             status = os.EX_SOFTWARE
                         finally:
+                            # This prevents the child process forked above to keep along the for loop upon completion
+                            # of the try/except block. If this was not present, it would resume were it left off, and
+                            # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                            # We do not want that, so we gracefully exit the process when it is done.
                             os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
                 while forks > 0:
                     _, status = os.wait()
                     code = os.waitstatus_to_exitcode(status)
