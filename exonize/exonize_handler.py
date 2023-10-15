@@ -16,7 +16,7 @@ import time                                            # for sleeping between BL
 from collections.abc import Sequence, Iterator
 from datetime import datetime as dt
 from tqdm import tqdm                                  # progress bar
-from typing import Any
+from typing import Any, Union
 
 from Bio import SeqIO                                  # for reading FASTA files
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
@@ -661,60 +661,79 @@ class Exonize(object):
         :param gene_id: gene identifier
         :return: list of representative CDS coordinates for the gene across all transcripts
         """
-        def get_intervals_overlapping_list(intv_list: list) -> list:
+
+        def get_first_overlapping_intervals(
+            sorted_intervals: list[P.Interval],
+        ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
             """
             get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
             with the overlapping pairs described in case a (get_candidate_CDS_coords).
-            :param intv_list: list of intervals
+            :param sorted_intervals: list of intervals
             :return: list of tuples with pairs of overlapping intervals
             """
-            return [
-                (feat_interv, intv_list[idx + 1])
-                for idx, feat_interv in enumerate(intv_list[:-1])
+            first_overlap_index = 0
+            while first_overlap_index < len(sorted_intervals) - 1:
+                current_interval = sorted_intervals[first_overlap_index]
+                next_interval = sorted_intervals[first_overlap_index + 1]
                 if (
-                    self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold
-                    and self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold
-                )
-            ]
+                    self.get_overlap_percentage(current_interval, next_interval) >= self.cds_overlapping_threshold
+                    and self.get_overlap_percentage(next_interval, current_interval) >= self.cds_overlapping_threshold
+                ):
+                    return current_interval, next_interval
+                first_overlap_index += 1
+            return None, None
 
-        def resolve_overlaps_coords_list(coords_list) -> list:
+        def resolve_overlaps_coords_list(sorted_cds_coordinates: list[P.Interval]) -> list[P.Interval]:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
             considered to be overlapping, they are both included in the search.
-            :param coords_list: list of coordinates
+            :param sorted_cds_coordinates: list of coordinates sorted according to the following criteria:
+                (i) lower coordinate, (ii) upper coordinate
             :return: list of coordinates without overlaps
             """
             new_list = list()
-            overlaps_list = get_intervals_overlapping_list(coords_list)
-            if overlaps_list:
-                # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
-                # with the next interval in the list.
-                intv_a, intv_b = overlaps_list[0]
-                for idx, coord in enumerate(coords_list):
+            # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
+            # with the next interval in the list.
+            intv_a, intv_b = get_first_overlapping_intervals(sorted_cds_coordinates)
+            if all((intv_a, intv_b)):
+                shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
+                # Note: new_list is populated through enumeration of 'sorted_cds_coordinates', so it will also be sorted
+                # according to the same criteria used for 'sorted_cds_coordinates'.
+                for idx, coord in enumerate(sorted_cds_coordinates):
                     if coord != intv_a:
                         new_list.append(coord)
                     else:
-                        shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
                         new_list.append(shorter)
-                        new_list.extend(coords_list[idx + 2:])
+                        new_list.extend(sorted_cds_coordinates[idx + 2:])
                         return resolve_overlaps_coords_list(new_list)
-            else:
-                return coords_list
+            return sorted_cds_coordinates
 
-        CDS_coords_list = list(set([(i['coord'], i['frame']) for mrna_id, mrna_annot
-                                    in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
-        if CDS_coords_list:
+        cds_coords_and_frames= list(set(
+            (coordinate, annotation_structure['frame'])
+            for mrna_annotation in self.gene_hierarchy_dict[gene_id]['mRNAs'].values()
+            for annotation_structure in mrna_annotation['structure']
+            for coordinate in (annotation_structure['coord'], )
+            if(
+                annotation_structure['type'] == 'CDS' and
+                (coordinate.upper - coordinate.lower) >= self.min_exon_len
+            )
+        ))
+        if cds_coords_and_frames:
             repr_cds_frame_dict = dict()
-            for cds_coord, frame in CDS_coords_list:
+            for cds_coord, frame in cds_coords_and_frames:
                 if cds_coord in repr_cds_frame_dict:
                     repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
                 else:
                     repr_cds_frame_dict[cds_coord] = {'frame': frame}
-            CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
-            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
+            sorted_cds_coords_list: list[P.Interval] = sorted(
+                [coordinate for coordinate, _ in cds_coords_and_frames],
+                key=lambda x: (x.lower, x.upper),
+            )
+            return {
+                'set_coords': resolve_overlaps_coords_list(sorted_cds_coords_list),
+                'cds_frame_dict': repr_cds_frame_dict,
+            }
         return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
@@ -749,21 +768,25 @@ class Exonize(object):
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
-                                                   f'{str(coord_.upper)} is hardmasked.')
+                        self.logger.file_only_info(
+                            f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
+                            f'{str(coord_.upper)} is hardmasked.',
+                        )
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
-                                                   f' {str(coord_.upper)} located in chromosome {chrom_} is hardmasked.')
+                        self.logger.file_only_info(
+                            f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
+                            f' {str(coord_.upper)} located in chromosome {chrom_} is hardmasked.',
+                        )
                 return seq_
-
             except KeyError as e_:
-                self.logger.exception(f'Either there is missing a chromosome in the genome file '
-                                      f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
-                sys.exit()
+                self.logger.exception(
+                    f'Either there is missing a chromosome in the genome file '
+                    f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}'
+                )
+                sys.exit()  # Are we sure we want to exit here, instead of just returning False?
 
         CDS_blast_dict = dict()
-        # time.sleep(random.randrange(0, self.secs))
         chrom, gene_coord, gene_strand = (self.gene_hierarchy_dict[gene_id]['chrom'],
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
@@ -1177,21 +1200,17 @@ class Exonize(object):
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def batch(iterable: list, n=1) -> list:
-            """
-            batch is a function that given a list and a batch size, returns an iterable of lists of size n.
-            """
-            it_length = len(iterable)
-            for indx in range(0, it_length, n):
-                yield iterable[indx:min(indx + n, it_length)]
 
-        def even_batches(data: Sequence[Any], number_of_batches: int = 1) -> Iterator[Any]:
+        def even_batches(
+            data: Sequence[Any],
+            number_of_batches: int = 1,
+        ) -> Iterator[Sequence[Any]]:
             """
             Given a list and a number of batches, returns 'number_of_batches' consecutive subsets elements of 'data' of
             even size each, except for the last one whose size is the remainder of the division of the length of 'data'
             by 'number_of_batches'.
             """
-            # We round to the next integer the size of each batch
+            # We round up to the upper integer value to guarantee that there will be 'number_of_batches' batches
             even_batch_size = (len(data) // number_of_batches) + 1
             for batch_number in range(number_of_batches):
                 batch_start_index = batch_number * even_batch_size
@@ -1208,9 +1227,14 @@ class Exonize(object):
             self.logger.info(f'- Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
             with tqdm(total=len(unprocessed_gene_ids), position=0, leave=True, ncols=50) as progress_bar:
                 # Benchmark without any parallel computation:
-                # for arg_batch in unprocessed_gene_ids:
+                # pr = cProfile.Profile()
+                # pr.enable()
+                # for gene_id in unprocessed_gene_ids:
                 #     self.find_coding_exon_duplicates(gene_id)
                 #     progress_bar.update(1)
+                # pr.disable()
+                # pr.dump_stats(PROFILE_PATH)
+                # get_run_performance_profile(PROFILE_PATH)
 
                 # Benchmark with parallel computation using os.fork:
                 pr = cProfile.Profile()
@@ -1221,7 +1245,7 @@ class Exonize(object):
                 status: int
                 code: int
                 forks: int = 0
-                FORKS_NUMBER = 12
+                FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
                 for balanced_genes_batch in even_batches(
                     data=unprocessed_gene_ids,
                     number_of_batches=FORKS_NUMBER,
@@ -1232,10 +1256,10 @@ class Exonize(object):
                     # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
                     # of the child process in the parent process. So the parent process always goes to the part
                     # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
-                    # to false (0 is evaluated to False)
+                    # to false (0 is evaluated to False).
                     # The parallel part happens because the main parent process will keep along the for loop, and will
                     # fork more children, until the number of children reaches the maximum number of children allowed,
-                    # doing nothing else but forking until 'FORKS_NUMBER + 1' is reached.
+                    # doing nothing else but forking until 'FORKS_NUMBER' is reached.
                     if os.fork():
                         forks += 1
                         if forks >= FORKS_NUMBER:
