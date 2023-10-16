@@ -269,9 +269,10 @@ def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str,
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id', timeout_db):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_id;""")
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_code', timeout_db):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_code;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
-        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_code INTEGER;""")
+        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_code VARCHAR;""")
         cursor.executemany(""" 
         UPDATE Full_length_events_cumulative_counts 
         SET pair_id=?,
@@ -712,11 +713,17 @@ def query_full_events(db_path: str, timeout_db: int) -> list:
         f.target_start,
         f.target_end,
         f.event_type,
+        f.pair_code,
         f.pair_id
         FROM Full_length_events_cumulative_counts AS f
         ORDER BY
             f.gene_id,
+             f.pair_id,
             CASE WHEN f.event_type LIKE '%INS_CDS%' THEN 1 ELSE 2 END,
+            CASE WHEN f.pair_code='MATCH' THEN 1
+            WHEN f.pair_code='RECIPROCAL' THEN 2
+            WHEN f.pair_code='OVERLAPPING' THEN 3
+            ELSE 4 END,
             f.event_type;
         """
         cursor.execute(matches_q)
