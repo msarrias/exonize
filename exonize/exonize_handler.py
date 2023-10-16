@@ -12,6 +12,7 @@ from tqdm import tqdm                                  # progress bar
 from multiprocessing.pool import ThreadPool            # for parallelization
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
 from datetime import datetime as dt
+from collections import defaultdict
 import sys
 import logging
 import datetime
@@ -1015,18 +1016,21 @@ class Exonize(object):
             return [get_shorter_intv_overlapping_percentage(pair[0], pair[1]) for pair in pairs]
 
         fragments, skip_frag, pair_id_counter = list(), list(), 1
+        full_matches_dict = defaultdict(list)
+        for match in full_matches:
+            full_matches_dict[match[1]].append(match)
         with tqdm(total=len(full_matches), position=0, leave=True, ncols=50) as progress_bar:
             for frag_a in full_matches:
-                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
-                t_intv_a = P.open(t_s_a, t_e_a)
-                q_intv_a = P.open(q_s_a, q_e_a)
+                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a, pair_id_a = frag_a
+                t_intv_a = P.open(t_s_a, t_e_a)  # target interval
+                q_intv_a = P.open(q_s_a, q_e_a)  # query interval
                 if frag_id_a not in skip_frag:
                     # we want to find all the other "candidate" matches in the same gene.
-                    gene_candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
+                    gene_candidates = [i for i in full_matches_dict[gene_id_a] if i[0] not in [*skip_frag, frag_id_a]]
                     if gene_candidates:
                         temp_cand = list()
                         for frag_b in gene_candidates:
-                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
+                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b, pair_id_b = frag_b
                             t_intv_b = P.open(t_s_b, t_e_b)  # target interval
                             q_intv_b = P.open(q_s_b, q_e_b)  # query interval
                             # the candidate match can be either a reciprocal match, an overlapping match or an independent match
@@ -1035,27 +1039,27 @@ class Exonize(object):
                             if overlapping_pairs or reciprocal_pairs:
                                 # Because of how we are building the set of representative CDSs (90% reciprocal overlap)
                                 # If the shortest CDS is contained within the longest and the longest is duplicated.
-                                # We will have two reciprocal matches with types (INS_CDS and TRUNC)
+                                # We will have reciprocal matches with types: INS_CDS (for the shortest) and TRUNC (for the longest)
                                 # The fragments are sorted in a way so that for all genes, INS_CDS goes always first.
-                                # i.e., if such cases exist event_type_a will always be INS_CDS
-                                # and event_type_b will always be TRUNC
+                                # i.e., if such cases exist event_type_a will always be INS_CDS and event_type_b will always be TRUNC.
                                 if "INS_CDS" in event_type_a and "TRUNC" in event_type_b:
                                     # (query_short_exon, target_long_exon) and (query_long_exon, target_short_exon) have to overlap
                                     if all(perc > 0 for perc in reciprocal_pairs):
-                                        temp_cand.append(frag_id_b)
+                                        temp_cand.append(('RECIPROCAL', frag_id_b))
                                     # q_1, q_2 and t_2, t_2 have to overlap
                                     elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
                                         # this shouldn't happen, but just in case
                                         self.logger.file_only_info(f'- overlapp INS - TRUNC {frag_id_a}_{frag_id_b}_{gene_id_a}.')
-                                        temp_cand.append(frag_id_b)
+                                        temp_cand.append(('_', frag_id_b))
                                 # Full events, meaning that the target CDS and query CDS overlap for their greater part
                                 # We include in the same event both, reciprocal and overlapping matches
-                                elif any(all(perc >= self.cds_overlapping_threshold for perc in pair)  # full dups
-                                         for pair in [reciprocal_pairs, overlapping_pairs]):
-                                    temp_cand.append(frag_id_b)
+                                elif all(perc >= self.cds_overlapping_threshold for perc in reciprocal_pairs):
+                                    temp_cand.append(('RECIPROCAL', frag_id_b))
+                                elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
+                                    temp_cand.append(('OVERLAPPING', frag_id_b))
                         if temp_cand:
-                            skip_frag.extend([frag_id_a, *temp_cand])
-                            fragments.extend([(pair_id_counter, frag) for frag in [frag_id_a, *temp_cand]])
+                            skip_frag.extend([frag_id_a, *[frag_id for frag_id, _ in temp_cand]])
+                            fragments.extend([(pair_id_counter, frag) for frag in [('MATCH', frag_id_a), *temp_cand]])
                             pair_id_counter += 1
                 progress_bar.update(1)
         return fragments
