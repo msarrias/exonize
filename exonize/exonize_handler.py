@@ -216,7 +216,7 @@ class Exonize(object):
             - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
-                print("- Creating annotations database:", end=" ")
+                self.logger.info("- Creating annotations database:")
                 self.db = gffutils.create_db(self.in_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -225,7 +225,6 @@ class Exonize(object):
                                              sort_attribute_values=True,
                                              disable_infer_genes=True,
                                              disable_infer_transcripts=True)
-                print("Done!")
             except ValueError as e:
                 self.logger.exception(f"Incorrect genome annotations file {e}")
                 sys.exit()
@@ -241,14 +240,13 @@ class Exonize(object):
             """
             if 'intron' not in self.db_features:
                 self.logger.info("The GFF file does not contain intron annotations")
-                print(f"- Attempting to write intron annotations in database:", end=" ")
+                self.logger.info(f"- Attempting to write intron annotations in database:")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
                     self.logger.exception(f"failed to write intron annotations in database. "
                                           f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
-                print("Done!")
         if not os.path.exists(self.db_path):
             if 'gtf' in self.in_file_path:
                 self.old_filename = self.in_file_path
@@ -258,9 +256,8 @@ class Exonize(object):
                 self.logger.info(f'with filename: {self.in_file_path}')
             create_genome_database()
         if not self.db:
-            print("- Reading annotations database:", end=" ")
+            self.logger.info("Reading annotations database")
             self.load_db()
-            print("Done!")
         self.db_features = list(self.db.featuretypes())
         search_create_intron_annotations()
 
@@ -283,15 +280,12 @@ class Exonize(object):
         The dictionary has the following structure: {chromosome: sequence}
         """
         try:
-            tic_genome = time.time()
-            print("- Reading genome file:", end=" ")
+            self.logger.info("Reading genome file")
             parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
             if self.hard_masking:
                 self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
             else:
                 self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
-            print(f"Done! [{hms_time}]")
         except (ValueError, FileNotFoundError) as e:
             self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
@@ -385,8 +379,7 @@ class Exonize(object):
                 cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
             return prot_seq_, cds_list_tuples
 
-        print("- Fetching gene-hierarchy data:", end=" ")
-        tic_gh = time.time()
+        self.logger.info("- Fetching gene-hierarchy data and writing protein database")
         self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -422,8 +415,6 @@ class Exonize(object):
                 self.gene_hierarchy_dict[gene.id] = mrna_dict
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
-        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_gh), '%H:%M:%S')
-        print(f' Done! [{hms_time}]')
 
     def prepare_data(self) -> None:
         """
@@ -1055,8 +1046,7 @@ class Exonize(object):
                                     # q_1, q_2 and t_2, t_2 have to overlap
                                     elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
                                         # this shouldn't happen, but just in case
-                                        self.logger.info(f'- overlapp INS - TRUNC {frag_id_a}_{frag_id_b}_{gene_id_a}.')
-                                        print(frag_id_a, frag_id_b)
+                                        self.logger.file_only_info(f'- overlapp INS - TRUNC {frag_id_a}_{frag_id_b}_{gene_id_a}.')
                                         temp_cand.append(frag_id_b)
                                 # Full events, meaning that the target CDS and query CDS overlap for their greater part
                                 # We include in the same event both, reciprocal and overlapping matches
@@ -1152,7 +1142,7 @@ class Exonize(object):
         if args_list:
             batches_list = [i for i in batch(args_list, self.batch_number)]
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
+            self.logger.info(f'Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
             with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
@@ -1165,11 +1155,8 @@ class Exonize(object):
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
-        print('- Classifying events', end=" ")
-        tic_ce = time.time()
+        self.logger.info('Classifying events')
         self.identify_full_length_duplications()
-        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_ce), '%H:%M:%S')
-        print(f' Done! [{hms_time}]')
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
         reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
@@ -1177,7 +1164,7 @@ class Exonize(object):
         identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
-        self.logger.info('- Reconciling events')
+        self.logger.info('Reconciling events')
         fragments = self.assign_pair_ids(full_matches)
         instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
