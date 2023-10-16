@@ -269,8 +269,15 @@ def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str,
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id', timeout_db):
             cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_id;""")
+            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_code;""")
         cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
-        cursor.executemany(""" UPDATE Full_length_events_cumulative_counts SET pair_id=? WHERE fragment_id=? """, fragments)
+        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_code INTEGER;""")
+        cursor.executemany(""" 
+        UPDATE Full_length_events_cumulative_counts 
+        SET pair_id=?,
+         pair_code=? 
+         WHERE fragment_id=? 
+         """, fragments)
         db.commit()
 
 
@@ -704,7 +711,8 @@ def query_full_events(db_path: str, timeout_db: int) -> list:
         f.CDS_end - f.gene_start as CDS_end,
         f.target_start,
         f.target_end,
-        f.event_type
+        f.event_type,
+        f.pair_id
         FROM Full_length_events_cumulative_counts AS f
         ORDER BY
             f.gene_id,
