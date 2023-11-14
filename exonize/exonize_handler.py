@@ -1050,9 +1050,9 @@ class Exonize(object):
 
             if "INS_CDS" in event_type_a and "TRUNC" in event_type_b and all(perc > 0 for perc in reciprocal_pairs):
                 return 'RECIPROCAL', frag_id_b
-            elif ("INS_CDS" in event_type_a and "TRUNC" in event_type_b
-                  and all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs)):
-                return '_', frag_id_b
+            # elif ("INS_CDS" in event_type_a and "TRUNC" in event_type_b
+            #       and all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs)):
+            #     return '_', frag_id_b
             elif all(perc >= self.cds_overlapping_threshold for perc in reciprocal_pairs):
                 return 'RECIPROCAL', frag_id_b
             elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
