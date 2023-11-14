@@ -138,6 +138,16 @@ def connect_create_results_db(db_path: str, timeout_db: int) -> None:
         FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
         UNIQUE(fragment_id, gene_id, mrna_id, query_CDS_id, id_B))
         """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Events (
+        gene_id VARCHAR(100),
+        ref_start INTEGER NOT NULL,
+        ref_end INTEGER NOT NULL,
+        gene_event_id INTEGER NOT NULL,
+        FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
+        UNIQUE(gene_id, ref_start, ref_end, gene_event_id)
+        )
+        """)
         db.commit()
 
 
@@ -363,6 +373,21 @@ def insert_fragments_calls() -> tuple:
     VALUES (?, ?, ?, ?, ?, ?)
     """
     return insert_fragments_table_param, insert_gene_table_param
+
+
+def insert_events_table(db_path: str, timeout_db: int, fragments: list) -> None:
+    with sqlite3.connect(db_path, timeout=timeout_db) as db:
+        cursor = db.cursor()
+        insert_gene_table_param = """  
+        INSERT INTO Events (
+        gene_id,
+        ref_start,
+        ref_end,
+        gene_event_id) 
+        VALUES (?, ?, ?, ?)
+        """
+        cursor.executemany(insert_gene_table_param, fragments)
+        db.commit()
 
 
 def instert_full_length_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
@@ -712,19 +737,10 @@ def query_full_events(db_path: str, timeout_db: int) -> list:
         f.CDS_end - f.gene_start as CDS_end,
         f.target_start,
         f.target_end,
-        f.event_type,
-        f.pair_code,
-        f.pair_id
+        f.event_type
         FROM Full_length_events_cumulative_counts AS f
         ORDER BY
-            f.gene_id,
-             f.pair_id,
-            CASE WHEN f.event_type LIKE '%INS_CDS%' THEN 1 ELSE 2 END,
-            CASE WHEN f.pair_code='MATCH' THEN 1
-            WHEN f.pair_code='RECIPROCAL' THEN 2
-            WHEN f.pair_code='OVERLAPPING' THEN 3
-            ELSE 4 END,
-            f.event_type;
+            f.gene_id;
         """
         cursor.execute(matches_q)
         return cursor.fetchall()
