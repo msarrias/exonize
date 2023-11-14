@@ -691,15 +691,9 @@ class Exonize(object):
             :param coord_: coordinates
             :param type_: type of sequence (gene or CDS)
             """
-            def sequence_masking_percentage(seq: str) -> float:
-                """
-                sequence_masking_percentage is a function that given a sequence, returns the percentage of hardmasking
-                (N) in the sequence.
-                """
-                return seq.count('N') / len(seq)
 
             try:
-                masking_perc = round(sequence_masking_percentage(seq_), 2)
+                masking_perc = round(seq_.count('N') / len(seq_), 3)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
