@@ -16,11 +16,8 @@ def test_full_matches():
                  (3, 'gene_test', 4, 10, 23, 29, 'TRUNC')]
     test_object.cds_overlapping_threshold = 0.8
     assert test_object.assign_pair_ids(matches_a) == [(1, 'MATCH', 1), (1, 'RECIPROCAL', 2), (1, 'OVERLAPPING', 3)]
-    matches_b = [(1, 'gene_test', 5, 10, 25, 30, 'FULL'),
-                 (2, 'gene_test', 25, 30, 5, 10, 'FULL'),
-                 (3, 'gene_test', 4, 10, 23, 29, 'TRUNC')]
-    assert test_object.assign_pair_ids(matches_b) == [(1, 'MATCH', 1), (1, 'RECIPROCAL', 2), (1, 'OVERLAPPING', 3)]
     matches_c = [(1, 'gene_test', 5, 10, 25, 30, 'FULL'),
                  (2, 'gene_test', 25, 30, 5, 10, 'FULL'),
-                 (3, 'gene_test', 4, 10, 50, 56, 'TRUNC')]
+                 (3, 'gene_test', 4, 10, 50, 56, 'TRUNC'),
+                 (4, 'gene_test', 50, 56, 4, 10, 'TRUNC')]
     assert test_object.assign_pair_ids(matches_c) == [(1, 'MATCH', 1), (1, 'RECIPROCAL', 2), (1, 'NON-RECIPROCAL', 3)]
