@@ -490,7 +490,13 @@ class Exonize(object):
         :param cds_frame: frame of the CDS
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
+        def tblastx_with_saved_io(ident: str,
+                                  gene_id_: str,
+                                  hit_seq_: str,
+                                  query_seq_: str,
+                                  query_coord_: P.Interval,
+                                  gene_coord_: P.Interval,
+                                  cds_frame_: str) -> dict:
             """
             tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
             function is used for debugging purposes. The input and output files are saved in the following paths:
@@ -515,7 +521,11 @@ class Exonize(object):
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
+        def execute_tblastx_using_tempfiles(hit_seq_: str,
+                                            query_seq_: str,
+                                            query_coord_: P.Interval,
+                                            gene_coord_: P.Interval,
+                                            cds_frame_: str) -> dict:
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
             """
@@ -664,9 +674,9 @@ class Exonize(object):
             repr_cds_frame_dict = dict()
             for cds_coord, frame in CDS_coords_list:
                 if cds_coord in repr_cds_frame_dict:
-                    repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
+                    repr_cds_frame_dict[cds_coord]['frame'].update(frame)
                 else:
-                    repr_cds_frame_dict[cds_coord] = {'frame': frame}
+                    repr_cds_frame_dict[cds_coord] = {'frame': set(frame)}
             CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
             return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
         return dict()
@@ -859,10 +869,12 @@ class Exonize(object):
                 if (self.__query + self.__target) == 0:
                     self.__neither = 1
                     self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
-                                                                   cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_, "OUT_OF_MRNA",
-                                                                   self.__target_CDS, self.__annot_target_start, self.__annot_target_end,
-                                                                   target_s_, target_e_,
-                                                                   self.__neither, self.__query, self.__target, self.__both, evalue_))
+                                                                   cds_s_, cds_e_, self.__query_CDS,
+                                                                   query_s_, query_e_, "OUT_OF_MRNA",
+                                                                   self.__target_CDS, self.__annot_target_start,
+                                                                   self.__annot_target_end, target_s_, target_e_,
+                                                                   self.__neither, self.__query, self.__target,
+                                                                   self.__both, evalue_))
                     return True
             return False
 
@@ -1007,72 +1019,129 @@ class Exonize(object):
                 insert_full_length_duplication_tuple(mrna, row)
         insert_tuples_in_results_db()
 
-    def assign_pair_ids(self, full_matches_list: list) -> list:
-        """
-        assign_pair_ids is a function that given a list of tblastx hits, assigns a pair identifier to those hits that
-        have a reciprocal match, such as full matches and some insertion matches, namely INS_CDS and TRUNC.
-        :param full_matches_list: list of "full matches", i.e., those tblastx hits that have passed the filtering criteria
-        :return: list of tblastx hits with a pair identifier
-        """
+    def assign_event_ids(self, full_matches_list) -> list:
+        def get_average_overlapping_percentage(intv_a, intv_b) -> float:
+            return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
+
         def get_shorter_intv_overlapping_percentage(a: P.Interval, b: P.Interval) -> float:
             """
             get_shorter_intv_overlapping_percentage is a function that given two intervals, returns the percentage of
             overlap of the shorter interval with the longer interval.
             """
-            shorter, longer = self.get_shorter_longer_interv(a, b)
-            return self.get_overlap_percentage(longer, shorter)
+            shorter, longer = get_shorter_longer_interv(a, b)
+            return get_overlap_percentage(longer, shorter)
 
-        def find_pairs_overlapping_perc(pairs: list) -> list:
-            """
-            find_pairs_overlapping_perc is a function that given a list of pairs of intervals, returns a list of
-            percentages of overlap of the shorter interval with the longer interval.
-            """
-            return [get_shorter_intv_overlapping_percentage(pair[0], pair[1]) for pair in pairs]
-
-        def process_fragment_pair(frag_a, frag_b):
-            frag_id_a, _, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
-            frag_id_b, _, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
-
-            query_intv_a, target_intv_a = P.open(q_s_a, q_e_a), P.open(t_s_a, t_e_a)
-            query_intv_b, target_intv_b = P.open(q_s_b, q_e_b), P.open(t_s_b, t_e_b)
-
-            overlapping_pairs = find_pairs_overlapping_perc(
-                [(query_intv_a, query_intv_b), (target_intv_a, target_intv_b)])
-            reciprocal_pairs = find_pairs_overlapping_perc(
-                [(target_intv_a, query_intv_b), (target_intv_b, query_intv_a)])
-            non_reciprocal_pairs = find_pairs_overlapping_perc([(query_intv_a, query_intv_b)])
-
-            if "INS_CDS" in event_type_a and "TRUNC" in event_type_b and all(perc > 0 for perc in reciprocal_pairs):
-                return 'RECIPROCAL', frag_id_b
-            # elif ("INS_CDS" in event_type_a and "TRUNC" in event_type_b
-            #       and all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs)):
-            #     return '_', frag_id_b
-            elif all(perc >= self.cds_overlapping_threshold for perc in reciprocal_pairs):
-                return 'RECIPROCAL', frag_id_b
-            elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
-                return 'OVERLAPPING', frag_id_b
-            elif all(perc >= self.cds_overlapping_threshold for perc in non_reciprocal_pairs):
-                return 'NON-RECIPROCAL', frag_id_b
+        def get_candidate_reference_dict(coordinates, intv_list):
+            cand_ref = [query_intv for query_intv in coordinates
+                        if all(get_average_overlapping_percentage(query_intv, intv_i) >= self.cds_overlapping_threshold
+                               for intv_i, _ in intv_list)]
+            if len(cand_ref) == 1:
+                return cand_ref[0]
+            elif cand_ref:
+                cand_ref = [(cand_ref_intv,
+                             sum([get_average_overlapping_percentage(cand_ref_intv, intv_i)
+                                  for intv_i, _ in intv_list]) / len(intv_list)) for cand_ref_intv in cand_ref]
+                return max(cand_ref, key=lambda x: x[1])[0]
             return None
 
-        full_matches_dict = defaultdict(list)
+        def get_overlapping_clusters(coordinates_list):
+            def overlap_condition(coordinate, x):
+                perc = get_shorter_intv_overlapping_percentage(coordinate, x)
+                return perc >= self.cds_overlapping_threshold and x != coordinate
+
+            overlapping_targets_list, skip_events = list(), list()
+            for coord, evalue in coordinates_list:
+                if coord not in skip_events:
+                    temp = [(i, i_evalue) for i, i_evalue in coordinates_list if overlap_condition(coord, i)]
+                    if temp:
+                        skip_events.extend([coord, *[i for i, _ in temp]])
+                        tr = [*temp, (coord, evalue)]
+                        tr.sort(key=lambda x: (x[0].lower, x[0].upper))
+                        overlapping_targets.append(tr)
+                    else:
+                        overlapping_targets_list.append([(coord, evalue)])
+            overlapping_targets_list.sort(key=len, reverse=True)
+            return overlapping_targets_list
+
+        def build_reference_dictionary(cds_candidates_list, overlapping_targets_list):
+            # this dictionary should be for finding CDS reference and intron reference.
+            # This should be applied to the clusters.
+            ref_list = dict()
+            for intv_list in overlapping_targets_list:
+                # First: let's look for targets overlapping with a CDS
+                sorted_CDS_coords_list = sorted(cds_candidates_list['set_coords'],
+                                                key=lambda x: (x.lower, x.upper))
+                cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, intv_list)
+                if cand_ref:
+                    for intv_i, _ in intv_list:
+                        ref_list[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                # Second: let's look for targets overlapping with introns
+                if all(not target_intv.overlaps(cds_intv)
+                       for cds_intv in sorted_CDS_coords_list
+                       for target_intv, _ in intv_list):
+                    cand_ref = min(intv_list, key=lambda x: x[1])[0]
+                    for intv_i, _ in intv_list:
+                        ref_list[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
+                # if there is no shared reference, we take it separetly
+                elif not cand_ref:
+                    for intv_i, i_evalue in intv_list:
+                        cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, [(intv_i, i_evalue)])
+                        if cand_ref:
+                            ref_list[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                        else:
+                            ref_list[intv_i] = dict(intv_ref=intv_i, ref='non_coding')
+            return ref_list
+
+        def create_events_multigraph(ref_coord_dic, query_coords_list, records_list):
+            gene_G = nx.MultiGraph()
+            target_coords_list = set([i['intv_ref'] for i in ref_coord_dic.values()])
+            gene_G.add_nodes_from(set([(i.lower, i.upper) for i in [*query_coords_list, *target_coords_list]]))
+            for event in records_list:
+                source = (event[2], event[3])  # exact CDS coordinates
+                target = ref_coord_dic[intv(event[4], event[5])]['intv_ref']  # we need a reference
+                gene_G.add_edge(source,
+                                (target.lower, target.upper),
+                                fragment_id=event[0],
+                                query_CDS=(event[2], event[3]),
+                                target=(event[4], event[5]),
+                                event_type=event[6],
+                                color='black', width=2)
+            return gene_G
+
+        def get_events_tuples_from_multigraph(gene_G):
+            disconnected_components = list(nx.connected_components(gene_G))
+            gene_events_tuples, event_id_counter = list(), 0
+            for component in disconnected_components:
+                subgraph = gene_G.subgraph(component)
+                for edge in subgraph.edges(data=True):
+                    # edge is a tuple (node1, node2, attributes)
+                    node1, node2, attributes = edge
+                    gene_events_tuples.append((event_id_counter, attributes['fragment_id']))
+                event_id_counter += 1
+            return gene_events_tuples
+
+        events_tuples = list()
+        full_matches_dict = defaultdict(set)
         for match in full_matches_list:
-            full_matches_dict[match[1]].append(match)
-        fragments, skip_frag, pair_id_counter = list(), list(), 1
-        with tqdm(total=len(full_matches_list), position=0, leave=True, ncols=50) as progress_bar:
-            for gene_id, full_matches in full_matches_dict.items():
-                for frag_a_ in full_matches:
-                    frag_id_a_ = frag_a_[0]
-                    if frag_id_a_ not in skip_frag:
-                        gene_candidates = [i for i in full_matches if i[0] not in [*skip_frag, frag_id_a_]]
-                        temp_cand = [process_fragment_pair(frag_a_, frag_b_) for frag_b_ in gene_candidates]
-                        temp_cand = [identif_result for identif_result in temp_cand if identif_result]
-                        if temp_cand:
-                            skip_frag.extend([frag_id_a_, *[frag_id for _, frag_id in temp_cand]])
-                            fragments.extend([(pair_id_counter, *frag) for frag in [('MATCH', frag_id_a_), *temp_cand]])
-                            pair_id_counter += 1
-                    progress_bar.update(1)
-        return fragments
+            full_matches_dict[match[1]].add(match)
+        for gene_id, records in full_matches_dict.items():
+            temp_events_tuples = list()
+            gene_start = self.gene_hierarchy_dict[gene_id]['coord'].lower
+            cds_candidates = self.get_candidate_CDS_coords(gene_id)
+            cds_candidates['set_coords'] = set([intv(i.lower - gene_start, i.upper - gene_start)
+                                                for i in cds_candidates['set_coords']])
+            query_coordinates, target_coordinates = (set([intv(i[2], i[3]) for i in records]),
+                                                     set([(intv(i[4], i[5]), i[-1]) for i in records]))
+            overlapping_targets = get_overlapping_clusters(target_coordinates)
+            ref_coord_dict = build_reference_dictionary(cds_candidates, overlapping_targets)
+            G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
+            temp_events_tuples.extend(get_events_tuples_from_multigraph(G))
+            if len(temp_events_tuples) != len(records):
+                looger.exception(f'{gene_id}: {len(temp_events_tuples)} events found, {len(records)} expected.')
+            events_tuples.extend(temp_events_tuples)
+        if len(events_tuples) != len(full_matches_list):
+            logger.exception(f'{len(events_tuples)} events found, {len(full_matches_list)} expected.')
+        return events_tuples
 
     def get_identity_and_dna_seq_tuples(self) -> list:
         """
@@ -1080,7 +1149,6 @@ class Exonize(object):
         and returns a list of tuples with the structure:
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
-
         def fetch_dna_sequence(chrom: str, annot_start: int, annot_end: int, pos_annot_s: int, pos_annot_e: int, strand: str):
             """
             Retrieve a subsequence from a genomic region, reverse complementing it if on the negative strand.
@@ -1136,7 +1204,7 @@ class Exonize(object):
         - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
         them in the Fragments table.
         - 11. The function collects all events in the Full_length_events_cumulative_counts table.
-        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
+        - 12. The function reconciles the events by assigning an "event ID" to each event (see assign_event_ids).
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
@@ -1179,6 +1247,6 @@ class Exonize(object):
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
         self.logger.info('Reconciling events')
-        fragments = self.assign_pair_ids(full_matches)
-        instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
+        fragments = self.assign_event_ids(full_matches)
+        insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
