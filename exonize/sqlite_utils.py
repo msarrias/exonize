@@ -274,20 +274,15 @@ def insert_event_categ_full_length_events_cumulative_counts(db_path: str, timeou
         db.commit()
 
 
-def instert_pair_id_column_to_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
+def insert_event_id_column_to_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_id', timeout_db):
-            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_id;""")
-        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'pair_code', timeout_db):
-            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN pair_code;""")
-        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_id INTEGER;""")
-        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN pair_code VARCHAR;""")
+        if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_id', timeout_db):
+            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_id INTEGER;""")
         cursor.executemany(""" 
         UPDATE Full_length_events_cumulative_counts 
-        SET pair_id=?,
-         pair_code=? 
-         WHERE fragment_id=? 
+        SET event_id=?
+        WHERE fragment_id=? 
          """, fragments)
         db.commit()
 
