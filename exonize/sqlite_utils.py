@@ -278,7 +278,8 @@ def insert_event_id_column_to_full_length_events_cumulative_counts(db_path: str,
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Full_length_events_cumulative_counts', 'event_id', timeout_db):
-            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_id INTEGER;""")
+            cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts DROP COLUMN event_id;""")
+        cursor.execute(""" ALTER TABLE Full_length_events_cumulative_counts ADD COLUMN event_id INTEGER;""")
         cursor.executemany(""" 
         UPDATE Full_length_events_cumulative_counts 
         SET event_id=?
