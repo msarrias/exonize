@@ -1018,7 +1018,7 @@ class Exonize(object):
                 insert_full_length_duplication_tuple(mrna, row)
         insert_tuples_in_results_db()
 
-    def assign_event_ids(self, full_matches_list: list[tuples]) -> (list[tuple], set[tuple]):
+    def assign_event_ids(self, full_matches_list: list[tuple]) -> (list[tuple], set[tuple]):
         def get_average_overlapping_percentage(intv_a: P.Interval, intv_b: P.Interval) -> float:
             return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
 
