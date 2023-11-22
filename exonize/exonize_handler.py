@@ -869,12 +869,10 @@ class Exonize(object):
                 if (self.__query + self.__target) == 0:
                     self.__neither = 1
                     self.__tuples_full_length_duplications.append((fragment_id_, gene_id_, mrna_,
-                                                                   cds_s_, cds_e_, self.__query_CDS,
-                                                                   query_s_, query_e_, "OUT_OF_MRNA",
-                                                                   self.__target_CDS, self.__annot_target_start,
-                                                                   self.__annot_target_end, target_s_, target_e_,
-                                                                   self.__neither, self.__query, self.__target,
-                                                                   self.__both, evalue_))
+                                                                   cds_s_, cds_e_, self.__query_CDS, query_s_, query_e_, "OUT_OF_MRNA",
+                                                                   self.__target_CDS, self.__annot_target_start, self.__annot_target_end,
+                                                                   target_s_, target_e_,
+                                                                   self.__neither, self.__query, self.__target, self.__both, evalue_))
                     return True
             return False
 
@@ -1137,10 +1135,10 @@ class Exonize(object):
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
             temp_events_tuples.extend(get_events_tuples_from_multigraph(G))
             if len(temp_events_tuples) != len(records):
-                looger.exception(f'{gene_id}: {len(temp_events_tuples)} events found, {len(records)} expected.')
+                raise ValueError(f'{gene_id}: {len(temp_events_tuples)} events found, {len(records)} expected.')
             events_tuples.extend(temp_events_tuples)
         if len(events_tuples) != len(full_matches_list):
-            logger.exception(f'{len(events_tuples)} events found, {len(full_matches_list)} expected.')
+            raise ValueError(f'{len(events_tuples)} events found, {len(full_matches_list)} expected.')
         return events_tuples
 
     def get_identity_and_dna_seq_tuples(self) -> list:
