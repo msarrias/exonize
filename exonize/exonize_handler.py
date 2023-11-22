@@ -1017,7 +1017,7 @@ class Exonize(object):
                 insert_full_length_duplication_tuple(mrna, row)
         insert_tuples_in_results_db()
 
-    def assign_event_ids(self, full_matches_list) -> list:
+    def assign_event_ids(self, full_matches_list) -> (list[tuple], set[tuple]):
         def get_average_overlapping_percentage(intv_a, intv_b) -> float:
             return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
 
@@ -1106,24 +1106,25 @@ class Exonize(object):
                                 color='black', width=2)
             return gene_G
 
-        def get_events_tuples_from_multigraph(gene_G):
+        def get_events_tuples_from_multigraph(gene_identif, gene_G):
             disconnected_components = list(nx.connected_components(gene_G))
-            gene_events_tuples, event_id_counter = list(), 0
+            events_tuples, events_set, event_id_counter = list(), set(), 0
             for component in disconnected_components:
+                for node_x, node_y in component:
+                    events_set.update([(gene_identif, node_x, node_y, event_id_counter)])
                 subgraph = gene_G.subgraph(component)
                 for edge in subgraph.edges(data=True):
                     # edge is a tuple (node1, node2, attributes)
                     node1, node2, attributes = edge
-                    gene_events_tuples.append((event_id_counter, attributes['fragment_id']))
+                    events_tuples.append((event_id_counter, attributes['fragment_id']))
                 event_id_counter += 1
-            return gene_events_tuples
+            return events_tuples, events_set
 
-        events_tuples = list()
+        genes_events_tuples, genes_events_set = list(), set()
         full_matches_dict = defaultdict(set)
         for match in full_matches_list:
             full_matches_dict[match[1]].add(match)
         for gene_id, records in full_matches_dict.items():
-            temp_events_tuples = list()
             gene_start = self.gene_hierarchy_dict[gene_id]['coord'].lower
             cds_candidates = self.get_candidate_CDS_coords(gene_id)
             cds_candidates['set_coords'] = set([intv(i.lower - gene_start, i.upper - gene_start)
@@ -1133,13 +1134,14 @@ class Exonize(object):
             overlapping_targets = get_overlapping_clusters(target_coordinates)
             ref_coord_dict = build_reference_dictionary(cds_candidates, overlapping_targets)
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
-            temp_events_tuples.extend(get_events_tuples_from_multigraph(G))
-            if len(temp_events_tuples) != len(records):
-                raise ValueError(f'{gene_id}: {len(temp_events_tuples)} events found, {len(records)} expected.')
-            events_tuples.extend(temp_events_tuples)
-        if len(events_tuples) != len(full_matches_list):
-            raise ValueError(f'{len(events_tuples)} events found, {len(full_matches_list)} expected.')
-        return events_tuples
+            gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(gene_id, G)
+            if len(gene_events_tuples) != len(records):
+                logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
+            genes_events_tuples.extend(gene_events_tuples)
+            genes_events_set.update(gene_events_set)
+        if len(genes_events_tuples) != len(full_matches_list):
+            logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
+        return genes_events_tuples, genes_events_set
 
     def get_identity_and_dna_seq_tuples(self) -> list:
         """
