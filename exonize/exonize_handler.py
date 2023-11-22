@@ -859,7 +859,7 @@ class Exonize(object):
                 self.__query = 1
                 self.__target_t = 'QUERY_ONLY'
 
-        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list) -> bool:
+        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list[tuple]) -> bool:
             """
             target_out_of_mRNA is a function that identifies tblastx hits that are outside the mRNA transcript.
             """
@@ -876,7 +876,7 @@ class Exonize(object):
                     return True
             return False
 
-        def indetify_full_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+        def indetify_full_target(trans_dict_: dict[dict], target_intv_: P.Interval) -> None:
             """
             indetify_full_target is a function that identifies tblastx hits that are full-length duplications as described
             in self.find_overlapping_annot
@@ -900,7 +900,8 @@ class Exonize(object):
             - DEACTIVATED: if the insertion is in an intron
             """
             def filter_structure_by_interval_and_type(structure: dict, t_intv_, annot_type: str) -> list:
-                return [(i['id'], i['coord']) for i in structure if (i['coord'].contains(t_intv_) and annot_type in i['type'])]
+                return [(i['id'], i['coord']) for i in structure
+                        if (i['coord'].contains(t_intv_) and annot_type in i['type'])]
 
             insertion_CDS_ = filter_structure_by_interval_and_type(trans_dict_['structure'], target_intv_, 'CDS')
             if insertion_CDS_:
@@ -924,7 +925,7 @@ class Exonize(object):
                         self.__found = True
                         self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
 
-        def indentify_truncation_target(trans_dict_: dict, mrna_: str, row_: list) -> None:
+        def indentify_truncation_target(trans_dict_: dict[str], mrna_: str, row_: list) -> None:
             """
             Identifies tblastx hits that are truncation duplications. These are hits that span across more than one annotation
             in the transcript architecture. We record a line per annotation that is truncated.
@@ -943,7 +944,7 @@ class Exonize(object):
                          target_s_, target_e_, value['id'], value['type'],
                          coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
 
-        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list) -> None:
+        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list[tuple]) -> None:
             """
             Identifies tblastx hits that are obligate pairs. These are hits where the query and target show as CDSs in the
             transcript in question.
@@ -965,7 +966,7 @@ class Exonize(object):
             self.__neither = 1
             self.__target_t = 'NEITHER'
 
-        def insert_full_length_duplication_tuple(mrna_: str, row_: list):
+        def insert_full_length_duplication_tuple(mrna_: str, row_: list[tuple]):
             """
             insert_full_length_duplication_tuple is a function that appends the "row" event to the list of tuples.
             """
@@ -1017,8 +1018,8 @@ class Exonize(object):
                 insert_full_length_duplication_tuple(mrna, row)
         insert_tuples_in_results_db()
 
-    def assign_event_ids(self, full_matches_list) -> (list[tuple], set[tuple]):
-        def get_average_overlapping_percentage(intv_a, intv_b) -> float:
+    def assign_event_ids(self, full_matches_list: list[tuples]) -> (list[tuple], set[tuple]):
+        def get_average_overlapping_percentage(intv_a: P.Interval, intv_b: P.Interval) -> float:
             return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
 
         def get_shorter_intv_overlapping_percentage(a: P.Interval, b: P.Interval) -> float:
@@ -1029,7 +1030,8 @@ class Exonize(object):
             shorter, longer = get_shorter_longer_interv(a, b)
             return get_overlap_percentage(longer, shorter)
 
-        def get_candidate_reference_dict(coordinates, intv_list):
+        def get_candidate_reference_dict(coordinates: list[P.Interval],
+                                         intv_list: list[tuple[P.Interval, float]]) -> P.Interval:
             cand_ref = [query_intv for query_intv in coordinates
                         if all(get_average_overlapping_percentage(query_intv, intv_i) >= self.cds_overlapping_threshold
                                for intv_i, _ in intv_list)]
@@ -1040,17 +1042,17 @@ class Exonize(object):
                              sum([get_average_overlapping_percentage(cand_ref_intv, intv_i)
                                   for intv_i, _ in intv_list]) / len(intv_list)) for cand_ref_intv in cand_ref]
                 return max(cand_ref, key=lambda x: x[1])[0]
-            return None
+            return P.open(0, 0)
 
-        def get_overlapping_clusters(coordinates_list):
+        def get_overlapping_clusters(coordinates_set: set[tuple[P.Interval, float]]) -> list[list[tuple]]:
             def overlap_condition(coordinate, x):
                 perc = get_shorter_intv_overlapping_percentage(coordinate, x)
                 return perc >= self.cds_overlapping_threshold and x != coordinate
 
             overlapping_targets_list, skip_events = list(), list()
-            for coord, evalue in coordinates_list:
+            for coord, evalue in coordinates_set:
                 if coord not in skip_events:
-                    temp = [(i, i_evalue) for i, i_evalue in coordinates_list if overlap_condition(coord, i)]
+                    temp = [(i, i_evalue) for i, i_evalue in coordinates_set if overlap_condition(coord, i)]
                     if temp:
                         skip_events.extend([coord, *[i for i, _ in temp]])
                         tr = [*temp, (coord, evalue)]
@@ -1061,40 +1063,42 @@ class Exonize(object):
             overlapping_targets_list.sort(key=len, reverse=True)
             return overlapping_targets_list
 
-        def build_reference_dictionary(cds_candidates_list, overlapping_targets_list):
+        def build_reference_dictionary(cds_candidates_dict: dict, overlapping_targets_list: list[list]) -> dict[dict]:
             # this dictionary should be for finding CDS reference and intron reference.
             # This should be applied to the clusters.
-            ref_list = dict()
+            ref_dict = dict()
             for intv_list in overlapping_targets_list:
                 # First: let's look for targets overlapping with a CDS
-                sorted_CDS_coords_list = sorted(cds_candidates_list['set_coords'],
+                sorted_CDS_coords_list = sorted(cds_candidates_dict['set_coords'],
                                                 key=lambda x: (x.lower, x.upper))
                 cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, intv_list)
                 if cand_ref:
                     for intv_i, _ in intv_list:
-                        ref_list[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                        ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
                 # Second: let's look for targets overlapping with introns
                 if all(not target_intv.overlaps(cds_intv)
                        for cds_intv in sorted_CDS_coords_list
                        for target_intv, _ in intv_list):
                     cand_ref = min(intv_list, key=lambda x: x[1])[0]
                     for intv_i, _ in intv_list:
-                        ref_list[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
+                        ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
                 # if there is no shared reference, we take it separetly
                 elif not cand_ref:
                     for intv_i, i_evalue in intv_list:
                         cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, [(intv_i, i_evalue)])
                         if cand_ref:
-                            ref_list[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                            ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
                         else:
-                            ref_list[intv_i] = dict(intv_ref=intv_i, ref='non_coding')
-            return ref_list
+                            ref_dict[intv_i] = dict(intv_ref=intv_i, ref='non_coding')
+            return ref_dict
 
-        def create_events_multigraph(ref_coord_dic, query_coords_list, records_list):
+        def create_events_multigraph(ref_coord_dic: dict,
+                                     query_coords_set: set,
+                                     records_set: set) -> nx.MultiGraph:
             gene_G = nx.MultiGraph()
-            target_coords_list = set([i['intv_ref'] for i in ref_coord_dic.values()])
-            gene_G.add_nodes_from(set([(i.lower, i.upper) for i in [*query_coords_list, *target_coords_list]]))
-            for event in records_list:
+            target_coords_set = set([i['intv_ref'] for i in ref_coord_dic.values()])
+            gene_G.add_nodes_from(set([(i.lower, i.upper) for i in [*query_coords_set, *target_coords_set]]))
+            for event in records_set:
                 source = (event[2], event[3])  # exact CDS coordinates
                 target = ref_coord_dic[intv(event[4], event[5])]['intv_ref']  # we need a reference
                 gene_G.add_edge(source,
@@ -1106,7 +1110,8 @@ class Exonize(object):
                                 color='black', width=2)
             return gene_G
 
-        def get_events_tuples_from_multigraph(gene_identif, gene_G):
+        def get_events_tuples_from_multigraph(gene_identif: string,
+                                              gene_G: nx.MultiGraph) -> (list[tuple], set[tuple]):
             disconnected_components = list(nx.connected_components(gene_G))
             events_tuples, events_set, event_id_counter = list(), set(), 0
             for component in disconnected_components:
@@ -1119,7 +1124,6 @@ class Exonize(object):
                     events_tuples.append((event_id_counter, attributes['fragment_id']))
                 event_id_counter += 1
             return events_tuples, events_set
-
         genes_events_tuples, genes_events_set = list(), set()
         full_matches_dict = defaultdict(set)
         for match in full_matches_list:
@@ -1143,13 +1147,18 @@ class Exonize(object):
             logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
         return genes_events_tuples, genes_events_set
 
-    def get_identity_and_dna_seq_tuples(self) -> list:
+    def get_identity_and_dna_seq_tuples(self) -> list[tuple]:
         """
         Retrieves DNA sequences from tblastx query and target, computes their DNA and amino acid identity,
         and returns a list of tuples with the structure:
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
-        def fetch_dna_sequence(chrom: str, annot_start: int, annot_end: int, pos_annot_s: int, pos_annot_e: int, strand: str):
+        def fetch_dna_sequence(chrom: str,
+                               annot_start: int,
+                               annot_end: int,
+                               pos_annot_s: int,
+                               pos_annot_e: int,
+                               strand: str) -> str:
             """
             Retrieve a subsequence from a genomic region, reverse complementing it if on the negative strand.
             """
@@ -1163,7 +1172,7 @@ class Exonize(object):
             # Calculate the Hamming distance and return it
             return round(sum(i == j for i, j in zip(seq_1, seq_2)) / len(seq_2), 3)
 
-        def process_fragment(fragment: list) -> tuple:
+        def process_fragment(fragment: list) -> tuple[float, float, str, str, int]:
             """
             process fragment recovers the query/target DNA sequences (since the tblastx alignment is done in amino acids)
             and computes the DNA and amino acid identity. This information is returned in a tuple and later used to update the
@@ -1208,7 +1217,7 @@ class Exonize(object):
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def batch(iterable: list, n=1) -> list:
+        def batch(iterable: list, n=1) -> list[list]:
             """
             batch is a function that given a list and a batch size, returns an iterable of lists of size n.
             """
@@ -1233,7 +1242,8 @@ class Exonize(object):
                     t.join()
                     progress_bar.update(len(arg_batch))
         else:
-            self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
+            self.logger.info('All genes have been processed. If you want to re-run the analysis, '
+                             'delete/rename the results DB.')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
@@ -1246,7 +1256,7 @@ class Exonize(object):
         identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
-        self.logger.info('Reconciling events')
-        fragments = self.assign_event_ids(full_matches)
-        insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
+        fragments_tuples, events_set = self.assign_event_ids(full_matches)
+        insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments_tuples)
+        insert_events_table(self.results_db, self.timeout_db, events_set)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
