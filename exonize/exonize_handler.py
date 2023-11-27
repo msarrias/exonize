@@ -1057,7 +1057,7 @@ class Exonize(object):
                         skip_events.extend([coord, *[i for i, _ in temp]])
                         tr = [*temp, (coord, evalue)]
                         tr.sort(key=lambda x: (x[0].lower, x[0].upper))
-                        overlapping_targets.append(tr)
+                        overlapping_targets_list.append(tr)
                     else:
                         overlapping_targets_list.append([(coord, evalue)])
             overlapping_targets_list.sort(key=len, reverse=True)
@@ -1110,7 +1110,7 @@ class Exonize(object):
                                 color='black', width=2)
             return gene_G
 
-        def get_events_tuples_from_multigraph(gene_identif: string,
+        def get_events_tuples_from_multigraph(gene_identif: str,
                                               gene_G: nx.MultiGraph) -> (list[tuple], set[tuple]):
             disconnected_components = list(nx.connected_components(gene_G))
             events_tuples, events_set, event_id_counter = list(), set(), 0
@@ -1124,6 +1124,7 @@ class Exonize(object):
                     events_tuples.append((event_id_counter, attributes['fragment_id']))
                 event_id_counter += 1
             return events_tuples, events_set
+
         genes_events_tuples, genes_events_set = list(), set()
         full_matches_dict = defaultdict(set)
         for match in full_matches_list:
