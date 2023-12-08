@@ -12,9 +12,12 @@ from tqdm import tqdm                                  # progress bar
 from multiprocessing.pool import ThreadPool            # for parallelization
 from Bio.Blast import NCBIXML                          # for parsing BLAST results
 from datetime import datetime as dt
+from collections import defaultdict
 import sys
+import shutil
 import logging
 import datetime
+import networkx as nx
 
 
 class Exonize(object):
@@ -79,9 +82,7 @@ class Exonize(object):
 
         if self._HARD_FORCE:
             if os.path.exists(self.working_dir):
-                for item in os.listdir(self.working_dir):
-                    os.remove(os.path.join(self.working_dir, item))
-                os.rmdir(self.working_dir)
+                shutil.rmtree(self.working_dir)
         elif self._SOFT_FORCE:
             if os.path.exists(self.results_db):
                 os.remove(self.results_db)
@@ -216,7 +217,7 @@ class Exonize(object):
             - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
-                print("- Creating annotations database", end=" ")
+                self.logger.info("Creating annotations database")
                 self.db = gffutils.create_db(self.in_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -225,7 +226,6 @@ class Exonize(object):
                                              sort_attribute_values=True,
                                              disable_infer_genes=True,
                                              disable_infer_transcripts=True)
-                print("Done!")
             except ValueError as e:
                 self.logger.exception(f"Incorrect genome annotations file {e}")
                 sys.exit()
@@ -240,15 +240,13 @@ class Exonize(object):
               in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                self.logger.info("The GFF file does not contain intron annotations")
-                print(f"- Attempting to write intron annotations in database:", end=" ")
+                self.logger.info("The GFF file does not contain intron annotations - attempting to write intron annotations in database")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
                     self.logger.exception(f"failed to write intron annotations in database. "
                                           f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
-                print("Done!")
         if not os.path.exists(self.db_path):
             if 'gtf' in self.in_file_path:
                 self.old_filename = self.in_file_path
@@ -258,9 +256,8 @@ class Exonize(object):
                 self.logger.info(f'with filename: {self.in_file_path}')
             create_genome_database()
         if not self.db:
-            print("- Reading annotations database:", end=" ")
+            self.logger.info("Reading annotations database")
             self.load_db()
-            print("Done!")
         self.db_features = list(self.db.featuretypes())
         search_create_intron_annotations()
 
@@ -283,15 +280,12 @@ class Exonize(object):
         The dictionary has the following structure: {chromosome: sequence}
         """
         try:
-            tic_genome = time.time()
-            print("- Reading genome file:", end=" ")
+            self.logger.info("Reading genome file")
             parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
             if self.hard_masking:
                 self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
             else:
                 self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
-            hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
-            print(f"Done! [{hms_time}]")
         except (ValueError, FileNotFoundError) as e:
             self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
@@ -306,11 +300,31 @@ class Exonize(object):
         - If the gene is in the negative strand the direction of transcription and translation is opposite to the direction
          the DNA sequence is represented meaning that translation starts from the last CDS
         Structure of `self.gene_hierarchy_dict`:
-        {gene_id_1: {'coord': gene_coord_1, 'chrom': chromosome_1, 'strand': strand_1,
-                    'mRNAs': {mRNA_id_1: {'coord': mRNA_coord_1, 'strand': strand_1,
-                             'structure': [{'id': feature_id_1, 'coord': feature_coord_1, 'frame': frame_1,
-                             'type': feature_type_1, 'attributes': attribute_dict_1},...]
-                             },...}},...}
+        {
+        gene_id_1: {
+            'coord': gene_coord_1,
+            'chrom': chromosome_1,
+            'strand': strand_1,
+            'mRNAs': {
+                mRNA_id_1: {
+                    'coord': mRNA_coord_1,
+                    'strand': strand_1,
+                    'structure': [
+                        {
+                            'id': feature_id_1,
+                            'coord': feature_coord_1,
+                            'frame': frame_1,
+                            'type': feature_type_1,
+                            'attributes': attribute_dict_1
+                        },
+                        ...
+                    ]
+                },
+                ...
+            }
+        },
+        ...
+        }
         """
         def construct_mRNA_sequence(chrom_, strand_, coords_):
             """
@@ -385,6 +399,7 @@ class Exonize(object):
                 cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
             return prot_seq_, cds_list_tuples
 
+        self.logger.info("Fetching gene-hierarchy data and writing protein database")
         self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -403,7 +418,7 @@ class Exonize(object):
                                                              coord=coord,  # ID coordinate starting at 0
                                                              frame=child.frame,  # One of '0', '1' or '2'.
                                                              type=child.featuretype,   # feature type name
-                                                             attributes=dict(child.attributes)))  # feature type name
+                                                             attributes=dict(child.attributes)))  # feature attributes
                     # if the gene is in the negative strand the direction of transcription and translation
                     # is opposite to the direction the DNA sequence is represented meaning that translation starts
                     # from the last CDS
@@ -441,7 +456,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self._DEBUG_MODE:
-            self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
+            self.logger.warning("All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
@@ -474,7 +489,13 @@ class Exonize(object):
         :param cds_frame: frame of the CDS
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(ident: str, gene_id_: str, hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
+        def tblastx_with_saved_io(ident: str,
+                                  gene_id_: str,
+                                  hit_seq_: str,
+                                  query_seq_: str,
+                                  query_coord_: P.Interval,
+                                  gene_coord_: P.Interval,
+                                  cds_frame_: str) -> dict:
             """
             tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
             function is used for debugging purposes. The input and output files are saved in the following paths:
@@ -499,7 +520,11 @@ class Exonize(object):
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str, query_seq_: str, query_coord_: P.Interval, gene_coord_: P.Interval, cds_frame_: str) -> dict:
+        def execute_tblastx_using_tempfiles(hit_seq_: str,
+                                            query_seq_: str,
+                                            query_coord_: P.Interval,
+                                            gene_coord_: P.Interval,
+                                            cds_frame_: str) -> dict:
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
             """
@@ -648,9 +673,9 @@ class Exonize(object):
             repr_cds_frame_dict = dict()
             for cds_coord, frame in CDS_coords_list:
                 if cds_coord in repr_cds_frame_dict:
-                    repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
+                    repr_cds_frame_dict[cds_coord]['frame'].update(frame)
                 else:
-                    repr_cds_frame_dict[cds_coord] = {'frame': frame}
+                    repr_cds_frame_dict[cds_coord] = {'frame': set(frame)}
             CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
             return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
         return dict()
@@ -662,7 +687,7 @@ class Exonize(object):
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, type_='gene'):
+        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, coord_: P.Interval, type_='gene'):
             """
             check_for_masking is a function that checks if it is hardmasked. If the sequence is a gene and the percentage
             of hardmasking is greater than the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
@@ -672,26 +697,23 @@ class Exonize(object):
             :param chrom_: chromosome identifier
             :param gene_id_: gene identifier
             :param seq_: sequence
+            :param coord_: coordinates
             :param type_: type of sequence (gene or CDS)
             """
-            def sequence_masking_percentage(seq: str) -> float:
-                """
-                sequence_masking_percentage is a function that given a sequence, returns the percentage of hardmasking
-                (N) in the sequence.
-                """
-                return seq.count('N') / len(seq)
+
             try:
-                masking_perc = round(sequence_masking_percentage(seq_), 2)
+                masking_perc = round(seq_.count('N') / len(seq_), 3)
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coords_.lower)}, '
-                                                   f'{str(coords_.upper)} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
+                                                   f'{str(coord_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {cds_coord} '
-                                                   f'located in chromosome {chrom_} is hardmasked.')
+                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
+                                                   f' {str(coord_.upper)} located in chromosome {chrom_} is hardmasked.')
                 return seq_
+
             except KeyError as e_:
                 self.logger.exception(f'Either there is missing a chromosome in the genome file '
                                       f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
@@ -703,13 +725,13 @@ class Exonize(object):
                                           self.gene_hierarchy_dict[gene_id]['coord'],
                                           self.gene_hierarchy_dict[gene_id]['strand'])
         temp_gs = str(Seq(self.genome[chrom][gene_coord.lower:gene_coord.upper]))
-        gene_seq = check_for_masking(chrom, gene_id, temp_gs, type_='gene')
+        gene_seq = check_for_masking(chrom, gene_id, temp_gs, gene_coord, type_='gene')
         if gene_seq:
             CDS_coords_dict = self.get_candidate_CDS_coords(gene_id)
             if CDS_coords_dict:
                 for cds_coord in CDS_coords_dict['set_coords']:
                     temp_cds = str(Seq(self.genome[chrom][cds_coord.lower:cds_coord.upper]))
-                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, type_='CDS')
+                    cds_seq = check_for_masking(chrom, gene_id, temp_cds, cds_coord, type_='CDS')
                     if cds_seq:
                         cds_frame_ = CDS_coords_dict['cds_frame_dict'][cds_coord]['frame']
                         tblastx_o = self.align_CDS(gene_id, cds_seq, gene_seq, cds_coord, cds_frame_)
@@ -751,7 +773,7 @@ class Exonize(object):
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
             hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-            return (gene_id_, cds_coord.lower, cds_coord.upper, hsp_dict['cds_frame'],
+            return (gene_id_, cds_coord.lower, cds_coord.upper, '_'.join(list( hsp_dict['cds_frame'])),
                     hit_q_f, hit_q_s, hit_t_f, hit_t_s,
                     hsp_dict['score'], hsp_dict['bits'], hsp_dict['evalue'],
                     hsp_dict['alignment_len'], hsp_dict['query_start'], hsp_dict['query_end'],
@@ -836,7 +858,7 @@ class Exonize(object):
                 self.__query = 1
                 self.__target_t = 'QUERY_ONLY'
 
-        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list) -> bool:
+        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list[tuple]) -> bool:
             """
             target_out_of_mRNA is a function that identifies tblastx hits that are outside the mRNA transcript.
             """
@@ -853,7 +875,7 @@ class Exonize(object):
                     return True
             return False
 
-        def indetify_full_target(trans_dict_: dict, target_intv_: P.Interval) -> None:
+        def indetify_full_target(trans_dict_: dict[dict], target_intv_: P.Interval) -> None:
             """
             indetify_full_target is a function that identifies tblastx hits that are full-length duplications as described
             in self.find_overlapping_annot
@@ -877,7 +899,8 @@ class Exonize(object):
             - DEACTIVATED: if the insertion is in an intron
             """
             def filter_structure_by_interval_and_type(structure: dict, t_intv_, annot_type: str) -> list:
-                return [(i['id'], i['coord']) for i in structure if (i['coord'].contains(t_intv_) and annot_type in i['type'])]
+                return [(i['id'], i['coord']) for i in structure
+                        if (i['coord'].contains(t_intv_) and annot_type in i['type'])]
 
             insertion_CDS_ = filter_structure_by_interval_and_type(trans_dict_['structure'], target_intv_, 'CDS')
             if insertion_CDS_:
@@ -901,7 +924,7 @@ class Exonize(object):
                         self.__found = True
                         self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
 
-        def indentify_truncation_target(trans_dict_: dict, mrna_: str, row_: list) -> None:
+        def indentify_truncation_target(trans_dict_: dict[str], mrna_: str, row_: list) -> None:
             """
             Identifies tblastx hits that are truncation duplications. These are hits that span across more than one annotation
             in the transcript architecture. We record a line per annotation that is truncated.
@@ -920,7 +943,7 @@ class Exonize(object):
                          target_s_, target_e_, value['id'], value['type'],
                          coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper))
 
-        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list) -> None:
+        def identify_obligate_pair(trans_coord_: P.Interval, mrna_: str, row_: list[tuple]) -> None:
             """
             Identifies tblastx hits that are obligate pairs. These are hits where the query and target show as CDSs in the
             transcript in question.
@@ -942,7 +965,7 @@ class Exonize(object):
             self.__neither = 1
             self.__target_t = 'NEITHER'
 
-        def insert_full_length_duplication_tuple(mrna_: str, row_: list):
+        def insert_full_length_duplication_tuple(mrna_: str, row_: list[tuple]):
             """
             insert_full_length_duplication_tuple is a function that appends the "row" event to the list of tuples.
             """
@@ -994,7 +1017,10 @@ class Exonize(object):
                 insert_full_length_duplication_tuple(mrna, row)
         insert_tuples_in_results_db()
 
-    def assign_pair_ids(self, full_matches: list) -> list:
+    def assign_event_ids(self, full_matches_list: list[tuple]) -> (list[tuple], set[tuple]):
+        def get_average_overlapping_percentage(intv_a: P.Interval, intv_b: P.Interval) -> float:
+            return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
+
         def get_shorter_intv_overlapping_percentage(a: P.Interval, b: P.Interval) -> float:
             """
             get_shorter_intv_overlapping_percentage is a function that given two intervals, returns the percentage of
@@ -1003,57 +1029,163 @@ class Exonize(object):
             shorter, longer = self.get_shorter_longer_interv(a, b)
             return self.get_overlap_percentage(longer, shorter)
 
-        def find_pairs_overlapping_perc(pairs: list) -> list:
-            """
-            find_pairs_overlapping_perc is a function that given a list of pairs of intervals, returns a list of
-            percentages of overlap of the shorter interval with the longer interval.
-            """
-            return [get_shorter_intv_overlapping_percentage(pair[0], pair[1]) for pair in pairs]
+        def get_candidate_reference_dict(coordinates: list[P.Interval],
+                                         intv_list: list[tuple[P.Interval, float]]) -> P.Interval:
+            cand_ref = [query_intv for query_intv in coordinates
+                        if all(get_average_overlapping_percentage(query_intv, intv_i) >= self.cds_overlapping_threshold
+                               for intv_i, _ in intv_list)]
+            if len(cand_ref) == 1:
+                return cand_ref[0]
+            elif cand_ref:
+                cand_ref = [(cand_ref_intv,
+                             sum([get_average_overlapping_percentage(cand_ref_intv, intv_i)
+                                  for intv_i, _ in intv_list]) / len(intv_list)) for cand_ref_intv in cand_ref]
+                return max(cand_ref, key=lambda x: x[1])[0]
+            return P.open(0, 0)
 
-        fragments, skip_frag, pair_id_counter = list(), list(), 1
-        with tqdm(total=len(full_matches), position=0, leave=True, ncols=50) as progress_bar:
-            for frag_a in full_matches:
-                frag_id_a, gene_id_a, q_s_a, q_e_a, t_s_a, t_e_a, event_type_a = frag_a
-                t_intv_a = P.open(t_s_a, t_e_a)
-                q_intv_a = P.open(q_s_a, q_e_a)
-                if frag_id_a not in skip_frag:
-                    candidates = [i for i in full_matches if i[1] == gene_id_a and i[0] not in [*skip_frag, frag_id_a]]
-                    if candidates:
-                        temp_cand = list()
-                        for frag_b in candidates:
-                            frag_id_b, gene_id_b, q_s_b, q_e_b, t_s_b, t_e_b, event_type_b = frag_b
-                            t_intv_b = P.open(t_s_b, t_e_b)
-                            q_intv_b = P.open(q_s_b, q_e_b)
-                            overlapping_pairs = find_pairs_overlapping_perc([(q_intv_a, q_intv_b), (t_intv_a, t_intv_b)])
-                            reciprocal_pairs = find_pairs_overlapping_perc([(t_intv_a, q_intv_b), (t_intv_b, q_intv_a)])
-                            if overlapping_pairs or reciprocal_pairs:
-                                # Insertion events
-                                if "INS_CDS" in event_type_a and "TRUNC" in event_type_b:
-                                    # q_1, t_2 and q_2, t_1 have to overlap
-                                    if all(perc > 0 for perc in reciprocal_pairs):
-                                        temp_cand.append(frag_id_b)
-                                    # q_1, q_2 and t_2, t_2 have to overlap
-                                    elif all(perc >= self.cds_overlapping_threshold for perc in overlapping_pairs):
-                                        temp_cand.append(frag_id_b)
-                                # Full events, meaning that the target CDS and query CDS overlap for their greater part
-                                elif any(all(perc >= self.cds_overlapping_threshold for perc in pair)  # full dups
-                                         for pair in [reciprocal_pairs, overlapping_pairs]):
-                                    temp_cand.append(frag_id_b)
-                        if temp_cand:
-                            skip_frag.extend([frag_id_a, *temp_cand])
-                            fragments.extend([(pair_id_counter, frag) for frag in [frag_id_a, *temp_cand]])
-                            pair_id_counter += 1
-                progress_bar.update(1)
-        return fragments
+        def get_overlapping_clusters(coordinates_set: set[tuple[P.Interval, float]], threshold: float) -> list[list[tuple]]:
+            def overlap_condition(coordinate, x):
+                perc = get_shorter_intv_overlapping_percentage(coordinate, x)
+                return perc >= threshold and x != coordinate
 
-    def get_identity_and_dna_seq_tuples(self) -> list:
+            overlapping_targets_list, skip_events = list(), list()
+            for coord, evalue in coordinates_set:
+                if coord not in skip_events:
+                    temp = [(i, i_evalue) for i, i_evalue in coordinates_set if overlap_condition(coord, i)]
+                    if temp:
+                        skip_events.extend([coord, *[i for i, _ in temp]])
+                        tr = [*temp, (coord, evalue)]
+                        tr.sort(key=lambda x: (x[0].lower, x[0].upper))
+                        overlapping_targets_list.append(tr)
+                    else:
+                        overlapping_targets_list.append([(coord, evalue)])
+            overlapping_targets_list.sort(key=len, reverse=True)
+            return overlapping_targets_list
+
+        def build_reference_dictionary(cds_candidates_dict: dict, overlapping_targets_list: list[list]) -> dict[dict]:
+            # this dictionary should be for finding CDS reference and intron reference.
+            # This should be applied to the clusters.
+            ref_dict = dict()
+            for intv_list in overlapping_targets_list:
+                # First: let's look for targets overlapping with a CDS
+                sorted_CDS_coords_list = sorted(cds_candidates_dict['set_coords'],
+                                                key=lambda x: (x.lower, x.upper))
+                cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, intv_list)
+                if cand_ref:
+                    for intv_i, _ in intv_list:
+                        ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                # Second: let's look for targets overlapping with introns
+                if all(not target_intv.overlaps(cds_intv)
+                       for cds_intv in sorted_CDS_coords_list
+                       for target_intv, _ in intv_list):
+                    cand_ref = min(intv_list, key=lambda x: x[1])[0]
+                    for intv_i, _ in intv_list:
+                        ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
+                # if there is no shared reference, we take it separetly
+                elif not cand_ref:
+                    for intv_i, i_evalue in intv_list:
+                        cand_ref = get_candidate_reference_dict(sorted_CDS_coords_list, [(intv_i, i_evalue)])
+                        if cand_ref:
+                            ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+                        else:
+                            ref_dict[intv_i] = dict(intv_ref=intv_i, ref='non_coding')
+            return ref_dict
+
+        def create_events_multigraph(ref_coord_dic: dict,
+                                     query_coords_set: set,
+                                     records_set: set) -> nx.MultiGraph:
+            gene_G = nx.MultiGraph()
+            target_coords_set = set([i['intv_ref'] for i in ref_coord_dic.values()])
+            gene_G.add_nodes_from(set([(i.lower, i.upper) for i in [*query_coords_set, *target_coords_set]]))
+            for event in records_set:
+                source = (event[2], event[3])  # exact CDS coordinates
+                target = ref_coord_dic[P.open(event[4], event[5])]['intv_ref']  # we need a reference
+                ref_des = ref_coord_dic[P.open(event[4], event[5])]['ref']
+                gene_G.add_edge(source,
+                                (target.lower, target.upper),
+                                fragment_id=event[0],
+                                query_CDS=(event[2], event[3]),
+                                target=(event[4], event[5]),
+                                evalue=event[6],
+                                event_type=event[7],
+                                ref=ref_des,
+                                color='black', width=2)
+            return gene_G
+
+        def get_events_tuples_from_multigraph(reference_dict: dict,
+                                              gene_identif: str,
+                                              gene_G: nx.MultiGraph) -> (list[tuple], set[tuple]):
+            reference = {i['intv_ref']: i['ref'] for i in reference_dict.values()}
+            disconnected_components = list(nx.connected_components(gene_G))
+            events_tuples, events_list, event_id_counter, cluster_counter = list(), list(), 0, 0
+            for component in disconnected_components:
+                temp, comp_event_list = dict(), list()
+                for node_x, node_y in component:
+                    ref = 'coding'
+                    node_intv = P.open(int(node_x), int(node_y))
+                    if node_intv in reference:
+                        ref = reference[node_intv]
+                    temp[node_intv] = [ref,  # either coding/non_coding/coding_non_coding
+                                       sum(1 for _ in gene_G.neighbors((node_x, node_y))),  # degree
+                                       None,  # cluster_id
+                                       event_id_counter]
+                temp_list_tuples = set((node, 0) for node in temp.keys())
+                node_clusters = [[i[0] for i in cluster] for cluster
+                                 in get_overlapping_clusters(temp_list_tuples, 0.01)
+                                 if len(cluster) > 1]
+                for cluster in node_clusters:
+                    for node in cluster:
+                        temp[node][2] = cluster_counter
+                    cluster_counter += 1
+                subgraph = gene_G.subgraph(component)
+                for edge in subgraph.edges(data=True):
+                    # edge is a tuple (node1, node2, attributes)
+                    node1, node2, attributes = edge
+                    comp_event_list.append((event_id_counter, attributes['fragment_id']))
+                event_id_counter += 1
+                events_tuples.extend(comp_event_list)
+                events_list.extend([(gene_identif,
+                                     value[0],
+                                     coord.lower, coord.upper,
+                                     *value[1:])
+                                    for coord, value in temp.items()])
+            return events_tuples, events_list
+
+        genes_events_tuples, genes_events_set = list(), set()
+        full_matches_dict = defaultdict(set)
+        for match in full_matches_list:
+            full_matches_dict[match[1]].add(match)
+        for gene_id, records in full_matches_dict.items():
+            gene_start = self.gene_hierarchy_dict[gene_id]['coord'].lower
+            cds_candidates = self.get_candidate_CDS_coords(gene_id)
+            cds_candidates['set_coords'] = set([P.open(i.lower - gene_start, i.upper - gene_start)
+                                                for i in cds_candidates['set_coords']])
+            query_coordinates, target_coordinates = (set([P.open(i[2], i[3]) for i in records]),
+                                                     set([(P.open(i[4], i[5]), i[-2]) for i in records]))
+            overlapping_targets = get_overlapping_clusters(target_coordinates, self.cds_overlapping_threshold)
+            ref_coord_dict = build_reference_dictionary(cds_candidates, overlapping_targets)
+            G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
+            gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(ref_coord_dict, gene_id, G)
+            if len(gene_events_tuples) != len(records):
+                logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
+            genes_events_tuples.extend(gene_events_tuples)
+            genes_events_set.update(gene_events_set)
+        if len(genes_events_tuples) != len(full_matches_list):
+            logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
+        return genes_events_tuples, genes_events_set
+
+    def get_identity_and_dna_seq_tuples(self) -> list[tuple]:
         """
         Retrieves DNA sequences from tblastx query and target, computes their DNA and amino acid identity,
         and returns a list of tuples with the structure:
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
-
-        def fetch_dna_sequence(chrom: str, annot_start: int, annot_end: int, pos_annot_s: int, pos_annot_e: int, strand: str):
+        def fetch_dna_sequence(chrom: str,
+                               annot_start: int,
+                               annot_end: int,
+                               pos_annot_s: int,
+                               pos_annot_e: int,
+                               strand: str) -> str:
             """
             Retrieve a subsequence from a genomic region, reverse complementing it if on the negative strand.
             """
@@ -1067,7 +1199,7 @@ class Exonize(object):
             # Calculate the Hamming distance and return it
             return round(sum(i == j for i, j in zip(seq_1, seq_2)) / len(seq_2), 3)
 
-        def process_fragment(fragment: list) -> tuple:
+        def process_fragment(fragment: list) -> tuple[float, float, str, str, int]:
             """
             process fragment recovers the query/target DNA sequences (since the tblastx alignment is done in amino acids)
             and computes the DNA and amino acid identity. This information is returned in a tuple and later used to update the
@@ -1108,11 +1240,11 @@ class Exonize(object):
         - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
         them in the Fragments table.
         - 11. The function collects all events in the Full_length_events_cumulative_counts table.
-        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
+        - 12. The function reconciles the events by assigning an "event ID" to each event (see assign_event_ids).
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def batch(iterable: list, n=1) -> list:
+        def batch(iterable: list, n=1) -> list[list]:
             """
             batch is a function that given a list and a batch size, returns an iterable of lists of size n.
             """
@@ -1128,7 +1260,7 @@ class Exonize(object):
         if args_list:
             batches_list = [i for i in batch(args_list, self.batch_number)]
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            self.logger.info(f'- Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
+            self.logger.info(f'Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
             with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
                 for arg_batch in batches_list:
                     t = ThreadPool(processes=self.threads)
@@ -1137,15 +1269,13 @@ class Exonize(object):
                     t.join()
                     progress_bar.update(len(arg_batch))
         else:
-            self.logger.info('All genes have been processed. If you want to re-run the analysis, delete/rename the results DB.')
+            self.logger.info('All genes have been processed. If you want to re-run the analysis, '
+                             'consider using the hard-force flag')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
-        print('- Classifying events', end=" ")
-        tic_ce = time.time()
+        self.logger.info('Classifying events')
         self.identify_full_length_duplications()
-        hms_time = dt.strftime(dt.utcfromtimestamp(time.time() - tic_ce), '%H:%M:%S')
-        print(f' Done! [{hms_time}]')
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
         reduced_event_types_tuples = generate_unique_events_list(query_concat_categ_pair_list, -1)
@@ -1153,7 +1283,7 @@ class Exonize(object):
         identity_and_sequence_tuples = self.get_identity_and_dna_seq_tuples()
         insert_identity_and_dna_algns_columns(self.results_db, self.timeout_db, identity_and_sequence_tuples)
         full_matches = query_full_events(self.results_db, self.timeout_db)
-        self.logger.info('- Reconciling events')
-        fragments = self.assign_pair_ids(full_matches)
-        instert_pair_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments)
+        fragments_tuples, events_set = self.assign_event_ids(full_matches)
+        insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments_tuples)
+        insert_events_table(self.results_db, self.timeout_db, events_set)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)

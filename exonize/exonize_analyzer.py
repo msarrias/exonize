@@ -37,6 +37,19 @@ class ExonizeClassifier(object):
                                  'TRUNC',
                                  'NEITHER']
 
+    @staticmethod
+    def get_overlap_percentage(a: P.Interval, b: P.Interval) -> float:
+        """
+        Given two intervals, the function
+        get_overlap_percentage returns the percentage
+        of the overlapping region relative to an interval b.
+        """
+        intersection = a & b
+        return (intersection.upper - intersection.lower) / (b.upper - b.lower) if intersection else 0
+
+    def get_average_overlapping_percentage(self, intv_a, intv_b) -> float:
+        return sum([self.get_overlap_percentage(intv_a, intv_b), self.get_overlap_percentage(intv_b, intv_a)]) / 2
+
     def fragments_count_sanity_check(self) -> None:
         pairs_ids_len = 0
         split_pairs_len = 0
@@ -165,8 +178,8 @@ class ExonizeClassifier(object):
                             pair_q = P.open(pair[self.query_start_idx], pair[self.query_end_idx])
                             split_t = P.open(split_event[self.target_start_idx], split_event[self.target_end_idx])
                             split_q = P.open(split_event[self.query_start_idx], split_event[self.query_end_idx])
-                            overlap_se = ((get_average_overlapping_percentage(pair_t, split_t) > self.coverage_threshold
-                                           and get_average_overlapping_percentage(pair_q, split_q) > self.coverage_threshold)
+                            overlap_se = ((self.get_average_overlapping_percentage(pair_t, split_t) > self.coverage_threshold
+                                           and self.get_average_overlapping_percentage(pair_q, split_q) > self.coverage_threshold)
                                           and split_event[self.evalue_idx] < pair[self.evalue_idx])
                             if ins_event or overlap_se or 'TRUNC' in pair[self.event_type_idx]:
                                 self.all_events[mut_type]['pairs_fragment_ids'].extend([i[self.fragment_id_idx]
