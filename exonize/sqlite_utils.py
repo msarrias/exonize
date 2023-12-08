@@ -249,6 +249,7 @@ def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragmen
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Fragments', 'dna_perc_identity', timeout_db):
+            cursor.execute(""" DROP VIEW IF EXISTS Exclusive_pairs;""")
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN dna_perc_identity;""")
         if check_if_column_in_table_exists(db_path, 'Fragments', 'prot_perc_identity', timeout_db):
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN prot_perc_identity;""")
@@ -265,6 +266,7 @@ def insert_identity_and_dna_algns_columns(db_path: str, timeout_db: int, fragmen
         SET dna_perc_identity=?, prot_perc_identity=?, query_dna_seq=?, target_dna_seq=?  WHERE fragment_id=? 
         """, fragments)
         db.commit()
+    create_exclusive_pairs_view(db_path, timeout_db)
 
 
 def insert_event_categ_full_length_events_cumulative_counts(db_path: str, timeout_db: int, fragments: list) -> None:
@@ -295,6 +297,7 @@ def insert_percent_query_column_to_fragments(db_path: str, timeout_db: int) -> N
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
         if check_if_column_in_table_exists(db_path, 'Fragments', 'percent_query', timeout_db):
+            cursor.execute("""DROP VIEW IF EXISTS Filtered_full_length_events;""")
             cursor.execute(""" ALTER TABLE Fragments DROP COLUMN percent_query;""")
         cursor.execute("""
         ALTER TABLE Fragments ADD COLUMN percent_query DECIMAL(10, 3);
@@ -315,6 +318,7 @@ def insert_percent_query_column_to_fragments(db_path: str, timeout_db: int) -> N
         WHERE Fragments.Fragment_id = int.Fragment_id;
         """)
         db.commit()
+    create_filtered_full_length_events_view(db_path, timeout_db)
 
 
 def insert_gene_ids_table(db_path: str, timeout_db: int, gene_args_tuple: tuple) -> None:
@@ -377,6 +381,10 @@ def insert_fragments_calls() -> tuple:
 def insert_events_table(db_path: str, timeout_db: int, fragments: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
+        cursor.execute("""SELECT * FROM Events;""")
+        records = cursor.fetchall()
+        if records:
+            fragments = [i for i in fragments if i not in records]
         insert_gene_table_param = """  
         INSERT INTO Events (
         gene_id,
@@ -395,31 +403,36 @@ def insert_events_table(db_path: str, timeout_db: int, fragments: list) -> None:
 def instert_full_length_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
     with sqlite3.connect(db_path, timeout=timeout_db) as db:
         cursor = db.cursor()
-        insert_full_length_event_table_param = """
-        INSERT INTO Full_length_duplications (
-        fragment_id,
-        gene_id,
-        mrna_id,
-        CDS_start,
-        CDS_end,
-        query_id,
-        query_start,
-        query_end,
-        event_type,
-        target_id,
-        annot_target_start,
-        annot_target_end,
-        target_start,
-        target_end,
-        neither,
-        query,
-        target,
-        both,
-        evalue)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
-        """
-        cursor.executemany(insert_full_length_event_table_param, tuples_list)
-        db.commit()
+        cursor.execute("""SELECT * FROM Full_length_duplications;""")
+        records = cursor.fetchall()
+        if records:
+            tuples_list = [i for i in tuples_list if i not in [i[1:] for i in records]]
+        if tuples_list:
+            insert_full_length_event_table_param = """
+            INSERT INTO Full_length_duplications (
+            fragment_id,
+            gene_id,
+            mrna_id,
+            CDS_start,
+            CDS_end,
+            query_id,
+            query_start,
+            query_end,
+            event_type,
+            target_id,
+            annot_target_start,
+            annot_target_end,
+            target_start,
+            target_end,
+            neither,
+            query,
+            target,
+            both,
+            evalue)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+            """
+            cursor.executemany(insert_full_length_event_table_param, tuples_list)
+            db.commit()
 
 
 def instert_obligatory_event(db_path: str, timeout_db: int, tuples_list: list) -> None:
