@@ -17,6 +17,7 @@ import sys
 import shutil
 import logging
 import datetime
+import networkx as nx
 
 
 class Exonize(object):
@@ -772,7 +773,7 @@ class Exonize(object):
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
             hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-            return (gene_id_, cds_coord.lower, cds_coord.upper, hsp_dict['cds_frame'],
+            return (gene_id_, cds_coord.lower, cds_coord.upper, '_'.join(list( hsp_dict['cds_frame'])),
                     hit_q_f, hit_q_s, hit_t_f, hit_t_s,
                     hsp_dict['score'], hsp_dict['bits'], hsp_dict['evalue'],
                     hsp_dict['alignment_len'], hsp_dict['query_start'], hsp_dict['query_end'],
@@ -1025,8 +1026,8 @@ class Exonize(object):
             get_shorter_intv_overlapping_percentage is a function that given two intervals, returns the percentage of
             overlap of the shorter interval with the longer interval.
             """
-            shorter, longer = get_shorter_longer_interv(a, b)
-            return get_overlap_percentage(longer, shorter)
+            shorter, longer = self.get_shorter_longer_interv(a, b)
+            return self.get_overlap_percentage(longer, shorter)
 
         def get_candidate_reference_dict(coordinates: list[P.Interval],
                                          intv_list: list[tuple[P.Interval, float]]) -> P.Interval:
@@ -1098,8 +1099,8 @@ class Exonize(object):
             gene_G.add_nodes_from(set([(i.lower, i.upper) for i in [*query_coords_set, *target_coords_set]]))
             for event in records_set:
                 source = (event[2], event[3])  # exact CDS coordinates
-                target = ref_coord_dic[intv(event[4], event[5])]['intv_ref']  # we need a reference
-                ref_des = ref_coord_dic[intv(event[4], event[5])]['ref']
+                target = ref_coord_dic[P.open(event[4], event[5])]['intv_ref']  # we need a reference
+                ref_des = ref_coord_dic[P.open(event[4], event[5])]['ref']
                 gene_G.add_edge(source,
                                 (target.lower, target.upper),
                                 fragment_id=event[0],
@@ -1121,7 +1122,7 @@ class Exonize(object):
                 temp, comp_event_list = dict(), list()
                 for node_x, node_y in component:
                     ref = 'coding'
-                    node_intv = intv(int(node_x), int(node_y))
+                    node_intv = P.open(int(node_x), int(node_y))
                     if node_intv in reference:
                         ref = reference[node_intv]
                     temp[node_intv] = [ref,  # either coding/non_coding/coding_non_coding
@@ -1157,10 +1158,10 @@ class Exonize(object):
         for gene_id, records in full_matches_dict.items():
             gene_start = self.gene_hierarchy_dict[gene_id]['coord'].lower
             cds_candidates = self.get_candidate_CDS_coords(gene_id)
-            cds_candidates['set_coords'] = set([intv(i.lower - gene_start, i.upper - gene_start)
+            cds_candidates['set_coords'] = set([P.open(i.lower - gene_start, i.upper - gene_start)
                                                 for i in cds_candidates['set_coords']])
-            query_coordinates, target_coordinates = (set([intv(i[2], i[3]) for i in records]),
-                                                     set([(intv(i[4], i[5]), i[-2]) for i in records]))
+            query_coordinates, target_coordinates = (set([P.open(i[2], i[3]) for i in records]),
+                                                     set([(P.open(i[4], i[5]), i[-2]) for i in records]))
             overlapping_targets = get_overlapping_clusters(target_coordinates, self.cds_overlapping_threshold)
             ref_coord_dict = build_reference_dictionary(cds_candidates, overlapping_targets)
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
@@ -1269,7 +1270,7 @@ class Exonize(object):
                     progress_bar.update(len(arg_batch))
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, '
-                             'delete/rename the results DB.')
+                             'consider using the hard-force flag')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
