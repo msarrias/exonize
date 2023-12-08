@@ -14,6 +14,7 @@ from Bio.Blast import NCBIXML                          # for parsing BLAST resul
 from datetime import datetime as dt
 from collections import defaultdict
 import sys
+import shutil
 import logging
 import datetime
 
@@ -80,9 +81,7 @@ class Exonize(object):
 
         if self._HARD_FORCE:
             if os.path.exists(self.working_dir):
-                for item in os.listdir(self.working_dir):
-                    os.remove(os.path.join(self.working_dir, item))
-                os.rmdir(self.working_dir)
+                shutil.rmtree(self.working_dir)
         elif self._SOFT_FORCE:
             if os.path.exists(self.results_db):
                 os.remove(self.results_db)
@@ -217,7 +216,7 @@ class Exonize(object):
             - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
             """
             try:
-                self.logger.info("- Creating annotations database:")
+                self.logger.info("Creating annotations database")
                 self.db = gffutils.create_db(self.in_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -240,8 +239,7 @@ class Exonize(object):
               in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                self.logger.info("The GFF file does not contain intron annotations")
-                self.logger.info(f"- Attempting to write intron annotations in database:")
+                self.logger.info("The GFF file does not contain intron annotations - attempting to write intron annotations in database")
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
@@ -400,7 +398,7 @@ class Exonize(object):
                 cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
             return prot_seq_, cds_list_tuples
 
-        self.logger.info("- Fetching gene-hierarchy data and writing protein database")
+        self.logger.info("Fetching gene-hierarchy data and writing protein database")
         self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -457,7 +455,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self._DEBUG_MODE:
-            self.logger.warning("-All tblastx io files will be saved. This may take a large amount of disk space.")
+            self.logger.warning("All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
