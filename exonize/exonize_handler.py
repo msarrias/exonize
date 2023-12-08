@@ -419,7 +419,7 @@ class Exonize(object):
                                                              coord=coord,  # ID coordinate starting at 0
                                                              frame=child.frame,  # One of '0', '1' or '2'.
                                                              type=child.featuretype,   # feature type name
-                                                             attributes=dict(child.attributes)))  # feature type name
+                                                             attributes=dict(child.attributes)))  # feature attributes
                     # if the gene is in the negative strand the direction of transcription and translation
                     # is opposite to the direction the DNA sequence is represented meaning that translation starts
                     # from the last CDS
@@ -1044,10 +1044,10 @@ class Exonize(object):
                 return max(cand_ref, key=lambda x: x[1])[0]
             return P.open(0, 0)
 
-        def get_overlapping_clusters(coordinates_set: set[tuple[P.Interval, float]]) -> list[list[tuple]]:
+        def get_overlapping_clusters(coordinates_set: set[tuple[P.Interval, float]], threshold: float) -> list[list[tuple]]:
             def overlap_condition(coordinate, x):
                 perc = get_shorter_intv_overlapping_percentage(coordinate, x)
-                return perc >= self.cds_overlapping_threshold and x != coordinate
+                return perc >= threshold and x != coordinate
 
             overlapping_targets_list, skip_events = list(), list()
             for coord, evalue in coordinates_set:
@@ -1101,29 +1101,56 @@ class Exonize(object):
             for event in records_set:
                 source = (event[2], event[3])  # exact CDS coordinates
                 target = ref_coord_dic[intv(event[4], event[5])]['intv_ref']  # we need a reference
+                ref_des = ref_coord_dic[intv(event[4], event[5])]['ref']
                 gene_G.add_edge(source,
                                 (target.lower, target.upper),
                                 fragment_id=event[0],
                                 query_CDS=(event[2], event[3]),
                                 target=(event[4], event[5]),
-                                event_type=event[6],
+                                evalue=event[6],
+                                event_type=event[7],
+                                ref=ref_des,
                                 color='black', width=2)
             return gene_G
 
-        def get_events_tuples_from_multigraph(gene_identif: str,
+        def get_events_tuples_from_multigraph(reference_dict: dict,
+                                              gene_identif: str,
                                               gene_G: nx.MultiGraph) -> (list[tuple], set[tuple]):
+            reference = {i['intv_ref']: i['ref'] for i in reference_dict.values()}
             disconnected_components = list(nx.connected_components(gene_G))
-            events_tuples, events_set, event_id_counter = list(), set(), 0
+            events_tuples, events_list, event_id_counter, cluster_counter = list(), list(), 0, 0
             for component in disconnected_components:
+                temp, comp_event_list = dict(), list()
                 for node_x, node_y in component:
-                    events_set.update([(gene_identif, node_x, node_y, event_id_counter)])
+                    ref = 'coding'
+                    node_intv = intv(int(node_x), int(node_y))
+                    if node_intv in reference:
+                        ref = reference[node_intv]
+                    temp[node_intv] = [ref,  # either coding/non_coding/coding_non_coding
+                                       sum(1 for _ in gene_G.neighbors((node_x, node_y))),  # degree
+                                       None,  # cluster_id
+                                       event_id_counter]
+                temp_list_tuples = set((node, 0) for node in temp.keys())
+                node_clusters = [[i[0] for i in cluster] for cluster
+                                 in get_overlapping_clusters(temp_list_tuples, 0.01)
+                                 if len(cluster) > 1]
+                for cluster in node_clusters:
+                    for node in cluster:
+                        temp[node][2] = cluster_counter
+                    cluster_counter += 1
                 subgraph = gene_G.subgraph(component)
                 for edge in subgraph.edges(data=True):
                     # edge is a tuple (node1, node2, attributes)
                     node1, node2, attributes = edge
-                    events_tuples.append((event_id_counter, attributes['fragment_id']))
+                    comp_event_list.append((event_id_counter, attributes['fragment_id']))
                 event_id_counter += 1
-            return events_tuples, events_set
+                events_tuples.extend(comp_event_list)
+                events_list.extend([(gene_identif,
+                                     value[0],
+                                     coord.lower, coord.upper,
+                                     *value[1:])
+                                    for coord, value in temp.items()])
+            return events_tuples, events_list
 
         genes_events_tuples, genes_events_set = list(), set()
         full_matches_dict = defaultdict(set)
@@ -1135,11 +1162,11 @@ class Exonize(object):
             cds_candidates['set_coords'] = set([intv(i.lower - gene_start, i.upper - gene_start)
                                                 for i in cds_candidates['set_coords']])
             query_coordinates, target_coordinates = (set([intv(i[2], i[3]) for i in records]),
-                                                     set([(intv(i[4], i[5]), i[-1]) for i in records]))
-            overlapping_targets = get_overlapping_clusters(target_coordinates)
+                                                     set([(intv(i[4], i[5]), i[-2]) for i in records]))
+            overlapping_targets = get_overlapping_clusters(target_coordinates, self.cds_overlapping_threshold)
             ref_coord_dict = build_reference_dictionary(cds_candidates, overlapping_targets)
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
-            gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(gene_id, G)
+            gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(ref_coord_dict, gene_id, G)
             if len(gene_events_tuples) != len(records):
                 logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
             genes_events_tuples.extend(gene_events_tuples)

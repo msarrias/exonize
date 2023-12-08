@@ -141,8 +141,11 @@ def connect_create_results_db(db_path: str, timeout_db: int) -> None:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS Events (
         gene_id VARCHAR(100),
+        ref_description VARCHAR(100),
         ref_start INTEGER NOT NULL,
         ref_end INTEGER NOT NULL,
+        degree INTEGER NOT NULL,
+        cluster_id INTEGER,
         gene_event_id INTEGER NOT NULL,
         FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
         UNIQUE(gene_id, ref_start, ref_end, gene_event_id)
@@ -377,10 +380,13 @@ def insert_events_table(db_path: str, timeout_db: int, fragments: list) -> None:
         insert_gene_table_param = """  
         INSERT INTO Events (
         gene_id,
+        ref_description,
         ref_start,
         ref_end,
+        degree,
+        cluster_id,
         gene_event_id) 
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         cursor.executemany(insert_gene_table_param, fragments)
         db.commit()
@@ -733,6 +739,7 @@ def query_full_events(db_path: str, timeout_db: int) -> list:
         f.CDS_end - f.gene_start as CDS_end,
         f.target_start,
         f.target_end,
+        f.evalue,
         f.event_type
         FROM Full_length_events_cumulative_counts AS f
         ORDER BY
