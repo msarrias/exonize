@@ -14,7 +14,7 @@ import time
 from collections import defaultdict
 from collections.abc import Sequence, Iterator
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 import networkx as nx
 import portion as P
@@ -699,56 +699,79 @@ class Exonize(object):
         :param gene_id: gene identifier
         :return: list of representative CDS coordinates for the gene across all transcripts
         """
-        def get_intervals_overlapping_list(intv_list: list) -> list:
+
+        def get_first_overlapping_intervals(
+            sorted_intervals: list[P.Interval],
+        ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
             """
-            get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
-            with the overlapping pairs described in case a (get_candidate_CDS_coords).
-            :param intv_list: list of intervals
+            Given a list of intervals, returns the first consecutive interval tuples with the overlapping pairs
+            described in case a (get_candidate_CDS_coords).
+            :param sorted_intervals: list of intervals
             :return: list of tuples with pairs of overlapping intervals
             """
-            return [(feat_interv, intv_list[idx + 1])
-                    for idx, feat_interv in enumerate(intv_list[:-1])
-                    if all([self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold,
-                            self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold])]
+            first_overlap_index = 0
+            while first_overlap_index < len(sorted_intervals) - 1:
+                current_interval = sorted_intervals[first_overlap_index]
+                next_interval = sorted_intervals[first_overlap_index + 1]
+                if (
+                    self.get_overlap_percentage(current_interval, next_interval) >= self.cds_overlapping_threshold
+                    and self.get_overlap_percentage(next_interval, current_interval) >= self.cds_overlapping_threshold
+                ):
+                    return current_interval, next_interval
+                first_overlap_index += 1
+            return None, None
 
-        def resolve_overlaps_coords_list(coords_list) -> list:
+        def resolve_overlaps_coords_list(sorted_cds_coordinates: list[P.Interval]) -> list[P.Interval]:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
             considered to be overlapping, they are both included in the search.
-            :param coords_list: list of coordinates
+            :param sorted_cds_coordinates: list of coordinates sorted according to the following criteria:
+                (i) lower coordinate, (ii) upper coordinate
             :return: list of coordinates without overlaps
             """
             new_list = list()
-            overlaps_list = get_intervals_overlapping_list(coords_list)
-            if overlaps_list:
-                # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
-                # with the next interval in the list.
-                intv_a, intv_b = overlaps_list[0]
-                for idx, coord in enumerate(coords_list):
+            # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
+            # with the next interval in the list.
+            intv_a, intv_b = get_first_overlapping_intervals(sorted_cds_coordinates)
+            if all((intv_a, intv_b)):
+                shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
+                # Note: new_list is populated through enumeration of 'sorted_cds_coordinates', so it will also be sorted
+                # according to the same criteria used for 'sorted_cds_coordinates'.
+                for idx, coord in enumerate(sorted_cds_coordinates):
                     if coord != intv_a:
                         new_list.append(coord)
                     else:
-                        shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
                         new_list.append(shorter)
-                        new_list.extend(coords_list[idx + 2:])
+                        new_list.extend(sorted_cds_coordinates[idx + 2:])
                         return resolve_overlaps_coords_list(new_list)
-            else:
-                return coords_list
+            return sorted_cds_coordinates
 
-        CDS_coords_list = list(set([(i['coord'], i['frame']) for mrna_id, mrna_annot
-                                    in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
-        if CDS_coords_list:
+        cds_coords_and_frames = list(set(
+            (coordinate, annotation_structure['frame'])
+            for mrna_annotation in self.gene_hierarchy_dict[gene_id]['mRNAs'].values()
+            for annotation_structure in mrna_annotation['structure']
+            for coordinate in (annotation_structure['coord'],)
+            if (
+                annotation_structure['type'] == 'CDS' and
+                (coordinate.upper - coordinate.lower) >= self.min_exon_len
+            )
+        ))
+        if cds_coords_and_frames:
             repr_cds_frame_dict = dict()
-            for cds_coord, frame in CDS_coords_list:
+            for cds_coord, frame in cds_coords_and_frames:
                 if cds_coord in repr_cds_frame_dict:
-                    repr_cds_frame_dict[cds_coord]['frame'].update(frame)
+                    repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
                 else:
-                    repr_cds_frame_dict[cds_coord] = {'frame': set(frame)}
-            CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
-            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
+                    repr_cds_frame_dict[cds_coord] = {'frame': frame}
+            sorted_cds_coords_list: list[P.Interval] = sorted(
+                [coordinate for coordinate, _ in cds_coords_and_frames],
+                key=lambda coordinate: (coordinate.lower, coordinate.upper),
+            )
+            return {
+                'set_coords': resolve_overlaps_coords_list(sorted_cds_coords_list),
+                'cds_frame_dict': repr_cds_frame_dict,
+            }
         return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
