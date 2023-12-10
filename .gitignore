@@ -1,1 +1,8 @@
 /__init__.py
+
+# pip caches
+build/
+*.egg-info/
+
+# python caches
+**/__pycache__/
