@@ -1,5 +1,4 @@
 import cProfile
-import datetime
 import gc
 import gffutils
 import logging
@@ -14,6 +13,7 @@ import tempfile
 import time
 from collections import defaultdict
 from collections.abc import Sequence, Iterator
+from datetime import datetime
 from typing import Any
 
 import networkx as nx
@@ -60,24 +60,26 @@ from exonize.utils import (
 class Exonize(object):
     logger: logging.Logger
 
-    def __init__(self,
-                 gff_file_path,
-                 genome_path,
-                 specie_identifier,
-                 enable_debug=False,
-                 hard_masking=False,
-                 soft_force=False,
-                 hard_force=False,
-                 evalue_threshold=1e-2,
-                 sleep_max_seconds=5,
-                 min_exon_length=30,
-                 cds_overlapping_threshold=0.9,
-                 masking_perc_threshold=0.8,
-                 self_hit_threshold=0.5,
-                 batch_number=100,
-                 threads=7,
-                 timeout_db=160):
-
+    def __init__(
+        self,
+        gff_file_path,
+        genome_path,
+        specie_identifier,
+        enable_debug=False,
+        hard_masking=False,
+        soft_force=False,
+        hard_force=False,
+        evalue_threshold=1e-2,
+        sleep_max_seconds=5,
+        min_exon_length=30,
+        cds_overlapping_threshold=0.9,
+        masking_perc_threshold=0.8,
+        self_hit_threshold=0.5,
+        batch_number=100,
+        threads=7,
+        timeout_db=160,
+        genome_pickled_file_path=None,
+    ):
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
         self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
@@ -90,6 +92,7 @@ class Exonize(object):
         self.specie_identifier = specie_identifier                      # specie identifier
         self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
         self.genome_path = genome_path                                  # genome path (FASTA)
+        self.genome_pickled_filepath = genome_pickled_file_path
         self.hard_masking = hard_masking                                # hard masking (True/False)
         self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
         self.min_exon_len = min_exon_length                             # minimum exon length (bp)
@@ -147,7 +150,7 @@ class Exonize(object):
                 return record.levelno != logging.INFO
 
         # Define file handler for the "FILE_ONLY_INFO" level
-        log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+        log_file_name = f"exonize_log_{datetime.now():%Y%m%d_%H%M%S}.log"
         log_file_name = os.path.join(self.working_dir, log_file_name)
         file_handler = logging.FileHandler(log_file_name, mode='w')
         file_handler.setLevel(self.__FILE_ONLY_INFO)  # Changed level to custom level
@@ -315,19 +318,40 @@ class Exonize(object):
             self.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
-    def read_genome(self) -> None:
+    def read_genome(self, pickled_filepath: str = None) -> None:
         """
         read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a
         dictionary.
         The dictionary has the following structure: {chromosome: sequence}
         """
+        hard_masking_regex = re.compile('[a-z]')
         try:
-            self.logger.info("Reading genome file")
-            parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
-            if self.hard_masking:
-                self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
-            else:
-                self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
+            tic_genome = time.time()
+            print("- Reading genome file:", end=" ")
+            if pickled_filepath is not None:
+                try:
+                    with open(pickled_filepath, 'rb') as handle:
+                        self.genome = pickle.load(handle)
+                except FileNotFoundError:
+                    self.logger.exception(f"File doesn't exist yet: {pickled_filepath}")
+            if self.genome is not None:
+                return
+            with open(self.genome_path) as genome_file:
+                parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                if self.hard_masking:
+                    self.genome = {
+                        fasta.id: hard_masking_regex.sub('N', str(fasta.seq))
+                        for fasta in parsed_genome
+                    }
+                else:
+                    self.genome = {
+                        fasta.id: str(fasta.seq)
+                        for fasta in parsed_genome
+                    }
+                hms_time = datetime.strftime(datetime.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
+                print(f"Done! [{hms_time}]")
+                if pickled_filepath is not None:
+                    self.dump_pkl_file(pickled_filepath, self.genome)
         except (ValueError, FileNotFoundError) as e:
             self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
@@ -483,7 +507,7 @@ class Exonize(object):
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-    def prepare_data(self) -> None:
+    def prepare_data(self, pickled_filepath: str = None) -> None:
         """
         prepare_data is a wrapper function that:
         (i)   creates the database with the genomic annotations (if it does not exist)
@@ -496,7 +520,7 @@ class Exonize(object):
             os.makedirs(os.path.join(self.working_dir, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
         create_protein_table(self.protein_db_path, self.timeout_db)
-        self.read_genome()
+        self.read_genome(pickled_filepath=pickled_filepath)
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
