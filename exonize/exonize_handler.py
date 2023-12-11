@@ -1,46 +1,85 @@
-from .sqlite_utils import *
-import gffutils                                        # for creating/loading DBs
-import subprocess                                      # for calling gffread
-import portion as P                                    # for working with intervals
-import os                                              # for working with files
-import time                                            # for sleeping between BLAST calls and for timeout on DB creation
-import random                                          # for random sleep
-import re                                              # regular expressions for genome masking
-import tempfile                                        # for creating temporary files
-from Bio import SeqIO                                  # for reading FASTA files
-from tqdm import tqdm                                  # progress bar
-from multiprocessing.pool import ThreadPool            # for parallelization
-from Bio.Blast import NCBIXML                          # for parsing BLAST results
-from datetime import datetime as dt
-from collections import defaultdict
-import sys
-import shutil
+import cProfile
+import gc
+import gffutils
 import logging
-import datetime
+import os
+import pickle
+import random
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from collections import defaultdict
+from collections.abc import Sequence, Iterator
+from datetime import datetime
+from typing import Any, Union
+
 import networkx as nx
+import portion as P
+import sqlite3
+from Bio import SeqIO
+from Bio.Blast import NCBIXML
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from tqdm import tqdm
+
+from exonize.profiling import get_run_performance_profile, PROFILE_PATH
+from exonize.sqlite_utils import (
+    connect_create_results_db,
+    create_cumulative_counts_table,
+    create_exclusive_pairs_view,
+    create_filtered_full_length_events_view,
+    create_mrna_counts_view,
+    create_protein_table,
+    insert_event_categ_full_length_events_cumulative_counts,
+    insert_event_id_column_to_full_length_events_cumulative_counts,
+    insert_events_table,
+    instert_full_length_event,
+    insert_identity_and_dna_algns_columns,
+    insert_into_CDSs,
+    insert_into_proteins,
+    insert_gene_ids_table,
+    insert_fragments_calls,
+    instert_obligatory_event,
+    insert_percent_query_column_to_fragments,
+    instert_truncation_event,
+    query_gene_ids_in_res_db,
+    query_fragments,
+    query_filtered_full_duplication_events,
+    query_concat_categ_pairs,
+    query_full_events,
+)
+from exonize.utils import (
+    get_interval_dictionary,
+    generate_unique_events_list,
+)
 
 
 class Exonize(object):
     logger: logging.Logger
 
-    def __init__(self,
-                 gff_file_path,
-                 genome_path,
-                 specie_identifier,
-                 enable_debug=False,
-                 hard_masking=False,
-                 soft_force=False,
-                 hard_force=False,
-                 evalue_threshold=1e-2,
-                 sleep_max_seconds=5,
-                 min_exon_length=30,
-                 cds_overlapping_threshold=0.9,
-                 masking_perc_threshold=0.8,
-                 self_hit_threshold=0.5,
-                 batch_number=100,
-                 threads=7,
-                 timeout_db=160):
-
+    def __init__(
+        self,
+        gff_file_path,
+        genome_path,
+        specie_identifier,
+        enable_debug=False,
+        hard_masking=False,
+        soft_force=False,
+        hard_force=False,
+        evalue_threshold=1e-2,
+        sleep_max_seconds=5,
+        min_exon_length=30,
+        cds_overlapping_threshold=0.9,
+        masking_perc_threshold=0.8,
+        self_hit_threshold=0.5,
+        batch_number=100,
+        threads=7,
+        timeout_db=160,
+        genome_pickled_file_path=None,
+    ):
         self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
         self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
         self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
@@ -53,6 +92,7 @@ class Exonize(object):
         self.specie_identifier = specie_identifier                      # specie identifier
         self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
         self.genome_path = genome_path                                  # genome path (FASTA)
+        self.genome_pickled_filepath = genome_pickled_file_path
         self.hard_masking = hard_masking                                # hard masking (True/False)
         self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
         self.min_exon_len = min_exon_length                             # minimum exon length (bp)
@@ -110,7 +150,7 @@ class Exonize(object):
                 return record.levelno != logging.INFO
 
         # Define file handler for the "FILE_ONLY_INFO" level
-        log_file_name = f"exonize_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
+        log_file_name = f"exonize_log_{datetime.now():%Y%m%d_%H%M%S}.log"
         log_file_name = os.path.join(self.working_dir, log_file_name)
         file_handler = logging.FileHandler(log_file_name, mode='w')
         file_handler.setLevel(self.__FILE_ONLY_INFO)  # Changed level to custom level
@@ -214,7 +254,8 @@ class Exonize(object):
             - merge_strategy: if 'create_unique', the database will be created with unique IDs
             - sort_attribute_values: if True, the attribute values will be sorted
             - disable_infer_genes: if True, the function will not attempt to automatically infer gene features
-            - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript features
+            - disable_infer_transcripts: if True, the function will not attempt to automatically infer transcript
+              features
             """
             try:
                 self.logger.info("Creating annotations database")
@@ -236,11 +277,14 @@ class Exonize(object):
             annotations, if not, it attempts to write them. Some of the db.update() parameters description:
             - make_backup: if True, a backup of the database will be created before updating it.
             - id_spec: dictionary with the following structure: {feature_type: [intron_id]} where the intron_id function
-              returns the intron identifier based on the feature attribute (self.id_spec_attribute) present in all annotations
-              in the gff file. Common choices are: "ID" or "Parent".
+              returns the intron identifier based on the feature attribute (self.id_spec_attribute) present in all
+              annotations in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                self.logger.info("The GFF file does not contain intron annotations - attempting to write intron annotations in database")
+                self.logger.info(
+                    "The GFF file does not contain intron annotations - "
+                    "attempting to write intron annotations in database",
+                )
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
@@ -265,8 +309,8 @@ class Exonize(object):
         """
         load_db is a function that loads a gffutils database.
         - dbfn: path to the database file
-        - keep_order: This is a parameter that is passed when creating the FeatureDB instance. When keep_order is set to True,
-         the order of attributes in the GFF/GTF file will be preserved when they are retrieved from the database.
+        - keep_order: This is a parameter that is passed when creating the FeatureDB instance. When keep_order is set to
+        True, the order of attributes in the GFF/GTF file will be preserved when they are retrieved from the database.
         """
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
@@ -274,18 +318,40 @@ class Exonize(object):
             self.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
-    def read_genome(self) -> None:
+    def read_genome(self, pickled_filepath: str = None) -> None:
         """
-        read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a dictionary.
+        read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a
+        dictionary.
         The dictionary has the following structure: {chromosome: sequence}
         """
+        hard_masking_regex = re.compile('[a-z]')
         try:
-            self.logger.info("Reading genome file")
-            parse_genome = SeqIO.parse(open(self.genome_path), 'fasta')
-            if self.hard_masking:
-                self.genome = {fasta.id: re.sub('[a-z]', 'N', str(fasta.seq)) for fasta in parse_genome}
-            else:
-                self.genome = {fasta.id: str(fasta.seq) for fasta in parse_genome}
+            tic_genome = time.time()
+            print("- Reading genome file:", end=" ")
+            if pickled_filepath is not None:
+                try:
+                    with open(pickled_filepath, 'rb') as handle:
+                        self.genome = pickle.load(handle)
+                except FileNotFoundError:
+                    self.logger.exception(f"File doesn't exist yet: {pickled_filepath}")
+            if self.genome is not None:
+                return
+            with open(self.genome_path) as genome_file:
+                parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                if self.hard_masking:
+                    self.genome = {
+                        fasta.id: hard_masking_regex.sub('N', str(fasta.seq))
+                        for fasta in parsed_genome
+                    }
+                else:
+                    self.genome = {
+                        fasta.id: str(fasta.seq)
+                        for fasta in parsed_genome
+                    }
+                hms_time = datetime.strftime(datetime.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
+                print(f"Done! [{hms_time}]")
+                if pickled_filepath is not None:
+                    self.dump_pkl_file(pickled_filepath, self.genome)
         except (ValueError, FileNotFoundError) as e:
             self.logger.exception(f"Incorrect genome file path {e}")
             sys.exit()
@@ -296,9 +362,10 @@ class Exonize(object):
         their related mRNA transcripts based on genomic feature data. The created hierarchy is stored in the attribute
         `self.gene_hierarchy_dict` and is also saved as a pickle file.
         Note:
-        - GFF coordinates are 1-based. Thus, 1 is subtracted from the start position to convert them to 0-based coordinates.
-        - If the gene is in the negative strand the direction of transcription and translation is opposite to the direction
-         the DNA sequence is represented meaning that translation starts from the last CDS
+        - GFF coordinates are 1-based. Thus, 1 is subtracted from the start position to convert them to 0-based
+          coordinates.
+        - If the gene is in the negative strand the direction of transcription and translation is opposite to the
+        direction the DNA sequence is represented meaning that translation starts from the last CDS
         Structure of `self.gene_hierarchy_dict`:
         {
         gene_id_1: {
@@ -354,11 +421,11 @@ class Exonize(object):
             """
             Construct a protein sequence from transcriptomic coordinates and collect corresponding CDSs in both DNA and
             protein formats.
-            Given the transcriptomic coordinates and considering the reading frames specified in a GFF file, this function
-            constructs a protein sequence while managing the intricacies of exon stitching and reading frame maintenance
-            across possibly intron-interrupted CDS regions.
-            In the context of a GFF file, feature coordinates are generally relative to the genomic sequence, which implies
-            that reading frames may be disrupted by introns.
+            Given the transcriptomic coordinates and considering the reading frames specified in a GFF file, this
+            function constructs a protein sequence while managing the intricacies of exon stitching and reading frame
+            maintenance across possibly intron-interrupted CDS regions.
+            In the context of a GFF file, feature coordinates are generally relative to the genomic sequence, which
+            implies that reading frames may be disrupted by introns.
             ----------------
             Example:
                 Consider the following genomic coordinates of CDSs and their reading frames:
@@ -375,8 +442,8 @@ class Exonize(object):
                 cds4: (7311, 7442)
             ----------------
             Note:
-                - The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the specified
-                reading frame of 2 for cds2.
+                - The first two nucleotides of cds2 complete the last codon of cds1, and thus, it is in line with the
+                specified reading frame of 2 for cds2.
                 - It is not uncommon that the length of the last CDS is not a multiple of 3. This is because the reading
                 frames of different CDSs across transcripts are not necessarily aligned. So that the extra nucleotides
                 are necesary for satisfying completition of all transcripts.
@@ -423,10 +490,14 @@ class Exonize(object):
                     # is opposite to the direction the DNA sequence is represented meaning that translation starts
                     # from the last CDS
                     reverse = self.reverse_sequence_bool(gene.strand)
-                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(temp_mrna_transcript, reverse)
+                    mrna_dict['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(
+                        temp_mrna_transcript, reverse,
+                    )
                     list_cds_annot = [i for i in mrna_dict['mRNAs'][mrna_annot.id]['structure'] if i['type'] == 'CDS']
                     mRNA_seq = construct_mRNA_sequence(gene.chrom, gene.strand, list_cds_annot)
-                    prot_seq, CDS_list_tuples = construct_protein_sequence(gene.id, gene.strand, mRNA_seq, list_cds_annot)
+                    prot_seq, CDS_list_tuples = construct_protein_sequence(
+                        gene.id, gene.strand, mRNA_seq, list_cds_annot,
+                    )
                     insert_into_CDSs(self.protein_db_path, self.timeout_db, CDS_list_tuples)
                     protein_arg_list_tuples.append((gene.id, gene.chrom, gene.strand,
                                                     gene_coord.lower, gene_coord.upper,
@@ -436,7 +507,7 @@ class Exonize(object):
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-    def prepare_data(self) -> None:
+    def prepare_data(self, pickled_filepath: str = None) -> None:
         """
         prepare_data is a wrapper function that:
         (i)   creates the database with the genomic annotations (if it does not exist)
@@ -449,7 +520,7 @@ class Exonize(object):
             os.makedirs(os.path.join(self.working_dir, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
         create_protein_table(self.protein_db_path, self.timeout_db)
-        self.read_genome()
+        self.read_genome(pickled_filepath=pickled_filepath)
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
@@ -628,56 +699,79 @@ class Exonize(object):
         :param gene_id: gene identifier
         :return: list of representative CDS coordinates for the gene across all transcripts
         """
-        def get_intervals_overlapping_list(intv_list: list) -> list:
+
+        def get_first_overlapping_intervals(
+            sorted_intervals: list[P.Interval],
+        ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
             """
-            get_intervals_overlapping_list is a function that given a list of intervals, returns a list of tuples
-            with the overlapping pairs described in case a (get_candidate_CDS_coords).
-            :param intv_list: list of intervals
+            Given a list of intervals, returns the first consecutive interval tuples with the overlapping pairs
+            described in case a (get_candidate_CDS_coords).
+            :param sorted_intervals: list of intervals
             :return: list of tuples with pairs of overlapping intervals
             """
-            return [(feat_interv, intv_list[idx + 1])
-                    for idx, feat_interv in enumerate(intv_list[:-1])
-                    if all([self.get_overlap_percentage(feat_interv, intv_list[idx + 1]) >= self.cds_overlapping_threshold,
-                            self.get_overlap_percentage(intv_list[idx + 1], feat_interv) >= self.cds_overlapping_threshold])]
+            first_overlap_index = 0
+            while first_overlap_index < len(sorted_intervals) - 1:
+                current_interval = sorted_intervals[first_overlap_index]
+                next_interval = sorted_intervals[first_overlap_index + 1]
+                if (
+                    self.get_overlap_percentage(current_interval, next_interval) >= self.cds_overlapping_threshold
+                    and self.get_overlap_percentage(next_interval, current_interval) >= self.cds_overlapping_threshold
+                ):
+                    return current_interval, next_interval
+                first_overlap_index += 1
+            return None, None
 
-        def resolve_overlaps_coords_list(coords_list) -> list:
+        def resolve_overlaps_coords_list(sorted_cds_coordinates: list[P.Interval]) -> list[P.Interval]:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
             considered to be overlapping, they are both included in the search.
-            :param coords_list: list of coordinates
+            :param sorted_cds_coordinates: list of coordinates sorted according to the following criteria:
+                (i) lower coordinate, (ii) upper coordinate
             :return: list of coordinates without overlaps
             """
             new_list = list()
-            overlaps_list = get_intervals_overlapping_list(coords_list)
-            if overlaps_list:
-                # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
-                # with the next interval in the list.
-                intv_a, intv_b = overlaps_list[0]
-                for idx, coord in enumerate(coords_list):
+            # We only process the first pair of overlapping intervals since the resolved overlap could also overlap
+            # with the next interval in the list.
+            intv_a, intv_b = get_first_overlapping_intervals(sorted_cds_coordinates)
+            if all((intv_a, intv_b)):
+                shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
+                # Note: new_list is populated through enumeration of 'sorted_cds_coordinates', so it will also be sorted
+                # according to the same criteria used for 'sorted_cds_coordinates'.
+                for idx, coord in enumerate(sorted_cds_coordinates):
                     if coord != intv_a:
                         new_list.append(coord)
                     else:
-                        shorter, _ = self.get_shorter_longer_interv(intv_a, intv_b)
                         new_list.append(shorter)
-                        new_list.extend(coords_list[idx + 2:])
+                        new_list.extend(sorted_cds_coordinates[idx + 2:])
                         return resolve_overlaps_coords_list(new_list)
-            else:
-                return coords_list
+            return sorted_cds_coordinates
 
-        CDS_coords_list = list(set([(i['coord'], i['frame']) for mrna_id, mrna_annot
-                                    in self.gene_hierarchy_dict[gene_id]['mRNAs'].items()
-                                    for i in mrna_annot['structure']
-                                    if(i['type'] == 'CDS' and (i['coord'].upper - i['coord'].lower) >= self.min_exon_len)]))
-        if CDS_coords_list:
+        cds_coords_and_frames = list(set(
+            (coordinate, annotation_structure['frame'])
+            for mrna_annotation in self.gene_hierarchy_dict[gene_id]['mRNAs'].values()
+            for annotation_structure in mrna_annotation['structure']
+            for coordinate in (annotation_structure['coord'],)
+            if (
+                annotation_structure['type'] == 'CDS' and
+                (coordinate.upper - coordinate.lower) >= self.min_exon_len
+            )
+        ))
+        if cds_coords_and_frames:
             repr_cds_frame_dict = dict()
-            for cds_coord, frame in CDS_coords_list:
+            for cds_coord, frame in cds_coords_and_frames:
                 if cds_coord in repr_cds_frame_dict:
-                    repr_cds_frame_dict[cds_coord]['frame'].update(frame)
+                    repr_cds_frame_dict[cds_coord]['frame'] += f'_{str(frame)}'
                 else:
-                    repr_cds_frame_dict[cds_coord] = {'frame': set(frame)}
-            CDS_coords_list = sorted([i[0] for i in CDS_coords_list], key=lambda x: (x.lower, x.upper))
-            return dict(set_coords=resolve_overlaps_coords_list(CDS_coords_list), cds_frame_dict=repr_cds_frame_dict)
+                    repr_cds_frame_dict[cds_coord] = {'frame': frame}
+            sorted_cds_coords_list: list[P.Interval] = sorted(
+                [coordinate for coordinate, _ in cds_coords_and_frames],
+                key=lambda coordinate: (coordinate.lower, coordinate.upper),
+            )
+            return {
+                'set_coords': resolve_overlaps_coords_list(sorted_cds_coords_list),
+                'cds_frame_dict': repr_cds_frame_dict,
+            }
         return dict()
 
     def find_coding_exon_duplicates(self, gene_id: str) -> None:
@@ -1043,7 +1137,10 @@ class Exonize(object):
                 return max(cand_ref, key=lambda x: x[1])[0]
             return P.open(0, 0)
 
-        def get_overlapping_clusters(coordinates_set: set[tuple[P.Interval, float]], threshold: float) -> list[list[tuple]]:
+        def get_overlapping_clusters(
+            coordinates_set: set[tuple[P.Interval, float]],
+            threshold: float,
+        ) -> list[list[tuple]]:
             def overlap_condition(coordinate, x):
                 perc = get_shorter_intv_overlapping_percentage(coordinate, x)
                 return perc >= threshold and x != coordinate
@@ -1167,11 +1264,11 @@ class Exonize(object):
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
             gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(ref_coord_dict, gene_id, G)
             if len(gene_events_tuples) != len(records):
-                logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
+                self.logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
             genes_events_tuples.extend(gene_events_tuples)
             genes_events_set.update(gene_events_set)
         if len(genes_events_tuples) != len(full_matches_list):
-            logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
+            self.logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
         return genes_events_tuples, genes_events_set
 
     def get_identity_and_dna_seq_tuples(self) -> list[tuple]:
@@ -1240,34 +1337,105 @@ class Exonize(object):
         - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
         them in the Fragments table.
         - 11. The function collects all events in the Full_length_events_cumulative_counts table.
-        - 12. The function reconciles the events by assigning an "event ID" to each event (see assign_event_ids).
+        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
         - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
         category.
         """
-        def batch(iterable: list, n=1) -> list[list]:
-            """
-            batch is a function that given a list and a batch size, returns an iterable of lists of size n.
-            """
-            it_length = len(iterable)
-            for indx in range(0, it_length, n):
-                yield iterable[indx:min(indx + n, it_length)]
 
-        self.prepare_data()
-        args_list = list(self.gene_hierarchy_dict.keys())
-        processed_gene_ids = query_gene_ids_in_res_db(self.results_db, self.timeout_db)
-        if processed_gene_ids:
-            args_list = [i for i in args_list if i not in processed_gene_ids]
-        if args_list:
-            batches_list = [i for i in batch(args_list, self.batch_number)]
+        def even_batches(
+            data: Sequence[Any],
+            number_of_batches: int = 1,
+        ) -> Iterator[Sequence[Any]]:
+            """
+            Given a list and a number of batches, returns 'number_of_batches' consecutive subsets elements of 'data' of
+            even size each, except for the last one whose size is the remainder of the division of the length of 'data'
+            by 'number_of_batches'.
+            """
+            # We round up to the upper integer value to guarantee that there will be 'number_of_batches' batches
+            even_batch_size = (len(data) // number_of_batches) + 1
+            for batch_number in range(number_of_batches):
+                batch_start_index = batch_number * even_batch_size
+                batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
+                yield data[batch_start_index:batch_end_index]
+
+        self.prepare_data(pickled_filepath=self.genome_pickled_filepath)
+        gene_ids = list(self.gene_hierarchy_dict.keys())
+        processed_gene_ids = set(query_gene_ids_in_res_db(self.results_db, self.timeout_db))
+        unprocessed_gene_ids = [i for i in gene_ids if i not in processed_gene_ids]
+        if unprocessed_gene_ids:
+            self.logger.info(f'- Starting tblastx search for {len(unprocessed_gene_ids)} unprocessed genes.')
             gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            self.logger.info(f'Starting exon duplication search for {len(args_list)}/{gene_n} genes.')
-            with tqdm(total=len(args_list), position=0, leave=True, ncols=50) as progress_bar:
-                for arg_batch in batches_list:
-                    t = ThreadPool(processes=self.threads)
-                    t.map(self.find_coding_exon_duplicates, arg_batch)
-                    t.close()
-                    t.join()
-                    progress_bar.update(len(arg_batch))
+            self.logger.info(f'- Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
+            with tqdm(total=len(unprocessed_gene_ids), position=0, leave=True, ncols=50) as progress_bar:
+                # Benchmark without any parallel computation:
+                # pr = cProfile.Profile()
+                # pr.enable()
+                # for gene_id in unprocessed_gene_ids:
+                #     self.find_coding_exon_duplicates(gene_id)
+                #     progress_bar.update(1)
+                # pr.disable()
+                # pr.dump_stats(PROFILE_PATH)
+                # get_run_performance_profile(PROFILE_PATH)
+
+                # Benchmark with parallel computation using os.fork:
+                pr = cProfile.Profile()
+                pr.enable()
+                gc.collect()
+                gc.freeze()
+                transactions_pks: set[int]
+                status: int
+                code: int
+                forks: int = 0
+                FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
+                for balanced_genes_batch in even_batches(
+                    data=unprocessed_gene_ids,
+                    number_of_batches=FORKS_NUMBER,
+                ):
+                    # This part effectively forks a child process, independent of the parent process, and that
+                    # will be responsible for processing the genes in the batch, parallel to the other children forked
+                    # in the same way during the rest of the loop.
+                    # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
+                    # of the child process in the parent process. So the parent process always goes to the part
+                    # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
+                    # to false (0 is evaluated to False).
+                    # The parallel part happens because the main parent process will keep along the for loop, and will
+                    # fork more children, until the number of children reaches the maximum number of children allowed,
+                    # doing nothing else but forking until 'FORKS_NUMBER' is reached.
+                    if os.fork():
+                        forks += 1
+                        if forks >= FORKS_NUMBER:
+                            _, status = os.wait()
+                            code = os.waitstatus_to_exitcode(status)
+                            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                            assert code != os.EX_SOFTWARE
+                            forks -= 1
+
+                    else:
+                        status = os.EX_OK
+                        try:
+                            for gene_id in balanced_genes_batch:
+                                self.find_coding_exon_duplicates(gene_id)
+                            progress_bar.update(len(balanced_genes_batch))
+                        except Exception as exception:
+                            sys.stdout.write(exception)
+                            status = os.EX_SOFTWARE
+                        finally:
+                            # This prevents the child process forked above to keep along the for loop upon completion
+                            # of the try/except block. If this was not present, it would resume were it left off, and
+                            # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                            # We do not want that, so we gracefully exit the process when it is done.
+                            os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
+                while forks > 0:
+                    _, status = os.wait()
+                    code = os.waitstatus_to_exitcode(status)
+                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                    assert code != os.EX_SOFTWARE
+                    forks -= 1
+                gc.unfreeze()
+                pr.disable()
+                pr.dump_stats(PROFILE_PATH)
+                get_run_performance_profile(PROFILE_PATH)
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, '
                              'consider using the hard-force flag')

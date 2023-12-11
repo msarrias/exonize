@@ -23,3 +23,5 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project.scripts]
 exonize = "exonize.exonize:main"
+[tool.setuptools]
+packages = ['exonize']
