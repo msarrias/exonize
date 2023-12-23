@@ -26,91 +26,83 @@ from Bio.SeqRecord import SeqRecord
 from tqdm import tqdm
 
 from exonize.profiling import get_run_performance_profile, PROFILE_PATH
-from exonize.sqlite_utils import (
-    connect_create_results_db,
-    create_cumulative_counts_table,
-    create_exclusive_pairs_view,
-    create_filtered_full_length_events_view,
-    create_mrna_counts_view,
-    create_protein_table,
-    insert_event_categ_full_length_events_cumulative_counts,
-    insert_event_id_column_to_full_length_events_cumulative_counts,
-    insert_events_table,
-    instert_full_length_event,
-    insert_identity_and_dna_algns_columns,
-    insert_into_CDSs,
-    insert_into_proteins,
-    insert_gene_ids_table,
-    insert_fragments_calls,
-    instert_obligatory_event,
-    insert_percent_query_column_to_fragments,
-    instert_truncation_event,
-    query_gene_ids_in_res_db,
-    query_fragments,
-    query_filtered_full_duplication_events,
-    query_concat_categ_pairs,
-    query_full_events,
-)
-from exonize.utils import (
-    get_interval_dictionary,
-    generate_unique_events_list,
-)
+from exonize.sqlite_utils import *
+from exonize.utils import *
 
 
 class Exonize(object):
     logger: logging.Logger
-
+    stop_codons = ["TAG", "TGA", "TAA"]
+    UTR_features = ['five_prime_UTR', 'three_prime_UTR']
+    feat_of_interest = ['CDS', 'exon', 'intron'] + UTR_features
+    """
+    Args:
+        gff_file_path (str): Path to the GFF file.
+        genome_path (str): Path to the genome file.
+        specie_identifier (str): Identifier for the species.
+        enable_debug (bool, optional): Enable debug mode. Defaults to False.
+        soft_force (bool, optional): Removes results database if exists. Defaults to False.
+        hard_force (bool, optional): Removes all internal files if they exist. Defaults to False.
+        hard_masking (bool, optional): Use hard masking. Defaults to False.
+        evalue_threshold (float, optional): E-value threshold. Defaults to 1e-2.
+        cds_overlapping_threshold (float, optional): CDS overlapping threshold. Defaults to 0.9.
+        masking_perc_threshold (float, optional): Masking percentage threshold. Defaults to 0.8.
+        self_hit_threshold (float, optional): Self-hit threshold. Defaults to 0.5.
+        min_exon_length (int, optional): Minimum exon length. Defaults to 30.
+        sleep_max_seconds (int, optional): max seconds to sleep between BLAST calls. Defaults to 5.
+        timeout_db (int, optional): Database timeout. Defaults to 160.
+        genome_pickled_file_path (str, optional): Pickled file path. Defaults to None.
+        """
     def __init__(
-        self,
-        gff_file_path,
-        genome_path,
-        specie_identifier,
-        enable_debug=False,
-        hard_masking=False,
-        soft_force=False,
-        hard_force=False,
-        evalue_threshold=1e-2,
-        sleep_max_seconds=5,
-        min_exon_length=30,
-        cds_overlapping_threshold=0.9,
-        masking_perc_threshold=0.8,
-        self_hit_threshold=0.5,
-        batch_number=100,
-        threads=7,
-        timeout_db=160,
-        genome_pickled_file_path=None,
+            self,
+            gff_file_path,
+            genome_path,
+            specie_identifier,
+            enable_debug,
+            hard_masking,
+            soft_force,
+            hard_force,
+            evalue_threshold,
+            sleep_max_seconds,
+            min_exon_length,
+            cds_overlapping_threshold,
+            masking_perc_threshold,
+            self_hit_threshold,
+            timeout_db,
+            genome_pickled_file_path,
     ):
-        self._DEBUG_MODE = enable_debug                                 # debug mode (True/False)
-        self._SOFT_FORCE = soft_force                                   # (True/False) - will remove results database if it exists
-        self._HARD_FORCE = hard_force                                   # (True/False) - will remove results database, genome database and gene hierarchy
-        self.__FILE_ONLY_INFO = 9                                       # Custom logging level between INFO (20) and WARNING (30)
-        self.genome = None                                              # genome sequence
-        self.gene_hierarchy_dict = None                                 # gene hierarchy dictionary (gene -> transcript -> exon)
-        self.db_features = None                                         # features in the database
-        self.old_filename = None                                        # old filename (if GTF file is provided)
-        self.db = None                                                  # database object (gffutils)
-        self.specie_identifier = specie_identifier                      # specie identifier
-        self.in_file_path = gff_file_path                               # input file path (GFF/GTF)
-        self.genome_path = genome_path                                  # genome path (FASTA)
-        self.genome_pickled_filepath = genome_pickled_file_path
-        self.hard_masking = hard_masking                                # hard masking (True/False)
-        self.secs = sleep_max_seconds                                   # max seconds to sleep between BLAST calls
-        self.min_exon_len = min_exon_length                             # minimum exon length (bp)
-        self.timeout_db = timeout_db                                    # timeout for creating the database (seconds)
-        self.evalue = evalue_threshold                                  # e-value threshold for BLAST calls
-        self.batch_number = batch_number                                # batch number for BLAST calls
-        self.threads = threads                                          # number of threads for BLAST calls
-        self.cds_overlapping_threshold = cds_overlapping_threshold      # CDS overlapping threshold (0-1)
-        self.self_hit_threshold = self_hit_threshold                    # self-hit threshold (0-1)
+        self._DEBUG_MODE = enable_debug
+        self._SOFT_FORCE = soft_force
+        self._HARD_FORCE = hard_force
+        self._HARD_MASKING = hard_masking
+
+        self.gff_file_path = gff_file_path
+        self.genome_path = genome_path
+        self.genome_pickled_file_path = genome_pickled_file_path
+        self.specie_identifier = specie_identifier
+        self.evalue = evalue_threshold
+        self.cds_overlapping_threshold = cds_overlapping_threshold
         self.masking_perc_threshold = masking_perc_threshold
-        self.stop_codons = ["TAG", "TGA", "TAA"]
+        self.self_hit_threshold = self_hit_threshold
+        self.min_exon_len = min_exon_length
+        self.secs = sleep_max_seconds
+        self.timeout_db = timeout_db
+
+        self.__FILE_ONLY_INFO = 9
+        self.genome = None
+        self.gene_hierarchy_dict = None
+        self.db_features = None
+        self.old_filename = None
+        self.db = None
+
+        # Derived attributes that depend on initial parameters
         self.working_dir = f'{self.specie_identifier}_exonize'
         self.db_path = os.path.join(self.working_dir, f'{self.specie_identifier}_genome_annotations.db')
         self.protein_db_path = os.path.join(self.working_dir, f'{self.specie_identifier}_protein.db')
         self.results_db = os.path.join(self.working_dir, f'{self.specie_identifier}_results.db')
         self.gene_hierarchy_path = os.path.join(self.working_dir, f"{self.specie_identifier}_gene_hierarchy.pkl")
-        self.UTR_features = ['five_prime_UTR', 'three_prime_UTR']
-        self.feat_of_interest = ['CDS', 'exon', 'intron'] + self.UTR_features
+
+        # Initialize other internal attributes
         self.__neither, self.__query, self.__target, self.__target_full, self.__target_insertion = 0, 0, 0, 0, 0
         self.__both = 0
         self.__annot_target_start, self.__annot_target_end, self.__target_t = None, None, None
@@ -120,6 +112,7 @@ class Exonize(object):
         self.__tuples_insertion_duplications = list()
         self.__tuples_truncation_events = list()
 
+    def setup_environment(self):
         if self._HARD_FORCE:
             if os.path.exists(self.working_dir):
                 shutil.rmtree(self.working_dir)
@@ -242,12 +235,13 @@ class Exonize(object):
             -'O': This flag is used to enable the output of the file in GFF3 format.
             -'o': This flag is used to specify the output file name.
             """
-            gffread_command = ["gffread", self.old_filename, "-O", "-o", self.in_file_path]
+            gffread_command = ["gffread", self.old_filename, "-O", "-o", self.gff_file_path]
             subprocess.call(gffread_command)
 
         def create_genome_database() -> None:
             """
             create_genome_database is a function that creates a gffutils database from a GFF3 file.
+            Args:
             - dbfn: path to the database file
             - force: if True, the database will be overwritten if it already exists
             - keep_order: if True, the order of the features in the GFF file will be preserved
@@ -259,7 +253,7 @@ class Exonize(object):
             """
             try:
                 self.logger.info("Creating annotations database")
-                self.db = gffutils.create_db(self.in_file_path,
+                self.db = gffutils.create_db(self.gff_file_path,
                                              dbfn=self.db_path,
                                              force=True,
                                              keep_order=True,
@@ -292,12 +286,12 @@ class Exonize(object):
                                           f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
         if not os.path.exists(self.db_path):
-            if 'gtf' in self.in_file_path:
-                self.old_filename = self.in_file_path
-                self.in_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
+            if 'gtf' in self.gff_file_path:
+                self.old_filename = self.gff_file_path
+                self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
                 convert_gtf_to_gff()
                 self.logger.info('the GTF file has been converted into a GFF3 file')
-                self.logger.info(f'with filename: {self.in_file_path}')
+                self.logger.info(f'with filename: {self.gff_file_path}')
             create_genome_database()
         if not self.db:
             self.logger.info("Reading annotations database")
@@ -318,43 +312,35 @@ class Exonize(object):
             self.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
-    def read_genome(self, pickled_filepath: str = None) -> None:
+    def read_genome(self) -> None:
         """
         read_genome is a function that reads a FASTA file and stores the masked/unmasked genome sequence in a
         dictionary.
         The dictionary has the following structure: {chromosome: sequence}
         """
         hard_masking_regex = re.compile('[a-z]')
-        try:
-            tic_genome = time.time()
-            print("- Reading genome file:", end=" ")
-            if pickled_filepath is not None:
-                try:
-                    with open(pickled_filepath, 'rb') as handle:
-                        self.genome = pickle.load(handle)
-                except FileNotFoundError:
-                    self.logger.exception(f"File doesn't exist yet: {pickled_filepath}")
-            if self.genome is not None:
-                return
-            with open(self.genome_path) as genome_file:
-                parsed_genome = SeqIO.parse(genome_file, 'fasta')
-                if self.hard_masking:
-                    self.genome = {
-                        fasta.id: hard_masking_regex.sub('N', str(fasta.seq))
-                        for fasta in parsed_genome
-                    }
-                else:
-                    self.genome = {
-                        fasta.id: str(fasta.seq)
-                        for fasta in parsed_genome
-                    }
-                hms_time = datetime.strftime(datetime.utcfromtimestamp(time.time() - tic_genome), '%H:%M:%S')
-                print(f"Done! [{hms_time}]")
-                if pickled_filepath is not None:
-                    self.dump_pkl_file(pickled_filepath, self.genome)
-        except (ValueError, FileNotFoundError) as e:
-            self.logger.exception(f"Incorrect genome file path {e}")
-            sys.exit()
+        self.logger.info("Reading genome file")
+        if self.genome_pickled_file_path is not None and os.path.exists(self.genome_pickled_file_path):
+            self.genome = self.read_pkl_file(self.genome_pickled_file_path)
+        else:
+            try:
+                with open(self.genome_path) as genome_file:
+                    parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                    if self._HARD_MASKING:
+                        self.genome = {
+                            fasta.id: hard_masking_regex.sub('N', str(fasta.seq))
+                            for fasta in parsed_genome
+                        }
+                    else:
+                        self.genome = {
+                            fasta.id: str(fasta.seq)
+                            for fasta in parsed_genome
+                        }
+            except (ValueError, FileNotFoundError) as e:
+                self.logger.exception(f"Incorrect genome file path {e}")
+                sys.exit()
+            if self.genome_pickled_file_path is not None:
+                self.dump_pkl_file(self.genome_pickled_file_path, self.genome)
 
     def create_gene_hierarchy_dict(self) -> None:
         """
@@ -507,7 +493,7 @@ class Exonize(object):
                 insert_into_proteins(self.protein_db_path, self.timeout_db, protein_arg_list_tuples)
         self.dump_pkl_file(self.gene_hierarchy_path, self.gene_hierarchy_dict)
 
-    def prepare_data(self, pickled_filepath: str = None) -> None:
+    def prepare_data(self) -> None:
         """
         prepare_data is a wrapper function that:
         (i)   creates the database with the genomic annotations (if it does not exist)
@@ -520,7 +506,7 @@ class Exonize(object):
             os.makedirs(os.path.join(self.working_dir, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
         create_protein_table(self.protein_db_path, self.timeout_db)
-        self.read_genome(pickled_filepath=pickled_filepath)
+        self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dict = self.read_pkl_file(self.gene_hierarchy_path)
         else:
@@ -560,13 +546,15 @@ class Exonize(object):
         :param cds_frame: frame of the CDS
         :return: dict with the following structure: {hsp_id: {'score': '', 'bits': '','evalue': '',...}}
         """
-        def tblastx_with_saved_io(ident: str,
-                                  gene_id_: str,
-                                  hit_seq_: str,
-                                  query_seq_: str,
-                                  query_coord_: P.Interval,
-                                  gene_coord_: P.Interval,
-                                  cds_frame_: str) -> dict:
+        def tblastx_with_saved_io(
+                ident: str,
+                gene_id_: str,
+                hit_seq_: str,
+                query_seq_: str,
+                query_coord_: P.Interval,
+                gene_coord_: P.Interval,
+                cds_frame_: str,
+        ) -> dict:
             """
             tblastx_with_saved_io is a function that executes a tblastx search saving input and output files. This
             function is used for debugging purposes. The input and output files are saved in the following paths:
@@ -591,11 +579,13 @@ class Exonize(object):
                     sys.exit()
             return temp_
 
-        def execute_tblastx_using_tempfiles(hit_seq_: str,
-                                            query_seq_: str,
-                                            query_coord_: P.Interval,
-                                            gene_coord_: P.Interval,
-                                            cds_frame_: str) -> dict:
+        def execute_tblastx_using_tempfiles(
+                hit_seq_: str,
+                query_seq_: str,
+                query_coord_: P.Interval,
+                gene_coord_: P.Interval,
+                cds_frame_: str,
+        ) -> dict:
             """
             execute_tblastx_using_tempfiles is a function that executes a tblastx search using temporary files.
             """
@@ -624,7 +614,13 @@ class Exonize(object):
             temp = execute_tblastx_using_tempfiles(hit_seq, query_seq, query_coord, gene_coord, cds_frame)
         return temp
 
-    def parse_tblastx_output(self, blast_records: dict, q_coord: P.Interval, hit_coord: P.Interval, cds_frame_: str) -> dict:
+    def parse_tblastx_output(
+            self,
+            blast_records: dict,
+            q_coord: P.Interval,
+            hit_coord: P.Interval,
+            cds_frame_: str,
+    ) -> dict:
         """
         the parse_tblastx_output function parses the output of a tblastx search, where a single sequence (CDS)
         has been queried against a single target (gene). Meaning that we only expect to find one BLAST record.
@@ -639,7 +635,10 @@ class Exonize(object):
         :param cds_frame_: frame of the CDS
         :return: dict with the following structure: {target_id {hsp_id: {'score': '', 'bits': '','evalue': '',...}}}
         """
-        def get_hsp_dict(hsp, cds_frame: str) -> dict:
+        def get_hsp_dict(
+                hsp,
+                cds_frame: str,
+        ) -> dict:
             return dict(
                 cds_frame=cds_frame,
                 score=hsp.score,
@@ -673,7 +672,11 @@ class Exonize(object):
                     res_tblastx[hsp_idx] = get_hsp_dict(hsp_rec, cds_frame_)
         return res_tblastx
 
-    def get_gene_tuple(self, gene_id: str, has_dup_bin: int) -> tuple:
+    def get_gene_tuple(
+            self,
+            gene_id: str,
+            has_dup_bin: int,
+    ) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id, returns a tuple with the following structure:
         (gene_id, chromosome, strand, start_coord, end_coord, 1 if it has a duplication event 0 otherwise)
@@ -686,7 +689,10 @@ class Exonize(object):
                 gene_coord.upper,
                 has_dup_bin)
 
-    def get_candidate_CDS_coords(self, gene_id: str) -> dict:
+    def get_candidate_CDS_coords(
+            self,
+            gene_id: str,
+    ) -> dict:
         """
         get_candidate_CDS_coords is a function that given a gene_id, collects all the CDS coordinates with a length
         greater than the minimum exon length (self.min_exon_len) across all transcript.
@@ -721,7 +727,9 @@ class Exonize(object):
                 first_overlap_index += 1
             return None, None
 
-        def resolve_overlaps_coords_list(sorted_cds_coordinates: list[P.Interval]) -> list[P.Interval]:
+        def resolve_overlaps_coords_list(
+                sorted_cds_coordinates: list[P.Interval],
+        ) -> list[P.Interval]:
             """
             resolve_overlaps_coords_list is a function that given a list of coordinates, resolves overlaps according
             to the criteria described above. Since the pairs described in case b (get_candidate_CDS_coords) are not
@@ -774,14 +782,23 @@ class Exonize(object):
             }
         return dict()
 
-    def find_coding_exon_duplicates(self, gene_id: str) -> None:
+    def find_coding_exon_duplicates(
+            self,
+            gene_id: str,
+    ) -> None:
         """
         find_coding_exon_duplicates is a function that given a gene_id, performs a tblastx for each representative CDS
         (see get_candidate_CDS_coords). If the tblastx search returns hits, they are stored in the "results" database,
         otherwise the gene is recorded as having no duplication event.
         :param gene_id: gene identifier
         """
-        def check_for_masking(chrom_: str, gene_id_: str, seq_: str, coord_: P.Interval, type_='gene'):
+        def check_for_masking(
+                chrom_: str,
+                gene_id_: str,
+                seq_: str,
+                coord_: P.Interval,
+                type_='gene',
+        ):
             """
             check_for_masking is a function that checks if it is hardmasked. If the sequence is a gene and the percentage
             of hardmasking is greater than the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
@@ -836,7 +853,11 @@ class Exonize(object):
                 else:
                     insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id, 0))
 
-    def insert_fragments_table(self, gene_id: str, blast_cds_dict: dict) -> None:
+    def insert_fragments_table(
+            self,
+            gene_id: str,
+            blast_cds_dict: dict,
+    ) -> None:
         """
         insert_fragments_table is a function that given a gene_id and a dictionary with the tblastx results for each
         CDS, inserts in the (i) Genes, and (ii) Fragments table of the results (self.results_db) database.
@@ -853,7 +874,9 @@ class Exonize(object):
         {cds_coord: {hsp_idx: {'score': '', 'bits': '','evalue': '',...}}}
         """
 
-        def reformat_frame_strand(frame: int) -> tuple:
+        def reformat_frame_strand(
+                frame: int,
+        ) -> tuple:
             """
             reformat_frame_strand is a function that converts the frame to a 0-based index and defines a strand variable
             based on the frame sign.
@@ -862,12 +885,17 @@ class Exonize(object):
             n_strand = '-' if frame < 0 else '+'
             return n_frame, n_strand
 
-        def get_fragment_tuple(gene_id_: str, cds_coord: P.Interval, blast_hits: dict, hsp_idx: int) -> tuple:
+        def get_fragment_tuple(
+                gene_id_: str,
+                cds_coord: P.Interval,
+                blast_hits: dict,
+                hsp_idx: int,
+        ) -> tuple:
             hsp_dict = blast_hits[hsp_idx]
             hit_q_frame, hit_t_frame = hsp_dict['hit_frame']
             hit_q_f, hit_q_s = reformat_frame_strand(hit_q_frame)
             hit_t_f, hit_t_s = reformat_frame_strand(hit_t_frame)
-            return (gene_id_, cds_coord.lower, cds_coord.upper, '_'.join(list( hsp_dict['cds_frame'])),
+            return (gene_id_, cds_coord.lower, cds_coord.upper, '_'.join(list(hsp_dict['cds_frame'])),
                     hit_q_f, hit_q_s, hit_t_f, hit_t_s,
                     hsp_dict['score'], hsp_dict['bits'], hsp_dict['evalue'],
                     hsp_dict['alignment_len'], hsp_dict['query_start'], hsp_dict['query_end'],
@@ -884,7 +912,11 @@ class Exonize(object):
             cursor.executemany(insert_fragments_table_param, tuple_list)
             db.commit()
 
-    def find_overlapping_annot(self, trans_dict: dict, cds_intv: P.Interval) -> list:
+    def find_overlapping_annot(
+            self,
+            trans_dict: dict,
+            cds_intv: P.Interval,
+    ) -> list:
         """
         find_overlapping_annot is a function that given a transcript dictionary and a CDS interval, returns a list of
         tuples with the following structure: (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
@@ -938,7 +970,10 @@ class Exonize(object):
             """
             self.__tuples_full_length_duplications, self.__tuples_obligatory_events, self.__tuples_truncation_events = list(), list(), list()
 
-        def identify_query(trans_dict_: dict, cds_intv_: P.Interval) -> None:
+        def identify_query(
+                trans_dict_: dict,
+                cds_intv_: P.Interval,
+        ) -> None:
             """
             identify_query is a function that identifies the tblastx query CDS in the gene transcript. A transcript
             cannot have overlapping CDSs. If the query CDS overlaps with more than one CDS, the program exits.
@@ -952,7 +987,11 @@ class Exonize(object):
                 self.__query = 1
                 self.__target_t = 'QUERY_ONLY'
 
-        def target_out_of_mRNA(trans_coord_: P.Interval, mrna_: str, row_: list[tuple]) -> bool:
+        def target_out_of_mRNA(
+                trans_coord_: P.Interval,
+                mrna_: str,
+                row_: list[tuple],
+        ) -> bool:
             """
             target_out_of_mRNA is a function that identifies tblastx hits that are outside the mRNA transcript.
             """
@@ -1358,14 +1397,14 @@ class Exonize(object):
                 batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
                 yield data[batch_start_index:batch_end_index]
 
-        self.prepare_data(pickled_filepath=self.genome_pickled_filepath)
+        self.setup_environment()
+        self.prepare_data()
         gene_ids = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = set(query_gene_ids_in_res_db(self.results_db, self.timeout_db))
-        unprocessed_gene_ids = [i for i in gene_ids if i not in processed_gene_ids]
+        unprocessed_gene_ids = list(set(gene_ids) - processed_gene_ids)
         if unprocessed_gene_ids:
-            self.logger.info(f'- Starting tblastx search for {len(unprocessed_gene_ids)} unprocessed genes.')
-            gene_n = len(list(self.gene_hierarchy_dict.keys()))
-            self.logger.info(f'- Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
+            gene_n = len(gene_ids)
+            self.logger.info(f'Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
             with tqdm(total=len(unprocessed_gene_ids), position=0, leave=True, ncols=50) as progress_bar:
                 # Benchmark without any parallel computation:
                 # pr = cProfile.Profile()
@@ -1409,7 +1448,6 @@ class Exonize(object):
                             assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                             assert code != os.EX_SOFTWARE
                             forks -= 1
-
                     else:
                         status = os.EX_OK
                         try:
@@ -1438,7 +1476,7 @@ class Exonize(object):
                 get_run_performance_profile(PROFILE_PATH)
         else:
             self.logger.info('All genes have been processed. If you want to re-run the analysis, '
-                             'consider using the hard-force flag')
+                             'consider using the hard-force/soft-force flag')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
@@ -1455,3 +1493,4 @@ class Exonize(object):
         insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments_tuples)
         insert_events_table(self.results_db, self.timeout_db, events_set)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
+        self.logger.info('Process completed successfully.')
