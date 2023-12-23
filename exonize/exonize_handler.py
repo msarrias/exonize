@@ -1,19 +1,16 @@
 import cProfile
 import gc
 import gffutils
-import logging
 import os
 import pickle
 import random
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from collections import defaultdict
 from collections.abc import Sequence, Iterator
-from datetime import datetime
 from typing import Any, Union
 
 import networkx as nx
@@ -28,31 +25,14 @@ from tqdm import tqdm
 from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.sqlite_utils import *
 from exonize.utils import *
+from exonize.environment_setup import EnvironmentSetup
 
 
 class Exonize(object):
-    logger: logging.Logger
     stop_codons = ["TAG", "TGA", "TAA"]
     UTR_features = ['five_prime_UTR', 'three_prime_UTR']
     feat_of_interest = ['CDS', 'exon', 'intron'] + UTR_features
-    """
-    Args:
-        gff_file_path (str): Path to the GFF file.
-        genome_path (str): Path to the genome file.
-        specie_identifier (str): Identifier for the species.
-        enable_debug (bool, optional): Enable debug mode. Defaults to False.
-        soft_force (bool, optional): Removes results database if exists. Defaults to False.
-        hard_force (bool, optional): Removes all internal files if they exist. Defaults to False.
-        hard_masking (bool, optional): Use hard masking. Defaults to False.
-        evalue_threshold (float, optional): E-value threshold. Defaults to 1e-2.
-        cds_overlapping_threshold (float, optional): CDS overlapping threshold. Defaults to 0.9.
-        masking_perc_threshold (float, optional): Masking percentage threshold. Defaults to 0.8.
-        self_hit_threshold (float, optional): Self-hit threshold. Defaults to 0.5.
-        min_exon_length (int, optional): Minimum exon length. Defaults to 30.
-        sleep_max_seconds (int, optional): max seconds to sleep between BLAST calls. Defaults to 5.
-        timeout_db (int, optional): Database timeout. Defaults to 160.
-        genome_pickled_file_path (str, optional): Pickled file path. Defaults to None.
-        """
+
     def __init__(
             self,
             gff_file_path,
@@ -72,9 +52,9 @@ class Exonize(object):
             genome_pickled_file_path,
     ):
         self._DEBUG_MODE = enable_debug
-        self._SOFT_FORCE = soft_force
-        self._HARD_FORCE = hard_force
-        self._HARD_MASKING = hard_masking
+        self.SOFT_FORCE = soft_force
+        self.HARD_FORCE = hard_force
+        self.HARD_MASKING = hard_masking
 
         self.gff_file_path = gff_file_path
         self.genome_path = genome_path
@@ -88,7 +68,6 @@ class Exonize(object):
         self.secs = sleep_max_seconds
         self.timeout_db = timeout_db
 
-        self.__FILE_ONLY_INFO = 9
         self.genome = None
         self.gene_hierarchy_dict = None
         self.db_features = None
@@ -112,52 +91,9 @@ class Exonize(object):
         self.__tuples_insertion_duplications = list()
         self.__tuples_truncation_events = list()
 
-    def setup_environment(self):
-        if self._HARD_FORCE:
-            if os.path.exists(self.working_dir):
-                shutil.rmtree(self.working_dir)
-        elif self._SOFT_FORCE:
-            if os.path.exists(self.results_db):
-                os.remove(self.results_db)
-        os.makedirs(self.working_dir, exist_ok=True)
-        self.configure_logger()
-
-    # noinspection PyProtectedMember
-    def file_only_info(self, message, *args, **kws):
-        if self.logger.isEnabledFor(self.__FILE_ONLY_INFO):
-            self.logger._log(self.__FILE_ONLY_INFO, message, args, **kws)
-
-    def configure_logger(self):
-        """
-        configure_logger is a function that configures the logger.
-        INFO level is used for the log file and WARNING and ERROR level for the console.
-        """
-        logging.addLevelName(self.__FILE_ONLY_INFO, 'FILE_ONLY_INFO')
-        logging.Logger.file_only_info = self.file_only_info
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-
-        # Define a filter that allows all messages EXCEPT those at INFO level
-        class ExcludeInfoFilter(logging.Filter):
-            def filter(self, record):
-                return record.levelno != logging.INFO
-
-        # Define file handler for the "FILE_ONLY_INFO" level
-        log_file_name = f"exonize_log_{datetime.now():%Y%m%d_%H%M%S}.log"
-        log_file_name = os.path.join(self.working_dir, log_file_name)
-        file_handler = logging.FileHandler(log_file_name, mode='w')
-        file_handler.setLevel(self.__FILE_ONLY_INFO)  # Changed level to custom level
-        file_handler.addFilter(ExcludeInfoFilter())  # Added filter
-        file_handler.setFormatter(logging.Formatter('%(message)s'))
-
-        # Define console handler for the "INFO" level and above ("DEBUG", "WARNING", "EXCEPTION").
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
-
-        # Add handlers to the logger
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
+        # Set up environment
+        self.log = EnvironmentSetup(**self.__dict__)
+        self.log.setup_environment()
 
     @staticmethod
     def dump_pkl_file(out_filepath: str, obj: dict) -> None:
@@ -252,7 +188,7 @@ class Exonize(object):
               features
             """
             try:
-                self.logger.info("Creating annotations database")
+                self.log.logger.info("Creating annotations database")
                 self.db = gffutils.create_db(self.gff_file_path,
                                              dbfn=self.db_path,
                                              force=True,
@@ -262,7 +198,7 @@ class Exonize(object):
                                              disable_infer_genes=True,
                                              disable_infer_transcripts=True)
             except ValueError as e:
-                self.logger.exception(f"Incorrect genome annotations file {e}")
+                self.log.logger.exception(f"Incorrect genome annotations file {e}")
                 sys.exit()
 
         def search_create_intron_annotations() -> None:
@@ -275,14 +211,14 @@ class Exonize(object):
               annotations in the gff file. Common choices are: "ID" or "Parent".
             """
             if 'intron' not in self.db_features:
-                self.logger.info(
+                self.log.logger.info(
                     "The GFF file does not contain intron annotations - "
                     "attempting to write intron annotations in database",
                 )
                 try:
                     self.db.update(list(self.db.create_introns()), make_backup=False)
                 except ValueError as e:
-                    self.logger.exception(f"failed to write intron annotations in database. "
+                    self.log.logger.exception(f"failed to write intron annotations in database. "
                                           f"Please provide a GFF3 file with intron annotations {e}")
                     sys.exit()
         if not os.path.exists(self.db_path):
@@ -290,11 +226,11 @@ class Exonize(object):
                 self.old_filename = self.gff_file_path
                 self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
                 convert_gtf_to_gff()
-                self.logger.info('the GTF file has been converted into a GFF3 file')
-                self.logger.info(f'with filename: {self.gff_file_path}')
+                self.log.logger.info('the GTF file has been converted into a GFF3 file')
+                self.log.logger.info(f'with filename: {self.gff_file_path}')
             create_genome_database()
         if not self.db:
-            self.logger.info("Reading annotations database")
+            self.log.logger.info("Reading annotations database")
             self.load_db()
         self.db_features = list(self.db.featuretypes())
         search_create_intron_annotations()
@@ -309,7 +245,7 @@ class Exonize(object):
         try:
             self.db = gffutils.FeatureDB(self.db_path, keep_order=True)
         except ValueError as e:
-            self.logger.exception(f"Incorrect data base path {e}")
+            self.log.logger.exception(f"Incorrect data base path {e}")
             sys.exit()
 
     def read_genome(self) -> None:
@@ -319,7 +255,7 @@ class Exonize(object):
         The dictionary has the following structure: {chromosome: sequence}
         """
         hard_masking_regex = re.compile('[a-z]')
-        self.logger.info("Reading genome file")
+        self.log.logger.info("Reading genome file")
         if self.genome_pickled_file_path is not None and os.path.exists(self.genome_pickled_file_path):
             self.genome = self.read_pkl_file(self.genome_pickled_file_path)
         else:
@@ -337,7 +273,7 @@ class Exonize(object):
                             for fasta in parsed_genome
                         }
             except (ValueError, FileNotFoundError) as e:
-                self.logger.exception(f"Incorrect genome file path {e}")
+                self.log.logger.exception(f"Incorrect genome file path {e}")
                 sys.exit()
             if self.genome_pickled_file_path is not None:
                 self.dump_pkl_file(self.genome_pickled_file_path, self.genome)
@@ -399,7 +335,7 @@ class Exonize(object):
                 if cds_idx == (n_CDSs - 1):
                     seq = seq[:-overhang]
                 else:
-                    self.logger.error(f'check here: {gene_id}, {trans_id}')
+                    self.log.logger.error(f'check here: {gene_id}, {trans_id}')
                     sys.exit()
             return seq
 
@@ -452,7 +388,7 @@ class Exonize(object):
                 cds_list_tuples.append((gene_id, trans_id_, coord_idx, coord_['id'], frame, s, e, exon_seq, exon_prot))
             return prot_seq_, cds_list_tuples
 
-        self.logger.info("Fetching gene-hierarchy data and writing protein database")
+        self.log.logger.info("Fetching gene-hierarchy data and writing protein database")
         self.gene_hierarchy_dict = dict()
         for gene in self.db.features_of_type('gene'):
             mrna_transcripts = [mRNA_t for mRNA_t in self.db.children(gene.id, featuretype='mRNA', order_by='start')]
@@ -513,7 +449,7 @@ class Exonize(object):
             self.create_gene_hierarchy_dict()
         connect_create_results_db(self.results_db, self.timeout_db)
         if self._DEBUG_MODE:
-            self.logger.warning("All tblastx io files will be saved. This may take a large amount of disk space.")
+            self.log.logger.warning("All tblastx io files will be saved. This may take a large amount of disk space.")
 
     def execute_tblastx(self, query_filename: str, target_filename: str, output_file: str):
         """
@@ -575,7 +511,7 @@ class Exonize(object):
                 try:
                     temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                 except Exception as e:
-                    self.logger.exception(e)
+                    self.log.logger.exception(e)
                     sys.exit()
             return temp_
 
@@ -601,7 +537,7 @@ class Exonize(object):
                     try:
                         temp_ = self.parse_tblastx_output(blast_records, query_coord_, gene_coord_, cds_frame_)
                     except Exception as e:
-                        self.logger.exception(e)
+                        self.log.logger.exception(e)
                         sys.exit()
                 return temp_
 
@@ -663,7 +599,7 @@ class Exonize(object):
                 continue
             alignment = blast_record.alignments[0]  # Assuming only one alignment per blast_record
             if len([aln for aln in blast_record.alignments]) > 1:
-                self.logger.error("More than one alignment per blast_record")
+                self.log.logger.error("More than one alignment per blast_record")
                 sys.exit()
             for hsp_idx, hsp_rec in enumerate(alignment.hsps):
                 blast_target_coord = P.open((hsp_rec.sbjct_start - 1) + hit_coord.lower, hsp_rec.sbjct_end + hit_coord.lower)
@@ -817,16 +753,16 @@ class Exonize(object):
                 if masking_perc > self.masking_perc_threshold:
                     seq_ = ''
                     if type_ == 'gene':
-                        self.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
+                        self.log.logger.file_only_info(f'Gene {gene_id_} in chromosome {chrom_} and coordinates {str(coord_.lower)}, '
                                                    f'{str(coord_.upper)} is hardmasked.')
                         insert_gene_ids_table(self.results_db, self.timeout_db, self.get_gene_tuple(gene_id_, 0))
                     if type_ == 'CDS':
-                        self.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
+                        self.log.logger.file_only_info(f'Gene {gene_id_} - {masking_perc * 100} of CDS {str(coord_.lower)},'
                                                    f' {str(coord_.upper)} located in chromosome {chrom_} is hardmasked.')
                 return seq_
 
             except KeyError as e_:
-                self.logger.exception(f'Either there is missing a chromosome in the genome file '
+                self.log.logger.exception(f'Either there is missing a chromosome in the genome file '
                                       f'or the chromosome identifiers in the GFF3 and FASTA files do not match {e_}')
                 sys.exit()
 
@@ -980,7 +916,7 @@ class Exonize(object):
             """
             query_only_ = self.find_overlapping_annot(trans_dict_, cds_intv_)
             if len(query_only_) > 1:
-                self.logger.error(f'Overlapping query CDSs: {query_only_}, please review your GFF3 file')
+                self.log.logger.error(f'Overlapping query CDSs: {query_only_}, please review your GFF3 file')
                 sys.exit()
             elif query_only_:
                 self.__query_CDS, _, self.__query_CDS_frame = query_only_[0]
@@ -1015,7 +951,7 @@ class Exonize(object):
             """
             target_only_ = self.find_overlapping_annot(trans_dict_, target_intv_)
             if len(target_only_) > 1:
-                self.logger.error(f'overlapping target CDSs: {target_only_}')
+                self.log.logger.error(f'overlapping target CDSs: {target_only_}')
                 sys.exit()
             elif target_only_:
                 self.__target_CDS, t_CDS_coord_, self.__target_CDS_frame = target_only_[0]
@@ -1303,11 +1239,11 @@ class Exonize(object):
             G = create_events_multigraph(ref_coord_dict, query_coordinates, records)
             gene_events_tuples, gene_events_set = get_events_tuples_from_multigraph(ref_coord_dict, gene_id, G)
             if len(gene_events_tuples) != len(records):
-                self.logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
+                self.log.logger.exception(f'{gene_id}: {len(gene_events_tuples)} events found, {len(records)} expected.')
             genes_events_tuples.extend(gene_events_tuples)
             genes_events_set.update(gene_events_set)
         if len(genes_events_tuples) != len(full_matches_list):
-            self.logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
+            self.log.logger.exception(f'{len(genes_events_tuples)} events found, {len(full_matches_list)} expected.')
         return genes_events_tuples, genes_events_set
 
     def get_identity_and_dna_seq_tuples(self) -> list[tuple]:
@@ -1397,14 +1333,13 @@ class Exonize(object):
                 batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
                 yield data[batch_start_index:batch_end_index]
 
-        self.setup_environment()
         self.prepare_data()
         gene_ids = list(self.gene_hierarchy_dict.keys())
         processed_gene_ids = set(query_gene_ids_in_res_db(self.results_db, self.timeout_db))
         unprocessed_gene_ids = list(set(gene_ids) - processed_gene_ids)
         if unprocessed_gene_ids:
             gene_n = len(gene_ids)
-            self.logger.info(f'Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
+            self.log.logger.info(f'Starting exon duplication search for {len(unprocessed_gene_ids)}/{gene_n} genes.')
             with tqdm(total=len(unprocessed_gene_ids), position=0, leave=True, ncols=50) as progress_bar:
                 # Benchmark without any parallel computation:
                 # pr = cProfile.Profile()
@@ -1475,12 +1410,12 @@ class Exonize(object):
                 pr.dump_stats(PROFILE_PATH)
                 get_run_performance_profile(PROFILE_PATH)
         else:
-            self.logger.info('All genes have been processed. If you want to re-run the analysis, '
+            self.log.logger.info('All genes have been processed. If you want to re-run the analysis, '
                              'consider using the hard-force/soft-force flag')
         insert_percent_query_column_to_fragments(self.results_db, self.timeout_db)
         create_filtered_full_length_events_view(self.results_db, self.timeout_db)
         create_mrna_counts_view(self.results_db, self.timeout_db)
-        self.logger.info('Classifying events')
+        self.log.logger.info('Classifying events')
         self.identify_full_length_duplications()
         create_cumulative_counts_table(self.results_db, self.timeout_db)
         query_concat_categ_pair_list = query_concat_categ_pairs(self.results_db, self.timeout_db)
@@ -1493,4 +1428,4 @@ class Exonize(object):
         insert_event_id_column_to_full_length_events_cumulative_counts(self.results_db, self.timeout_db, fragments_tuples)
         insert_events_table(self.results_db, self.timeout_db, events_set)
         create_exclusive_pairs_view(self.results_db, self.timeout_db)
-        self.logger.info('Process completed successfully.')
+        self.log.logger.info('Process completed successfully.')
