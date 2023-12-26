@@ -7,14 +7,10 @@ from datetime import datetime
 class EnvironmentSetup(object):
     logger: logging.Logger
 
-    def __init__(
-            self,
-            **attributes
-    ):
+    def __init__(self, **attributes):
         self.__FILE_ONLY_INFO = 9
         for key, value in attributes.items():
             setattr(self, key, value)
-        print(self.HARD_FORCE)
 
     # noinspection PyProtectedMember
     def file_only_info(
