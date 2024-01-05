@@ -22,7 +22,7 @@ def exonize_ascii_art_logo() -> None:
           "             & Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "maintainers: Marina Herrera Sarrias, Mathematics Department, Stockholm University,\n"
           "             Lars Arvestad, Mathematics Department, Stockholm University\n"
-          "    Contact: marina.sarrias@math.su.se\n"
+          "    Contact: arvestad@math.su.se\n"
           "     GitHub: https://github.com/msarrias/exonize\n"
           "\n")
 
@@ -38,7 +38,7 @@ def argument_parser():
         help='Path to GFF file.'
     )
     parser.add_argument(
-        'genome_path',
+        'genome_file_path',
         type=str,
         help='Path to genome file.'
     )
@@ -113,7 +113,7 @@ def argument_parser():
     )
     parser.add_argument(
         '-mt',
-        '--masking_perc_threshold',
+        '--masking_percentage_threshold',
         default=0.8,
         type=float,
         help='Masking percentage threshold. Default is 0.8.'
@@ -121,7 +121,7 @@ def argument_parser():
     # Optional Argument for Timeout
     parser.add_argument(
         '-to',
-        '--timeout-db',
+        '--timeout-database',
         default=160, type=int,
         help='Database timeout. Default is 160.'
     )
@@ -141,7 +141,7 @@ def main():
     args = argument_parser()
     exonize_obj = Exonize(
         gff_file_path=args.gff_file_path,
-        genome_path=args.genome_path,
+        genome_file_path=args.genome_file_path,
         specie_identifier=args.specie_identifier,
         enable_debug=args.debug_mode,
         soft_force=args.soft_force,
@@ -151,9 +151,9 @@ def main():
         sleep_max_seconds=args.sleep_max_seconds,
         min_exon_length=args.min_exon_length,
         cds_overlapping_threshold=args.cds_overlapping_threshold,
-        masking_perc_threshold=args.masking_perc_threshold,
+        masking_percentage_threshold=args.masking_percentage_threshold,
         self_hit_threshold=args.self_hit_threshold,
-        timeout_db=args.timeout_db,
+        timeout_database=args.timeout_database,
         genome_pickled_file_path=args.genome_pickled_file_path,
     )
     exonize_obj.run_exonize_pipeline()
