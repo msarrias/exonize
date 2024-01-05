@@ -30,7 +30,6 @@ import portion as P
 from collections.abc import Sequence, Iterator
 import networkx as nx
 import sqlite3
-from tqdm import tqdm
 from multiprocessing import Process, Queue
 from rich.progress import Progress
 
