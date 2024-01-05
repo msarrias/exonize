@@ -487,13 +487,13 @@ class ClassifierHandler(object):
                       and annotation['type'] == 'exon'):
                     continue
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'intron'
-                      and annot['type'] in utr_features):
+                      and annotation['type'] in utr_features):
                     coordinates_dictionary[intersection_coordinate] = annot_dictionary
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
-                      and annot['type'] in utr_features):
+                      and annotation['type'] in utr_features):
                     coordinates_dictionary[intersection_coordinate] = annot_dictionary
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
-                      and annot['type'] == 'CDS'):
+                      and annotation['type'] == 'CDS'):
                     coordinates_dictionary[intersection_coordinate] = annot_dictionary
                 else:
                     print('check here')
