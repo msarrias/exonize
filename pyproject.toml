@@ -5,7 +5,6 @@ url = "https://github.com/msarrias/exonize"
 version = "0.1"
 dependencies = [
 	     "gffutils>=0.11.1",
-	     "tqdm>=4.65.0",
 	     "portion>=2.4.0",
 	     "biopython>=1.81",
 	     "networkx==3.2.1",
