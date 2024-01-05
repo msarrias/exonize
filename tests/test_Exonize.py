@@ -1,4 +1,4 @@
-from exonize.exonize import *
+from exonize.exonize import Exonize
 
 test_object = Exonize(
     gff_file_path='',
@@ -17,6 +17,10 @@ test_object = Exonize(
     timeout_database=60,
     genome_pickled_file_path='',
 )
+
+
+def test_example():
+    assert True
 
 
 # def test_full_matches():
