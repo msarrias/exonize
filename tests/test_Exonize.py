@@ -1,12 +1,22 @@
 from exonize.exonize import *
 
-test_object = Exonize('',
-                      '',
-                      'test',
-                      min_exon_length=20,
-                      cds_overlapping_threshold=0.8,
-                      masking_perc_threshold=0.8,
-                      self_hit_threshold=0.5)
+test_object = Exonize(
+    gff_file_path='',
+    genome_file_path='',
+    specie_identifier='test',
+    enable_debug=False,
+    hard_masking=False,
+    soft_force=False,
+    hard_force=False,
+    evalue_threshold=1e-5,
+    sleep_max_seconds=60,
+    min_exon_length=20,
+    cds_overlapping_threshold=0.8,
+    masking_percentage_threshold=0.8,
+    self_hit_threshold=0.5,
+    timeout_database=60,
+    genome_pickled_file_path='',
+)
 
 
 # def test_full_matches():
