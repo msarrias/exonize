@@ -488,13 +488,13 @@ class ClassifierHandler(object):
                     continue
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'intron'
                       and annotation['type'] in utr_features):
-                    coordinates_dictionary[intersection_coordinate] = annot_dictionary
+                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
                       and annotation['type'] in utr_features):
-                    coordinates_dictionary[intersection_coordinate] = annot_dictionary
+                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
                 elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
                       and annotation['type'] == 'CDS'):
-                    coordinates_dictionary[intersection_coordinate] = annot_dictionary
+                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
                 else:
                     print('check here')
         return sort_key_intervals_dictionary(coordinates_dictionary)
