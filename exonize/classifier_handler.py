@@ -72,13 +72,13 @@ class ClassifierHandler(object):
             return (intersection.upper - intersection.lower) / (intv_j.upper - intv_j.lower)
         return 0
 
-    def find_overlapping_annot(
+    def find_overlapping_annotations(
             self,
             transcript_dictionary: dict,
             cds_coordinate: P.Interval,
     ) -> list:
         """
-        find_overlapping_annot is a function that given a transcript dictionary
+        find_overlapping_annotations is a function that given a transcript dictionary
         and a CDS interval, returns a list of tuples with the following structure:
         (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
         interval.
@@ -118,7 +118,7 @@ class ClassifierHandler(object):
         A transcript cannot have overlapping CDSs. If the query CDS overlaps
         with more than one CDS, the program exits.
         """
-        query_only = self.find_overlapping_annot(
+        query_only = self.find_overlapping_annotations(
             transcript_dictionary=transcript_dictionary,
             cds_coordinate=cds_coordinate
         )
@@ -173,9 +173,9 @@ class ClassifierHandler(object):
         """
         indetify_full_target is a function that identifies tblastx
         hits that are full-length duplications as described
-        in self.find_overlapping_annot
+        in self.find_overlapping_annotations
         """
-        target_only = self.find_overlapping_annot(
+        target_only = self.find_overlapping_annotations(
             transcript_dictionary=transcript_dictionary,
             cds_coordinate=target_coordinate
         )
@@ -192,6 +192,17 @@ class ClassifierHandler(object):
             self.__annot_target_start = target_cds_coordinate.lower
             self.__annot_target_end = target_cds_coordinate.upper
 
+    @staticmethod
+    def filter_structure_by_interval_and_type(
+            structure: dict,
+            t_intv_: P.Interval,
+            annot_type: str
+    ) -> list:
+        return [(i['id'], i['coordinate']) for i in structure
+                if (i['coordinate'].contains(t_intv_)
+                    and annot_type in i['type'])
+                ]
+
     def indentify_insertion_target(
             self,
             transcript_dictionary: dict,
@@ -203,17 +214,8 @@ class ClassifierHandler(object):
         - INS_UTR: if the insertion is in an untralated region
         - DEACTIVATED: if the insertion is in an intron
         """
-        def filter_structure_by_interval_and_type(
-                structure: dict,
-                t_intv_: P.Interval,
-                annot_type: str
-        ) -> list:
-            return [(i['id'], i['coordinate']) for i in structure
-                    if (i['coordinate'].contains(t_intv_)
-                    and annot_type in i['type'])
-                    ]
 
-        insertion_CDS_ = filter_structure_by_interval_and_type(
+        insertion_CDS_ = self.filter_structure_by_interval_and_type(
             structure=transcript_dictionary['structure'],
             t_intv_=target_coordinate,
             annot_type='CDS'
@@ -225,7 +227,7 @@ class ClassifierHandler(object):
             self.__found = True
             self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
         else:
-            insertion_UTR_ = filter_structure_by_interval_and_type(
+            insertion_UTR_ = self.filter_structure_by_interval_and_type(
                 structure=transcript_dictionary['structure'],
                 t_intv_=target_coordinate,
                 annot_type='UTR'
@@ -236,7 +238,7 @@ class ClassifierHandler(object):
                 self.__found = True
                 self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
             else:
-                insertion_intron_ = filter_structure_by_interval_and_type(
+                insertion_intron_ = self.filter_structure_by_interval_and_type(
                     structure=transcript_dictionary['structure'],
                     t_intv_=target_coordinate,
                     annot_type='intron'

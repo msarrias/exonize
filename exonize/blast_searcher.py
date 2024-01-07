@@ -87,12 +87,27 @@ class BLASTsearcher(object):
         return intv_b, intv_a
 
     @staticmethod
+    def compute_identity(
+            sequence_i: str,
+            sequence_j: str
+    ) -> float:
+        """
+        Compute the identity between two sequences
+        (seq_1 and seq_2) using the Hamming distance method.
+        """
+        # Calculate the Hamming distance and return it
+        if len(sequence_i) != len(sequence_j):
+            raise ValueError('Undefined for sequences of unequal length')
+        return round(sum(i == j for i, j in zip(sequence_i, sequence_j)) / len(sequence_j), 3)
+
+    @staticmethod
     def reformat_tblastx_frame_strand(
             frame: int,
     ) -> tuple:
         """
         reformat_tblastx_frame_strand is a function that converts the frame to
         a 0-based index and defines a strand variable based on the frame sign.
+        :param frame: 6 different frames are possible: +1, +2, +3, -1, -2, -3
         """
         n_frame = abs(frame) - 1
         n_strand = '-' if frame < 0 else '+'
@@ -100,14 +115,14 @@ class BLASTsearcher(object):
 
     @staticmethod
     def reverse_sequence_bool(
-            gene_strand: str
+            strand: str
     ):
         """
         reverse_sequence_bool checks if the gene is in the negative
         strand and returns True if it is.
-        :param gene_strand: strand
+        :param strand: + or -
         """
-        return gene_strand == '-'
+        return strand == '-'
 
     @staticmethod
     def get_hsp_dictionary(
@@ -129,7 +144,8 @@ class BLASTsearcher(object):
             target_aln_prot_seq=hsp.sbjct,
             query_num_stop_codons=hsp.query.count('*'),
             target_num_stop_codons=hsp.sbjct.count('*'),
-            match=hsp.match)
+            match=hsp.match
+        )
 
     def check_for_masking(
             self,
@@ -727,23 +743,9 @@ class BLASTsearcher(object):
         sequence = Seq(
             self.data_container.genome_dictionary[chromosome][annotation_start:annotation_end][trim_start:trim_end]
         )
-        if self.reverse_sequence_bool(gene_strand=strand):
+        if self.reverse_sequence_bool(strand=strand):
             return str(sequence.reverse_complement())
         return str(sequence)
-
-    @staticmethod
-    def compute_identity(
-            sequence_i: str,
-            sequence_j: str
-    ) -> float:
-        """
-        Compute the identity between two sequences
-        (seq_1 and seq_2) using the Hamming distance method.
-        """
-        # Calculate the Hamming distance and return it
-        if len(sequence_i) != len(sequence_j):
-            raise ValueError('Undefined for sequences of unequal length')
-        return round(sum(i == j for i, j in zip(sequence_i, sequence_j)) / len(sequence_j), 3)
 
     def process_fragment(
             self,
