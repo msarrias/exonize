@@ -61,7 +61,7 @@ class Exonize(object):
             timeout_database,
             genome_pickled_file_path,
     ):
-        self._DEBUG_MODE = enable_debug
+        self.DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.HARD_MASKING = hard_masking
@@ -102,7 +102,7 @@ class Exonize(object):
             specie_identifier=self.specie_identifier,
             genome_file_path=self.genome_file_path,
             genome_pickled_file_path=self.genome_pickled_file_path,
-            debug_mode=self._DEBUG_MODE,
+            debug_mode=self.DEBUG_MODE,
             evalue_threshold=evalue_threshold
         )
 
@@ -114,7 +114,7 @@ class Exonize(object):
             min_exon_length=self.min_exon_length,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             evalue_threshold=self.evalue_threshold,
-            debug_mode=self._DEBUG_MODE,
+            debug_mode=self.DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
             blast_engine=self.blast_engine,
