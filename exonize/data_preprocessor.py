@@ -23,6 +23,7 @@ class DataPreprocessor(object):
             genome_file_path,
             genome_pickled_file_path,
             debug_mode,
+            hard_masking,
             evalue_threshold
     ):
         self.environment = logger_obj
@@ -36,6 +37,7 @@ class DataPreprocessor(object):
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
         self._DEBUG_MODE = debug_mode
+        self._HARD_MASKING = hard_masking
 
         self.database_features = None
         self.old_filename = None
