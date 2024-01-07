@@ -125,19 +125,6 @@ class Exonize(object):
             cds_overlapping_threshold=self.cds_overlapping_threshold,
         )
 
-    @staticmethod
-    def get_overlap_percentage(
-            a: P.Interval,
-            b: P.Interval,
-    ) -> float:
-        """
-        Given two intervals, the function
-        get_overlap_percentage returns the percentage
-        of the overlapping region relative to an interval b.
-        """
-        intersection = a & b
-        return (intersection.upper - intersection.lower) / (b.upper - b.lower) if intersection else 0
-
     def generate_unique_events_list(
             self,
             events_list: list,
@@ -168,26 +155,37 @@ class Exonize(object):
 
     def run_exonize_pipeline(self) -> None:
         """
-        run_exonize_pipeline iterates over all genes in the gene_hierarchy_dictionary attribute and performs a tblastx search
-        for each representative CDS (see get_candidate_CDS_coords).
+        run_exonize_pipeline iterates over all genes in the gene_hierarchy_dictionary
+        attribute and performs a tblastx search for each representative
+        CDS (see get_candidate_CDS_coords).
         The steps are the following:
-        - 1. The function checks if the gene has already been processed. If so, the gene is skipped.
-        - 2. For each gene, the function iterates over all representative CDSs and performs a tblastx search.
-        - 3. The percent_query (hit query coverage) column is inserted in the Fragments table.
-        - 4. The Filtered_full_length_events View is created. This view contains all tblastx hits that have passed the
-        filtering step.
-        - 5. The Mrna_counts View is created. This view contains the number of transcripts associated with each gene.
-        - 6. The function creates the Cumulative_counts table. This table contains the cumulative counts of the different
-        event types across transcripts.
-        - 7. The function collects all the raw concatenated event types (see query_concat_categ_pairs).
-        - 8. The function generates the unique event types (see generate_unique_events_list) so that no event type is repeated.
-        - 9. The function inserts the unique event types in the Event_categ_full_length_events_cumulative_counts table.
-        - 10. The function collects the identity and DNA sequence tuples (see get_identity_and_dna_seq_tuples) and inserts
-        them in the Fragments table.
-        - 11. The function collects all events in the Full_length_events_cumulative_counts table.
-        - 12. The function reconciles the events by assigning a "pair ID" to each event (see assign_pair_ids).
-        - 13. The function creates the Exclusive_pairs view. This view contains all the events that follow the mutually exclusive
-        category.
+        - 1. The function checks if the gene has already been processed.
+         If so, the gene is skipped.
+        - 2. For each gene, the function iterates over all representative
+         CDSs and performs a tblastx search.
+        - 3. The percent_query (hit query coverage) column is inserted
+        in the Fragments table.
+        - 4. The Filtered_full_length_events View is created. This view
+        contains all tblastx hits that have passed the filtering step.
+        - 5. The Mrna_counts View is created. This view contains the number
+        of transcripts associated with each gene.
+        - 6. The function creates the Cumulative_counts table. This table
+        contains the cumulative counts of the different event types across
+        transcripts.
+        - 7. The function collects all the raw concatenated event types
+        (see query_concat_categ_pairs).
+        - 8. The function generates the unique event types
+         (see generate_unique_events_list) so that no event type is repeated.
+        - 9. The function inserts the unique event types in the
+        Event_categ_full_length_events_cumulative_counts table.
+        - 10. The function collects the identity and DNA sequence tuples
+         (see get_identity_and_dna_seq_tuples) and inserts them in the Fragments table.
+        - 11. The function collects all events in the
+        Full_length_events_cumulative_counts table.
+        - 12. The function reconciles the events by assigning a "pair ID"
+         to each event (see assign_pair_ids).
+        - 13. The function creates the Exclusive_pairs view. This view contains
+         all the events that follow the mutually exclusive category.
         """
 
         def even_batches(
@@ -195,11 +193,13 @@ class Exonize(object):
             number_of_batches: int = 1,
         ) -> Iterator[Sequence[Any]]:
             """
-            Given a list and a number of batches, returns 'number_of_batches' consecutive subsets elements of 'data' of
-            even size each, except for the last one whose size is the remainder of the division of the length of 'data'
-            by 'number_of_batches'.
+            Given a list and a number of batches, returns 'number_of_batches'
+             consecutive subsets elements of 'data' of even size each, except
+             for the last one whose size is the remainder of the division of
+            the length of 'data' by 'number_of_batches'.
             """
-            # We round up to the upper integer value to guarantee that there will be 'number_of_batches' batches
+            # We round up to the upper integer value to guarantee that there
+            # will be 'number_of_batches' batches
             even_batch_size = (len(data) // number_of_batches) + 1
             for batch_number in range(number_of_batches):
                 batch_start_index = batch_number * even_batch_size
