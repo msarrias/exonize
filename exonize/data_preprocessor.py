@@ -223,7 +223,7 @@ class DataPreprocessor(object):
         The dictionary has the following structure: {chromosome: sequence}
         """
         hard_masking_regex = re.compile(pattern='[a-z]')
-        self.environment.logger.info("Reading genome file")
+        self.environment.logger.info("Reading genome")
         if (self.genome_pickled_file_path is not None
                 and os.path.exists(path=self.genome_pickled_file_path)):
             self.genome_dictionary = self.read_pkl_file(file_path=self.genome_pickled_file_path)
