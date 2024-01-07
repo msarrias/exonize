@@ -1,4 +1,4 @@
-from exonize.blast_searcher import BlastSearcher
+from exonize.blast_searcher import BLASTsearcher
 from exonize.counter_handler import CounterHandler
 
 blast_engine = BLASTsearcher(
