@@ -75,20 +75,29 @@ class BLASTsearcher(object):
         return 0
 
     @staticmethod
-    def get_candidate_cds(
+    def get_single_candidate_cds_coordinate(
             intv_i: P.Interval,
             intv_j: P.Interval,
     ) -> P.Interval:
         """
-        Given two sorted intervals (sorted by lower bounds), this function returns
-        the interval with the smaller length if they have different lengths. If both
-        intervals are of equal length, it returns the first interval (intv_i).
-        Assumption: intv_i and intv_j are sorted such that intv_i.lower < intv_j.lower.
+        Given two sorted intervals this function returns the interval with
+        the largerst percentage of overlap.
+        Assumption: intv_i =/= intv_j and they are sorted such that
+        intv_i.lower < intv_j.lower.
         param intv_i: the first interval
         param intv_j: the second interval
         Returns: P.interval
         """
-        if (intv_j.upper - intv_j.lower) <= (intv_i.upper - intv_i.lower):
+        if (
+                BLASTsearcher.get_overlap_percentage(
+                    intv_i=intv_i,
+                    intv_j=intv_j
+                ) >
+                BLASTsearcher.get_overlap_percentage(
+                    intv_i=intv_j,
+                    intv_j=intv_i
+                )
+        ):
             return intv_j
         return intv_i
 
@@ -413,11 +422,10 @@ class BLASTsearcher(object):
             sorted_intervals: list[P.Interval],
     ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
         """
-        Given a list of intervals, returns the first consecutive
-        interval tuples with the overlapping pairs described in
-        case a (get_candidate_cds_coordinates).
+        Given a list of intervals, get_first_overlapping_intervals returns
+        the first consecutive interval tuples with overlapping pairs.
         :param sorted_intervals: list of intervals
-        :return: list of tuples with pairs of overlapping intervals
+        :return: pair of overlapping intervals
         """
         first_overlap_index = 0
         while first_overlap_index < len(sorted_intervals) - 1:
@@ -444,16 +452,7 @@ class BLASTsearcher(object):
     ) -> list[P.Interval]:
         """
         resolve_overlaps_between_coordinates is a recursive function that given
-        a list of coordinates, resolves overlaps according to the following criteria:
-
-        * a: if they have the distinct lengths, and  they overlap by more than
-          the overlapping threshold of both CDS lengths the shortest CDS is selected.
-        * b: if they have the same length, and they overlap by more than the
-          overlapping threshold of both CDS lengths the first CDS is selected.
-        * c: both CDSs are selected otherwise
-
-        Since the pairs described in case c are not considered to be overlapping,
-        they are both included in the search.
+        a list of coordinates, resolves overlaps between them.
         :param sorted_cds_coordinates: list of unique and sorted coordinates.
         :return: list of coordinates without "overlaps"
         """
@@ -464,7 +463,10 @@ class BLASTsearcher(object):
             sorted_intervals=sorted_cds_coordinates
         )
         if all((intv_i, intv_j)):
-            candidate, _ = self.get_candidate_cds(intv_i=intv_i, intv_j=intv_j)
+            candidate = self.get_single_candidate_cds_coordinate(
+                intv_i=intv_i,
+                intv_j=intv_j
+            )
             # Note: new_list is populated through enumeration
             # of 'sorted_cds_coordinates', so it will also be sorted
             # according to the same criteria used for 'sorted_cds_coordinates'.
@@ -490,12 +492,14 @@ class BLASTsearcher(object):
         If there are overlapping CDS coordinates, they are resolved
         according to the following criteria:
 
-        * a: if they overlap by more than the overlapping threshold
-          of both CDS lengths the shortest CDS is selected.
-        * b: both CDSs are selected otherwise
+        * If they overlap by more than the overlapping threshold
+          of both CDS lengths the one with the highest overlapping
+          percentage is selected.
+        * Both CDSs are selected otherwise
 
-        The rationale behind choosing the shortest CDS is that it will
-        reduce exclusion of short duplications due to coverage thresholds.
+        The rationale behind choosing the interval with the higher percentage
+        of overlap is that it will favor the selection of shorter intervals
+        reducing the exclusion of short duplications due to coverage thresholds.
 
         :param gene_id: gene identifier
         :return: list of representative CDS coordinates across all transcripts
