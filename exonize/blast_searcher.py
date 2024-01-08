@@ -47,6 +47,9 @@ class BLASTsearcher(object):
         """
         dump_fasta_file is a function that dumps a  dictionary with
         sequences into a FASTA file.
+        :param out_file_path: output file path
+        :param seq_dictionary: dictionary with sequences with the following structure:
+        {sequence_id: sequence}
         """
         with open(out_file_path, "w") as handle:
             for annotation_id, annotation_sequence in seq_dictionary.items():
@@ -63,8 +66,7 @@ class BLASTsearcher(object):
             intv_j: P.Interval,
     ) -> float:
         """
-        Given two intervals, the function
-        get_overlap_percentage returns the percentage
+        Given two intervals, the functionget_overlap_percentage returns the percentage
         of the overlapping region relative to an interval j.
         """
         intersection = intv_i & intv_j
@@ -73,18 +75,22 @@ class BLASTsearcher(object):
         return 0
 
     @staticmethod
-    def get_shorter_longer_interval(
+    def get_candidate_cds(
             intv_i: P.Interval,
             intv_j: P.Interval,
-    ) -> tuple:
+    ) -> P.Interval:
         """
-        Given two intervals, the function
-        get_shorter_longer_interval returns the smaller
-        and the larger interval in length.
+        Given two sorted intervals (sorted by lower bounds), this function returns
+        the interval with the smaller length if they have different lengths. If both
+        intervals are of equal length, it returns the first interval (intv_i).
+        Assumption: intv_i and intv_j are sorted such that intv_i.lower < intv_j.lower.
+        param intv_i: the first interval
+        param intv_j: the second interval
+        Returns: P.interval
         """
-        if intv_i.upper - intv_i.lower < intv_j.upper - intv_j.lower:
-            return intv_i, intv_j
-        return intv_j, intv_i
+        if (intv_j.upper - intv_j.lower) <= (intv_i.upper - intv_i.lower):
+            return intv_j
+        return intv_i
 
     @staticmethod
     def compute_identity(
@@ -437,14 +443,19 @@ class BLASTsearcher(object):
             sorted_cds_coordinates: list[P.Interval],
     ) -> list[P.Interval]:
         """
-        resolve_overlaps_between_coordinates is a function that given a list of coordinates,
-        resolves overlaps according to the criteria described above.
-        Since the pairs described in case b (get_candidate_cds_coordinates) are not
-        considered to be overlapping, they are both included in the search.
-        :param sorted_cds_coordinates: list of coordinates sorted according
-        to the following criteria:
-            (i) lower coordinate, (ii) upper coordinate
-        :return: list of coordinates without overlaps
+        resolve_overlaps_between_coordinates is a recursive function that given
+        a list of coordinates, resolves overlaps according to the following criteria:
+
+        * a: if they have the distinct lengths, and  they overlap by more than
+          the overlapping threshold of both CDS lengths the shortest CDS is selected.
+        * b: if they have the same length, and they overlap by more than the
+          overlapping threshold of both CDS lengths the first CDS is selected.
+        * c: both CDSs are selected otherwise
+
+        Since the pairs described in case c are not considered to be overlapping,
+        they are both included in the search.
+        :param sorted_cds_coordinates: list of unique and sorted coordinates.
+        :return: list of coordinates without "overlaps"
         """
         new_list = list()
         # We only process the first pair of overlapping intervals since
@@ -453,7 +464,7 @@ class BLASTsearcher(object):
             sorted_intervals=sorted_cds_coordinates
         )
         if all((intv_i, intv_j)):
-            shorter, _ = self.get_shorter_longer_interval(intv_i=intv_i, intv_j=intv_j)
+            candidate, _ = self.get_candidate_cds(intv_i=intv_i, intv_j=intv_j)
             # Note: new_list is populated through enumeration
             # of 'sorted_cds_coordinates', so it will also be sorted
             # according to the same criteria used for 'sorted_cds_coordinates'.
@@ -461,7 +472,7 @@ class BLASTsearcher(object):
                 if cds_coordinate != intv_i:
                     new_list.append(cds_coordinate)
                 else:
-                    new_list.append(shorter)
+                    new_list.append(candidate)
                     new_list.extend(sorted_cds_coordinates[idx + 2:])
                     return self.resolve_overlaps_between_coordinates(
                         sorted_cds_coordinates=new_list
@@ -474,30 +485,37 @@ class BLASTsearcher(object):
     ) -> dict:
         """
         get_candidate_cds_coordinates is a function that given a gene_id,
-        collects all the CDS coordinates with a length greater than the minimum
-        exon length (self.min_exon_length) across all transcript.
+        collects all the CDS coordinates with a length greater than the
+        minimum exon length across all transcript.
         If there are overlapping CDS coordinates, they are resolved
         according to the following criteria:
-            - a: if they overlap by more than the overlapping threshold
-            (self.cds_overlapping_threshold) of both CDS lengths the
-            shortest CDS is selected.
-            - b: both CDSs are selected otherwise
+
+        * a: if they overlap by more than the overlapping threshold
+          of both CDS lengths the shortest CDS is selected.
+        * b: both CDSs are selected otherwise
+
         The rationale behind choosing the shortest CDS is that it will
         reduce exclusion of short duplications due to coverage thresholds.
+
         :param gene_id: gene identifier
-        :return: list of representative CDS coordinates for the gene
-         across all transcripts
+        :return: list of representative CDS coordinates across all transcripts
         """
-        cds_coordinates_and_frames: list[tuple[P.Interval, str]] = list(set(
-            (coordinate, annotation_structure['frame'])
-            for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
-            for annotation_structure in mrna_annotation['structure']
-            for coordinate in (annotation_structure['coordinate'],)
-            if (
-                annotation_structure['type'] == 'CDS' and
-                (coordinate.upper - coordinate.lower) >= self.min_exon_length
+        # collect all CDS coordinates and frames across all transcripts
+        # we are interested in the frames to account for the unlikely event
+        # that two CDS with same coordinates in different transcripts
+        # have different frames
+        cds_coordinates_and_frames: list[tuple[P.Interval, str]] = list(
+            set(
+                (coordinate, annotation_structure['frame'])
+                for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
+                for annotation_structure in mrna_annotation['structure']
+                for coordinate in (annotation_structure['coordinate'],)
+                if (
+                        annotation_structure['type'] == 'CDS' and
+                        (coordinate.upper - coordinate.lower) >= self.min_exon_length
+                )
             )
-        ))
+        )
         if cds_coordinates_and_frames:
             representative_cds_frame_dictionary = dict()
             for cds_coordinate, frame in cds_coordinates_and_frames:
