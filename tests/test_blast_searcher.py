@@ -89,6 +89,28 @@ def test_reverse_sequence_bool():
 
 
 def test_get_first_overlapping_intervals():
+    test_a = [
+        P.open(0, 100),
+        P.open(180, 300),
+    ]
+    res_a = (None, None)
+    assert blast_engine.get_first_overlapping_intervals(
+        sorted_intervals=test_a
+    ) == res_a
+
+    test_b = [
+        P.open(180, 300),
+        P.open(200, 300),
+        P.open(250, 900),
+    ]
+    res_b = (
+        P.open(180, 300),
+        P.open(200, 300)
+    )
+    assert blast_engine.get_first_overlapping_intervals(
+        sorted_intervals=test_b
+    ) == res_b
+
     pass
 
 
