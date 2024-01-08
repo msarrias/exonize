@@ -14,7 +14,7 @@ from typing import Union
 class ClassifierHandler(object):
     def __init__(
             self,
-            blast_engine: BLASTsearcher,
+            blast_engine: object,
             cds_overlapping_threshold: float,
     ):
         self.data_container = blast_engine.data_container

@@ -13,7 +13,7 @@ import tempfile
 class CounterHandler(object):
     def __init__(
             self,
-            blast_engine: BLASTsearcher,
+            blast_engine: object,
             cds_overlapping_threshold: float,
             ):
         self.environment = blast_engine.environment

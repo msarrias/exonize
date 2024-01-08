@@ -15,16 +15,16 @@ class DataPreprocessor(object):
 
     def __init__(
             self,
-            logger_obj,
-            database_interface,
-            working_directory,
-            gff_file_path,
-            specie_identifier,
-            genome_file_path,
-            genome_pickled_file_path,
-            debug_mode,
-            hard_masking,
-            evalue_threshold
+            logger_obj: object,
+            database_interface: object,
+            working_directory: str,
+            gff_file_path: str,
+            specie_identifier: str,
+            genome_file_path: str,
+            genome_pickled_file_path: str,
+            debug_mode: bool,
+            hard_masking: bool,
+            evalue_threshold: float,
     ):
         self.environment = logger_obj
         self.database_interface = database_interface

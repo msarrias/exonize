@@ -19,7 +19,7 @@ from Bio.Blast import NCBIXML
 class BLASTsearcher(object):
     def __init__(
             self,
-            data_container: DataPreprocessor,
+            data_container: object,
             masking_percentage_threshold: float,
             sleep_max_seconds: int,
             self_hit_threshold: float,
