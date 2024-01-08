@@ -66,7 +66,7 @@ class BLASTsearcher(object):
             intv_j: P.Interval,
     ) -> float:
         """
-        Given two intervals, the functionget_overlap_percentage returns the percentage
+        Given two intervals, the function get_overlap_percentage returns the percentage
         of the overlapping region relative to an interval j.
         """
         intersection = intv_i & intv_j
