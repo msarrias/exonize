@@ -111,8 +111,6 @@ def test_get_first_overlapping_intervals():
         sorted_intervals=test_b
     ) == res_b
 
-    pass
-
 
 def test_resolve_overlaps_between_coordinates():
     test = [
