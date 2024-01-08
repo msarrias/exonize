@@ -1,24 +1,18 @@
 [project]
 name = "Exonize"
 description = "Find duplicated exons"
-authors = [
-	{name = "Lars Arvestad", email = "arvestad@math.su.se"},
-	{name = "Liam Longo", email = "llongo@elsi.jp"},
-	{name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"}
-]
-maintainers = [
-	{name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
-	{name = "Lars Arvestad", email = "arvestad@math.su.se"}
-]
 version = "0.1"
 dependencies = [
 	     "gffutils>=0.11.1",
-	     "tqdm>=4.65.0",
 	     "portion>=2.4.0",
 	     "biopython>=1.81",
+	     "networkx==3.2.1",
+		 "rich==13.7.0"
 ]
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project.scripts]
 exonize = "exonize.exonize:main"
+[tool.setuptools]
+packages = ['exonize']

@@ -1,21 +1,16 @@
-import pickle  # saving and loading dictionaries
-from Bio.SeqRecord import SeqRecord
-from Bio.Seq import Seq
-from Bio import SeqIO
+
 from Bio.Align.Applications import MuscleCommandline
 from Bio import AlignIO
 import tempfile
-import portion as P
 import re
 import random
-import copy
-from collections import Counter
-from itertools import permutations
 
 
 def get_dna_seq(seq: str, frame: int, start: int, end: int) -> str:
+    _nucleotide_correspondence_dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
+
     def reverse_complement(seq_: str) -> str:
-        return ''.join([{'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}[nucleotide] for nucleotide in seq_][::-1])
+        return ''.join([_nucleotide_correspondence_dict[nucleotide] for nucleotide in seq_][::-1])
 
     if frame < 0:
         rev_comp = reverse_complement(seq)
@@ -81,14 +76,14 @@ def exclude_terminal_gaps_from_pairwise_alignment(seq1: str, seq2: str) -> tuple
     else:
         print('The input sequences are not aligned')
 
-##
-## The following two functions are not used and depends on an undefined
-## function:get_overlap_percentage
-##
+#
+# The following two functions are not used and depends on an undefined
+# function:get_overlap_percentage
+#
 # def get_average_overlapping_percentage(intv_a, intv_b) -> float:
 #     return sum([get_overlap_percentage(intv_a, intv_b), get_overlap_percentage(intv_b, intv_a)]) / 2
-
-
+#
+#
 # def get_overlapping_set_of_coordinates(list_coords: list, overlapping_threshold=0.9) -> dict:
 #     overlapping_coords = {}
 #     skip_coords = []
@@ -153,44 +148,6 @@ def get_unmatched_events(string1: str, string2: str) -> list:
     return a_copy
 
 
-def get_interval_dictionary(trans_dict: dict, target_intv, trans_coord) -> dict:
-
-    def sort_key_intervals_dict(intv_dict: dict) -> dict:
-        sorted_intervals = sorted(list(intv_dict.keys()), key=lambda item: (item.lower, item.upper))
-        return {coord: intv_dict[coord] for coord in sorted_intervals}
-
-    UTR_features = ['five_prime_UTR', 'three_prime_UTR']
-    interval_dict = {}
-    if target_intv.lower < trans_coord.lower:
-        out_of_utr_coord = P.open(target_intv.lower, trans_coord.lower)
-        if out_of_utr_coord:
-            interval_dict[out_of_utr_coord] = {'id': 'out_of_UTR', 'type': 'out_of_UTR', 'coord': out_of_utr_coord}
-    elif trans_coord.upper < target_intv.upper:
-        out_of_utr_coord = P.open(trans_coord.upper, target_intv.upper)
-        if out_of_utr_coord:
-            interval_dict[out_of_utr_coord] = {'id': 'out_of_UTR', 'type': 'out_of_UTR', 'coord': out_of_utr_coord}
-    for annot in trans_dict:
-        if annot['coord'].overlaps(target_intv) and not annot['coord'].contains(target_intv):
-            feature_inv = annot['coord']
-            annot_dict = {'id': annot['id'], 'type': annot['type'], 'coord': annot['coord']}
-            inter = feature_inv & target_intv
-            if inter not in interval_dict:
-                interval_dict[inter] = annot_dict
-            elif interval_dict[inter]['type'] in UTR_features:
-                continue
-            elif interval_dict[inter]['type'] == 'CDS' and annot['type'] == 'exon':
-                continue
-            elif interval_dict[inter]['type'] == 'intron' and annot['type'] in UTR_features:
-                interval_dict[inter] = annot_dict
-            elif interval_dict[inter]['type'] == 'exon' and annot['type'] in UTR_features:
-                interval_dict[inter] = annot_dict
-            elif interval_dict[inter]['type'] == 'exon' and annot['type'] == 'CDS':
-                interval_dict[inter] = annot_dict
-            else:
-                print('check here')
-    return sort_key_intervals_dict(interval_dict)
-
-
 def get_overlapping_dict(interval_dict: dict) -> dict:
     """
     gets the next overlap to the right
@@ -203,26 +160,3 @@ def get_overlapping_dict(interval_dict: dict) -> dict:
         if idx != (len(interval_dict) - 1) and feat_interv.overlaps(intervals_list[idx + 1]):
             overlapping_dict[feat_interv] = intervals_list[idx+1]
     return overlapping_dict
-
-
-def generate_combinations(strings: list) -> list:
-    result = set()
-    for perm in permutations(strings):
-        result.add('-'.join(perm))
-    return list(result)
-
-
-def generate_unique_events_list(events_list: list, event_type_idx) -> list:
-    new_events_list = []
-    events_ids = []
-    for event in events_list:
-        mrna_concat_event_types = list(set(event[event_type_idx].rsplit(',')))
-        mrna_events_perm = generate_combinations(mrna_concat_event_types)
-        keys = [i for i in mrna_events_perm if i in events_ids]
-        if not keys:
-            events_ids.append(mrna_events_perm[0])
-            event_n = mrna_events_perm[0]
-        else:
-            event_n = keys[0]
-        new_events_list.append((event_n, event[0]))
-    return new_events_list
