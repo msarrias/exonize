@@ -1,13 +1,19 @@
 from exonize.data_preprocessor import DataPreprocessor
+from exonize.sqlite_handler import SqliteHandler
+
+database_interface = SqliteHandler(
+    results_database_path='',
+    timeout_database=30,
+)
 
 data_container = DataPreprocessor(
             logger_obj=None,
-            database_interface=None,
-            working_directory=None,
-            gff_file_path=None,
+            database_interface=database_interface,
+            working_directory='',
+            gff_file_path='',
             specie_identifier='test',
             genome_file_path='',
-            genome_pickled_file_path=None,
+            genome_pickled_file_path='',
             debug_mode=False,
             evalue_threshold=1e-5,
 )
@@ -23,4 +29,3 @@ def test_check_for_overhangs():
 
 def test_construct_peptide_sequences():
     pass
-

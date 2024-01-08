@@ -1,8 +1,27 @@
 from exonize.blast_searcher import BLASTsearcher
+from exonize.sqlite_handler import SqliteHandler
+from exonize.data_preprocessor import DataPreprocessor
 from exonize.counter_handler import CounterHandler
 
+database_interface = SqliteHandler(
+    results_database_path='',
+    timeout_database=30,
+)
+
+data_container = DataPreprocessor(
+            logger_obj=None,
+            database_interface=database_interface,
+            working_directory='',
+            gff_file_path='',
+            specie_identifier='test',
+            genome_file_path='',
+            genome_pickled_file_path='',
+            debug_mode=False,
+            evalue_threshold=1e-5,
+)
+
 blast_engine = BLASTsearcher(
-    data_container=None,
+    data_container=data_container,
     masking_percentage_threshold=0.8,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
