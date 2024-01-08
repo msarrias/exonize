@@ -74,17 +74,17 @@ class BLASTsearcher(object):
 
     @staticmethod
     def get_shorter_longer_interval(
-            intv_a: P.Interval,
-            intv_b: P.Interval,
+            intv_i: P.Interval,
+            intv_j: P.Interval,
     ) -> tuple:
         """
         Given two intervals, the function
         get_shorter_longer_interval returns the smaller
         and the larger interval in length.
         """
-        if intv_a.upper - intv_a.lower < intv_b.upper - intv_b.lower:
-            return intv_a, intv_b
-        return intv_b, intv_a
+        if intv_i.upper - intv_i.lower < intv_j.upper - intv_j.lower:
+            return intv_i, intv_j
+        return intv_j, intv_i
 
     @staticmethod
     def compute_identity(
@@ -453,7 +453,7 @@ class BLASTsearcher(object):
             sorted_intervals=sorted_cds_coordinates
         )
         if all((intv_i, intv_j)):
-            shorter, _ = self.get_shorter_longer_interval(intv_a=intv_i, intv_b=intv_j)
+            shorter, _ = self.get_shorter_longer_interval(intv_i=intv_i, intv_j=intv_j)
             # Note: new_list is populated through enumeration
             # of 'sorted_cds_coordinates', so it will also be sorted
             # according to the same criteria used for 'sorted_cds_coordinates'.
