@@ -36,8 +36,8 @@ class DataPreprocessor(object):
         self.evalue_threshold = evalue_threshold
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
-        self.DEBUG_MODE = debug_mode
-        self.HARD_MASKING = hard_masking
+        self._DEBUG_MODE = debug_mode
+        self._HARD_MASKING = hard_masking
 
         self.database_features = None
         self.old_filename = None
@@ -231,7 +231,7 @@ class DataPreprocessor(object):
             try:
                 with open(self.genome_file_path) as genome_file:
                     parsed_genome = SeqIO.parse(genome_file, format='fasta')
-                    if self.HARD_MASKING:
+                    if self._HARD_MASKING:
                         self.genome_dictionary = {
                             fasta.id: hard_masking_regex.sub(repl='N', string=str(fasta.seq))
                             for fasta in parsed_genome
@@ -502,7 +502,7 @@ class DataPreprocessor(object):
         (iii) reads the genome sequence
         (iv)  connects or creates the results database
         """
-        if self.DEBUG_MODE:
+        if self._DEBUG_MODE:
             os.makedirs(os.path.join(self.working_directory, 'input'), exist_ok=True)
             os.makedirs(os.path.join(self.working_directory, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
@@ -519,7 +519,7 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
         self.database_interface.connect_create_results_database()
-        if self.DEBUG_MODE:
+        if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."
