@@ -14,8 +14,8 @@ from typing import Union
 class ClassifierHandler(object):
     def __init__(
             self,
-            blast_engine,
-            cds_overlapping_threshold
+            blast_engine: BLASTsearcher,
+            cds_overlapping_threshold: float,
     ):
         self.data_container = blast_engine.data_container
         self.database_interface = blast_engine.database_interface
@@ -445,8 +445,8 @@ class ClassifierHandler(object):
     @staticmethod
     def get_interval_dictionary(
             transcript_dictionary: dict,
-            target_coordinate,
-            transcript_coordinate
+            target_coordinate: P.Interval,
+            transcript_coordinate: P.Interval,
     ) -> dict:
 
         def sort_key_intervals_dictionary(

@@ -9,8 +9,8 @@ from typing import List
 class SqliteHandler(object):
     def __init__(
             self,
-            results_database_path,
-            timeout_database
+            results_database_path: str,
+            timeout_database: int,
     ):
         self.results_database_path = results_database_path
         self.timeout_database = timeout_database

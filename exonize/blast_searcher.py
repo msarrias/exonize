@@ -19,14 +19,14 @@ from Bio.Blast import NCBIXML
 class BLASTsearcher(object):
     def __init__(
             self,
-            data_container,
-            masking_percentage_threshold,
-            sleep_max_seconds,
-            self_hit_threshold,
-            min_exon_length,
-            cds_overlapping_threshold,
-            evalue_threshold,
-            debug_mode,
+            data_container: DataPreprocessor,
+            masking_percentage_threshold: float,
+            sleep_max_seconds: int,
+            self_hit_threshold: float,
+            min_exon_length: int,
+            cds_overlapping_threshold: float,
+            evalue_threshold: float,
+            debug_mode: bool,
     ):
         self.data_container = data_container
         self.database_interface = data_container.database_interface

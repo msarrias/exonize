@@ -9,10 +9,10 @@ class EnvironmentSetup(object):
 
     def __init__(
             self,
-            hard_force,
-            soft_force,
-            working_directory,
-            results_database_path
+            hard_force: bool,
+            soft_force: bool,
+            working_directory: str,
+            results_database_path: str,
     ):
         self.__FILE_ONLY_INFO = 9
         self.HARD_FORCE = hard_force
