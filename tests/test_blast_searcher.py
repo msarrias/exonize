@@ -58,12 +58,14 @@ def test_get_overlap_percentage():
 
 
 def test_get_single_candidate_cds_coordinate():
+    # interval i is contained in interval j
     assert blast_engine.get_single_candidate_cds_coordinate(
         intv_i=P.open(10, 100),
         intv_j=P.open(15, 85)
     ) == (
         P.open(15, 85)
     )
+    # interval i overlaps interval j on the left
     assert blast_engine.get_single_candidate_cds_coordinate(
         intv_i=P.open(10, 50),
         intv_j=P.open(15, 55)
@@ -118,7 +120,16 @@ def test_resolve_overlaps_between_coordinates():
     assert blast_engine.resolve_overlaps_between_coordinates(
         sorted_cds_coordinates=test
     ) == res_b
-    pass
+
+    blast_engine.cds_overlapping_threshold = 0
+    res_c = [
+        P.open(0, 100),
+        P.open(200, 300),
+        P.open(600, 900)
+    ]
+    assert blast_engine.resolve_overlaps_between_coordinates(
+        sorted_cds_coordinates=test
+    ) == res_c
 
 
 def test_get_candidate_cds_coordinates():
