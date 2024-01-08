@@ -17,6 +17,7 @@ data_container = DataPreprocessor(
             genome_file_path='',
             genome_pickled_file_path='',
             debug_mode=False,
+            hard_masking=False,
             evalue_threshold=1e-5,
 )
 
