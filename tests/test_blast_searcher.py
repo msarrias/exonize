@@ -37,28 +37,39 @@ def test_get_overlap_percentage():
     # test no overlap
     assert blast_engine.get_overlap_percentage(
         intv_i=P.open(0, 1),
-        intv_j=P.open(2, 3)
+        intv_j=P.open(10, 100)
     ) == 0
     # test full overlap
     assert blast_engine.get_overlap_percentage(
-        intv_i=P.open(0, 1),
-        intv_j=P.open(0, 1)
+        intv_i=P.open(10, 100),
+        intv_j=P.open(10, 100)
     ) == 1
     # test partial overlap
     assert blast_engine.get_overlap_percentage(
-        intv_i=P.open(0, 3),
-        intv_j=P.open(2, 4)
-    ) == (3-2)/(4-2)
+        intv_i=P.open(10, 100),
+        intv_j=P.open(15, 85)
+    ) == (85-15)/(85-15)
 
     assert blast_engine.get_overlap_percentage(
-        intv_i=P.open(2, 4),
-        intv_j=P.open(0, 3)
-    ) == (3 - 2) / (3 - 0)
+        intv_i=P.open(15, 85),
+        intv_j=P.open(10, 100)
+    ) == (85 - 15) / (100 - 10)
     pass
 
 
-def test_get_shorter_longer_intervals():
-    pass
+def test_get_single_candidate_cds_coordinate():
+    assert blast_engine.get_single_candidate_cds_coordinate(
+        intv_i=P.open(10, 100),
+        intv_j=P.open(15, 85)
+    ) == (
+        P.open(15, 85)
+    )
+    assert blast_engine.get_single_candidate_cds_coordinate(
+        intv_i=P.open(10, 50),
+        intv_j=P.open(15, 55)
+    ) == (
+        P.open(10, 50)
+    )
 
 
 def test_compute_identity():
