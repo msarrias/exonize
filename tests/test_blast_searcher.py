@@ -72,6 +72,13 @@ def test_get_single_candidate_cds_coordinate():
     ) == (
         P.open(10, 50)
     )
+    # interval i overlaps interval j on the right
+    assert blast_engine.get_single_candidate_cds_coordinate(
+        intv_i=P.open(10, 55),
+        intv_j=P.open(45, 105)
+    ) == (
+               P.open(10, 55)
+           )
 
 
 def test_compute_identity():
