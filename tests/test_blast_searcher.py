@@ -91,32 +91,33 @@ def test_get_first_overlapping_intervals():
 
 
 def test_resolve_overlaps_between_coordinates():
-    # test = [
-    #     P.open(0, 1),
-    #     P.open(1, 3),
-    #     P.open(2, 3),
-    #     P.open(6, 9),
-    #     P.open(7, 20)
-    # ]
-    # res_a = [
-    #     P.open(0, 1),
-    #     P.open(2, 3),
-    #     P.open(6, 9),
-    #     P.open(7, 20)
-    # ]
-    # blast_engine.cds_overlapping_threshold = 0.9
-    # assert blast_engine.resolve_overlaps_coords_list(
-    #     sorted_cds_coordinates=test
-    # ) == res_a
-    # blast_engine.cds_overlapping_threshold = 0
-    # res_b = [
-    #     P.open(0, 1),
-    #     P.open(2, 3),
-    #     P.open(6, 9)
-    # ]
-    # assert blast_engine.resolve_overlaps_coords_list(
-    #     sorted_cds_coordinates=test
-    # ) == res_b
+    test = [
+        P.open(0, 100),
+        P.open(180, 300),
+        P.open(200, 300),
+        P.open(600, 900),
+        P.open(700, 2000)
+    ]
+    res_a = [
+        P.open(0, 100),
+        P.open(200, 300),
+        P.open(600, 900),
+        P.open(700, 2000)
+    ]
+    blast_engine.cds_overlapping_threshold = 0.8
+    assert blast_engine.resolve_overlaps_between_coordinates(
+        sorted_cds_coordinates=test
+    ) == res_a
+    blast_engine.cds_overlapping_threshold = 0.3
+    res_b = [
+        P.open(0, 100),
+        P.open(200, 300),
+        P.open(600, 900),
+        P.open(700, 2000)
+    ]
+    assert blast_engine.resolve_overlaps_between_coordinates(
+        sorted_cds_coordinates=test
+    ) == res_b
     pass
 
 
