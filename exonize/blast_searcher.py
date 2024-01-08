@@ -432,12 +432,12 @@ class BLASTsearcher(object):
             first_overlap_index += 1
         return None, None
 
-    def resolve_overlaps_coords_list(
+    def resolve_overlaps_between_coordinates(
             self,
             sorted_cds_coordinates: list[P.Interval],
     ) -> list[P.Interval]:
         """
-        resolve_overlaps_coords_list is a function that given a list of coordinates,
+        resolve_overlaps_between_coordinates is a function that given a list of coordinates,
         resolves overlaps according to the criteria described above.
         Since the pairs described in case b (get_candidate_cds_coordinates) are not
         considered to be overlapping, they are both included in the search.
@@ -463,7 +463,7 @@ class BLASTsearcher(object):
                 else:
                     new_list.append(shorter)
                     new_list.extend(sorted_cds_coordinates[idx + 2:])
-                    return self.resolve_overlaps_coords_list(
+                    return self.resolve_overlaps_between_coordinates(
                         sorted_cds_coordinates=new_list
                     )
         return sorted_cds_coordinates
@@ -510,7 +510,7 @@ class BLASTsearcher(object):
                 key=lambda coordinate: (coordinate.lower, coordinate.upper),
             )
             return dict(
-                set_coords=self.resolve_overlaps_coords_list(
+                set_coords=self.resolve_overlaps_between_coordinates(
                     sorted_cds_coordinates=sorted_cds_coordinates_list
                 ),
                 cds_frame_dict=representative_cds_frame_dictionary,
