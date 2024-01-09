@@ -21,6 +21,70 @@ data_container = DataPreprocessor(
             evalue_threshold=1e-5,
 )
 
+
+data_container.gene_hierarchy_dictionary = dict(
+    gene_1=dict(
+        coordinates=P.open(1, 10),
+        chrom='1',
+        strand='+',
+        mRNAs=dict(
+            transcript_1=dict(
+                coordinate=P.open(0, 127),
+                strand='+',
+                structure=[
+                    dict(
+                        id='CDS1_t1',
+                        coordinate=P.open(0, 127),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS2_t1',
+                        coordinate=P.open(4545, 4682),
+                        frame=2,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS3_t1',
+                        coordinate=P.open(6460, 6589),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS4_t1',
+                        coordinate=P.open(7311, 7442),
+                        frame=0,
+                        type='CDS'
+                    )
+                ]
+            ),
+            transcript_2=dict(
+                strand='+',
+                structure=[
+                    dict(
+                        id='CDS1_t2',
+                        coordinate=P.open(0, 127),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS2_t2',
+                        coordinate=P.open(6460, 6589),
+                        frame=2,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS3_t2',
+                        coordinate=P.open(7311, 7442),
+                        frame=2,
+                        type='CDS'
+                    )
+                ]
+            )
+        )
+    )
+)
+
 blast_engine = BLASTsearcher(
     data_container=data_container,
     masking_percentage_threshold=0.8,
@@ -77,8 +141,8 @@ def test_get_single_candidate_cds_coordinate():
         intv_i=P.open(10, 55),
         intv_j=P.open(45, 105)
     ) == (
-               P.open(10, 55)
-           )
+        P.open(10, 55)
+    )
 
 
 def test_compute_identity():
@@ -120,6 +184,7 @@ def test_get_first_overlapping_intervals():
 
 
 def test_resolve_overlaps_between_coordinates():
+    blast_engine.cds_overlapping_threshold = 0.8
     test = [
         P.open(0, 100),
         P.open(180, 300),
@@ -133,10 +198,10 @@ def test_resolve_overlaps_between_coordinates():
         P.open(600, 900),
         P.open(700, 2000)
     ]
-    blast_engine.cds_overlapping_threshold = 0.8
     assert blast_engine.resolve_overlaps_between_coordinates(
         sorted_cds_coordinates=test
     ) == res_a
+
     blast_engine.cds_overlapping_threshold = 0.3
     res_b = [
         P.open(0, 100),
@@ -160,7 +225,22 @@ def test_resolve_overlaps_between_coordinates():
 
 
 def test_get_candidate_cds_coordinates():
-    pass
+    res_a_i = {
+        P.open(0, 127): '0',
+        P.open(4545, 4682): '2',
+        P.open(6460, 6589): '0_2',
+        P.open(7311, 7442): '0_2'
+    }
+
+    res_a_ii = [
+        P.open(0, 127),
+        P.open(4545, 4682),
+        P.open(6460, 6589),
+        P.open(7311, 7442)
+    ]
+    blast_res_a = blast_engine.get_candidate_cds_coordinates('gene_1')
+    assert blast_res_a['cds_frame_dict'] == res_a_i
+    assert blast_res_a['candidates_cds_coordinates'] == res_a_ii
 
 
 def test_align_cds():
