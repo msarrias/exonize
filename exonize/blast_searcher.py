@@ -524,9 +524,9 @@ class BLASTsearcher(object):
             representative_cds_frame_dictionary = dict()
             for cds_coordinate, frame in cds_coordinates_and_frames:
                 if cds_coordinate in representative_cds_frame_dictionary:
-                    representative_cds_frame_dictionary[cds_coordinate]['frame'] += f'_{str(frame)}'
+                    representative_cds_frame_dictionary[cds_coordinate] += f'_{str(frame)}'
                 else:
-                    representative_cds_frame_dictionary[cds_coordinate] = {'frame': frame}
+                    representative_cds_frame_dictionary[cds_coordinate] = str(frame)
             sorted_cds_coordinates_list: list[P.Interval] = sorted(
                 [coordinate for coordinate, _ in cds_coordinates_and_frames],
                 key=lambda coordinate: (coordinate.lower, coordinate.upper),
@@ -685,7 +685,7 @@ class BLASTsearcher(object):
                         annotation_type='CDS'
                     )
                     if cds_dna_sequence:
-                        cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]['frame']
+                        cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
                         tblastx_o = self.align_cds(
                             gene_id=gene_id,
                             query_sequence=cds_dna_sequence,
@@ -810,11 +810,19 @@ class BLASTsearcher(object):
                 f'- sequences must have the same length.'
             )
 
-        return (self.compute_identity(sequence_i=query_dna_seq, sequence_j=target_dna_seq),
-                self.compute_identity(sequence_i=query_aln_prot_seq, sequence_j=target_aln_prot_seq),
-                query_dna_seq,
-                target_dna_seq,
-                fragment_id)
+        return (
+            self.compute_identity(
+                sequence_i=query_dna_seq,
+                sequence_j=target_dna_seq
+            ),
+            self.compute_identity(
+                sequence_i=query_aln_prot_seq,
+                sequence_j=target_aln_prot_seq
+            ),
+            query_dna_seq,
+            target_dna_seq,
+            fragment_id
+        )
 
     def get_identity_and_dna_seq_tuples(
             self,
