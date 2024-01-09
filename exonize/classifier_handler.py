@@ -81,14 +81,12 @@ class ClassifierHandler(object):
         and a CDS interval, returns a list of tuples with the following structure:
         (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
         interval.
+        The objective of this funcition is to identify the id of the cds coordinate
         Note:
-        - The set of representative CDS only contains information about
-        the coordinates of the CDSs, not their IDs.Hence,
-        if we find hits for a CDS, we need to identify the CDS in the gene transcript.
-        Recall that not all CDS are part of all transcripts (e.g. alternative splicing).
-        - Following the classification criteria described in
-        'get_candidate_cds_coordinates', we identify the query CDS described in
-        case a (get_candidate_cds_coordinates), i.e, when they are considerd to overlap.
+            - The set of representative CDS only contains information about
+              the coordinates of the CDSs, not their IDs. Hence,
+              if we find hits for a CDS, we need to identify the CDS in the gene transcript.
+            - Recall that not all CDS are part of all transcripts (e.g. alternative splicing).
         """
         return [(annotation['id'], annotation['coordinate'], int(annotation['frame']))
                 for annotation in transcript_dictionary['structure']
