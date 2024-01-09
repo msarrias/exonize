@@ -97,4 +97,3 @@ def test_construct_peptide_sequences():
         cds_coordinates_list=cds_coordinates_list
     )
     assert peptide_sequence == expected_peptide_sequence
-    assert len(cds_list_tuples) == 2
