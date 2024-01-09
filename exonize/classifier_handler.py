@@ -84,11 +84,11 @@ class ClassifierHandler(object):
                     self.blast_engine.get_overlap_percentage(
                         annotation['coordinate'],
                         cds_coordinate
-                    ) >= self.cds_overlapping_threshold,
+                    ) > self.cds_overlapping_threshold,
                     self.blast_engine.get_overlap_percentage(
                         cds_coordinate,
                         annotation['coordinate']
-                    ) >= self.cds_overlapping_threshold
+                    ) > self.cds_overlapping_threshold
                 ])
                 ]
 
