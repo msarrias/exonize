@@ -38,7 +38,10 @@ def test_construct_mrna_sequence():
         {"coordinate": P.open(0, 4)},
         {"coordinate": P.open(4, 8)}
     ]
-    expected_sequence = str(Seq("ATGCATGC").reverse_complement())
+    expected_sequence = Seq(
+        data_container.genome_dictionary["chr1"][4:8] +
+        data_container.genome_dictionary["chr1"][0:4]
+    ).reverse_complement()
     assert data_container.construct_mrna_sequence(
         chromosome="chr1",
         gene_strand="-",
@@ -73,4 +76,25 @@ def test_trim_sequence_to_codon_length():
 
 
 def test_construct_peptide_sequences():
-    pass
+    mrna_sequence = "ATGCATGCAT"  # Example mRNA sequence
+    cds_coordinates_list = [
+        {
+            "coordinate": P.open(0, 3),
+            "frame": 0,
+            "id": "CDS1"
+        },
+        {
+            "coordinate": P.open(3, 6),
+            "frame": 0,
+            "id": "CDS2"
+        }
+    ]
+    expected_peptide_sequence = "MH"  # Expected translation of ATGCATGCAT
+    peptide_sequence, cds_list_tuples = data_container.construct_peptide_sequences(
+        gene_id="gene1",
+        transcript_id="transcript1",
+        mrna_sequence=mrna_sequence,
+        cds_coordinates_list=cds_coordinates_list
+    )
+    assert peptide_sequence == expected_peptide_sequence
+    assert len(cds_list_tuples) == 2
