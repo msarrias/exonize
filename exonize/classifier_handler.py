@@ -18,6 +18,7 @@ class ClassifierHandler(object):
             cds_overlapping_threshold: float,
     ):
         self.data_container = blast_engine.data_container
+        self.blast_engine = blast_engine
         self.database_interface = blast_engine.database_interface
         self.cds_overlapping_threshold = cds_overlapping_threshold
 
@@ -32,20 +33,6 @@ class ClassifierHandler(object):
         self.__tuples_insertion_duplications = list()
         self.__tuples_truncation_events = list()
         self.__tuples_obligatory_events = list()
-
-    @staticmethod
-    def get_overlap_percentage(
-            intv_i: P.Interval,
-            intv_j: P.Interval,
-    ) -> float:
-        """
-        Given two intervals, the function get_overlap_percentage returns the percentage
-        of the overlapping region relative to an interval j.
-        """
-        intersection = intv_i & intv_j
-        if intersection:
-            return (intersection.upper - intersection.lower) / (intv_j.upper - intv_j.lower)
-        return 0
 
     def initialize_variables(
             self,
@@ -71,38 +58,21 @@ class ClassifierHandler(object):
         self.__tuples_obligatory_events = list()
         self.__tuples_truncation_events = list()
 
-    def get_candidate_query_cds(
-            self,
+    @staticmethod
+    def recover_query_cds(
             transcript_dictionary: dict,
-            cds_coordinate: P.Interval,
-    ) -> list:
+            query_coordinate: P.Interval,
+    ) -> Union[tuple, None]:
         """
-        get_candidate_query_cds is a function that given a transcript dictionary
-        and a CDS interval, returns a list of tuples with the following structure:
-        (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
-        interval.
-        The objective of this funcition is to identify the id of the cds coordinate
-        Note:
-            - The set of representative CDS only contains information about
-              the coordinates of the CDSs, not their IDs. Hence,
-              if we find hits for a CDS, we need to identify the CDS in the gene transcript.
-            - Recall that not all CDS are part of all transcripts (e.g. alternative splicing).
+        Find the CDS id in the transcript dictionary that matches the given coordinate.
+        :param transcript_dictionary: Dictionary containing CDS information.
+        :param query_coordinate: The coordinate to search for.
+        :return: The ID of the matching CDS or None if no match is found.
         """
-        return [(annotation['id'], annotation['coordinate'], int(annotation['frame']))
-                for annotation in transcript_dictionary['structure']
-                if annotation['type'] == 'CDS'
-                and all(
-                [
-                    self.get_overlap_percentage(
-                        annotation['coordinate'],
-                        cds_coordinate
-                    ) > self.cds_overlapping_threshold,
-                    self.get_overlap_percentage(
-                        cds_coordinate,
-                        annotation['coordinate']
-                    ) > self.cds_overlapping_threshold
-                ])
-                ]
+        for cds in transcript_dictionary["structure"]:
+            if cds["coordinate"] == query_coordinate and cds["type"] == "CDS":
+                return cds["id"], cds["coordinate"], cds["frame"]
+        return None
 
     def identify_query(
             self,
@@ -115,20 +85,19 @@ class ClassifierHandler(object):
         A transcript cannot have overlapping CDSs. If the query CDS overlaps
         with more than one CDS, the program exits.
         """
-        query_only = self.get_candidate_query_cds(
+        query_cds = self.recover_query_cds(
             transcript_dictionary=transcript_dictionary,
-            cds_coordinate=cds_coordinate
+            query_coordinate=cds_coordinate
         )
-        if len(query_only) > 1:
-            self.data_container.log.logger.error(
-                f'Overlapping query CDSs: {query_only}, '
-                f'please review your GFF3 file'
-            )
-            sys.exit()
-        elif query_only:
-            self.__query_cds, _, self.__query_cds_frame = query_only[0]
+        if query_cds:
+            self.__query_cds, _, self.__query_cds_frame = query_cds
             self.__query = 1
             self.__target_type = 'QUERY_ONLY'
+        else:
+            self.data_container.log.logger.error(
+                f'This shouldn\'t happen: {transcript_dictionary["structure"]}'
+            )
+            sys.exit()
 
     def target_out_of_mrna(
             self,
@@ -162,6 +131,53 @@ class ClassifierHandler(object):
                 return True
         return False
 
+    def find_overlapping_annotation(
+            self,
+            transcript_dictionary: dict,
+            cds_coordinate: P.Interval,
+    ) -> Union[tuple, None]:
+        """
+        find_overlapping_annotation is a function that given a transcript dictionary
+        and a CDS interval, returns a list of tuples with the following structure:
+        (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
+        interval.
+        Note:
+        - The set of representative CDS only contains information about
+        the coordinates of the CDSs, not their IDs.Hence,
+        if we find hits for a CDS, we need to identify the CDS in the gene transcript.
+        Recall that not all CDS are part of all transcripts (e.g. alternative splicing).
+        - Following the classification criteria described in
+        'get_candidate_cds_coordinates', we identify the query CDS described in
+        case a (get_candidate_cds_coordinates), i.e, when they are considerd to overlap.
+        """
+        overlaps = [
+            (
+                self.blast_engine.get_average_overlap_percentage(
+                    intv_i=annotation['coordinate'],
+                    intv_j=cds_coordinate
+                ),
+                (annotation['id'], annotation['coordinate'], int(annotation['frame']))
+            )
+            for annotation in transcript_dictionary['structure']
+            if annotation['type'] == 'CDS'
+            and self.blast_engine.get_overlap_percentage(
+                intv_i=annotation['coordinate'],
+                intv_j=cds_coordinate
+            ) > self.cds_overlapping_threshold
+            and self.blast_engine.get_overlap_percentage(
+                intv_i=cds_coordinate,
+                intv_j=annotation['coordinate']
+            ) > self.cds_overlapping_threshold
+        ]
+
+        if not overlaps:
+            return None
+
+        # Find the tuple with the maximum average overlap
+        _, best_matching_cds = max(overlaps, key=lambda x: x[0])
+
+        return best_matching_cds
+
     def indetify_full_target(
             self,
             transcript_dictionary: dict[dict],
@@ -172,17 +188,12 @@ class ClassifierHandler(object):
         hits that are full-length duplications as described
         in self.get_candidate_query_cds
         """
-        target_only = self.get_candidate_query_cds(
+        target_only = self.find_overlapping_annotation(
             transcript_dictionary=transcript_dictionary,
             cds_coordinate=target_coordinate
         )
-        if len(target_only) > 1:
-            self.data_container.log.logger.error(
-                f'overlapping target CDSs: {target_only}'
-            )
-            sys.exit()
-        elif target_only:
-            self.__target_cds, target_cds_coordinate, self.__target_cds_frame = target_only[0]
+        if target_only:
+            self.__target_cds, target_cds_coordinate, self.__target_cds_frame = target_only
             self.__target_full = 1
             self.__found = True
             self.__target_type = "FULL"
@@ -192,13 +203,17 @@ class ClassifierHandler(object):
     @staticmethod
     def filter_structure_by_interval_and_type(
             structure: dict,
-            t_intv_: P.Interval,
+            target_interval: P.Interval,
             annot_type: str
-    ) -> list:
-        return [(i['id'], i['coordinate']) for i in structure
-                if (i['coordinate'].contains(t_intv_)
-                    and annot_type in i['type'])
-                ]
+    ) -> tuple:
+        candidates = [
+            (annotation['id'], annotation['coordinate'])
+            for annotation in structure
+            if (annotation['coordinate'].contains(target_interval)
+                and annot_type == annotation['type'])
+        ]
+        assert len(candidates) <= 1
+        return candidates[0]
 
     def indentify_insertion_target(
             self,
@@ -212,39 +227,42 @@ class ClassifierHandler(object):
         - DEACTIVATED: if the insertion is in an intron
         """
 
-        insertion_CDS_ = self.filter_structure_by_interval_and_type(
+        insertion_cds = self.filter_structure_by_interval_and_type(
             structure=transcript_dictionary['structure'],
             t_intv_=target_coordinate,
             annot_type='CDS'
         )
-        if insertion_CDS_:
-            self.__target_cds, t_CDS_coord_ = insertion_CDS_[0]
+        if insertion_cds:
+            self.__target_cds, target_cds_coordinate = insertion_cds
             self.__target_insertion = 1
             self.__target_type = "INS_CDS"
             self.__found = True
-            self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+            self.__annot_target_start = target_cds_coordinate.lower
+            self.__annot_target_end = target_cds_coordinate.upper
         else:
-            insertion_UTR_ = self.filter_structure_by_interval_and_type(
+            insertion_utr = self.filter_structure_by_interval_and_type(
                 structure=transcript_dictionary['structure'],
                 t_intv_=target_coordinate,
                 annot_type='UTR'
             )
-            if insertion_UTR_:
-                self.__target_cds, t_CDS_coord_ = insertion_UTR_[0]
+            if insertion_utr:
+                self.__target_cds, target_cds_coordinate = insertion_utr
                 self.__target_type = "INS_UTR"
                 self.__found = True
-                self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+                self.__annot_target_start = target_cds_coordinate.lower
+                self.__annot_target_end = target_cds_coordinate.upper
             else:
-                insertion_intron_ = self.filter_structure_by_interval_and_type(
+                insertion_intron = self.filter_structure_by_interval_and_type(
                     structure=transcript_dictionary['structure'],
                     t_intv_=target_coordinate,
                     annot_type='intron'
                 )
-                if insertion_intron_:
-                    self.__target_cds, t_CDS_coord_ = insertion_intron_[0]
+                if insertion_intron:
+                    self.__target_cds, target_cds_coordinate = insertion_intron
                     self.__target_type = "DEACTIVATED"
                     self.__found = True
-                    self.__annot_target_start, self.__annot_target_end = t_CDS_coord_.lower, t_CDS_coord_.upper
+                    self.__annot_target_start = target_cds_coordinate.lower
+                    self.__annot_target_end = target_cds_coordinate.upper
 
     def indentify_truncation_target(
             self,
@@ -255,7 +273,8 @@ class ClassifierHandler(object):
         """
         Identifies tblastx hits that are truncation duplications.
         These are hits that span across more than one annotation
-        in the transcript architecture. We record a line per annotation that is truncated.
+        in the transcript architecture. We record a line per annotation
+        that is truncated.
         """
         (fragment_id, gene_id, gene_start,
          _, cds_start, cds_end, query_start, query_end,
@@ -275,7 +294,8 @@ class ClassifierHandler(object):
                 coord_b = value['coordinate']
                 self.__tuples_truncation_events.append((
                     fragment_id, gene_id, mrna_id,
-                    transcript_dictionary['coordinate'].lower, transcript_dictionary['coordinate'].upper,
+                    transcript_dictionary['coordinate'].lower,
+                    transcript_dictionary['coordinate'].upper,
                     self.__query_cds, cds_start, cds_end, query_start, query_end,
                     target_start, target_end, value['id'], value['type'],
                     coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper)
