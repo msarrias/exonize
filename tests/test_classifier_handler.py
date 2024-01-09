@@ -19,53 +19,43 @@ classifier_handler = ClassifierHandler(
 )
 
 
-def test_get_candidate_query_cds():
+def test_recover_query_cds():
     transcript_dictionary = {
         "structure": [
-            {"id": "CDS1", "coordinate": P.open(0, 100), "frame": "0", "type": "CDS"},
+            {"id": "CDS1", "coordinate": P.open(74, 123), "frame": "0", "type": "CDS"},
             {"id": "CDS2", "coordinate": P.open(50, 150), "frame": "0", "type": "CDS"},
             {"id": "CDS3", "coordinate": P.open(200, 300), "frame": "0", "type": "CDS"},
             {"id": "CDS4", "coordinate": P.open(76, 123), "frame": "0", "type": "CDS"}
         ]
     }
-    cds_coordinate = P.open(75, 125)
-    classifier_handler.cds_overlapping_threshold = 0.9
-    overlapping_annotations = classifier_handler.find_overlapping_annotations(
+    cds_coordinate = P.open(76, 123)
+    cds_annot = classifier_handler.recover_query_cds(
+        transcript_dictionary=transcript_dictionary,
+        query_coordinate=cds_coordinate
+    )
+    assert cds_annot == ('CDS4', P.open(76, 123), '0')
+
+
+def test_find_overlapping_annotation():
+    classifier_handler.cds_overlapping_threshold = 0.6
+
+    # Example transcript dictionary and CDS coordinate
+    transcript_dictionary = {
+        "structure": [
+            {"id": "CDS1", "coordinate": P.open(0, 100), "frame": "0", "type": "CDS"},
+            {"id": "CDS2", "coordinate": P.open(48, 150), "frame": "0", "type": "CDS"},
+            {"id": "CDS2", "coordinate": P.open(50, 150), "frame": "0", "type": "CDS"},
+            {"id": "CDS3", "coordinate": P.open(200, 300), "frame": "0", "type": "CDS"}
+        ]
+    }
+    cds_coordinate = P.open(50, 125)
+    best_matching_cds = classifier_handler.find_overlapping_annotation(
         transcript_dictionary=transcript_dictionary,
         cds_coordinate=cds_coordinate
     )
-    expected_overlapping_annotations = [
-        ("CDS4", P.open(76, 123), 0)
-    ]
-    assert overlapping_annotations == expected_overlapping_annotations
-
-    classifier_handler.cds_overlapping_threshold = 0.0
-    overlapping_annotations = classifier_handler.find_overlapping_annotations(
-        transcript_dictionary=transcript_dictionary,
-        cds_coordinate=cds_coordinate
-    )
-    expected_overlapping_annotations = [
-        ("CDS1", P.open(0, 100), 0),
-        ("CDS2", P.open(50, 150), 0),
-        ("CDS4", P.open(76, 123), 0)
-    ]
-    assert overlapping_annotations == expected_overlapping_annotations
-
-
-def test_identify_query():
-    pass
-
-
-def test_target_out_of_mrna():
-    pass
-
-
-def test_indetify_full_target():
-    pass
-
-
-def test_filter_structure_by_interval_and_type():
-    pass
+    # Expected result
+    expected_result = ("CDS2", P.open(50, 150), 0)
+    assert best_matching_cds == expected_result
 
 
 def test_indentify_insertion_target():
