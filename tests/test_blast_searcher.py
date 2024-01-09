@@ -268,8 +268,11 @@ def test_align_cds():
     pass
 
 
-def check_for_masking():
-    pass
+def test_calculate_masking_percentage():
+    assert blast_engine.calculate_masking_percentage("NNNN") == 1.0
+    assert blast_engine.calculate_masking_percentage("NNNACGT") == 0.429
+    assert blast_engine.calculate_masking_percentage("ACGTNNNN") == 0.5
+    assert blast_engine.calculate_masking_percentage("ACGT") == 0.0
 
 
 def test_fetch_dna_sequence():
