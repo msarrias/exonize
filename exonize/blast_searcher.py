@@ -532,7 +532,7 @@ class BLASTsearcher(object):
                 key=lambda coordinate: (coordinate.lower, coordinate.upper),
             )
             return dict(
-                set_coords=self.resolve_overlaps_between_coordinates(
+                candidates_cds_coordinates=self.resolve_overlaps_between_coordinates(
                     sorted_cds_coordinates=sorted_cds_coordinates_list
                 ),
                 cds_frame_dict=representative_cds_frame_dictionary,
@@ -673,7 +673,9 @@ class BLASTsearcher(object):
         if gene_dna_sequence:
             cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
             if cds_coordinates_dictionary:
-                for cds_coordinate in cds_coordinates_dictionary['set_coords']:
+                for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
+                    # note that we are not accounting for the frame at this stage, that will be part of
+                    # the filtering step (since tblastx alignments account for the 6 frames)
                     temp_dna_cds_sequence = str(
                         Seq(self.data_container.genome_dictionary[chromosome][cds_coordinate.lower:cds_coordinate.upper])
                     )
