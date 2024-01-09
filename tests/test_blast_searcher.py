@@ -246,10 +246,6 @@ def test_get_candidate_cds_coordinates():
     assert blast_res_a['candidates_cds_coordinates'] == res_a_ii
 
 
-def test_align_cds():
-    pass
-
-
 def test_calculate_masking_percentage():
     assert blast_engine.calculate_masking_percentage("NNNN") == 1.0
     assert blast_engine.calculate_masking_percentage("NNNACGT") == 0.429
