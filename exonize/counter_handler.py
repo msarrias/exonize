@@ -21,14 +21,6 @@ class CounterHandler(object):
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
 
-    def get_average_overlap_percentage(
-            self,
-            intv_a: P.Interval,
-            intv_b: P.Interval
-    ) -> float:
-        return sum([self.blast_engine.get_overlap_percentage(intv_a, intv_b),
-                    self.blast_engine.get_overlap_percentage(intv_b, intv_a)]) / 2
-
     def get_shorter_intv_overlapping_percentage(
             self,
             a: P.Interval,
@@ -49,16 +41,26 @@ class CounterHandler(object):
     ) -> P.Interval:
         cand_ref = [query_intv for query_intv in coordinates
                     if all(
-                        self.get_average_overlap_percentage(query_intv, intv_i) >= self.cds_overlapping_threshold
-                        for intv_i, _ in intv_list
-                    )]
+                            self.blast_engine.get_average_overlap_percentage(
+                                intv_i=query_intv,
+                                intv_j=intv_i
+                            ) > self.cds_overlapping_threshold
+                            for intv_i, _ in intv_list
+                            )
+                    ]
         if len(cand_ref) == 1:
             return cand_ref[0]
         elif cand_ref:
             cand_ref = [(cand_ref_intv,
-                         sum([self.get_average_overlap_percentage(cand_ref_intv, intv_i)
-                              for intv_i, _ in intv_list]) / len(intv_list))
-                        for cand_ref_intv in cand_ref]
+                         sum([
+                             self.blast_engine.get_average_overlap_percentage(
+                                 intv_i=cand_ref_intv,
+                                 intv_j=intv_i
+                             )
+                             for intv_i, _ in intv_list
+                         ]) / len(intv_list))
+                        for cand_ref_intv in cand_ref
+                        ]
             return max(cand_ref, key=lambda x: x[1])[0]
         return P.open(0, 0)
 
