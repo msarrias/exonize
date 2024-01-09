@@ -103,6 +103,7 @@ class Exonize(object):
             genome_file_path=self.genome_file_path,
             genome_pickled_file_path=self.genome_pickled_file_path,
             debug_mode=self.DEBUG_MODE,
+            hard_masking=self.HARD_MASKING,
             evalue_threshold=evalue_threshold
         )
 
