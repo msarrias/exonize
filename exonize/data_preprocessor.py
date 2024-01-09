@@ -42,8 +42,8 @@ class DataPreprocessor(object):
         self.database_features = None
         self.old_filename = None
         self.genome_database = None
-        self.genome_dictionary = None
-        self.gene_hierarchy_dictionary = None
+        self.genome_dictionary = dict()
+        self.gene_hierarchy_dictionary = dict()
 
         # Derived attributes that depend on initial parameters
         self.genome_database_path = os.path.join(
@@ -272,23 +272,31 @@ class DataPreprocessor(object):
             mrna_sequence += cds_sequence
         return mrna_sequence
 
-    def check_for_overhangs(
-            self,
+    @staticmethod
+    def trim_sequence_to_codon_length(
             sequence: str,
-            cds_idx: int,
-            CDSs_count: int,
+            is_final_cds: bool,
             gene_id: str,
-            transcript_id: str,
+            transcript_id: str
     ) -> str:
+        """
+        Trim the sequence to ensure its length is a multiple of 3.
+        If it's not the final CDS and an overhang is present, an exception is raised.
+
+        :param sequence: The DNA sequence to be checked.
+        :param is_final_cds: Boolean indicating if this is the final CDS in the sequence.
+        :param gene_id: The gene ID.
+        :param transcript_id: The transcript ID.
+        :return: Trimmed sequence or the original sequence if no trimming is needed.
+        """
         overhang = len(sequence) % 3
-        if overhang:
-            if cds_idx == (CDSs_count - 1):
-                sequence = sequence[:-overhang]
-            else:
-                self.environment.logger.error(
-                    f'check here: {gene_id}, {transcript_id}'
-                )
-                sys.exit()
+        if overhang and is_final_cds:
+            return sequence[:-overhang]
+        elif overhang:
+            raise ValueError(
+                f' {gene_id}, {transcript_id}, non-final CDS has an overhang:'
+                f' {len(sequence)} is not divisible by 3'
+            )
         return sequence
 
     def construct_peptide_sequences(
@@ -332,7 +340,7 @@ class DataPreprocessor(object):
         """
         mrna_peptide_sequence = ''
         start_coord = 0
-        n_coords = len(cds_coordinates_list)
+        n_coords = len(cds_coordinates_list) - 1
         cds_list_tuples = list()
 
         for coord_idx, cds_dictionary in enumerate(cds_coordinates_list):
@@ -342,14 +350,13 @@ class DataPreprocessor(object):
             len_coord = end - start
             frame_next_cds = 0
             end_coord = len_coord + start_coord
-            if coord_idx != len(cds_coordinates_list) - 1:
+            if coord_idx != n_coords:
                 frame_next_cds = int(cds_coordinates_list[coord_idx + 1]['frame'])
-            cds_dna_sequence = self.check_for_overhangs(
+            cds_dna_sequence = self.trim_sequence_to_codon_length(
                 sequence=mrna_sequence[start_coord + frame_cds:  end_coord + frame_next_cds],
-                cds_idx=coord_idx,
-                CDSs_count=n_coords,
+                is_final_cds=coord_idx == n_coords,
                 gene_id=gene_id,
-                transcript_id=transcript_id,
+                transcript_id=transcript_id
             )
             cds_peptide_sequence = str(Seq(cds_dna_sequence).translate())
             mrna_peptide_sequence += cds_peptide_sequence
@@ -409,7 +416,6 @@ class DataPreprocessor(object):
         self.environment.logger.info(
             "Fetching gene-hierarchy data and writing protein database"
         )
-        self.gene_hierarchy_dictionary = dict()
         for gene in self.genome_database.features_of_type('gene'):
             mrna_transcripts = [
                 mrna_transcript for mrna_transcript
