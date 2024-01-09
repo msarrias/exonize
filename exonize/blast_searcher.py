@@ -710,7 +710,7 @@ class BLASTsearcher(object):
         temp_gene_sequence = str(
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
-        gene_dna_sequence = self.check_for_masking(
+        gene_dna_sequence = self.decide_action_based_on_masking(
             chromosome=chromosome,
             gene_id=gene_id,
             sequence=temp_gene_sequence,
@@ -726,7 +726,7 @@ class BLASTsearcher(object):
                     temp_dna_cds_sequence = str(
                         Seq(self.data_container.genome_dictionary[chromosome][cds_coordinate.lower:cds_coordinate.upper])
                     )
-                    cds_dna_sequence = self.check_for_masking(
+                    cds_dna_sequence = self.decide_action_based_on_masking(
                         chromosome=chromosome,
                         gene_id=gene_id,
                         sequence=temp_dna_cds_sequence,
