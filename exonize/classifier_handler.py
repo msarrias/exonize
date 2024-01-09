@@ -89,15 +89,11 @@ class ClassifierHandler(object):
             transcript_dictionary=transcript_dictionary,
             query_coordinate=cds_coordinate
         )
+        # if the cds belongs to the transcript
         if query_cds:
             self.__query_cds, _, self.__query_cds_frame = query_cds
             self.__query = 1
             self.__target_type = 'QUERY_ONLY'
-        else:
-            self.data_container.log.logger.error(
-                f'This shouldn\'t happen: {transcript_dictionary["structure"]}'
-            )
-            sys.exit()
 
     def target_out_of_mrna(
             self,
@@ -200,21 +196,6 @@ class ClassifierHandler(object):
             self.__annot_target_start = target_cds_coordinate.lower
             self.__annot_target_end = target_cds_coordinate.upper
 
-    @staticmethod
-    def filter_structure_by_interval_and_type(
-            structure: dict,
-            target_interval: P.Interval,
-            annot_type: str
-    ) -> tuple:
-        candidates = [
-            (annotation['id'], annotation['coordinate'])
-            for annotation in structure
-            if (annotation['coordinate'].contains(target_interval)
-                and annot_type == annotation['type'])
-        ]
-        assert len(candidates) <= 1
-        return candidates[0]
-
     def indentify_insertion_target(
             self,
             transcript_dictionary: dict,
@@ -226,43 +207,26 @@ class ClassifierHandler(object):
         - INS_UTR: if the insertion is in an untralated region
         - DEACTIVATED: if the insertion is in an intron
         """
+        overlapping_annotations = [
+            (annotation['id'], annotation['coordinate'], annotation['type'])
+            for annotation in transcript_dictionary['structure']
+            if annotation['coordinate'].contains(target_coordinate)
+        ]
 
-        insertion_cds = self.filter_structure_by_interval_and_type(
-            structure=transcript_dictionary['structure'],
-            t_intv_=target_coordinate,
-            annot_type='CDS'
-        )
-        if insertion_cds:
-            self.__target_cds, target_cds_coordinate = insertion_cds
-            self.__target_insertion = 1
-            self.__target_type = "INS_CDS"
+        # Determine the type of the hit based on the filtered annotations
+        if overlapping_annotations:
+            self.__target_cds, target_cds_coordinate, annot_type = overlapping_annotations[0]
             self.__found = True
             self.__annot_target_start = target_cds_coordinate.lower
             self.__annot_target_end = target_cds_coordinate.upper
-        else:
-            insertion_utr = self.filter_structure_by_interval_and_type(
-                structure=transcript_dictionary['structure'],
-                t_intv_=target_coordinate,
-                annot_type='UTR'
-            )
-            if insertion_utr:
-                self.__target_cds, target_cds_coordinate = insertion_utr
+
+            if annot_type == 'CDS':
+                self.__target_insertion = 1
+                self.__target_type = "INS_CDS"
+            elif annot_type == 'UTR':
                 self.__target_type = "INS_UTR"
-                self.__found = True
-                self.__annot_target_start = target_cds_coordinate.lower
-                self.__annot_target_end = target_cds_coordinate.upper
-            else:
-                insertion_intron = self.filter_structure_by_interval_and_type(
-                    structure=transcript_dictionary['structure'],
-                    t_intv_=target_coordinate,
-                    annot_type='intron'
-                )
-                if insertion_intron:
-                    self.__target_cds, target_cds_coordinate = insertion_intron
-                    self.__target_type = "DEACTIVATED"
-                    self.__found = True
-                    self.__annot_target_start = target_cds_coordinate.lower
-                    self.__annot_target_end = target_cds_coordinate.upper
+            else:  # assuming the only other type is 'intron'
+                self.__target_type = "DEACTIVATED"
 
     def indentify_truncation_target(
             self,
@@ -290,15 +254,19 @@ class ClassifierHandler(object):
             self.__target_cds = None
             self.__annot_target_start = None
             self.__annot_target_end = None
-            for seg_b, value in coordinate_dictionary.items():
-                coord_b = value['coordinate']
-                self.__tuples_truncation_events.append((
-                    fragment_id, gene_id, mrna_id,
-                    transcript_dictionary['coordinate'].lower,
-                    transcript_dictionary['coordinate'].upper,
-                    self.__query_cds, cds_start, cds_end, query_start, query_end,
-                    target_start, target_end, value['id'], value['type'],
-                    coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper)
+            for seg_b, annotation_dictionary in coordinate_dictionary.items():
+                coord_b = annotation_dictionary['coordinate']
+                self.__tuples_truncation_events.append(
+                    (
+                        fragment_id, gene_id, mrna_id,
+                        transcript_dictionary['coordinate'].lower,
+                        transcript_dictionary['coordinate'].upper,
+                        self.__query_cds, cds_start, cds_end, query_start, query_end,
+                        target_start, target_end,
+                        annotation_dictionary['id'],
+                        annotation_dictionary['type'],
+                        coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper
+                    )
                 )
 
     def identify_obligate_pair(
