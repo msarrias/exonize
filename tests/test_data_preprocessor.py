@@ -1,5 +1,7 @@
 from exonize.data_preprocessor import DataPreprocessor
 from unittest.mock import Mock
+import pytest
+from Bio.Seq import Seq
 import portion as P
 
 data_container = DataPreprocessor(
@@ -16,79 +18,58 @@ data_container = DataPreprocessor(
 )
 
 data_container.genome_dictionary = {
-    '1': 'TAAAATCTAGACAGAAGCATTCTCAGAAACTTCTTTGTGCTGTATGTCCTCAATTAACAG',
-    '2': 'AGTTGAACCTTTGTTTCGATACAGCATTTTGGAAACATTCCTTTAGTAGAATCTGCAAGT'
-}
-
-data_container.gene_hierarchy_dictionary = dict(
-    gene_1=dict(
-        coordinates=P.open(1, 10),
-        chrom='1',
-        strand='+',
-        mRNAs=dict(
-            transcript_1=dict(
-                coordinate=P.open(0, 127),
-                strand='+',
-                structure=[
-                    dict(
-                        id='CDS1_t1',
-                        coordinate=P.open(0, 127),
-                        frame=0,
-                        type='CDS'
-                    ),
-                    dict(
-                        id='CDS2_t1',
-                        coordinate=P.open(4545, 4682),
-                        frame=2,
-                        type='CDS'
-                    ),
-                    dict(
-                        id='CDS3_t1',
-                        coordinate=P.open(6460, 6589),
-                        frame=0,
-                        type='CDS'
-                    ),
-                    dict(
-                        id='CDS4_t1',
-                        coordinate=P.open(7311, 7442),
-                        frame=0,
-                        type='CDS'
-                    )
-                ]
-            ),
-            transcript_2=dict(
-                structure=[
-                    dict(
-                        id='CDS1_t2',
-                        coordinate=P.open(0, 127),
-                        frame=0,
-                        type='CDS'
-                    ),
-                    dict(
-                        id='CDS2_t2',
-                        coordinate=P.open(6460, 6589),
-                        frame=2,
-                        type='CDS'
-                    ),
-                    dict(
-                        id='CDS3_t2',
-                        coordinate=P.open(7311, 7442),
-                        frame=2,
-                        type='CDS'
-                    )
-                ]
-            )
-        )
-    )
-)
+        "chr1": "ATGC" * 100  # Simulate a genome sequence for testing
+    }
 
 
 def test_construct_mrna_sequence():
-    pass
+    cds_coordinates_list = [
+        {"coordinate": P.open(0, 4)},
+        {"coordinate": P.open(4, 8)}
+    ]
+    expected_sequence = "ATGCATGC"
+    assert data_container.construct_mrna_sequence(
+        chromosome="chr1",
+        gene_strand="+",
+        cds_coordinates_list=cds_coordinates_list
+    ) == expected_sequence
+    # Test case for negative strand
+    cds_coordinates_list = [
+        {"coordinate": P.open(0, 4)},
+        {"coordinate": P.open(4, 8)}
+    ]
+    expected_sequence = str(Seq("ATGCATGC").reverse_complement())
+    assert data_container.construct_mrna_sequence(
+        chromosome="chr1",
+        gene_strand="-",
+        cds_coordinates_list=cds_coordinates_list
+    ) == expected_sequence
 
 
-def test_check_for_overhangs():
-    pass
+def test_trim_sequence_to_codon_length():
+    sequence = "ATGCATGCAT"  # Length 10, 1 overhang
+    expected_trimmed_sequence = "ATGCATGCA"  # trim 1 base
+    assert data_container.trim_sequence_to_codon_length(
+        sequence=sequence,
+        is_final_cds=True,
+        gene_id='gene_1',
+        transcript_id='t_1'
+    ) == expected_trimmed_sequence
+    with pytest.raises(ValueError):
+        data_container.trim_sequence_to_codon_length(
+            sequence=sequence,
+            is_final_cds=False,
+            gene_id='gene_1',
+            transcript_id='t_1'
+        )
+
+    sequence = "ATGCATGCA"  # Length 9, 0 overhang
+    expected_trimmed_sequence = "ATGCATGCA"  # no trimming
+    assert data_container.trim_sequence_to_codon_length(
+        sequence=sequence,
+        is_final_cds=True,
+        gene_id='gene_1',
+        transcript_id='t_1') == expected_trimmed_sequence
 
 
 def test_construct_peptide_sequences():
