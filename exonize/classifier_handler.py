@@ -33,6 +33,20 @@ class ClassifierHandler(object):
         self.__tuples_truncation_events = list()
         self.__tuples_obligatory_events = list()
 
+    @staticmethod
+    def get_overlap_percentage(
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+    ) -> float:
+        """
+        Given two intervals, the function get_overlap_percentage returns the percentage
+        of the overlapping region relative to an interval j.
+        """
+        intersection = intv_i & intv_j
+        if intersection:
+            return (intersection.upper - intersection.lower) / (intv_j.upper - intv_j.lower)
+        return 0
+
     def initialize_variables(
             self,
     ) -> None:
@@ -81,11 +95,11 @@ class ClassifierHandler(object):
                 if annotation['type'] == 'CDS'
                 and all(
                 [
-                    self.blast_engine.get_overlap_percentage(
+                    self.get_overlap_percentage(
                         annotation['coordinate'],
                         cds_coordinate
                     ) > self.cds_overlapping_threshold,
-                    self.blast_engine.get_overlap_percentage(
+                    self.get_overlap_percentage(
                         cds_coordinate,
                         annotation['coordinate']
                     ) > self.cds_overlapping_threshold
