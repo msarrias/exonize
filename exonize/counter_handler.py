@@ -34,34 +34,40 @@ class CounterHandler(object):
         shorter, longer = self.blast_engine.get_shorter_longer_interv(a, b)
         return self.blast_engine.get_overlap_percentage(longer, shorter)
 
+    @staticmethod
+    def compute_average(
+            a_list: list
+    ) -> float:
+        return sum(a_list) / len(a_list)
+
     def get_candidate_reference_dictionary(
             self,
-            coordinates: list[P.Interval],
-            intv_list: list[tuple[P.Interval, float]]
+            cds_coordinates_list: list[P.Interval],
+            overlapping_coordinates_list: list[tuple[P.Interval, float]]
     ) -> P.Interval:
-        cand_ref = [query_intv for query_intv in coordinates
-                    if all(
-                            self.blast_engine.get_average_overlap_percentage(
-                                intv_i=query_intv,
-                                intv_j=intv_i
-                            ) > self.cds_overlapping_threshold
-                            for intv_i, _ in intv_list
-                            )
-                    ]
-        if len(cand_ref) == 1:
-            return cand_ref[0]
-        elif cand_ref:
-            cand_ref = [(cand_ref_intv,
-                         sum([
-                             self.blast_engine.get_average_overlap_percentage(
-                                 intv_i=cand_ref_intv,
-                                 intv_j=intv_i
-                             )
-                             for intv_i, _ in intv_list
-                         ]) / len(intv_list))
-                        for cand_ref_intv in cand_ref
-                        ]
-            return max(cand_ref, key=lambda x: x[1])[0]
+        cand_reference_list = [
+            (cds_coordinate,
+             self.compute_average(
+                 a_list=[
+                     self.blast_engine.get_average_overlap_percentage(
+                         intv_i=cds_coordinate,
+                         intv_j=target_coordinate
+                     )
+                     for target_coordinate, _ in overlapping_coordinates_list]
+             )
+             ) for cds_coordinate in cds_coordinates_list
+            if all([
+                self.blast_engine.get_average_overlap_percentage(
+                    intv_i=cds_coordinate,
+                    intv_j=target_coordinate) > self.cds_overlapping_threshold
+                and
+                self.blast_engine.get_average_overlap_percentage(
+                    intv_i=target_coordinate,
+                    intv_j=cds_coordinate) > self.cds_overlapping_threshold
+                for target_coordinate, _ in overlapping_coordinates_list])
+        ]
+        if cand_reference_list:
+            return max(cand_reference_list, key=lambda x: x[1])[0]
         return P.open(0, 0)
 
     def overlap_condition(
@@ -79,13 +85,14 @@ class CounterHandler(object):
             threshold: float,
     ) -> list[list[tuple]]:
         overlapping_targets_list, skip_events = list(), list()
-        for coord, evalue in coordinates_set:
-            if coord not in skip_events:
-                temp = [(i, i_evalue) for i, i_evalue in coordinates_set
-                        if self.overlap_condition(coordinate=coord,
-                                                  x=i,
-                                                  threshold=threshold
-                                                  )
+        for coordinate, evalue in coordinates_set:
+            if coordinate not in skip_events:
+                temp = [(coordinate_j, i_evalue) for coordinate_j, i_evalue in coordinates_set
+                        if self.overlap_condition(
+                            coordinate=coordinate,
+                            x=coordinate_j,
+                            threshold=threshold
+                            )
                         ]
                 if temp:
                     skip_events.extend([coord, *[i for i, _ in temp]])
@@ -105,30 +112,28 @@ class CounterHandler(object):
         # this dictionary should be for finding CDS reference and intron reference.
         # This should be applied to the clusters.
         ref_dict = dict()
-        for intv_list in overlapping_targets_list:
+        for overlapping_coordinates_list in overlapping_targets_list:
             # First: let's look for targets overlapping with a CDS
-            sorted_CDS_coords_list = sorted(cds_candidates_dictionary['set_coords'],
-                                            key=lambda x: (x.lower, x.upper))
             cand_ref = self.get_candidate_reference_dictionary(
-                coordinates=sorted_CDS_coords_list,
-                intv_list=intv_list
+                cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
+                overlapping_coordinates_list=overlapping_coordinates_list
             )
             if cand_ref:
-                for intv_i, _ in intv_list:
+                for intv_i, _ in overlapping_coordinates_list:
                     ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
             # Second: let's look for targets overlapping with introns
             if all(not target_intv.overlaps(cds_intv)
-                   for cds_intv in sorted_CDS_coords_list
-                   for target_intv, _ in intv_list):
-                cand_ref = min(intv_list, key=lambda x: x[1])[0]
-                for intv_i, _ in intv_list:
+                   for cds_intv in sorted_cds_coordinates_list
+                   for target_intv, _ in overlapping_coordinates_list):
+                cand_ref = min(overlapping_coordinates_list, key=lambda x: x[1])[0]
+                for intv_i, _ in overlapping_coordinates_list:
                     ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
             # if there is no shared reference, we take it separetly
             elif not cand_ref:
-                for intv_i, i_evalue in intv_list:
+                for intv_i, i_evalue in overlapping_coordinates_list:
                     cand_ref = self.get_candidate_reference_dictionary(
-                        coordinates=sorted_CDS_coords_list,
-                        intv_list=[(intv_i, i_evalue)]
+                        cds_coordinates_list=sorted_cds_coordinates_list,
+                        overlapping_coordinates_list=[(intv_i, i_evalue)]
                     )
                     if cand_ref:
                         ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
@@ -225,16 +230,19 @@ class CounterHandler(object):
         for gene_id, records in full_matches_dict.items():
             gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
             cds_candidates = self.blast_engine.get_candidate_cds_coordinates(gene_id=gene_id)
-            cds_candidates['set_coords'] = set([
-                P.open(i.lower - gene_start, i.upper - gene_start)
-                for i in cds_candidates['set_coords']
-            ])
-            query_coordinates = set([
-                P.open(record[2], record[3])
-                for record in records])
-            target_coordinates = set([
-                (P.open(record[4], record[5]), record[-2])
-                for record in records])
+            # center cds coordinates to gene start
+            cds_candidates['candidates_cds_coordinates'] = sorted(
+                list(set([
+                    P.open(i.lower - gene_start, i.upper - gene_start)
+                    for i in cds_candidates['candidates_cds_coordinates']])),
+                key=lambda x: (x.lower, x.upper)
+            )
+            query_coordinates = set(
+                [P.open(record[2], record[3]) for record in records]
+            )
+            target_coordinates = set(
+                [(P.open(record[4], record[5]), record[-2]) for record in records]
+            )
 
             overlapping_targets = self.get_overlapping_clusters(
                 coordinates_set=target_coordinates,
