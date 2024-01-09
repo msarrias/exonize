@@ -2,6 +2,7 @@ from exonize.blast_searcher import BLASTsearcher
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
 import portion as P
+import pytest
 
 database_interface = SqliteHandler(
     results_database_path='',
@@ -146,7 +147,27 @@ def test_get_single_candidate_cds_coordinate():
 
 
 def test_compute_identity():
-    pass
+    assert blast_engine.compute_identity(
+        sequence_i="ACGT",
+        sequence_j="ACGT"
+    ) == 1.0
+    assert blast_engine.compute_identity(
+        sequence_i="ACGT",
+        sequence_j="AC-T"
+    ) == 0.75
+    assert blast_engine.compute_identity(
+        sequence_i="ACGT",
+        sequence_j="ATAT"
+    ) == 0.5
+    assert blast_engine.compute_identity(
+        sequence_i="ACGT",
+        sequence_j="TGCA"
+    ) == 0.0
+    with pytest.raises(ValueError):
+        blast_engine.compute_identity(
+            sequence_i="ACGT",
+            sequence_j="ACG"
+        )
 
 
 def test_reformat_tblastx_frame_strand():
