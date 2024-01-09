@@ -162,60 +162,92 @@ class BLASTsearcher(object):
             match=hsp.match
         )
 
-    def check_for_masking(
+    @staticmethod
+    def calculate_masking_percentage(
+            sequence: str
+    ) -> float:
+        """
+        Calculate and return the masking percentage of the sequence.
+        """
+        return round(sequence.count('N') / len(sequence), 3) if sequence else 0
+
+    def decide_action_based_on_masking(
             self,
-            chromosome: str,
             gene_id: str,
+            chromosome: str,
             sequence: str,
             coordinate: P.Interval,
-            annotation_type='gene',
-    ):
+            annotation_type: str
+    ) -> str:
         """
-        check_for_masking is a function that checks if it is hardmasked.
-        If the sequence is a gene and the percentage of hardmasking is greater than
-        the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
-        and the gene is recorded as having no duplication event.
-        If the sequence is a CDS and the percentage of hardmasking is greater than the
-        threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored
-        in the logs attribute and later dumped into a file.
-        :param chromosome: chromosome identifier
-        :param gene_id: gene identifier
-        :param sequence: sequence
-        :param coordinate: coordinates
-        :param annotation_type: type of sequence (gene or CDS)
+        Decide the action to take based on the masking percentage.
         """
-        try:
-            masking_percentage = round(sequence.count('N') / len(sequence), 3)
-            if masking_percentage > self.masking_percentage_threshold:
-                sequence = ''
-                if annotation_type == 'gene':
-                    self.environment.logger.file_only_info(
-                        f'Gene {gene_id} in chromosome {chromosome} '
-                        f'and coordinates {str(coordinate.lower)}, '
-                        f'{str(coordinate.upper)} is hardmasked.'
-                    )
-                    self.database_interface.insert_gene_ids_table(
-                        gene_args_tuple=self.get_gene_tuple(
-                            gene_id=gene_id,
-                            has_duplication_binary=0
-                        )
-                    )
-                if annotation_type == 'CDS':
-                    self.environment.logger.file_only_info(
-                        f'Gene {gene_id} - {masking_percentage * 100} '
-                        f'of CDS {str(coordinate.lower)},'
-                        f' {str(coordinate.upper)} located in chromosome {chromosome} '
-                        f'is hardmasked.'
-                    )
+        masking_percentage = self.calculate_masking_percentage(sequence=sequence)
+        if masking_percentage > self.masking_percentage_threshold:
+            self.handle_high_masking(
+                gene_id=gene_id,
+                chromosome=chromosome,
+                coordinate=coordinate,
+                annotation_type=annotation_type,
+                masking_percentage=masking_percentage
+            )
+            return ''
+        else:
             return sequence
 
-        except KeyError as e:
-            self.environment.logger.exception(
-                f'Either there is missing a chromosome in the genome file '
-                f'or the chromosome identifiers in the GFF3 and FASTA'
-                f' files do not match {e}'
+    def handle_high_masking(
+            self,
+            gene_id: str,
+            chromosome: str,
+            coordinate: P.Interval,
+            annotation_type: str,
+            masking_percentage: float
+    ) -> None:
+        """
+        Handle the scenario where masking is above the threshold.
+        """
+        # Logging
+        self.log_masking_info(
+            gene_id=gene_id,
+            chromosome=chromosome,
+            coordinate=coordinate,
+            annotation_type=annotation_type,
+            masking_percentage=masking_percentage
+        )
+        # Database operations
+        if annotation_type == 'gene':
+            self.database_interface.insert_gene_ids_table(
+                gene_args_tuple=self.get_gene_tuple(
+                    gene_id=gene_id,
+                    has_duplication_binary=0
+                )
             )
-            sys.exit()
+        # Other actions based on annotation_type
+
+    def log_masking_info(
+            self,
+            gene_id: str,
+            chromosome: str,
+            coordinate: P.Interval,
+            annotation_type: str,
+            masking_percentage: float
+    ) -> None:
+        """
+        Log information about masking.
+        """
+        if annotation_type == 'gene':
+            self.environment.logger.file_only_info(
+                f'Gene {gene_id} in chromosome {chromosome} '
+                f'and coordinates {str(coordinate.lower)}, '
+                f'{str(coordinate.upper)} is hardmasked.'
+            )
+        elif annotation_type == 'CDS':
+            self.environment.logger.file_only_info(
+                f'Gene {gene_id} - {masking_percentage * 100} '
+                f'of CDS {str(coordinate.lower)}, '
+                f'{str(coordinate.upper)} located in chromosome {chromosome} '
+                f'is hardmasked.'
+            )
 
     def execute_tblastx(
             self,
