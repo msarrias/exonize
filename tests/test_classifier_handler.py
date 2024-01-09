@@ -19,7 +19,7 @@ classifier_handler = ClassifierHandler(
 )
 
 
-def test_find_overlapping_annotations():
+def test_get_candidate_query_cds():
     transcript_dictionary = {
         "structure": [
             {"id": "CDS1", "coordinate": P.open(0, 100), "frame": "0", "type": "CDS"},
