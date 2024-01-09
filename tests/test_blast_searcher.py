@@ -1,29 +1,24 @@
+from unittest.mock import Mock
 from exonize.blast_searcher import BLASTsearcher
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
 import portion as P
 import pytest
 
-database_interface = SqliteHandler(
-    results_database_path='',
-    timeout_database=30,
-)
 
-data_container = DataPreprocessor(
-            logger_obj=None,
-            database_interface=database_interface,
-            working_directory='',
-            gff_file_path='',
-            specie_identifier='test',
-            genome_file_path='',
-            genome_pickled_file_path='',
-            debug_mode=False,
-            hard_masking=False,
-            evalue_threshold=1e-5,
+blast_engine = BLASTsearcher(
+    data_container=Mock(),
+    masking_percentage_threshold=0.8,
+    sleep_max_seconds=40,
+    self_hit_threshold=0.5,
+    min_exon_length=20,
+    cds_overlapping_threshold=0.8,
+    evalue_threshold=1e-5,
+    debug_mode=False,
 )
 
 
-data_container.gene_hierarchy_dictionary = dict(
+blast_engine.data_container.gene_hierarchy_dictionary = dict(
     gene_1=dict(
         coordinates=P.open(1, 10),
         chrom='1',
@@ -84,17 +79,6 @@ data_container.gene_hierarchy_dictionary = dict(
             )
         )
     )
-)
-
-blast_engine = BLASTsearcher(
-    data_container=data_container,
-    masking_percentage_threshold=0.8,
-    sleep_max_seconds=40,
-    self_hit_threshold=0.5,
-    min_exon_length=20,
-    cds_overlapping_threshold=0.8,
-    evalue_threshold=1e-5,
-    debug_mode=False,
 )
 
 
@@ -276,20 +260,33 @@ def test_calculate_masking_percentage():
 
 
 def test_fetch_dna_sequence():
-    # assert blast_engine.fetch_dna_sequence(
-    #     chromosome='AAA',
-    #     annotation_start=0,
-    #     annotation_end=0,
-    #     trim_start=0,
-    #     trim_end=1,
-    #     strand='+',
-    # ) == 'AAA'
-    # assert blast_engine.fetch_dna_sequence(
-    #     chromosome='AAA',
-    #     annotation_start=0,
-    #     annotation_end=0,
-    #     trim_start=0,
-    #     trim_end=1,
-    #     strand='-',
-    # ) == 'TTT'
-    pass
+    blast_engine.data_container.genome_dictionary = {
+        "chr1": "ATGC" * 100  # example sequence
+    }
+
+    sequence = blast_engine.fetch_dna_sequence(
+        chromosome="chr1",
+        annotation_start=0,
+        annotation_end=8,
+        trim_start=0,
+        trim_end=4,
+        strand="+"
+    )
+    assert sequence == "ATGC"
+    sequence = blast_engine.fetch_dna_sequence(
+        chromosome="chr1",
+        annotation_start=0,
+        annotation_end=8,
+        trim_start=0,
+        trim_end=4,
+        strand="-"
+    )
+    assert sequence == "GCAT"  # Reverse complement of "ATGC"
+    sequence = blast_engine.fetch_dna_sequence(
+        chromosome="chr1",
+        annotation_start=0,
+        annotation_end=12,
+        trim_start=2,
+        trim_end=10,
+        strand="+"
+    )
