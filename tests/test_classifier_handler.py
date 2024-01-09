@@ -24,10 +24,21 @@ def test_find_overlapping_annotations():
         "structure": [
             {"id": "CDS1", "coordinate": P.open(0, 100), "frame": "0", "type": "CDS"},
             {"id": "CDS2", "coordinate": P.open(50, 150), "frame": "0", "type": "CDS"},
-            {"id": "CDS3", "coordinate": P.open(200, 300), "frame": "0", "type": "CDS"}
+            {"id": "CDS3", "coordinate": P.open(200, 300), "frame": "0", "type": "CDS"},
+            {"id": "CDS4", "coordinate": P.open(76, 123), "frame": "0", "type": "CDS"}
         ]
     }
     cds_coordinate = P.open(75, 125)
+    classifier_handler.cds_overlapping_threshold = 0.9
+    overlapping_annotations = classifier_handler.find_overlapping_annotations(
+        transcript_dictionary=transcript_dictionary,
+        cds_coordinate=cds_coordinate
+    )
+    expected_overlapping_annotations = [
+        ("CDS4", P.open(76, 123), 0)
+    ]
+    assert overlapping_annotations == expected_overlapping_annotations
+
     classifier_handler.cds_overlapping_threshold = 0.0
     overlapping_annotations = classifier_handler.find_overlapping_annotations(
         transcript_dictionary=transcript_dictionary,
@@ -35,7 +46,8 @@ def test_find_overlapping_annotations():
     )
     expected_overlapping_annotations = [
         ("CDS1", P.open(0, 100), 0),
-        ("CDS2", P.open(50, 150), 0)
+        ("CDS2", P.open(50, 150), 0),
+        ("CDS4", P.open(76, 123), 0)
     ]
     assert overlapping_annotations == expected_overlapping_annotations
 
