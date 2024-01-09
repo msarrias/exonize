@@ -1,14 +1,10 @@
 from exonize.data_preprocessor import DataPreprocessor
-from exonize.sqlite_handler import SqliteHandler
-
-database_interface = SqliteHandler(
-    results_database_path='',
-    timeout_database=30,
-)
+from unittest.mock import Mock
+import portion as P
 
 data_container = DataPreprocessor(
-            logger_obj=None,
-            database_interface=database_interface,
+            logger_obj=Mock(),
+            database_interface=Mock(),
             working_directory='',
             gff_file_path='',
             specie_identifier='test',
@@ -19,8 +15,75 @@ data_container = DataPreprocessor(
             evalue_threshold=1e-5,
 )
 
+data_container.genome_dictionary = {
+    '1': 'TAAAATCTAGACAGAAGCATTCTCAGAAACTTCTTTGTGCTGTATGTCCTCAATTAACAG',
+    '2': 'AGTTGAACCTTTGTTTCGATACAGCATTTTGGAAACATTCCTTTAGTAGAATCTGCAAGT'
+}
 
-def construct_mrna_sequences():
+data_container.gene_hierarchy_dictionary = dict(
+    gene_1=dict(
+        coordinates=P.open(1, 10),
+        chrom='1',
+        strand='+',
+        mRNAs=dict(
+            transcript_1=dict(
+                coordinate=P.open(0, 127),
+                strand='+',
+                structure=[
+                    dict(
+                        id='CDS1_t1',
+                        coordinate=P.open(0, 127),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS2_t1',
+                        coordinate=P.open(4545, 4682),
+                        frame=2,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS3_t1',
+                        coordinate=P.open(6460, 6589),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS4_t1',
+                        coordinate=P.open(7311, 7442),
+                        frame=0,
+                        type='CDS'
+                    )
+                ]
+            ),
+            transcript_2=dict(
+                structure=[
+                    dict(
+                        id='CDS1_t2',
+                        coordinate=P.open(0, 127),
+                        frame=0,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS2_t2',
+                        coordinate=P.open(6460, 6589),
+                        frame=2,
+                        type='CDS'
+                    ),
+                    dict(
+                        id='CDS3_t2',
+                        coordinate=P.open(7311, 7442),
+                        frame=2,
+                        type='CDS'
+                    )
+                ]
+            )
+        )
+    )
+)
+
+
+def test_construct_mrna_sequence():
     pass
 
 

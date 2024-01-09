@@ -1,39 +1,8 @@
-from exonize.blast_searcher import BLASTsearcher
-from exonize.sqlite_handler import SqliteHandler
-from exonize.data_preprocessor import DataPreprocessor
+from unittest.mock import Mock
 from exonize.counter_handler import CounterHandler
 
-database_interface = SqliteHandler(
-    results_database_path='',
-    timeout_database=30,
-)
-
-data_container = DataPreprocessor(
-            logger_obj=None,
-            database_interface=database_interface,
-            working_directory='',
-            gff_file_path='',
-            specie_identifier='test',
-            genome_file_path='',
-            genome_pickled_file_path='',
-            debug_mode=False,
-            hard_masking=False,
-            evalue_threshold=1e-5,
-)
-
-blast_engine = BLASTsearcher(
-    data_container=data_container,
-    masking_percentage_threshold=0.8,
-    sleep_max_seconds=40,
-    self_hit_threshold=0.5,
-    min_exon_length=20,
-    cds_overlapping_threshold=0.8,
-    evalue_threshold=1e-5,
-    debug_mode=False,
-)
-
 counter_handler = CounterHandler(
-    blast_engine=blast_engine,
+    blast_engine=Mock(),
     cds_overlapping_threshold=0.8,
 )
 

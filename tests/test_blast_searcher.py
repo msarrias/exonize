@@ -1,7 +1,5 @@
 from unittest.mock import Mock
 from exonize.blast_searcher import BLASTsearcher
-from exonize.data_preprocessor import DataPreprocessor
-from exonize.sqlite_handler import SqliteHandler
 import portion as P
 import pytest
 
@@ -290,3 +288,4 @@ def test_fetch_dna_sequence():
         trim_end=10,
         strand="+"
     )
+    assert sequence == "GCATGCAT"  # Trimmed sequence
