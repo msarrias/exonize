@@ -31,7 +31,7 @@ class CounterHandler(object):
             self,
             intv_i: P.Interval,
             intv_j: P.Interval,
-            threshold: float = self.cds_overlapping_threshold
+            threshold: float
     ) -> bool:
         return (self.blast_engine.get_overlap_percentage(
                     intv_i=intv_i,
@@ -80,7 +80,11 @@ class CounterHandler(object):
             # the two-way overlapping percentage should be higher than the threshold
             # maybe this is a too strict condition, consider using the average instead
             if all(
-                [self.two_way_overlapping(cds_coordinate, target_coordinate)
+                [self.two_way_overlapping(
+                    intv_i=cds_coordinate,
+                    intv_j=target_coordinate,
+                    threshold=self.cds_overlapping_threshold
+                )
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -93,7 +97,7 @@ class CounterHandler(object):
     def get_overlapping_clusters(
             self,
             target_coordinates_set: set[tuple[P.Interval, float]],
-            threshold: float = self.cds_overlapping_threshold
+            threshold: float,
     ) -> list[list[tuple]]:
         """
         Get overlapping clusters of target coordinates.
@@ -111,12 +115,14 @@ class CounterHandler(object):
 
                 # Find overlapping coordinates and add to the cluster
                 for other_coordinate, other_evalue in sorted_coordinates:
-                    if (target_coordinate != other_coordinate and
+                    if (
+                            target_coordinate != other_coordinate and
                             self.two_way_overlapping(
                                 intv_i=target_coordinate,
                                 intv_j=other_coordinate,
                                 threshold=threshold
-                            )):
+                            )
+                    ):
                         cluster.append((other_coordinate, other_evalue))
                         processed_intervals.add(other_coordinate)
 
@@ -146,7 +152,7 @@ class CounterHandler(object):
             else:
                 candidate_reference = min(coordinates_cluster, key=lambda x: x[1])[0] if all(
                     not target_coordinate.overlaps(cds_coordinate)  # we don't want any overlap with CDS
-                    for cds_coordinate in sorted_cds_coordinates_list
+                    for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']
                     for target_coordinate, _ in coordinates_cluster
                 ) else None
                 ref_type = 'non_coding' if candidate_reference else None
@@ -159,7 +165,7 @@ class CounterHandler(object):
                 else:
                     # Process separately if no shared reference
                     individual_reference = self.get_candidate_cds_reference(
-                        cds_coordinates_list=sorted_cds_coordinates_list,
+                        cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                         overlapping_coordinates_list=[(target_coordinate, _)]
                     )
                     reference_dictionary[target_coordinate] = {
@@ -186,7 +192,7 @@ class CounterHandler(object):
         )
         for event in tblastx_records_set:
             (fragment_id, _, source_start, source_end,
-             target_start, target_end, evalue, event_type) = event[:7]
+             target_start, target_end, evalue, event_type) = event[:8]
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             reference_type = reference_coordinates_dictionary[target_coordinate]['reference_type']
             gene_graph.add_edge(
@@ -271,14 +277,16 @@ class CounterHandler(object):
     @staticmethod
     def build_events_list(
             gene_id: str,
-            event_coordinates_dictionary: dict
+            event_coordinates_dictionary: dict,
+            event_id_counter: int,
     ) -> list[tuple]:
         return [
             (gene_id,
              node_attributes[0],
              node_coordinate.lower,
              node_coordinate.upper,
-             *node_attributes[1:]
+             *node_attributes[1:],
+             event_id_counter
              )
             for node_coordinate, node_attributes in event_coordinates_dictionary.items()
         ]
@@ -322,7 +330,8 @@ class CounterHandler(object):
             gene_events_list.extend(
                 self.build_events_list(
                     gene_id=gene_id,
-                    event_coordinates_dictionary=event_coordinates_dictionary
+                    event_coordinates_dictionary=event_coordinates_dictionary,
+                    event_id_counter=event_id_counter
                 )
             )
             event_id_counter += 1
