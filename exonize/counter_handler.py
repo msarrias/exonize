@@ -52,13 +52,13 @@ class CounterHandler(object):
         of overlapping target coordinates, returns the best candidate CDS reference
 
         Example:
-         - cds_coordinates_list = [P.open(0, 100), P.open(200, 300)]
-         - overlapping_coordinates_list = [(P.open(5, 100), 0.9), (P.open(10, 100), 0.9)]
-         - get_candidate_cds_reference
-         - returns P.open(0, 100)
+         >>> cds_list = [P.open(0, 100), P.open(200, 300)]
+         >>> overlapping_list = [(P.open(5, 100), 0.9), (P.open(10, 100), 0.9)]
+         >>> get_candidate_cds_reference(cds_list, overlapping_list)
+         >>> P.open(0, 100)
 
         :param cds_coordinates_list: list of CDS coordinates across all transcripts,
-        sorted by the lower bound. The intervals can overlap.
+         sorted by the lower bound. The intervals can overlap.
         :param overlapping_coordinates_list: list of overlapping target coordinates
 
         """
@@ -202,16 +202,6 @@ class CounterHandler(object):
                 width=2
             )
         return gene_graph
-
-    @staticmethod
-    def get_node_degree(
-            graph: nx.MultiGraph,
-            node_coordinate_start: int,
-            node_coordinate_end: int
-    ) -> int:
-        return sum(1 for _ in graph.neighbors(
-            (node_coordinate_start, node_coordinate_end))
-                   )
 
     @staticmethod
     def build_reference_type_dictionary(
