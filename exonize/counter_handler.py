@@ -40,6 +40,21 @@ class CounterHandler(object):
     ) -> float:
         return sum(a_list) / len(a_list)
 
+    def two_way_overlapping(
+            self,
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+            threshold: float = self.cds_overlapping_threshold
+    ) -> bool:
+        return (self.blast_engine.get_overlap_percentage(
+                    intv_i=intv_i,
+                    intv_j=intv_j) > threshold
+                and
+                self.blast_engine.get_overlap_percentage(
+                    intv_i=intv_j,
+                    intv_j=intv_i) > threshold
+                )
+
     def get_candidate_cds_reference(
             self,
             cds_coordinates_list: list[P.Interval],
@@ -77,15 +92,10 @@ class CounterHandler(object):
              ) for cds_coordinate in cds_coordinates_list
             # the two-way overlapping percentage should be higher than the threshold
             # maybe this is a too strict condition, consider using the average instead
-            if all([
-                self.blast_engine.get_overlap_percentage(
-                    intv_i=cds_coordinate,
-                    intv_j=target_coordinate) > self.cds_overlapping_threshold
-                and
-                self.blast_engine.get_overlap_percentage(
-                    intv_i=target_coordinate,
-                    intv_j=cds_coordinate) > self.cds_overlapping_threshold
-                for target_coordinate, _ in overlapping_coordinates_list])
+            if all(
+                [self.two_way_overlapping(cds_coordinate, target_coordinate)
+                 for target_coordinate, _ in overlapping_coordinates_list]
+            )
         ]
         if cand_reference_list:
             # Since we are considering all CDSs across all transcripts,
@@ -93,110 +103,82 @@ class CounterHandler(object):
             return max(cand_reference_list, key=lambda x: x[1])[0]
         return P.open(0, 0)
 
-    def overlap_condition(
-            self,
-            coordinate,
-            x,
-            threshold
-    ):
-        perc = self.get_shorter_intv_overlapping_percentage(a=coordinate, b=x)
-        return perc >= threshold and x != coordinate
-
+    @staticmethod
     def get_overlapping_clusters(
-            self,
-            target_coordinates_set: set[tuple[P.Interval, float]],
-            threshold: float,
+            target_coordinates_set: set[tuple[P.Interval, float]]
     ) -> list[list[tuple]]:
         """
-        get_overlapping_clusters is a function that given a set
-        of target coordinates, returns a list of overlapping
-        clusters of target coordinates.
-
-        Example:
-         - target_coordinates_set = {
-           (P.open(5, 100), 0.9),
-           (P.open(10, 100), 0.9),
-           (P.open(200, 300), 0.9)
-           }
-         - get_overlapping_clusters(target_coordinates_set, 0.8)
-           returns [
-           [(P.open(5, 100), 0.9), (P.open(10, 100), 0.9)],
-           [(P.open(200, 300), 0.9)]
-           ]
-        :parm target_coordinates_set: set of target coordinates
-        where blast hits were found
-        threshold:
+        Get overlapping clusters of target coordinates.
         """
-        overlapping_targets_list, skip_events = list(), list()
-        for target_coordinate, evalue in target_coordinates_set:
-            if target_coordinate not in skip_events:
-                target_coordinates_cluster = [
-                    (target_coordinate_j, i_evalue)
-                    for target_coordinate_j, i_evalue in target_coordinates_set
-                    if self.overlap_condition(
-                        coordinate=target_coordinate,
-                        x=target_coordinate_j,
-                        threshold=threshold
-                    )
-                ]
-                if target_coordinates_cluster:
-                    skip_events.extend(
-                        [target_coordinate,
-                         *[coordinate for coordinate, _ in target_coordinates_cluster]
-                         ]
-                    )
-                    flat_target_coordinates_cluster = [
-                        *target_coordinates_cluster, (target_coordinate, evalue)
-                    ]
-                    flat_target_coordinates_cluster.sort(
-                        key=lambda coordinate: (coordinate[0].lower, coordinate[0].upper)
-                    )
-                    overlapping_targets_list.append(
-                        flat_target_coordinates_cluster
-                    )
-                else:
-                    overlapping_targets_list.append(
-                        [(target_coordinate, evalue)]
-                    )
-        overlapping_targets_list.sort(key=len, reverse=True)
-        return overlapping_targets_list
+        processed_intervals = set()
+        overlapping_clusters = []
+
+        # Sort the coordinates by their lower bound for efficient processing
+        sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
+
+        for target_coordinate, evalue in sorted_coordinates:
+            if target_coordinate not in processed_intervals:
+                # Create a cluster for the current coordinate
+                cluster = [(target_coordinate, evalue)]
+
+                # Find overlapping coordinates and add to the cluster
+                for other_coordinate, other_evalue in sorted_coordinates:
+                    if (target_coordinate != other_coordinate and
+                            self.two_way_overlapping(
+                                intv_i=target_coordinate,
+                                intv_j=other_coordinate
+                            )):
+                        cluster.append((other_coordinate, other_evalue))
+                        processed_intervals.add(other_coordinate)
+
+                overlapping_clusters.append(cluster)
+                processed_intervals.add(target_coordinate)
+
+        # Optionally, sort clusters by their size in descending order
+        overlapping_clusters.sort(key=len, reverse=True)
+        return overlapping_clusters
 
     def build_reference_dictionary(
             self,
             cds_candidates_dictionary: dict,
-            overlapping_targets_list: list[list]
+            clusters_list: list[list]
     ) -> dict[dict]:
         # this dictionary should be for finding CDS reference and intron reference.
         # This should be applied to the clusters.
-        ref_dict = dict()
-        for overlapping_coordinates_list in overlapping_targets_list:
+        reference_dictionary = dict()
+        for coordinates_cluster in clusters_list:
             # First: let's look for targets overlapping with a CDS
-            cand_ref = self.get_candidate_cds_reference(
+            candidate_reference = self.get_candidate_cds_reference(
                 cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
-                overlapping_coordinates_list=overlapping_coordinates_list
+                overlapping_coordinates_list=coordinates_cluster
             )
-            if cand_ref:
-                for intv_i, _ in overlapping_coordinates_list:
-                    ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
+            if candidate_reference:
+                ref_type = 'coding'
             # Second: let's look for targets overlapping with introns
-            if all(not target_intv.overlaps(cds_intv)
-                   for cds_intv in sorted_cds_coordinates_list
-                   for target_intv, _ in overlapping_coordinates_list):
-                cand_ref = min(overlapping_coordinates_list, key=lambda x: x[1])[0]
-                for intv_i, _ in overlapping_coordinates_list:
-                    ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='non_coding')
-            # if there is no shared reference, we take it separetly
-            elif not cand_ref:
-                for intv_i, i_evalue in overlapping_coordinates_list:
-                    cand_ref = self.get_candidate_cds_reference(
+            else:
+                candidate_reference = min(coordinates_cluster, key=lambda x: x[1])[0] if all(
+                    not target_coordinate.overlaps(cds_coordinate)  # we don't want any overlap with CDS
+                    for cds_coordinate in sorted_cds_coordinates_list
+                    for target_coordinate, _ in coordinates_cluster
+                ) else None
+                ref_type = 'non_coding' if candidate_reference else None
+            for target_coordinate, _ in coordinates_cluster:
+                if candidate_reference:
+                    reference_dictionary[target_coordinate] = {
+                        'intv_ref': candidate_reference,
+                        'ref': ref_type
+                    }
+                else:
+                    # Process separately if no shared reference
+                    individual_reference = self.get_candidate_cds_reference(
                         cds_coordinates_list=sorted_cds_coordinates_list,
-                        overlapping_coordinates_list=[(intv_i, i_evalue)]
+                        overlapping_coordinates_list=[(target_coordinate, _)]
                     )
-                    if cand_ref:
-                        ref_dict[intv_i] = dict(intv_ref=cand_ref, ref='coding')
-                    else:
-                        ref_dict[intv_i] = dict(intv_ref=intv_i, ref='non_coding')
-        return ref_dict
+                    reference_dictionary[target_coordinate] = {
+                        'intv_ref': individual_reference if individual_reference else target_coordinate,
+                        'ref': 'coding' if individual_reference else 'non_coding'
+                    }
+        return reference_dictionary
 
     @staticmethod
     def create_events_multigraph(
@@ -252,8 +234,7 @@ class CounterHandler(object):
             temp_list_tuples = set((node, 0) for node in temp.keys())
             node_clusters = [[i[0] for i in cluster] for cluster in
                              self.get_overlapping_clusters(
-                                 target_coordinates_set=temp_list_tuples,
-                                 threshold=0.01
+                                 target_coordinates_set=temp_list_tuples
                              )
                              if len(cluster) > 1]
             for cluster in node_clusters:
@@ -307,7 +288,7 @@ class CounterHandler(object):
             )
             reference_coordinates_dictionary = self.build_reference_dictionary(
                 cds_candidates_dictionary=cds_candidates,
-                overlapping_targets_list=overlapping_targets
+                clusters_list=overlapping_targets
             )
             G = self.create_events_multigraph(
                 reference_coordinates_dictionary=reference_coordinates_dictionary,
