@@ -217,7 +217,7 @@ class CounterHandler(object):
             component: set[tuple],
             reference_type_dict: dict,
             gene_graph: nx.MultiGraph
-    ):
+    ) -> dict:
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
@@ -229,7 +229,7 @@ class CounterHandler(object):
     def assign_cluster_ids_to_event_coordinates(
             self,
             event_coordinates_dictionary: dict
-    ) -> dict[dict]:
+    ) -> None:
         # Convert event coordinates to a set of tuples for clustering
         node_coordinates_set = set((node_coordinate, 0)
                                    for node_coordinate in event_coordinates_dictionary.keys()
@@ -249,7 +249,6 @@ class CounterHandler(object):
             for node_coordinate in cluster:
                 event_coordinates_dictionary[node_coordinate][2] = cluster_id
             cluster_id += 1
-        return event_coordinates_dictionary
 
     @staticmethod
     def map_edges_to_records(
@@ -297,7 +296,8 @@ class CounterHandler(object):
         # and the number of nodes in the component is the number of duplicated exons
         # i.e., each event is described by a number of duplicated exons
         disconnected_components = list(nx.connected_components(gene_graph))
-        events_tuples, events_list = [], []
+        gene_fragments_with_event_ids_list = []
+        gene_events_list = []
         event_id_counter = 0
         for component in disconnected_components:
             # First: Assign event id to each component
@@ -307,80 +307,103 @@ class CounterHandler(object):
                 gene_graph=gene_graph
             )
             # Second : Assign cluster ids within events
-            event_coordinates_dictionary = self.assign_cluster_ids_to_event_coordinates(
+            self.assign_cluster_ids_to_event_coordinates(
                 event_coordinates_dictionary=event_coordinates_dictionary
             )
             # Third: map each BLAST hit to an event id
-            comp_event_list = self.map_edges_to_records(
+            component_fragments_with_event_ids_list = self.map_edges_to_records(
                 graph=gene_graph,
                 event_id_counter=event_id_counter,
                 component=component
             )
-            events_tuples.extend(comp_event_list)
-            events_list.extend(
+            gene_fragments_with_event_ids_list.extend(
+                component_fragments_with_event_ids_list
+            )
+            gene_events_list.extend(
                 self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary
                 )
             )
             event_id_counter += 1
-        return events_tuples, events_list
+        return gene_fragments_with_event_ids_list, gene_events_list
+
+    @staticmethod
+    def get_gene_events_dictionary(
+            tblastx_full_matches_list: list[tuple],
+    ):
+        full_matches_dictionary = defaultdict(set)
+        # group full matches by gene id
+        for match in tblastx_full_matches_list:
+            gene_id = match[1]
+            full_matches_dictionary[gene_id].add(match)
+        return full_matches_dictionary
+
+    @staticmethod
+    def get_hits_query_and_target_coordinates(
+            tblastx_records_set: set,
+    ):
+        query_coordinates = set(
+            [P.open(record[2], record[3]) for record in tblastx_records_set]
+        )
+        target_coordinates = set(
+            [(P.open(record[4], record[5]), record[-2]) for record in tblastx_records_set]
+        )
+        return query_coordinates, target_coordinates
 
     def assign_event_ids(
             self,
-            full_matches_list: list[tuple],
+            tblastx_full_matches_list: list[tuple],
     ) -> (list[tuple], set[tuple]):
-        genes_events_tuples, genes_events_set = list(), set()
-        full_matches_dict = defaultdict(set)
-
-        for match in full_matches_list:
-            full_matches_dict[match[1]].add(match)
-
-        for gene_id, records in full_matches_dict.items():
+        genes_events_tuples = list()
+        genes_events_set = set()
+        # group full matches by gene id
+        full_matches_dictionary = self.get_gene_events_dictionary(
+            tblastx_full_matches_list=tblastx_full_matches_list
+        )
+        for gene_id, tblastx_records_set in full_matches_dictionary.items():
             gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
-            cds_candidates = self.blast_engine.get_candidate_cds_coordinates(gene_id=gene_id)
+            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+                gene_id=gene_id
+            )
             # center cds coordinates to gene start
-            cds_candidates['candidates_cds_coordinates'] = sorted(
+            cds_candidates_dictionary['candidates_cds_coordinates'] = sorted(
                 list(set([
                     P.open(i.lower - gene_start, i.upper - gene_start)
-                    for i in cds_candidates['candidates_cds_coordinates']])),
+                    for i in cds_candidates_dictionary['candidates_cds_coordinates']])),
                 key=lambda x: (x.lower, x.upper)
             )
-            query_coordinates = set(
-                [P.open(record[2], record[3]) for record in records]
+            query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
+                tblastx_records_set=tblastx_records_set
             )
-            target_coordinates = set(
-                [(P.open(record[4], record[5]), record[-2]) for record in records]
-            )
-
             overlapping_targets = self.get_overlapping_clusters(
                 target_coordinates_set=target_coordinates,
                 threshold=self.cds_overlapping_threshold
             )
             reference_coordinates_dictionary = self.build_reference_dictionary(
-                cds_candidates_dictionary=cds_candidates,
+                cds_candidates_dictionary=cds_candidates_dictionary,
                 clusters_list=overlapping_targets
             )
-            G = self.create_events_multigraph(
+            gene_graph = self.create_events_multigraph(
                 reference_coordinates_dictionary=reference_coordinates_dictionary,
                 query_coordinates_set=query_coordinates,
-                tblastx_records_set=records
+                tblastx_records_set=tblastx_records_set
             )
-            gene_events_tuples, gene_events_set = self.get_events_tuples_from_multigraph(
+            gene_fragments_with_event_ids_list, gene_events_set = self.get_events_tuples_from_multigraph(
                 reference_coordinates_dictionary=reference_coordinates_dictionary,
                 gene_id=gene_id,
-                gene_graph=G
+                gene_graph=gene_graph
             )
-            if len(gene_events_tuples) != len(records):
+            if len(gene_fragments_with_event_ids_list) != len(tblastx_records_set):
                 self.environment.logger.exception(
-                    f'{gene_id}: {len(gene_events_tuples)} events found,'
-                    f' {len(records)} expected.'
+                    f'{gene_id}: {len(gene_fragments_with_event_ids_list)} events found,'
+                    f' {len(tblastx_records_set)} expected.'
                 )
-            genes_events_tuples.extend(gene_events_tuples)
+            genes_events_tuples.extend(gene_fragments_with_event_ids_list)
             genes_events_set.update(gene_events_set)
-        if len(genes_events_tuples) != len(full_matches_list):
+        if len(genes_events_tuples) != len(tblastx_full_matches_list):
             self.environment.logger.exception(
                 f'{len(genes_events_tuples)} events found,'
-                f' {len(full_matches_list)} expected.'
+                f' {len(tblastx_full_matches_list)} expected.'
             )
         return genes_events_tuples, genes_events_set
