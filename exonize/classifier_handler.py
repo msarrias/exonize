@@ -204,7 +204,7 @@ class ClassifierHandler(object):
         """
         Identifies tblastx hits that are insertion duplications these can be:
         - INS_CDS: if the insertion is in a CDS
-        - INS_UTR: if the insertion is in an untralated region
+        - INS_UTR: if the insertion is in an untranslated region
         - DEACTIVATED: if the insertion is in an intron
         """
         overlapping_annotations = [
@@ -212,7 +212,9 @@ class ClassifierHandler(object):
             for annotation in transcript_dictionary['structure']
             if annotation['coordinate'].contains(target_coordinate)
         ]
-
+        # There will only be one overlapping annotation
+        # since the feature annotations that we are interested in
+        # do not overlap in the same transcript
         # Determine the type of the hit based on the filtered annotations
         if overlapping_annotations:
             self.__target_cds, target_cds_coordinate, annot_type = overlapping_annotations[0]
