@@ -61,7 +61,7 @@ class Exonize(object):
             timeout_database: int,
             genome_pickled_file_path: Optional[str],
     ):
-        self.DEBUG_MODE = enable_debug
+        self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.HARD_MASKING = hard_masking
@@ -115,7 +115,7 @@ class Exonize(object):
             min_exon_length=self.min_exon_length,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             evalue_threshold=self.evalue_threshold,
-            debug_mode=self.DEBUG_MODE,
+            debug_mode=self._DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
             blast_engine=self.blast_engine,
@@ -287,10 +287,10 @@ class Exonize(object):
                     assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                     assert code != os.EX_SOFTWARE
                     forks -= 1
-                gc.unfreeze()
-                pr.disable()
-                pr.dump_stats(PROFILE_PATH)
-                get_run_performance_profile(PROFILE_PATH)
+                # gc.unfreeze()
+                # pr.disable()
+                # pr.dump_stats(PROFILE_PATH)
+                # get_run_performance_profile(PROFILE_PATH)
                 progress.advance(task, advance=1)
         else:
             self.environment.logger.info(
@@ -300,7 +300,7 @@ class Exonize(object):
         self.database_interface.insert_percent_query_column_to_fragments()
         self.database_interface.create_filtered_full_length_events_view()
         self.database_interface.create_mrna_counts_view()
-        self.environment.logger.info('Classifying events')
+        self.environment.logger.info('Classifying tblastx hits...')
         self.event_classifier.identify_full_length_duplications()
         self.database_interface.create_cumulative_counts_table()
         query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
@@ -316,8 +316,9 @@ class Exonize(object):
             list_tuples=identity_and_sequence_tuples
         )
         full_matches_list = self.database_interface.query_full_events()
+        self.environment.logger.info('Reconciling events...')
         fragments_tuples_list, events_set = self.event_counter.assign_event_ids(
-            full_matches_list=full_matches_list
+            tblastx_full_matches_list=full_matches_list
         )
         self.database_interface.insert_event_id_column_to_full_length_events_cumulative_counts(
             list_tuples=fragments_tuples_list

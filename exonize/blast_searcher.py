@@ -47,6 +47,9 @@ class BLASTsearcher(object):
         """
         dump_fasta_file is a function that dumps a  dictionary with
         sequences into a FASTA file.
+        :param out_file_path: output file path
+        :param seq_dictionary: dictionary with sequences with the following structure:
+        {sequence_id: sequence}
         """
         with open(out_file_path, "w") as handle:
             for annotation_id, annotation_sequence in seq_dictionary.items():
@@ -63,8 +66,7 @@ class BLASTsearcher(object):
             intv_j: P.Interval,
     ) -> float:
         """
-        Given two intervals, the function
-        get_overlap_percentage returns the percentage
+        Given two intervals, the function get_overlap_percentage returns the percentage
         of the overlapping region relative to an interval j.
         """
         intersection = intv_i & intv_j
@@ -72,19 +74,47 @@ class BLASTsearcher(object):
             return (intersection.upper - intersection.lower) / (intv_j.upper - intv_j.lower)
         return 0
 
+    def get_average_overlap_percentage(
+            self,
+            intv_i: P.Interval,
+            intv_j: P.Interval
+    ) -> float:
+        return sum([
+            self.get_overlap_percentage(
+                intv_i=intv_i,
+                intv_j=intv_j
+            ),
+            self.get_overlap_percentage(
+                intv_i=intv_j,
+                intv_j=intv_i)
+        ]) / 2
+
     @staticmethod
-    def get_shorter_longer_interval(
-            intv_a: P.Interval,
-            intv_b: P.Interval,
-    ) -> tuple:
+    def get_single_candidate_cds_coordinate(
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+    ) -> P.Interval:
         """
-        Given two intervals, the function
-        get_shorter_longer_interval returns the smaller
-        and the larger interval in length.
+        Given two sorted intervals this function returns the interval with
+        the largerst percentage of overlap.
+        Assumption: intv_i =/= intv_j and they are sorted such that
+        intv_i.lower < intv_j.lower.
+        param intv_i: the first interval
+        param intv_j: the second interval
+        Returns: P.interval
         """
-        if intv_a.upper - intv_a.lower < intv_b.upper - intv_b.lower:
-            return intv_a, intv_b
-        return intv_b, intv_a
+        if (
+                BLASTsearcher.get_overlap_percentage(
+                    intv_i=intv_i,
+                    intv_j=intv_j
+                ) >
+                BLASTsearcher.get_overlap_percentage(
+                    intv_i=intv_j,
+                    intv_j=intv_i
+                )
+        ):
+            return intv_j
+        return intv_i
 
     @staticmethod
     def compute_identity(
@@ -147,60 +177,92 @@ class BLASTsearcher(object):
             match=hsp.match
         )
 
-    def check_for_masking(
+    @staticmethod
+    def calculate_masking_percentage(
+            sequence: str
+    ) -> float:
+        """
+        Calculate and return the masking percentage of the sequence.
+        """
+        return round(sequence.count('N') / len(sequence), 3) if sequence else 0
+
+    def decide_action_based_on_masking(
             self,
-            chromosome: str,
             gene_id: str,
+            chromosome: str,
             sequence: str,
             coordinate: P.Interval,
-            annotation_type='gene',
-    ):
+            annotation_type: str
+    ) -> str:
         """
-        check_for_masking is a function that checks if it is hardmasked.
-        If the sequence is a gene and the percentage of hardmasking is greater than
-        the threshold (self.masking_perc_threshold) the CDS duplication search is aborted
-        and the gene is recorded as having no duplication event.
-        If the sequence is a CDS and the percentage of hardmasking is greater than the
-        threshold, the CDS is not queried. Logs for hardmasked genes and CDS are stored
-        in the logs attribute and later dumped into a file.
-        :param chromosome: chromosome identifier
-        :param gene_id: gene identifier
-        :param sequence: sequence
-        :param coordinate: coordinates
-        :param annotation_type: type of sequence (gene or CDS)
+        Decide the action to take based on the masking percentage.
         """
-        try:
-            masking_percentage = round(sequence.count('N') / len(sequence), 3)
-            if masking_percentage > self.masking_percentage_threshold:
-                sequence = ''
-                if annotation_type == 'gene':
-                    self.environment.logger.file_only_info(
-                        f'Gene {gene_id} in chromosome {chromosome} '
-                        f'and coordinates {str(coordinate.lower)}, '
-                        f'{str(coordinate.upper)} is hardmasked.'
-                    )
-                    self.database_interface.insert_gene_ids_table(
-                        gene_args_tuple=self.get_gene_tuple(
-                            gene_id=gene_id,
-                            has_duplication_binary=0
-                        )
-                    )
-                if annotation_type == 'CDS':
-                    self.environment.logger.file_only_info(
-                        f'Gene {gene_id} - {masking_percentage * 100} '
-                        f'of CDS {str(coordinate.lower)},'
-                        f' {str(coordinate.upper)} located in chromosome {chromosome} '
-                        f'is hardmasked.'
-                    )
+        masking_percentage = self.calculate_masking_percentage(sequence=sequence)
+        if masking_percentage > self.masking_percentage_threshold:
+            self.handle_high_masking(
+                gene_id=gene_id,
+                chromosome=chromosome,
+                coordinate=coordinate,
+                annotation_type=annotation_type,
+                masking_percentage=masking_percentage
+            )
+            return ''
+        else:
             return sequence
 
-        except KeyError as e:
-            self.environment.logger.exception(
-                f'Either there is missing a chromosome in the genome file '
-                f'or the chromosome identifiers in the GFF3 and FASTA'
-                f' files do not match {e}'
+    def handle_high_masking(
+            self,
+            gene_id: str,
+            chromosome: str,
+            coordinate: P.Interval,
+            annotation_type: str,
+            masking_percentage: float
+    ) -> None:
+        """
+        Handle the scenario where masking is above the threshold.
+        """
+        # Logging
+        self.log_masking_info(
+            gene_id=gene_id,
+            chromosome=chromosome,
+            coordinate=coordinate,
+            annotation_type=annotation_type,
+            masking_percentage=masking_percentage
+        )
+        # Database operations
+        if annotation_type == 'gene':
+            self.database_interface.insert_gene_ids_table(
+                gene_args_tuple=self.get_gene_tuple(
+                    gene_id=gene_id,
+                    has_duplication_binary=0
+                )
             )
-            sys.exit()
+        # Other actions based on annotation_type
+
+    def log_masking_info(
+            self,
+            gene_id: str,
+            chromosome: str,
+            coordinate: P.Interval,
+            annotation_type: str,
+            masking_percentage: float
+    ) -> None:
+        """
+        Log information about masking.
+        """
+        if annotation_type == 'gene':
+            self.environment.logger.file_only_info(
+                f'Gene {gene_id} in chromosome {chromosome} '
+                f'and coordinates {str(coordinate.lower)}, '
+                f'{str(coordinate.upper)} is hardmasked.'
+            )
+        elif annotation_type == 'CDS':
+            self.environment.logger.file_only_info(
+                f'Gene {gene_id} - {masking_percentage * 100} '
+                f'of CDS {str(coordinate.lower)}, '
+                f'{str(coordinate.upper)} located in chromosome {chromosome} '
+                f'is hardmasked.'
+            )
 
     def execute_tblastx(
             self,
@@ -407,11 +469,10 @@ class BLASTsearcher(object):
             sorted_intervals: list[P.Interval],
     ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
         """
-        Given a list of intervals, returns the first consecutive
-        interval tuples with the overlapping pairs described in
-        case a (get_candidate_cds_coordinates).
+        Given a list of intervals, get_first_overlapping_intervals returns
+        the first consecutive interval tuples with overlapping pairs.
         :param sorted_intervals: list of intervals
-        :return: list of tuples with pairs of overlapping intervals
+        :return: pair of overlapping intervals
         """
         first_overlap_index = 0
         while first_overlap_index < len(sorted_intervals) - 1:
@@ -421,30 +482,26 @@ class BLASTsearcher(object):
                     self.get_overlap_percentage(
                         intv_i=current_interval,
                         intv_j=next_interval
-                    ) >= self.cds_overlapping_threshold
+                    ) > self.cds_overlapping_threshold
                     and
                     self.get_overlap_percentage(
                         intv_i=next_interval,
                         intv_j=current_interval
-                    ) >= self.cds_overlapping_threshold
+                    ) > self.cds_overlapping_threshold
             ):
                 return current_interval, next_interval
             first_overlap_index += 1
         return None, None
 
-    def resolve_overlaps_coords_list(
+    def resolve_overlaps_between_coordinates(
             self,
             sorted_cds_coordinates: list[P.Interval],
     ) -> list[P.Interval]:
         """
-        resolve_overlaps_coords_list is a function that given a list of coordinates,
-        resolves overlaps according to the criteria described above.
-        Since the pairs described in case b (get_candidate_cds_coordinates) are not
-        considered to be overlapping, they are both included in the search.
-        :param sorted_cds_coordinates: list of coordinates sorted according
-        to the following criteria:
-            (i) lower coordinate, (ii) upper coordinate
-        :return: list of coordinates without overlaps
+        resolve_overlaps_between_coordinates is a recursive function that given
+        a list of coordinates, resolves overlaps between them.
+        :param sorted_cds_coordinates: list of unique and sorted coordinates.
+        :return: list of coordinates without "overlaps"
         """
         new_list = list()
         # We only process the first pair of overlapping intervals since
@@ -453,7 +510,10 @@ class BLASTsearcher(object):
             sorted_intervals=sorted_cds_coordinates
         )
         if all((intv_i, intv_j)):
-            shorter, _ = self.get_shorter_longer_interval(intv_a=intv_i, intv_b=intv_j)
+            candidate = self.get_single_candidate_cds_coordinate(
+                intv_i=intv_i,
+                intv_j=intv_j
+            )
             # Note: new_list is populated through enumeration
             # of 'sorted_cds_coordinates', so it will also be sorted
             # according to the same criteria used for 'sorted_cds_coordinates'.
@@ -461,9 +521,9 @@ class BLASTsearcher(object):
                 if cds_coordinate != intv_i:
                     new_list.append(cds_coordinate)
                 else:
-                    new_list.append(shorter)
+                    new_list.append(candidate)
                     new_list.extend(sorted_cds_coordinates[idx + 2:])
-                    return self.resolve_overlaps_coords_list(
+                    return self.resolve_overlaps_between_coordinates(
                         sorted_cds_coordinates=new_list
                     )
         return sorted_cds_coordinates
@@ -474,43 +534,52 @@ class BLASTsearcher(object):
     ) -> dict:
         """
         get_candidate_cds_coordinates is a function that given a gene_id,
-        collects all the CDS coordinates with a length greater than the minimum
-        exon length (self.min_exon_length) across all transcript.
+        collects all the CDS coordinates with a length greater than the
+        minimum exon length across all transcript.
         If there are overlapping CDS coordinates, they are resolved
         according to the following criteria:
-            - a: if they overlap by more than the overlapping threshold
-            (self.cds_overlapping_threshold) of both CDS lengths the
-            shortest CDS is selected.
-            - b: both CDSs are selected otherwise
-        The rationale behind choosing the shortest CDS is that it will
-        reduce exclusion of short duplications due to coverage thresholds.
+
+        * If they overlap by more than the overlapping threshold
+          of both CDS lengths the one with the highest overlapping
+          percentage is selected.
+        * Both CDSs are selected otherwise
+
+        The rationale behind choosing the interval with the higher percentage
+        of overlap is that it will favor the selection of shorter intervals
+        reducing the exclusion of short duplications due to coverage thresholds.
+
         :param gene_id: gene identifier
-        :return: list of representative CDS coordinates for the gene
-         across all transcripts
+        :return: list of representative CDS coordinates across all transcripts
         """
-        cds_coordinates_and_frames: list[tuple[P.Interval, str]] = list(set(
-            (coordinate, annotation_structure['frame'])
-            for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
-            for annotation_structure in mrna_annotation['structure']
-            for coordinate in (annotation_structure['coordinate'],)
-            if (
-                annotation_structure['type'] == 'CDS' and
-                (coordinate.upper - coordinate.lower) >= self.min_exon_length
+        # collect all CDS coordinates and frames across all transcripts
+        # we are interested in the frames to account for the unlikely event
+        # that two CDS with same coordinates in different transcripts
+        # have different frames
+        cds_coordinates_and_frames: list[tuple[P.Interval, str]] = list(
+            set(
+                (coordinate, annotation_structure['frame'])
+                for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
+                for annotation_structure in mrna_annotation['structure']
+                for coordinate in (annotation_structure['coordinate'],)
+                if (
+                        annotation_structure['type'] == 'CDS' and
+                        (coordinate.upper - coordinate.lower) >= self.min_exon_length
+                )
             )
-        ))
+        )
         if cds_coordinates_and_frames:
             representative_cds_frame_dictionary = dict()
             for cds_coordinate, frame in cds_coordinates_and_frames:
                 if cds_coordinate in representative_cds_frame_dictionary:
-                    representative_cds_frame_dictionary[cds_coordinate]['frame'] += f'_{str(frame)}'
+                    representative_cds_frame_dictionary[cds_coordinate] += f'_{str(frame)}'
                 else:
-                    representative_cds_frame_dictionary[cds_coordinate] = {'frame': frame}
+                    representative_cds_frame_dictionary[cds_coordinate] = str(frame)
             sorted_cds_coordinates_list: list[P.Interval] = sorted(
                 [coordinate for coordinate, _ in cds_coordinates_and_frames],
                 key=lambda coordinate: (coordinate.lower, coordinate.upper),
             )
             return dict(
-                set_coords=self.resolve_overlaps_coords_list(
+                candidates_cds_coordinates=self.resolve_overlaps_between_coordinates(
                     sorted_cds_coordinates=sorted_cds_coordinates_list
                 ),
                 cds_frame_dict=representative_cds_frame_dictionary,
@@ -641,7 +710,7 @@ class BLASTsearcher(object):
         temp_gene_sequence = str(
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
-        gene_dna_sequence = self.check_for_masking(
+        gene_dna_sequence = self.decide_action_based_on_masking(
             chromosome=chromosome,
             gene_id=gene_id,
             sequence=temp_gene_sequence,
@@ -651,11 +720,13 @@ class BLASTsearcher(object):
         if gene_dna_sequence:
             cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
             if cds_coordinates_dictionary:
-                for cds_coordinate in cds_coordinates_dictionary['set_coords']:
+                for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
+                    # note that we are not accounting for the frame at this stage, that will be part of
+                    # the filtering step (since tblastx alignments account for the 6 frames)
                     temp_dna_cds_sequence = str(
                         Seq(self.data_container.genome_dictionary[chromosome][cds_coordinate.lower:cds_coordinate.upper])
                     )
-                    cds_dna_sequence = self.check_for_masking(
+                    cds_dna_sequence = self.decide_action_based_on_masking(
                         chromosome=chromosome,
                         gene_id=gene_id,
                         sequence=temp_dna_cds_sequence,
@@ -663,7 +734,7 @@ class BLASTsearcher(object):
                         annotation_type='CDS'
                     )
                     if cds_dna_sequence:
-                        cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]['frame']
+                        cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
                         tblastx_o = self.align_cds(
                             gene_id=gene_id,
                             query_sequence=cds_dna_sequence,
@@ -788,11 +859,19 @@ class BLASTsearcher(object):
                 f'- sequences must have the same length.'
             )
 
-        return (self.compute_identity(sequence_i=query_dna_seq, sequence_j=target_dna_seq),
-                self.compute_identity(sequence_i=query_aln_prot_seq, sequence_j=target_aln_prot_seq),
-                query_dna_seq,
-                target_dna_seq,
-                fragment_id)
+        return (
+            self.compute_identity(
+                sequence_i=query_dna_seq,
+                sequence_j=target_dna_seq
+            ),
+            self.compute_identity(
+                sequence_i=query_aln_prot_seq,
+                sequence_j=target_aln_prot_seq
+            ),
+            query_dna_seq,
+            target_dna_seq,
+            fragment_id
+        )
 
     def get_identity_and_dna_seq_tuples(
             self,
