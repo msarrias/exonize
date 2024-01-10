@@ -21,19 +21,6 @@ class CounterHandler(object):
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
 
-    def get_shorter_intv_overlapping_percentage(
-            self,
-            a: P.Interval,
-            b: P.Interval
-    ) -> float:
-        """
-        get_shorter_intv_overlapping_percentage is a function
-        that given two intervals, returns the percentage of
-        overlap of the shorter interval with the longer interval.
-        """
-        shorter, longer = self.blast_engine.get_shorter_longer_interv(a, b)
-        return self.blast_engine.get_overlap_percentage(longer, shorter)
-
     @staticmethod
     def compute_average(
             a_list: list
