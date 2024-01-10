@@ -168,9 +168,16 @@ class CounterHandler(object):
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                         overlapping_coordinates_list=[(target_coordinate, _)]
                     )
+                    if individual_reference or any(
+                            [cds_coordinate.contains(target_coordinate)
+                             for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
+                    ):
+                        ref_type = 'coding'
+                    else:
+                        ref_type = 'non_coding'
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': individual_reference if individual_reference else target_coordinate,
-                        'reference_type': 'coding' if individual_reference else 'non_coding'
+                        'reference_type': ref_type
                     }
         return reference_dictionary
 
