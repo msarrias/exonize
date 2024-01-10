@@ -40,11 +40,30 @@ class CounterHandler(object):
     ) -> float:
         return sum(a_list) / len(a_list)
 
-    def get_candidate_reference_dictionary(
+    def get_candidate_cds_reference(
             self,
             cds_coordinates_list: list[P.Interval],
             overlapping_coordinates_list: list[tuple[P.Interval, float]]
     ) -> P.Interval:
+        """
+        get_candidate_cds_reference is a function that given a list
+        of overlapping target coordinates, returns the best candidate CDS reference
+
+        Example:
+         - cds_coordinates_list = [P.open(0, 100), P.open(200, 300)]
+         - overlapping_coordinates_list = [(P.open(5, 100), 0.9), (P.open(10, 100), 0.9)]
+         - get_candidate_cds_reference
+         - returns P.open(0, 100)
+
+        :param cds_coordinates_list: list of CDS coordinates across all transcripts,
+        sorted by the lower bound. The intervals can overlap.
+        :param overlapping_coordinates_list: list of overlapping target coordinates
+
+        """
+        # We want to find the CDS that overlaps with the overlapping targets by
+        # the highest percentage. We will compute the average of the two-way overlapping
+        # percentage between the CDS and the overlapping targets and take the
+        # CDS with the highest average.
         cand_reference_list = [
             (cds_coordinate,
              self.compute_average(
@@ -56,17 +75,21 @@ class CounterHandler(object):
                      for target_coordinate, _ in overlapping_coordinates_list]
              )
              ) for cds_coordinate in cds_coordinates_list
+            # the two-way overlapping percentage should be higher than the threshold
+            # maybe this is a too strict condition, consider using the average instead
             if all([
-                self.blast_engine.get_average_overlap_percentage(
+                self.blast_engine.get_overlap_percentage(
                     intv_i=cds_coordinate,
                     intv_j=target_coordinate) > self.cds_overlapping_threshold
                 and
-                self.blast_engine.get_average_overlap_percentage(
+                self.blast_engine.get_overlap_percentage(
                     intv_i=target_coordinate,
                     intv_j=cds_coordinate) > self.cds_overlapping_threshold
                 for target_coordinate, _ in overlapping_coordinates_list])
         ]
         if cand_reference_list:
+            # Since we are considering all CDSs across all transcripts,
+            # we might end up with more than one CDS candidate.
             return max(cand_reference_list, key=lambda x: x[1])[0]
         return P.open(0, 0)
 
@@ -114,7 +137,7 @@ class CounterHandler(object):
         ref_dict = dict()
         for overlapping_coordinates_list in overlapping_targets_list:
             # First: let's look for targets overlapping with a CDS
-            cand_ref = self.get_candidate_reference_dictionary(
+            cand_ref = self.get_candidate_cds_reference(
                 cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                 overlapping_coordinates_list=overlapping_coordinates_list
             )
@@ -131,7 +154,7 @@ class CounterHandler(object):
             # if there is no shared reference, we take it separetly
             elif not cand_ref:
                 for intv_i, i_evalue in overlapping_coordinates_list:
-                    cand_ref = self.get_candidate_reference_dictionary(
+                    cand_ref = self.get_candidate_cds_reference(
                         cds_coordinates_list=sorted_cds_coordinates_list,
                         overlapping_coordinates_list=[(intv_i, i_evalue)]
                     )
