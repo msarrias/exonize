@@ -29,10 +29,9 @@ class ClassifierHandler(object):
         self.__query_cds, self.__target_cds = "-", "-"
         self.__query_cds_frame, self.__target_cds_frame = " ", " "
         self.__found = False
-        self.__tuples_full_length_duplications = list()
-        self.__tuples_insertion_duplications = list()
-        self.__tuples_truncation_events = list()
-        self.__tuples_obligatory_events = list()
+        self.tuples_full_length_duplications = list()
+        self.tuples_truncation_events = list()
+        self.tuples_obligatory_events = list()
 
     def initialize_variables(
             self,
@@ -54,9 +53,9 @@ class ClassifierHandler(object):
         initializes the list of tuples used to store the identified events in the
          identify_full_length_duplications function
         """
-        self.__tuples_full_length_duplications = list()
-        self.__tuples_obligatory_events = list()
-        self.__tuples_truncation_events = list()
+        self.tuples_full_length_duplications = list()
+        self.tuples_obligatory_events = list()
+        self.tuples_truncation_events = list()
 
     @staticmethod
     def recover_query_cds(
@@ -114,7 +113,7 @@ class ClassifierHandler(object):
                 or transcript_coordinate.upper < target_coordinate.lower):
             if (self.__query + self.__target) == 0:
                 self.__neither = 1
-                self.__tuples_full_length_duplications.append((
+                self.tuples_full_length_duplications.append((
                     fragment_id, gene_id, mrna_id,
                     cds_start, cds_end, self.__query_cds, query_start, query_end,
                     "OUT_OF_MRNA",
@@ -258,7 +257,7 @@ class ClassifierHandler(object):
             self.__annot_target_end = None
             for seg_b, annotation_dictionary in coordinate_dictionary.items():
                 coord_b = annotation_dictionary['coordinate']
-                self.__tuples_truncation_events.append(
+                self.tuples_truncation_events.append(
                     (
                         fragment_id, gene_id, mrna_id,
                         transcript_dictionary['coordinate'].lower,
@@ -287,7 +286,7 @@ class ClassifierHandler(object):
          target_start, target_end, evalue) = row_tuple
         self.__both = 1
         self.__query, self.__target = 0, 0
-        self.__tuples_obligatory_events.append((
+        self.tuples_obligatory_events.append((
             fragment_id, gene_id, mrna_id,
             transcript_coordinate.lower, transcript_coordinate.upper,
             cds_start, cds_end, self.__query_cds, self.__query_cds_frame,
@@ -317,7 +316,7 @@ class ClassifierHandler(object):
         (fragment_id, gene_id, _, _,
          cds_start, cds_end, query_start, query_end,
          target_start, target_end, evalue) = row_tuple
-        self.__tuples_full_length_duplications.append((
+        self.tuples_full_length_duplications.append((
             fragment_id, gene_id, mrna_id,
             cds_start, cds_end, self.__query_cds, query_start, query_end,
             self.__target_type, self.__target_cds, self.__annot_target_start,
@@ -334,13 +333,13 @@ class ClassifierHandler(object):
         function into the results database.
         """
         self.database_interface.instert_full_length_event(
-            tuples_list=self.__tuples_full_length_duplications
+            tuples_list=self.tuples_full_length_duplications
         )
         self.database_interface.instert_obligatory_event(
-            tuples_list=self.__tuples_obligatory_events
+            tuples_list=self.tuples_obligatory_events
         )
         self.database_interface.instert_truncation_event(
-            tuples_list=self.__tuples_truncation_events
+            tuples_list=self.tuples_truncation_events
         )
 
     def identify_full_length_duplications(
