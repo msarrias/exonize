@@ -11,12 +11,14 @@ class EnvironmentSetup(object):
             self,
             hard_force: bool,
             soft_force: bool,
+            draw_event_multigraphs: bool,
             working_directory: str,
             results_database_path: str,
     ):
         self.__FILE_ONLY_INFO = 9
         self.HARD_FORCE = hard_force
         self.SOFT_FORCE = soft_force
+        self.draw_event_multigraphs = draw_event_multigraphs
         self.working_directory = working_directory
         self.results_database_path = results_database_path
         self.setup_environment()
@@ -74,4 +76,6 @@ class EnvironmentSetup(object):
             if os.path.exists(self.results_database_path):
                 os.remove(self.results_database_path)
         os.makedirs(self.working_directory, exist_ok=True)
+        if self.draw_event_multigraphs:
+            os.makedirs(os.path.join(self.working_directory, 'multigraphs'), exist_ok=True)
         self.configure_logger()
