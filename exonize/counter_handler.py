@@ -117,11 +117,12 @@ class CounterHandler(object):
                 for other_coordinate, other_evalue in sorted_coordinates:
                     if (
                             target_coordinate != other_coordinate and
-                            self.two_way_overlapping(
+                            (self.two_way_overlapping(
                                 intv_i=target_coordinate,
                                 intv_j=other_coordinate,
                                 threshold=threshold
-                            )
+                            ) or target_coordinate.contains(other_coordinate))
+
                     ):
                         cluster.append((other_coordinate, other_evalue))
                         processed_intervals.add(other_coordinate)
@@ -141,14 +142,16 @@ class CounterHandler(object):
         # This should be applied to the clusters.
         reference_dictionary = dict()
         for coordinates_cluster in clusters_list:
-            # First: let's look for targets overlapping with a CDS
+            # First: let's look for targets with a high two-ways overlap percentace with a CDS
             candidate_reference = self.get_candidate_cds_reference(
                 cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                 overlapping_coordinates_list=coordinates_cluster
             )
             if candidate_reference:
                 ref_type = 'coding'
-            # Second: let's look for targets overlapping with introns
+            # Second: let's look for targets contained in introns if all
+            # the targets in the cluster are contained in introns
+            # we take the hit with the lowest evalue as reference
             else:
                 candidate_reference = min(coordinates_cluster, key=lambda x: x[1])[0] if all(
                     not target_coordinate.overlaps(cds_coordinate)  # we don't want any overlap with CDS
@@ -156,13 +159,14 @@ class CounterHandler(object):
                     for target_coordinate, _ in coordinates_cluster
                 ) else None
                 ref_type = 'non_coding' if candidate_reference else None
-            for target_coordinate, _ in coordinates_cluster:
-                if candidate_reference:
+            if candidate_reference:
+                for target_coordinate, _ in coordinates_cluster:
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': candidate_reference,
                         'reference_type': ref_type
                     }
-                else:
+            else:
+                for target_coordinate, _ in coordinates_cluster:
                     # Process separately if no shared reference
                     individual_reference = self.get_candidate_cds_reference(
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
@@ -172,9 +176,15 @@ class CounterHandler(object):
                             [cds_coordinate.contains(target_coordinate)
                              for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
                     ):
-                        ref_type = 'coding'
-                    else:
+                        ref_type = 'partial_coding'
+                    elif not any(
+                            [cds_coordinate.overlaps(target_coordinate)
+                             for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
+                    ):
                         ref_type = 'non_coding'
+                    else:
+                        ref_type = 'coding_non_coding'
+
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': individual_reference if individual_reference else target_coordinate,
                         'reference_type': ref_type
@@ -201,10 +211,12 @@ class CounterHandler(object):
             (fragment_id, _, source_start, source_end,
              target_start, target_end, evalue, event_type) = event[:8]
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
+            # we take the "reference target coordinates"
+            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference_coordinate']
             reference_type = reference_coordinates_dictionary[target_coordinate]['reference_type']
             gene_graph.add_edge(
                 u_for_edge=(source_start, source_end),
-                v_for_edge=(target_start, target_end),
+                v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
                 fragment_id=fragment_id,
                 query_CDS=(source_start, source_end),
                 target=(target_start, target_end),
