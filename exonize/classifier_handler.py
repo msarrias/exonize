@@ -427,7 +427,6 @@ class ClassifierHandler(object):
                     mrna_id=mrna_id,
                     row_tuple=row
                 )
-        self.insert_classified_tuples_in_results_database()
 
     @staticmethod
     def get_interval_dictionary(

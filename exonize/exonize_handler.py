@@ -302,6 +302,7 @@ class Exonize(object):
         self.database_interface.create_mrna_counts_view()
         self.environment.logger.info('Classifying tblastx hits...')
         self.event_classifier.identify_full_length_duplications()
+        self.event_classifier.insert_classified_tuples_in_results_database()
         self.database_interface.create_cumulative_counts_table()
         query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
         reduced_event_types_tuples = self.generate_unique_events_list(
