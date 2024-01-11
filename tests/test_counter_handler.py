@@ -59,33 +59,51 @@ def test_get_overlapping_clusters():
 
 
 def test_build_reference_dictionary():
-    cds_candidates_dictionary = {
-        'candidates_cds_coordinates':
-            [P.open(0, 100),
-             P.open(200, 250)]
+    query_coordinates = {
+        P.open(0, 100),
+        P.open(200, 250)
     }
-    clusters_list = [
-        [(P.open(0, 50), 0.9), (P.open(40, 90), 0.8)],
-        [(P.open(200, 250), 0.7), (P.open(220, 270), 0.6)],
-        [(P.open(400, 450), 0.5)]  # Non-overlapping interval
-    ]
+    target_coordinates = {
+        (P.open(0, 50), 0.9),
+        (P.open(40, 90), 0.8),
+        (P.open(200, 250), 0.7),
+        (P.open(220, 270), 0.6),
+        (P.open(400, 450), 0.5)
+    }
+    cds_candidates_dictionary = {
+        'candidates_cds_coordinates': query_coordinates
+    }
+    overlapping_targets = counter_handler.get_overlapping_clusters(
+        target_coordinates_set=target_coordinates,
+        threshold=counter_handler.cds_overlapping_threshold
+    )
 
     expected_output = {
-        P.open(0, 50):
-            {'reference_coordinate': P.open(0, 50), 'reference_type': 'coding'},
-        P.open(40, 90):
-            {'reference_coordinate': P.open(40, 90), 'reference_type': 'coding'},
-        P.open(200, 250):
-            {'reference_coordinate': P.open(200, 250), 'reference_type': 'coding'},
-        P.open(220, 270):
-            {'reference_coordinate': P.open(220, 270), 'reference_type': 'non_coding'},
-        P.open(400, 450):
-            {'reference_coordinate': P.open(400, 450), 'reference_type': 'non_coding'}  # Assuming no CDS overlap
+        P.open(0, 50): {
+            'reference_coordinate': P.open(0, 50),
+            'reference_type': 'partial_coding'
+        },
+        P.open(40, 90): {
+            'reference_coordinate': P.open(40, 90),
+            'reference_type': 'partial_coding'
+        },
+        P.open(200, 250): {
+            'reference_coordinate': P.open(200, 250),
+            'reference_type': 'coding'
+        },
+        P.open(220, 270): {
+            'reference_coordinate': P.open(220, 270),
+            'reference_type': 'coding_non_coding'
+        },
+        P.open(400, 450): {
+            'reference_coordinate': P.open(400, 450),
+            'reference_type': 'non_coding'
+        }  # Assuming no CDS overlap
     }
 
     assert counter_handler.build_reference_dictionary(
         cds_candidates_dictionary=cds_candidates_dictionary,
-        clusters_list=clusters_list
+        clusters_list=overlapping_targets
     ) == expected_output
 
 
