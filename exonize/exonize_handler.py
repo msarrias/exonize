@@ -48,6 +48,7 @@ class Exonize(object):
             gff_file_path: str,
             genome_file_path: str,
             specie_identifier: str,
+            draw_event_multigraphs: bool,
             enable_debug: bool,
             hard_masking: bool,
             soft_force: bool,
@@ -65,6 +66,7 @@ class Exonize(object):
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.HARD_MASKING = hard_masking
+        self.draw_event_multigraphs = draw_event_multigraphs
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
@@ -87,6 +89,7 @@ class Exonize(object):
         self.environment = EnvironmentSetup(
             hard_force=self.HARD_FORCE,
             soft_force=self.SOFT_FORCE,
+            draw_event_multigraphs=self.draw_event_multigraphs,
             working_directory=self.working_directory,
             results_database_path=self.results_database_path,
         )
@@ -124,6 +127,7 @@ class Exonize(object):
         self.event_counter = CounterHandler(
             blast_engine=self.blast_engine,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
+            draw_event_multigraphs=self.draw_event_multigraphs,
         )
 
     def generate_unique_events_list(

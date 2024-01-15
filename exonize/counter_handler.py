@@ -2,12 +2,15 @@
 # This module contains the CounterHandler class, which is used to handle
 # the counter object in the BlastEngine class.
 # ------------------------------------------------------------------------
+import os.path
+
 import networkx as nx
 from collections import defaultdict
 import portion as P
 import random
 import re
 import tempfile
+import matplotlib.pyplot as plt
 
 
 class CounterHandler(object):
@@ -15,11 +18,18 @@ class CounterHandler(object):
             self,
             blast_engine: object,
             cds_overlapping_threshold: float,
+            draw_event_multigraphs: bool,
             ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
+        self.draw_event_multigraphs = draw_event_multigraphs
+        if self.draw_event_multigraphs:
+            self.multigraphs_path = os.path.join(
+                self.data_container.working_directory,
+                'multigraphs'
+            )
 
     @staticmethod
     def compute_average(
@@ -229,6 +239,71 @@ class CounterHandler(object):
         return gene_graph
 
     @staticmethod
+    def draw_event_multigraph(
+            gene_graph: nx.MultiGraph,
+            figure_path: str,
+    ):
+        plt.figure(figsize=(16, 8))
+        components = list(nx.connected_components(gene_graph))
+        node_labels = {
+            node: f'({node[0]},{node[1]})'
+            for node in gene_graph.nodes
+        }
+        # Create a separate circular layout for each component
+        layout_scale = 2
+        component_positions = []
+        for component in components:
+            layout = nx.circular_layout(
+                gene_graph.subgraph(component),
+                scale=layout_scale
+            )
+            component_positions.append(layout)
+        position_shift = max(layout_scale * 5.5, 15)
+        component_position = {}
+        for event_idx, layout in enumerate(component_positions):
+            for node, position in layout.items():
+                shifted_position = (position[0] + event_idx * position_shift, position[1])
+                component_position[node] = shifted_position
+
+        if max([len(component) for component in components]) == 2:
+            label_positions = component_position
+        else:
+            label_positions = {node: (pos[0], pos[1] + 0.1)
+                               for node, pos in component_position.items()
+                               }
+
+        # Draw the graph with edge attributes
+        nx.draw_networkx_nodes(gene_graph, component_position)
+        nx.draw_networkx_labels(
+            gene_graph,
+            label_positions,
+            labels=node_labels,
+            font_size=8,
+            bbox=dict(
+                boxstyle="round,pad=0.3",
+                edgecolor="white",
+                facecolor="white"
+            )
+        )
+
+        # Draw edges with different styles and colors
+        for edge in gene_graph.edges(data=True):
+            source, target, attributes = edge
+            edge_style = attributes.get('style', 'solid')
+            edge_color = attributes.get('color', 'black')
+            edge_width = attributes.get('width', 1)
+            nx.draw_networkx_edges(
+                gene_graph,
+                component_position,
+                edgelist=[(source, target)],
+                edge_color=edge_color,
+                style=edge_style,
+                width=edge_width
+            )
+        plt.savefig(figure_path)
+        plt.close()
+
+    @staticmethod
     def build_reference_type_dictionary(
             reference_coordinates_dictionary: dict
     ) -> dict:
@@ -417,6 +492,16 @@ class CounterHandler(object):
                 query_coordinates_set=query_coordinates,
                 tblastx_records_set=tblastx_records_set
             )
+
+            if self.draw_event_multigraphs:
+                self.draw_event_multigraph(
+                    gene_graph=gene_graph,
+                    figure_path=os.path.join(
+                        self.multigraphs_path,
+                        f'{gene_id}.png'
+                    )
+                )
+
             gene_fragments_with_event_ids_list, gene_events_set = self.get_events_tuples_from_multigraph(
                 reference_coordinates_dictionary=reference_coordinates_dictionary,
                 gene_id=gene_id,

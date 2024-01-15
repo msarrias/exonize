@@ -75,6 +75,13 @@ def argument_parser():
         default=False,
         help='Enable hard masking.'
     )
+    parser.add_argument(
+        '--multigraphs',
+        dest='draw_event_multigraphs',
+        action='store_true',
+        default=False,
+        help='Generate event graphs.'
+    )
     # Optional Arguments for Numerical Values and Thresholds
     parser.add_argument(
         '-p',
@@ -143,6 +150,7 @@ def main():
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
         specie_identifier=args.specie_identifier,
+        draw_event_multigraphs=args.draw_event_multigraphs,
         enable_debug=args.debug_mode,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
