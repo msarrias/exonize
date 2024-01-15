@@ -244,8 +244,6 @@ class CounterHandler(object):
             figure_path: str,
     ):
         plt.figure(figsize=(16, 8))
-        layout_scale = 14  # Adjust the scale factor as needed
-        pos = nx.circular_layout(gene_graph, scale=layout_scale)
         components = list(nx.connected_components(gene_graph))
         node_labels = {
             node: f'({node[0]},{node[1]})'
@@ -260,20 +258,22 @@ class CounterHandler(object):
                 scale=layout_scale
             )
             component_positions.append(layout)
+        position_shift = max(layout_scale * 5.5, 15)
+        component_position = {}
+        for event_idx, layout in enumerate(component_positions):
+            for node, position in layout.items():
+                shifted_position = (position[0] + event_idx * position_shift, position[1])
+                component_position[node] = shifted_position
 
-        # Manually adjust positions to place components side by side
-        position_shift = max(layout_scale * 5.5, 15)  # Adjust the shift based on your preference
-        pos = {}
-        for i, layout in enumerate(component_positions):
-            for node, (x, y) in layout.items():
-                pos[node] = (x + i * position_shift, y)
-        label_positions = {
-            node: (x, y + 0.1)
-            for node, (x, y) in pos.items()
-        }  # Adjust the y-offset (0.05) as needed
+        if max([len(component) for component in components]) == 2:
+            label_positions = component_position
+        else:
+            label_positions = {node: (pos[0], pos[1] + 0.1)
+                               for node, pos in component_position.items()
+                               }
 
         # Draw the graph with edge attributes
-        nx.draw_networkx_nodes(gene_graph, pos)
+        nx.draw_networkx_nodes(gene_graph, component_position)
         nx.draw_networkx_labels(
             gene_graph,
             label_positions,
@@ -289,12 +289,12 @@ class CounterHandler(object):
         # Draw edges with different styles and colors
         for edge in gene_graph.edges(data=True):
             source, target, attributes = edge
-            edge_style = attributes.get('style', 'solid')  # Default to solid if style is not defined
-            edge_color = attributes.get('color', 'black')  # Default to black if color is not defined
-            edge_width = attributes.get('width', 1)  # Default to 1 if width is not defined
+            edge_style = attributes.get('style', 'solid')
+            edge_color = attributes.get('color', 'black')
+            edge_width = attributes.get('width', 1)
             nx.draw_networkx_edges(
                 gene_graph,
-                pos,
+                component_position,
                 edgelist=[(source, target)],
                 edge_color=edge_color,
                 style=edge_style,
