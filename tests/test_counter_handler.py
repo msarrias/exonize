@@ -12,10 +12,12 @@ blast_engine = BLASTsearcher(
     cds_overlapping_threshold=0.8,
     evalue_threshold=1e-5,
     debug_mode=False,
+
 )
 counter_handler = CounterHandler(
     blast_engine=blast_engine,
     cds_overlapping_threshold=0.8,
+    draw_event_multigraphs=False,
 )
 
 
