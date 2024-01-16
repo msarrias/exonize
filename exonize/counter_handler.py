@@ -182,10 +182,16 @@ class CounterHandler(object):
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                         overlapping_coordinates_list=[(target_coordinate, _)]
                     )
-                    if individual_reference or any(
-                            [cds_coordinate.contains(target_coordinate)
-                             for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
-                    ):
+                    contained_match_in_cds = [cds_coordinate
+                                              for cds_coordinate in
+                                              cds_candidates_dictionary['candidates_cds_coordinates']
+                                              if cds_coordinate.contains(target_coordinate)
+                                              ]
+                    if individual_reference:
+                        ref_type = 'partial_coding'
+
+                    elif contained_match_in_cds:
+                        individual_reference = contained_match_in_cds[0]
                         ref_type = 'partial_coding'
                     elif not any(
                             [cds_coordinate.overlaps(target_coordinate)
@@ -209,14 +215,23 @@ class CounterHandler(object):
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
-            reference['reference_coordinate']
+            (reference['reference_coordinate'], reference['reference_type'])
             for reference in reference_coordinates_dictionary.values()
         ])
-        gene_graph.add_nodes_from(
-            set([(node_coordinate.lower, node_coordinate.upper)
-                 for node_coordinate in [*query_coordinates_set, *target_coordinates_set]
-                 ])
-        )
+
+        set_of_nodes = set([
+            ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
+            for node_coordinate, coordinate_type in [
+                *[(coordinate, 'coding') for coordinate in query_coordinates_set],
+                *target_coordinates_set
+            ]
+        ])
+        gene_graph.add_nodes_from([node_coordinate for node_coordinate, _ in set_of_nodes])
+
+        for node in set_of_nodes:
+            node_coordinate, coordinate_type = node
+            gene_graph.nodes[node_coordinate]['type'] = coordinate_type
+
         for event in tblastx_records_set:
             (fragment_id, _, source_start, source_end,
              target_start, target_end, evalue, event_type) = event[:8]
@@ -243,7 +258,15 @@ class CounterHandler(object):
             gene_graph: nx.MultiGraph,
             figure_path: str,
     ):
+        color_map = {
+            'partial_coding': 'blue',
+            'coding': 'green',
+            'non_coding': 'red',
+            'coding_non_coding': 'orange'
+        }
+
         plt.figure(figsize=(16, 8))
+        node_colors = [color_map[node[1]['type']] for node in gene_graph.nodes(data=True)]
         components = list(nx.connected_components(gene_graph))
         node_labels = {
             node: f'({node[0]},{node[1]})'
@@ -268,12 +291,18 @@ class CounterHandler(object):
         if max([len(component) for component in components]) == 2:
             label_positions = component_position
         else:
-            label_positions = {node: (pos[0], pos[1] + 0.1)
-                               for node, pos in component_position.items()
-                               }
+            label_positions = {
+                node: (position[0], position[1] + 0.1)
+                for node, position in component_position.items()
+            }
 
         # Draw the graph with edge attributes
-        nx.draw_networkx_nodes(gene_graph, component_position)
+        nx.draw_networkx_nodes(
+            G=gene_graph,
+            node_color=node_colors,
+            pos=component_position,
+            node_size=350,
+        )
         nx.draw_networkx_labels(
             gene_graph,
             label_positions,
