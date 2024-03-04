@@ -112,8 +112,8 @@ class BLASTsearcher(object):
                 intv_j=intv_i)
         ]) / 2
 
-    @staticmethod
     def get_single_candidate_cds_coordinate(
+            self,
             intv_i: P.Interval,
             intv_j: P.Interval,
     ) -> P.Interval:
@@ -126,7 +126,7 @@ class BLASTsearcher(object):
         param intv_j: the second interval
         Returns: P.interval
         """
-        if min_perc_overlap(
+        if self.min_perc_overlap(
                 self.get_overlap_percentage(
                     intv_i=intv_i,
                     intv_j=intv_j
