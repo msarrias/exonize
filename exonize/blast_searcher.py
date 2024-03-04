@@ -74,6 +74,29 @@ class BLASTsearcher(object):
             return (intersection.upper - intersection.lower) / (intv_j.upper - intv_j.lower)
         return 0
 
+    @staticmethod
+    def min_perc_overlap(
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+    ) -> float:
+        def get_interval_length(
+                interval: P.Interval,
+        ):
+            return sum(intv.upper - intv.lower for intv in interval)
+        """
+        Given two intervals, the function returns the percentage of the overlapping
+        region relative to the longest interval. The percentage overlap of the shortest
+        interval will always be greater or equal than that of the longest interval.
+        :param intv_i:
+        :param intv_j:
+        :return:
+        """
+        if intv_i.overlaps(intv_j):
+            intersection_span = get_interval_length(intv_i.intersection(intv_j))
+            longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
+            return round(intersection_span / longest_length, 3)
+        return 0.0
+
     def get_average_overlap_percentage(
             self,
             intv_i: P.Interval,
@@ -104,11 +127,11 @@ class BLASTsearcher(object):
         Returns: P.interval
         """
         if (
-                BLASTsearcher.get_overlap_percentage(
+                self.get_overlap_percentage(
                     intv_i=intv_i,
                     intv_j=intv_j
                 ) >
-                BLASTsearcher.get_overlap_percentage(
+                self.get_overlap_percentage(
                     intv_i=intv_j,
                     intv_j=intv_i
                 )
