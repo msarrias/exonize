@@ -155,13 +155,9 @@ class ClassifierHandler(object):
             )
             for annotation in transcript_dictionary['structure']
             if annotation['type'] == 'CDS'
-            and self.blast_engine.get_overlap_percentage(
+            and self.blast_engine.min_perc_overlap(
                 intv_i=annotation['coordinate'],
                 intv_j=cds_coordinate
-            ) > self.cds_overlapping_threshold
-            and self.blast_engine.get_overlap_percentage(
-                intv_i=cds_coordinate,
-                intv_j=annotation['coordinate']
             ) > self.cds_overlapping_threshold
         ]
 
