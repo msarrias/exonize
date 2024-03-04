@@ -126,7 +126,7 @@ class BLASTsearcher(object):
         param intv_j: the second interval
         Returns: P.interval
         """
-        if self.min_perc_overlap(
+        if (
                 self.get_overlap_percentage(
                     intv_i=intv_i,
                     intv_j=intv_j
