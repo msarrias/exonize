@@ -335,7 +335,7 @@ class ClassifierHandler(object):
         self.database_interface.instert_full_length_event(
             tuples_list=self.tuples_full_length_duplications
         )
-        self.database_interface.instert_obligatory_event(
+        self.database_interface.instert_obligate_event(
             tuples_list=self.tuples_obligatory_events
         )
         self.database_interface.instert_truncation_event(
