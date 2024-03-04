@@ -97,21 +97,6 @@ class BLASTsearcher(object):
             return round(intersection_span / longest_length, 3)
         return 0.0
 
-    def get_average_overlap_percentage(
-            self,
-            intv_i: P.Interval,
-            intv_j: P.Interval
-    ) -> float:
-        return sum([
-            self.get_overlap_percentage(
-                intv_i=intv_i,
-                intv_j=intv_j
-            ),
-            self.get_overlap_percentage(
-                intv_i=intv_j,
-                intv_j=intv_i)
-        ]) / 2
-
     @staticmethod
     def get_single_candidate_cds_coordinate(
             intv_i: P.Interval,
