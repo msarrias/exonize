@@ -494,17 +494,10 @@ class BLASTsearcher(object):
         while first_overlap_index < len(sorted_intervals) - 1:
             current_interval = sorted_intervals[first_overlap_index]
             next_interval = sorted_intervals[first_overlap_index + 1]
-            if (
-                    self.get_overlap_percentage(
-                        intv_i=current_interval,
-                        intv_j=next_interval
-                    ) > self.cds_overlapping_threshold
-                    and
-                    self.get_overlap_percentage(
-                        intv_i=next_interval,
-                        intv_j=current_interval
-                    ) > self.cds_overlapping_threshold
-            ):
+            if self.min_perc_overlap(
+                    intv_i=current_interval,
+                    intv_j=next_interval
+            ) > self.cds_overlapping_threshold:
                 return current_interval, next_interval
             first_overlap_index += 1
         return None, None
