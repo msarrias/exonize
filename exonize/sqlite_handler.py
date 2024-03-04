@@ -191,7 +191,7 @@ class SqliteHandler(object):
                     gene_id, 
                     transcript_id, 
                     query_cds_id, 
-                    id_B
+                    id_overlap_annot
                 )
             );
             """)
