@@ -82,24 +82,24 @@ def test_build_reference_dictionary():
 
     expected_output = {
         P.open(0, 50): {
-            'reference_coordinate': P.open(0, 100),
-            'reference_type': 'partial_coding'
+            'reference_coordinate': P.open(0, 50),
+            'reference_type': 'insertion'
         },
         P.open(40, 90): {
-            'reference_coordinate': P.open(0, 100),
-            'reference_type': 'partial_coding'
+            'reference_coordinate': P.open(40, 90),
+            'reference_type': 'insertion'
         },
         P.open(200, 250): {
             'reference_coordinate': P.open(200, 250),
-            'reference_type': 'coding'
+            'reference_type': 'full'
         },
         P.open(220, 270): {
             'reference_coordinate': P.open(220, 270),
-            'reference_type': 'coding_non_coding'
+            'reference_type': 'truncation'
         },
         P.open(400, 450): {
             'reference_coordinate': P.open(400, 450),
-            'reference_type': 'non_coding'
+            'reference_type': 'deactivated'
         }  # Assuming no CDS overlap
     }
 
