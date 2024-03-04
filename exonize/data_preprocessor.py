@@ -482,7 +482,7 @@ class DataPreprocessor(object):
                         mrna_sequence=mrna_dna_sequence,
                         cds_coordinates_list=cds_annotations_list,
                     )
-                    self.database_interface.insert_into_CDSs_table(
+                    self.database_interface.insert_into_cdss_table(
                         database_path=self.protein_database_path,
                         gene_args_tuple_list=cds_list_tuples
                     )
