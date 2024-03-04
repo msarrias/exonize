@@ -126,7 +126,7 @@ class BLASTsearcher(object):
         param intv_j: the second interval
         Returns: P.interval
         """
-        if (
+        if min_perc_overlap(
                 self.get_overlap_percentage(
                     intv_i=intv_i,
                     intv_j=intv_j
@@ -365,17 +365,10 @@ class BLASTsearcher(object):
                     (hsp_record.sbjct_start - 1) + hit_coord.lower,
                     hsp_record.sbjct_end + hit_coord.lower
                 )
-                if (
-                        self.get_overlap_percentage(
-                            intv_i=q_coord,
-                            intv_j=blast_target_coord
-                        ) < self.self_hit_threshold
-                        and
-                        self.get_overlap_percentage(
-                            intv_i=blast_target_coord,
-                            intv_j=q_coord
-                        ) < self.self_hit_threshold
-                ):
+                if self.min_perc_overlap(
+                        intv_i=q_coord,
+                        intv_j=blast_target_coord
+                ) <= self.self_hit_threshold:
                     res_tblastx[hsp_idx] = self.get_hsp_dictionary(
                         hsp=hsp_record,
                         cds_frame=cds_frame
