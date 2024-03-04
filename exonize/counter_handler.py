@@ -147,7 +147,7 @@ class CounterHandler(object):
             self,
             cds_candidates_dictionary: dict,
             clusters_list: list[list]
-    ) -> dict[dict]:
+    ) -> dict:
         # this dictionary should be for finding CDS reference and intron reference.
         # This should be applied to the clusters.
         reference_dictionary = dict()
