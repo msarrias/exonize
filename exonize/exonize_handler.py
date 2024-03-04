@@ -151,7 +151,7 @@ class Exonize(object):
 
     @staticmethod
     def generate_combinations(
-            strings: list
+            strings: list,
     ) -> list:
         result = set()
         for perm in permutations(strings):
@@ -302,8 +302,10 @@ class Exonize(object):
                 'consider using the hard-force/soft-force flag'
             )
         self.database_interface.insert_percent_query_column_to_fragments()
-        self.database_interface.create_filtered_full_length_events_view()
-        self.database_interface.create_mrna_counts_view()
+        self.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=self.cds_overlapping_threshold
+        )
+        self.database_interface.create_transcript_counts_view()
         self.environment.logger.info('Classifying tblastx hits...')
         self.event_classifier.identify_full_length_duplications()
         self.event_classifier.insert_classified_tuples_in_results_database()
@@ -328,7 +330,7 @@ class Exonize(object):
         self.database_interface.insert_event_id_column_to_full_length_events_cumulative_counts(
             list_tuples=fragments_tuples_list
         )
-        self.database_interface.insert_events_table(
+        self.database_interface.insert_expansion_table(
             list_tuples=list(events_set)
         )
         self.database_interface.create_exclusive_pairs_view()
