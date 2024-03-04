@@ -129,7 +129,8 @@ def argument_parser():
     parser.add_argument(
         '-to',
         '--timeout-database',
-        default=160, type=int,
+        default=160,
+        type=int,
         help='Database timeout. Default is 160.'
     )
     # Optional Argument for saving the parsed genome as a pickle file
@@ -169,3 +170,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# Run example:
+# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force
