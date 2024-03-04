@@ -619,8 +619,6 @@ class SqliteHandler(object):
             ) AS int
             WHERE Fragments.Fragment_id = int.Fragment_id;
             """)
-            
-        self.create_filtered_full_length_events_view()
 
     def insert_gene_ids_table(
             self,
