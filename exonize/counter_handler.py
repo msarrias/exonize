@@ -158,7 +158,7 @@ class CounterHandler(object):
                 overlapping_coordinates_list=coordinates_cluster
             )
             if candidate_reference:
-                ref_type = 'coding'
+                ref_type = 'full'
             # Second: let's look for targets contained in introns if all
             # the targets in the cluster are contained in introns
             # we take the hit with the lowest evalue as reference
@@ -168,7 +168,7 @@ class CounterHandler(object):
                     for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']
                     for target_coordinate, _ in coordinates_cluster
                 ) else None
-                ref_type = 'non_coding' if candidate_reference else None
+                ref_type = 'deactivated' if candidate_reference else None
             if candidate_reference:
                 for target_coordinate, _ in coordinates_cluster:
                     reference_dictionary[target_coordinate] = {
@@ -182,24 +182,25 @@ class CounterHandler(object):
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                         overlapping_coordinates_list=[(target_coordinate, _)]
                     )
-                    contained_match_in_cds = [cds_coordinate
-                                              for cds_coordinate in
-                                              cds_candidates_dictionary['candidates_cds_coordinates']
-                                              if cds_coordinate.contains(target_coordinate)
-                                              ]
+                    contained_match_in_cds = [
+                        target_coordinate
+                        for cds_coordinate in
+                        cds_candidates_dictionary['candidates_cds_coordinates']
+                        if cds_coordinate.contains(target_coordinate)
+                    ]
                     if individual_reference:
-                        ref_type = 'partial_coding'
+                        ref_type = 'insertion'
 
                     elif contained_match_in_cds:
                         individual_reference = contained_match_in_cds[0]
-                        ref_type = 'partial_coding'
+                        ref_type = 'insertion'
                     elif not any(
                             [cds_coordinate.overlaps(target_coordinate)
                              for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
                     ):
-                        ref_type = 'non_coding'
+                        ref_type = 'deactivated'
                     else:
-                        ref_type = 'coding_non_coding'
+                        ref_type = 'truncation'
 
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': individual_reference if individual_reference else target_coordinate,
@@ -222,11 +223,13 @@ class CounterHandler(object):
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, 'coding') for coordinate in query_coordinates_set],
+                *[(coordinate, 'full') for coordinate in query_coordinates_set],
                 *target_coordinates_set
             ]
         ])
-        gene_graph.add_nodes_from([node_coordinate for node_coordinate, _ in set_of_nodes])
+        gene_graph.add_nodes_from(
+            [node_coordinate for node_coordinate, _ in set_of_nodes]
+        )
 
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
@@ -259,14 +262,17 @@ class CounterHandler(object):
             figure_path: str,
     ):
         color_map = {
-            'partial_coding': 'blue',
-            'coding': 'green',
-            'non_coding': 'red',
-            'coding_non_coding': 'orange'
+            'insertion': 'blue',
+            'full': 'green',
+            'deactivated': 'red',
+            'truncation': 'orange'
         }
 
         plt.figure(figsize=(16, 8))
-        node_colors = [color_map[node[1]['type']] for node in gene_graph.nodes(data=True)]
+        node_colors = [
+            color_map[node[1]['type']]
+            for node in gene_graph.nodes(data=True)
+        ]
         components = list(nx.connected_components(gene_graph))
         node_labels = {
             node: f'({node[0]},{node[1]})'
@@ -350,7 +356,7 @@ class CounterHandler(object):
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
-            ref_type = reference_type_dict.get(node_coord, 'coding')
+            ref_type = reference_type_dict.get(node_coord, 'full')
             degree = gene_graph.degree((start, end))
             event_coord_dict[node_coord] = [ref_type, degree, None]  # cluster_id is None initially
         return event_coord_dict
