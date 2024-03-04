@@ -334,7 +334,7 @@ class ClassifierHandler(object):
         self.database_interface.instert_obligate_event(
             tuples_list=self.tuples_obligatory_events
         )
-        self.database_interface.instert_truncation_event(
+        self.database_interface.insert_truncation_event(
             tuples_list=self.tuples_truncation_events
         )
 
