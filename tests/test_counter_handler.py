@@ -82,11 +82,11 @@ def test_build_reference_dictionary():
 
     expected_output = {
         P.open(0, 50): {
-            'reference_coordinate': P.open(0, 50),
+            'reference_coordinate': P.open(0, 100),
             'reference_type': 'partial_coding'
         },
         P.open(40, 90): {
-            'reference_coordinate': P.open(40, 90),
+            'reference_coordinate': P.open(0, 100),
             'reference_type': 'partial_coding'
         },
         P.open(200, 250): {
