@@ -788,7 +788,7 @@ class SqliteHandler(object):
              """
             cursor.executemany(insert_obl_event_table_param, tuples_list)
 
-    def instert_truncation_event(
+    def insert_truncation_event(
             self,
             tuples_list: list
     ) -> None:
@@ -808,12 +808,12 @@ class SqliteHandler(object):
             query_end,
             target_start,
             target_end,
-            id_B,
-            type_B,
-            B_annot_start,
-            B_annot_end,
-            target_B_start,
-            target_B_end)
+            id_overlap_annot,
+            type_overlap_annot,
+            overlap_annot_start,
+            overlap_annot_end,
+            target_overlap_start,
+            target_overlap_end)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.executemany(insert_trunc_event_table_param, tuples_list)
