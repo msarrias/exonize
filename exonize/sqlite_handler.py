@@ -200,16 +200,16 @@ class SqliteHandler(object):
                 event_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 gene_id VARCHAR(100),
                 description VARCHAR(100),
-                start INTEGER NOT NULL,
-                end INTEGER NOT NULL,
+                ref_start INTEGER NOT NULL,
+                ref_end INTEGER NOT NULL,
                 degree INTEGER NOT NULL,
                 cluster_id INTEGER,
                 expansion_id INTEGER NOT NULL,
                 FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
                 UNIQUE (
                     gene_id, 
-                    start, 
-                    end, 
+                    ref_start, 
+                    ref_end, 
                     expansion_id
                 )
             );
@@ -695,8 +695,8 @@ class SqliteHandler(object):
             cursor.execute(""" SELECT 
                 gene_id,
                 description,
-                start,
-                end,
+                ref_start,
+                ref_end,
                 degree,
                 cluster_id,
                 expansion_id
@@ -708,8 +708,8 @@ class SqliteHandler(object):
             INSERT INTO Expansions (
                 gene_id,
                 description,
-                start,
-                end,
+                ref_start,
+                ref_end,
                 degree,
                 cluster_id,
                 expansion_id
