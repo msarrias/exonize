@@ -26,7 +26,8 @@ class EnvironmentSetup(object):
     def configure_logger(self):
         """
         configure_logger is a function that configures the logger.
-        INFO level is used for the log file and WARNING and ERROR level for the console.
+        INFO level is used for the log file and WARNING and ERROR
+        level for the console.
         """
         logging.addLevelName(
             self.__FILE_ONLY_INFO,
