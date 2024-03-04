@@ -812,8 +812,8 @@ class SqliteHandler(object):
             type_overlap_annot,
             overlap_annot_start,
             overlap_annot_end,
-            target_overlap_start,
-            target_overlap_end)
+            target_overlap_annot_start,
+            target_overlap_annot_end)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.executemany(insert_trunc_event_table_param, tuples_list)
