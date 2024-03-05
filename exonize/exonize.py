@@ -49,35 +49,30 @@ def argument_parser():
     # Optional Arguments for Flags
     parser.add_argument(
         '--debug',
-        dest='debug_mode',
         action='store_true',
         default=False,
         help='Enable DEBUG mode, which saves input and output tblastx files.'
     )
     parser.add_argument(
         '--soft-force',
-        dest='soft_force',
         action='store_true',
         default=False,
         help='If set, the results database will be overwritten if it already exists.'
     )
     parser.add_argument(
         '--hard-force',
-        dest='hard_force',
         action='store_true',
         default=False,
         help='If set, all internal files will be overwritten if they already exist.'
     )
     parser.add_argument(
         '--hard-masking',
-        dest='hard_masking',
         action='store_true',
         default=False,
         help='Enable hard masking.'
     )
     parser.add_argument(
         '--multigraphs',
-        dest='draw_event_multigraphs',
         action='store_true',
         default=False,
         help='Generate event graphs.'
@@ -106,21 +101,28 @@ def argument_parser():
     )
     parser.add_argument(
         '-ht',
-        '--self_hit_threshold',
+        '--self-hit-threshold',
         default=0.5,
         type=float,
         help='Self-hit threshold. Default is 0.5.'
     )
     parser.add_argument(
         '-ot',
-        '--cds_overlapping_threshold',
+        '--cds-overlapping-threshold',
         default=0.9,
         type=float,
         help='CDS overlapping threshold. Default is 0.9.'
     )
     parser.add_argument(
+        '-qt',
+        '--query-overlapping-threshold',
+        default=0.9,
+        type=float,
+        help='tblastx query overlapping threshold. Default is 0.9.'
+    )
+    parser.add_argument(
         '-mt',
-        '--masking_percentage_threshold',
+        '--masking-percentage-threshold',
         default=0.8,
         type=float,
         help='Masking percentage threshold. Default is 0.8.'
@@ -135,7 +137,7 @@ def argument_parser():
     )
     # Optional Argument for saving the parsed genome as a pickle file
     parser.add_argument(
-        '--genome_pickled_file_path',
+        '--genome-pickled-file-path',
         default='.parsed_genome.pkl',
         type=str,
         help='Parsed genome pickled file path. Default is .parsed_genome.pkl.'
@@ -151,8 +153,8 @@ def main():
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
         specie_identifier=args.specie_identifier,
-        draw_event_multigraphs=args.draw_event_multigraphs,
-        enable_debug=args.debug_mode,
+        draw_event_multigraphs=args.multigraphs,
+        enable_debug=args.debug,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
         hard_masking=args.hard_masking,
@@ -160,6 +162,7 @@ def main():
         sleep_max_seconds=args.sleep_max_seconds,
         min_exon_length=args.min_exon_length,
         cds_overlapping_threshold=args.cds_overlapping_threshold,
+        query_overlapping_threshold=args.query_overlapping_threshold,
         masking_percentage_threshold=args.masking_percentage_threshold,
         self_hit_threshold=args.self_hit_threshold,
         timeout_database=args.timeout_database,
@@ -172,4 +175,4 @@ if __name__ == '__main__':
     main()
 
 # Run example:
-# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force
+# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force --multigraphs
