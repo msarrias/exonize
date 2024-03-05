@@ -69,6 +69,7 @@ def test_build_reference_dictionary():
         (P.open(0, 50), 0.9),
         (P.open(40, 90), 0.8),
         (P.open(200, 250), 0.7),
+        (P.open(210, 250), 0.7),
         (P.open(220, 270), 0.6),
         (P.open(400, 450), 0.5)
     }
@@ -81,6 +82,14 @@ def test_build_reference_dictionary():
     )
 
     expected_output = {
+        P.open(200, 250): {
+            'reference_coordinate': P.open(200, 250),
+            'reference_type': 'full'
+        },
+        P.open(210, 250): {
+            'reference_coordinate': P.open(210, 250),
+            'reference_type': 'insertion'
+        },
         P.open(0, 50): {
             'reference_coordinate': P.open(0, 50),
             'reference_type': 'insertion'
@@ -88,10 +97,6 @@ def test_build_reference_dictionary():
         P.open(40, 90): {
             'reference_coordinate': P.open(40, 90),
             'reference_type': 'insertion'
-        },
-        P.open(200, 250): {
-            'reference_coordinate': P.open(200, 250),
-            'reference_type': 'full'
         },
         P.open(220, 270): {
             'reference_coordinate': P.open(220, 270),
