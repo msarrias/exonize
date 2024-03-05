@@ -142,6 +142,12 @@ def argument_parser():
         type=str,
         help='Parsed genome pickled file path. Default is .parsed_genome.pkl.'
     )
+    parser.add_argument(
+        '--output-directory-path',
+        default=None,
+        type=str,
+        help='Output directory path. Default is current directory.'
+    )
     args = parser.parse_args()
     return args
 
@@ -167,6 +173,7 @@ def main():
         self_hit_threshold=args.self_hit_threshold,
         timeout_database=args.timeout_database,
         genome_pickled_file_path=args.genome_pickled_file_path,
+        output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
 
@@ -175,4 +182,4 @@ if __name__ == '__main__':
     main()
 
 # Run example:
-# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force --multigraphs
+# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force --multigraphs --output-directory-path /Users/marinaherrerasarrias/Desktop

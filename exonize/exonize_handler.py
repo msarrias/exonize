@@ -62,6 +62,7 @@ class Exonize(object):
             self_hit_threshold: float,
             timeout_database: int,
             genome_pickled_file_path: Optional[str],
+            output_directory_path: Optional[str]
     ):
         self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
@@ -81,7 +82,13 @@ class Exonize(object):
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
-        self.working_directory = f'{self.specie_identifier}_exonize'
+        if output_directory_path:
+            self.working_directory = os.path.join(
+                output_directory_path,
+                f'{self.specie_identifier}_exonize'
+            )
+        else:
+            self.working_directory = f'{self.specie_identifier}_exonize'
         self.results_database_path = os.path.join(
             self.working_directory,
             f'{self.specie_identifier}_results.db'
