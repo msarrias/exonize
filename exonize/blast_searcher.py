@@ -680,7 +680,7 @@ class BLASTsearcher(object):
     def get_gene_tuple(
             self,
             gene_id: str,
-            has_duplication_binary: int,
+            has_duplication_binary: int
     ) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id,
@@ -693,6 +693,7 @@ class BLASTsearcher(object):
             gene_id,
             self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
+            len(self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']),
             gene_coordinate.lower,
             gene_coordinate.upper,
             has_duplication_binary
