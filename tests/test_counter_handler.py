@@ -21,10 +21,6 @@ counter_handler = CounterHandler(
 )
 
 
-def test_get_candidate_reference_dictionary():
-    pass
-
-
 def test_get_overlapping_clusters():
     # Case 1: Overlapping intervals
     target_coordinates_set_1 = {
