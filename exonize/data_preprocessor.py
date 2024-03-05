@@ -7,6 +7,7 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 import portion as P
+from datetime import date
 
 
 class DataPreprocessor(object):
@@ -25,6 +26,11 @@ class DataPreprocessor(object):
             debug_mode: bool,
             hard_masking: bool,
             evalue_threshold: float,
+            self_hit_threshold: float,
+            cds_overlapping_threshold: float,
+            query_overlapping_threshold: float,
+            min_exon_length: int,
+            masking_percentage_threshold: float,
     ):
         self.environment = logger_obj
         self.database_interface = database_interface
@@ -34,6 +40,11 @@ class DataPreprocessor(object):
         self.genome_file_path = genome_file_path
         self.genome_pickled_file_path = genome_pickled_file_path
         self.evalue_threshold = evalue_threshold
+        self.self_hit_threshold = self_hit_threshold
+        self.cds_overlapping_threshold = cds_overlapping_threshold
+        self.query_overlapping_threshold = query_overlapping_threshold
+        self.min_exon_length = min_exon_length
+        self.masking_percentage_threshold = masking_percentage_threshold
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
         self._DEBUG_MODE = debug_mode
@@ -102,6 +113,18 @@ class DataPreprocessor(object):
         :param gene_strand: strand
         """
         return gene_strand == '-'
+
+    @staticmethod
+    def get_tblastx_version():
+        result = subprocess.run(
+            ["tblastx", "-version"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            raise Exception("Error executing tblastx: " + result.stderr)
 
     def convert_gtf_to_gff(self,) -> None:
         """
@@ -525,6 +548,22 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
         self.database_interface.connect_create_results_database()
+        self.database_interface.insert_pipeline_settings(
+            settings_list=[
+                self.specie_identifier,
+                date.today(),
+                self.get_tblastx_version(),
+                self.genome_file_path,
+                self.gff_file_path,
+                self.results_database,
+                self.evalue_threshold,
+                self.self_hit_threshold,
+                self.cds_overlapping_threshold,
+                self.query_overlapping_threshold,
+                self.min_exon_length,
+                self.masking_percentage_threshold
+            ]
+        )
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
