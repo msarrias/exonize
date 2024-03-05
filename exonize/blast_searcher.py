@@ -497,7 +497,7 @@ class BLASTsearcher(object):
             if self.min_perc_overlap(
                     intv_i=current_interval,
                     intv_j=next_interval
-            ) > self.cds_overlapping_threshold:
+            ) >= self.cds_overlapping_threshold:
                 return current_interval, next_interval
             first_overlap_index += 1
         return None, None
