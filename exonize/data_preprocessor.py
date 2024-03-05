@@ -155,7 +155,7 @@ class DataPreprocessor(object):
         attempt to automatically infer transcript features
         """
         try:
-            self.environment.logger.info("Creating annotations database")
+            self.environment.logger.info("Creating annotations database - This may take a while...")
             self.genome_database = gffutils.create_db(
                 self.gff_file_path,
                 dbfn=self.genome_database_path,
