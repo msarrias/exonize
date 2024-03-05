@@ -312,7 +312,6 @@ class Exonize(object):
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_overlapping_threshold
         )
-        self.database_interface.create_transcript_counts_view()
         self.environment.logger.info('Classifying tblastx hits...')
         self.event_classifier.identify_full_length_duplications()
         self.event_classifier.insert_classified_tuples_in_results_database()
