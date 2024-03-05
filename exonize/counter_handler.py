@@ -182,28 +182,29 @@ class CounterHandler(object):
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
                         overlapping_coordinates_list=[(target_coordinate, _)]
                     )
-                    contained_match_in_cds = [
-                        target_coordinate
-                        for cds_coordinate in
-                        cds_candidates_dictionary['candidates_cds_coordinates']
-                        if cds_coordinate.contains(target_coordinate)
-                    ]
-                    if individual_reference:
-                        ref_type = 'insertion'
+                    ref_type = 'full' if individual_reference else None
 
-                    elif contained_match_in_cds:
-                        individual_reference = contained_match_in_cds[0]
-                        ref_type = 'insertion'
-                    elif not any(
-                            [cds_coordinate.overlaps(target_coordinate)
-                             for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
-                    ):
-                        ref_type = 'deactivated'
-                    else:
-                        ref_type = 'truncation'
+                    if not ref_type:
+                        contained_match_in_cds = [
+                            cds_coordinate
+                            for cds_coordinate in
+                            cds_candidates_dictionary['candidates_cds_coordinates']
+                            if cds_coordinate.contains(target_coordinate)
+                        ]
+                        if contained_match_in_cds:
+                            ref_type = 'insertion'
+
+                        elif all([
+                            not cds_coordinate.overlaps(target_coordinate)
+                            for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
+                        ):
+                            ref_type = 'deactivated'
+                        else:
+                            ref_type = 'truncation'
+                        individual_reference = target_coordinate
 
                     reference_dictionary[target_coordinate] = {
-                        'reference_coordinate': individual_reference if individual_reference else target_coordinate,
+                        'reference_coordinate': individual_reference,
                         'reference_type': ref_type
                     }
         return reference_dictionary
