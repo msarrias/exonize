@@ -223,7 +223,7 @@ def test_resolve_overlaps_between_coordinates():
         sorted_cds_coordinates=test
     ) == res_b
 
-    blast_engine.cds_overlapping_threshold = 0
+    blast_engine.cds_overlapping_threshold = 0.001
     res_c = [
         P.open(0, 100),
         P.open(200, 300),
