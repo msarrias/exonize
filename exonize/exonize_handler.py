@@ -57,6 +57,7 @@ class Exonize(object):
             sleep_max_seconds: int,
             min_exon_length: int,
             cds_overlapping_threshold: float,
+            query_overlapping_threshold: float,
             masking_percentage_threshold: float,
             self_hit_threshold: float,
             timeout_database: int,
@@ -74,6 +75,7 @@ class Exonize(object):
         self.specie_identifier = specie_identifier
         self.evalue_threshold = evalue_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
+        self.query_overlapping_threshold = query_overlapping_threshold
         self.masking_percentage_threshold = masking_percentage_threshold
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
@@ -107,7 +109,12 @@ class Exonize(object):
             genome_pickled_file_path=self.genome_pickled_file_path,
             debug_mode=self._DEBUG_MODE,
             hard_masking=self.HARD_MASKING,
-            evalue_threshold=evalue_threshold
+            evalue_threshold=evalue_threshold,
+            self_hit_threshold=self.self_hit_threshold,
+            cds_overlapping_threshold=self.cds_overlapping_threshold,
+            query_overlapping_threshold=self.query_overlapping_threshold,
+            min_exon_length=self.min_exon_length,
+            masking_percentage_threshold=self.masking_percentage_threshold
         )
 
         self.blast_engine = BLASTsearcher(
@@ -303,7 +310,7 @@ class Exonize(object):
             )
         self.database_interface.insert_percent_query_column_to_fragments()
         self.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=self.cds_overlapping_threshold
+            query_overlap_threshold=self.query_overlapping_threshold
         )
         self.database_interface.create_transcript_counts_view()
         self.environment.logger.info('Classifying tblastx hits...')
