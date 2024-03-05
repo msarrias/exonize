@@ -316,6 +316,7 @@ class Exonize(object):
         self.environment.logger.info('Classifying tblastx hits...')
         self.event_classifier.identify_full_length_duplications()
         self.event_classifier.insert_classified_tuples_in_results_database()
+        self.environment.logger.info('Classifying events...')
         self.database_interface.create_cumulative_counts_table()
         query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
         reduced_event_types_tuples = self.generate_unique_events_list(
@@ -330,7 +331,7 @@ class Exonize(object):
             list_tuples=identity_and_sequence_tuples
         )
         full_matches_list = self.database_interface.query_full_events()
-        self.environment.logger.info('Reconciling events...')
+        self.environment.logger.info('Finding expansions...')
         fragments_tuples_list, events_set = self.event_counter.assign_event_ids(
             tblastx_full_matches_list=full_matches_list
         )
