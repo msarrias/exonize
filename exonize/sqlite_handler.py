@@ -40,7 +40,21 @@ class SqliteHandler(object):
                 return any(column_name == other_column[1] for other_column in cursor.fetchall())
         return False
 
-    def connect_create_results_database(self, ) -> None:
+    @staticmethod
+    def check_if_empty_table(
+            db_path: str,
+            table_name: str,
+    ) -> bool:
+        with sqlite3.connect(db_path) as db:
+            cursor = db.cursor()
+            cursor.execute(f"""
+            SELECT COUNT(*) FROM {table_name}
+            """)
+            return cursor.fetchone()[0] == 0
+
+    def connect_create_results_database(
+            self,
+    ) -> None:
         with sqlite3.connect(self.results_database_path, timeout=self.timeout_database) as db:
             cursor = db.cursor()
             cursor.execute("""
