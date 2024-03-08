@@ -155,7 +155,9 @@ class DataPreprocessor(object):
         attempt to automatically infer transcript features
         """
         try:
-            self.environment.logger.info("Creating annotations database - This may take a while...")
+            self.environment.logger.info(
+                "Creating annotations database - This may take a while..."
+            )
             self.genome_database = gffutils.create_db(
                 self.gff_file_path,
                 dbfn=self.genome_database_path,
@@ -167,7 +169,9 @@ class DataPreprocessor(object):
                 disable_infer_transcripts=True
             )
         except ValueError as e:
-            self.environment.logger.exception(f"Incorrect genome annotations file {e}")
+            self.environment.logger.exception(
+                f"Incorrect genome annotations file {e}"
+            )
             sys.exit()
 
     def search_create_intron_annotations(self,) -> None:
@@ -208,11 +212,17 @@ class DataPreprocessor(object):
                 self.old_filename = self.gff_file_path
                 self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
                 self.convert_gtf_to_gff()
-                self.environment.logger.info('the GTF file has been converted into a GFF3 file')
-                self.environment.logger.info(f'with filename: {self.gff_file_path}')
+                self.environment.logger.info(
+                    'the GTF file has been converted into a GFF3 file'
+                )
+                self.environment.logger.info(
+                    f'with filename: {self.gff_file_path}'
+                )
             self.create_genome_database()
         if not self.genome_database:
-            self.environment.logger.info("Reading annotations database")
+            self.environment.logger.info(
+                "Reading annotations database"
+            )
             self.load_genome_database()
         self.database_features = list(self.genome_database.featuretypes())
         self.search_create_intron_annotations()
@@ -542,7 +552,9 @@ class DataPreprocessor(object):
         self.create_parse_or_update_database()
         self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
-            self.gene_hierarchy_dictionary = self.read_pkl_file(file_path=self.gene_hierarchy_path)
+            self.gene_hierarchy_dictionary = self.read_pkl_file(
+                file_path=self.gene_hierarchy_path
+            )
         else:
             self.create_gene_hierarchy_dictionary()
             self.dump_pkl_file(
@@ -554,8 +566,10 @@ class DataPreprocessor(object):
             self.database_interface.create_protein_table(
                 database_path=self.protein_database_path
             )
+            self.environment.logger.info(
+                "Populating protein database."
+            )
             self.populate_proteins_table(
-                protein_database_path=self.protein_database_path
             )
         if self.database_interface.check_if_empty_table(
             db_path=self.results_database,
