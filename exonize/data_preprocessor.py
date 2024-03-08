@@ -505,20 +505,23 @@ class DataPreprocessor(object):
             self,
     ) -> None:
         for gene_id, gene_dictionary in self.gene_hierarchy_dictionary.items():
+            gene_coordinate = gene_dictionary['coordinate']
+            chrom, strand = gene_dictionary['chrom'], gene_dictionary['strand']
             gene_tuples_list_peptide_transcripts = []
             for mrna_id, mrna_dictionary in gene_dictionary['mRNAs'].items():
+                mrna_coordinate = mrna_dictionary['coordinate']
                 cds_annotations_list = [
                     cds_annotation for cds_annotation in mrna_dictionary['structure']
                     if cds_annotation['type'] == 'CDS'
                 ]
                 mrna_dna_sequence = self.construct_mrna_sequence(
-                    chromosome=gene_dictionary['chrom'],
-                    gene_strand=gene_dictionary['strand'],
+                    chromosome=chrom,
+                    gene_strand=strand,
                     cds_coordinates_list=cds_annotations_list,
                 )
                 peptide_sequence, cds_list_tuples = self.construct_peptide_sequences(
-                    gene_id=gene.id,
-                    transcript_id=mrna_annot.id,
+                    gene_id=gene_id,
+                    transcript_id=mrna_id,
                     mrna_sequence=mrna_dna_sequence,
                     cds_coordinates_list=cds_annotations_list,
                 )
@@ -527,9 +530,9 @@ class DataPreprocessor(object):
                     gene_args_tuple_list=cds_list_tuples
                 )
                 gene_tuples_list_peptide_transcripts.append(
-                    (gene.id, gene.chrom, gene.strand,
+                    (gene_id, chrom, strand,
                      gene_coordinate.lower, gene_coordinate.upper,
-                     mrna_annot.id,
+                     mrna_id,
                      mrna_coordinate.lower, mrna_coordinate.upper,
                      peptide_sequence)
                 )
