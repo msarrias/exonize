@@ -447,7 +447,7 @@ class DataPreprocessor(object):
         }
         """
         self.environment.logger.info(
-            "Fetching gene-hierarchy data and writing protein database"
+            "Fetching gene-hierarchy data from genome annotations"
         )
         for gene in self.genome_database.features_of_type('gene'):
             mrna_transcripts = [
@@ -570,7 +570,7 @@ class DataPreprocessor(object):
                 database_path=self.protein_database_path
             )
             self.environment.logger.info(
-                "Populating protein database."
+                "Populating protein database"
             )
             self.populate_proteins_table(
             )
