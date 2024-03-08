@@ -181,5 +181,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# Run example:
-# exonize data/bonobo/bonobo_first1081lines.gff data/bonobo/bonobo_genome_1ch.fa bonobo2 -el 20 --hard-force --multigraphs --output-directory-path /Users/marinaherrerasarrias/Desktop
