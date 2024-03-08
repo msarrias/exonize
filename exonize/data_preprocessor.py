@@ -504,7 +504,7 @@ class DataPreprocessor(object):
     def populate_proteins_table(
             self,
     ) -> None:
-        for gene_id, gene_dictionary in gene_hierarchy_dictionary.items():
+        for gene_id, gene_dictionary in self.gene_hierarchy_dictionary.items():
             gene_tuples_list_peptide_transcripts = []
             for mrna_id, mrna_dictionary in gene_dictionary['mRNAs'].items():
                 cds_annotations_list = [
