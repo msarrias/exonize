@@ -548,22 +548,26 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
         self.database_interface.connect_create_results_database()
-        self.database_interface.insert_pipeline_settings(
-            settings_list=[
-                self.specie_identifier,
-                date.today(),
-                self.get_tblastx_version(),
-                self.genome_file_path,
-                self.gff_file_path,
-                self.results_database,
-                self.evalue_threshold,
-                self.self_hit_threshold,
-                self.cds_overlapping_threshold,
-                self.query_overlapping_threshold,
-                self.min_exon_length,
-                self.masking_percentage_threshold
-            ]
-        )
+        if not self.database_interface.check_if_empty_table(
+            db_path=self.results_database,
+            table_name='Pipeline_settings'
+        ):
+            self.database_interface.insert_pipeline_settings(
+                settings_list=[
+                    self.specie_identifier,
+                    date.today(),
+                    self.get_tblastx_version(),
+                    self.genome_file_path,
+                    self.gff_file_path,
+                    self.results_database,
+                    self.evalue_threshold,
+                    self.self_hit_threshold,
+                    self.cds_overlapping_threshold,
+                    self.query_overlapping_threshold,
+                    self.min_exon_length,
+                    self.masking_percentage_threshold
+                ]
+            )
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
