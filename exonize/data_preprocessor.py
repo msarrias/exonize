@@ -456,7 +456,6 @@ class DataPreprocessor(object):
                     strand=gene.strand,
                     mRNAs=dict()
                 )
-                gene_tuples_list_peptide_transcripts = list()
                 for mrna_annot in mrna_transcripts:
                     mrna_coordinate = P.open(mrna_annot.start - 1, mrna_annot.end)
                     mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
@@ -490,38 +489,44 @@ class DataPreprocessor(object):
                         list_dictionaries=mrna_transcripts_list,
                         reverse=reverse,
                     )
-                    cds_annotations_list = [cds_annotation for cds_annotation in
-                                            mrna_dictionary['mRNAs'][mrna_annot.id]['structure']
-                                            if cds_annotation['type'] == 'CDS'
-                                            ]
-                    mrna_dna_sequence = self.construct_mrna_sequence(
-                        chromosome=gene.chrom,
-                        gene_strand=gene.strand,
-                        cds_coordinates_list=cds_annotations_list,
-                    )
-                    peptide_sequence, cds_list_tuples = self.construct_peptide_sequences(
-                        gene_id=gene.id,
-                        transcript_id=mrna_annot.id,
-                        mrna_sequence=mrna_dna_sequence,
-                        cds_coordinates_list=cds_annotations_list,
-                    )
-                    self.database_interface.insert_into_cdss_table(
-                        database_path=self.protein_database_path,
-                        gene_args_tuple_list=cds_list_tuples
-                    )
-                    gene_tuples_list_peptide_transcripts.append(
-                        (gene.id, gene.chrom, gene.strand,
-                         gene_coordinate.lower, gene_coordinate.upper,
-                         mrna_annot.id,
-                         mrna_coordinate.lower, mrna_coordinate.upper,
-                         peptide_sequence)
-                    )
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
-                self.database_interface.insert_into_proteins_table(
-                    database_path=self.protein_database_path,
-                    gene_args_list_tuple=gene_tuples_list_peptide_transcripts
+    def populate_proteins_table(
+            self,
+    ) -> None:
+        for gene_id, gene_dictionary in gene_hierarchy_dictionary.items():
+            gene_tuples_list_peptide_transcripts = []
+            for mrna_id, mrna_dictionary in gene_dictionary['mRNAs'].items():
+                cds_annotations_list = [
+                    cds_annotation for cds_annotation in mrna_dictionary['structure']
+                    if cds_annotation['type'] == 'CDS'
+                ]
+                mrna_dna_sequence = self.construct_mrna_sequence(
+                    chromosome=gene_dictionary['chrom'],
+                    gene_strand=gene_dictionary['strand'],
+                    cds_coordinates_list=cds_annotations_list,
                 )
+                peptide_sequence, cds_list_tuples = self.construct_peptide_sequences(
+                    gene_id=gene.id,
+                    transcript_id=mrna_annot.id,
+                    mrna_sequence=mrna_dna_sequence,
+                    cds_coordinates_list=cds_annotations_list,
+                )
+                self.database_interface.insert_into_cdss_table(
+                    database_path=self.protein_database_path,
+                    gene_args_tuple_list=cds_list_tuples
+                )
+                gene_tuples_list_peptide_transcripts.append(
+                    (gene.id, gene.chrom, gene.strand,
+                     gene_coordinate.lower, gene_coordinate.upper,
+                     mrna_annot.id,
+                     mrna_coordinate.lower, mrna_coordinate.upper,
+                     peptide_sequence)
+                )
+            self.database_interface.insert_into_proteins_table(
+                database_path=self.protein_database_path,
+                gene_args_list_tuple=gene_tuples_list_peptide_transcripts
+            )
 
     def prepare_data(self) -> None:
         """
@@ -535,9 +540,6 @@ class DataPreprocessor(object):
             os.makedirs(os.path.join(self.working_directory, 'input'), exist_ok=True)
             os.makedirs(os.path.join(self.working_directory, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
-        self.database_interface.create_protein_table(
-            database_path=self.protein_database_path
-        )
         self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
             self.gene_hierarchy_dictionary = self.read_pkl_file(file_path=self.gene_hierarchy_path)
@@ -548,7 +550,14 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
         self.database_interface.connect_create_results_database()
-        if not self.database_interface.check_if_empty_table(
+        if not os.path.exists(self.protein_database_path):
+            self.database_interface.create_protein_table(
+                database_path=self.protein_database_path
+            )
+            self.populate_proteins_table(
+                protein_database_path=self.protein_database_path
+            )
+        if self.database_interface.check_if_empty_table(
             db_path=self.results_database,
             table_name='Pipeline_settings'
         ):
