@@ -138,9 +138,9 @@ def argument_parser():
     # Optional Argument for saving the parsed genome as a pickle file
     parser.add_argument(
         '--genome-pickled-file-path',
-        default='.parsed_genome.pkl',
+        default='parsed_genome.pkl',
         type=str,
-        help='Parsed genome pickled file path. Default is .parsed_genome.pkl.'
+        help='Parsed genome pickled file path. Default is parsed_genome.pkl.'
     )
     parser.add_argument(
         '--output-directory-path',
