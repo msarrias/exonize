@@ -93,6 +93,10 @@ class Exonize(object):
             self.working_directory,
             f'{self.specie_identifier}_results.db'
         )
+        self.genome_pickled_file_path = os.path.join(
+            self.working_directory,
+            self.genome_pickled_file_path
+        )
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
