@@ -189,7 +189,10 @@ class DataPreprocessor(object):
                 "attempting to write intron annotations in database",
             )
             try:
-                self.genome_database.update(list(self.genome_database.create_introns()), make_backup=False)
+                self.genome_database.update(
+                    list(self.genome_database.create_introns()),
+                    make_backup=False
+                )
             except ValueError as e:
                 self.environment.logger.exception(
                     f"failed to write intron annotations in database. "
@@ -259,7 +262,9 @@ class DataPreprocessor(object):
         self.environment.logger.info("Reading genome")
         if (self.genome_pickled_file_path is not None
                 and os.path.exists(path=self.genome_pickled_file_path)):
-            self.genome_dictionary = self.read_pkl_file(file_path=self.genome_pickled_file_path)
+            self.genome_dictionary = self.read_pkl_file(
+                file_path=self.genome_pickled_file_path
+            )
         else:
             try:
                 with open(self.genome_file_path) as genome_file:
