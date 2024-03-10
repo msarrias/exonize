@@ -4,6 +4,7 @@
 # ------------------------------------------------------------------------
 import sqlite3
 from typing import List
+import contextlib
 
 
 class SqliteHandler(object):
@@ -710,10 +711,11 @@ class SqliteHandler(object):
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """
-        with sqlite3.connect(self.results_database_path, timeout=self.timeout_database) as db:
-            cursor = db.cursor()
-            cursor.execute(insert_gene_table_param, gene_args_tuple)
-            cursor.executemany(insert_fragments_table_param, fragments_tuples_list)
+        with contextlib.closing(sqlite3.connect(self.results_database_path, timeout=self.timeout_database)) as db:
+            with db:
+                with contextlib.closing(db.cursor()) as cursor:
+                    cursor.execute(insert_gene_table_param, gene_args_tuple)
+                    cursor.executemany(insert_fragments_table_param, fragments_tuples_list)
 
     def insert_expansion_table(
             self,
