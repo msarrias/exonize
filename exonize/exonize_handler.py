@@ -29,7 +29,6 @@ from typing import Tuple, List, Union, Any, Optional, Sequence, Iterator
 import portion as P
 from collections.abc import Sequence, Iterator
 import networkx as nx
-import sqlite3
 from multiprocessing import Process, Queue
 from rich.progress import Progress
 
@@ -239,7 +238,7 @@ class Exonize(object):
             gene_count = len(gene_ids_list)
             self.environment.logger.info(
                 f'Starting exon duplication search for'
-                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes.'
+                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
             )
 
             # Benchmark without any parallel computation:
@@ -253,18 +252,19 @@ class Exonize(object):
             # get_run_performance_profile(PROFILE_PATH)
 
             # Benchmark with parallel computation using os.fork:
-            pr = cProfile.Profile()
-            pr.enable()
-            gc.collect()
-            gc.freeze()
+            # pr = cProfile.Profile()
+            # pr.enable()
+            # gc.collect()
+            # gc.freeze()
             transactions_pks: set[int]
             status: int
             code: int
             forks: int = 0
             FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
             with Progress() as progress:
-                task = progress.add_task(description="[red]Exonizing...",
-                                         total=len(unprocessed_gene_ids_list) + 1)
+                task = progress.add_task(
+                    description="[red]Exonizing...",
+                    total=len(unprocessed_gene_ids_list) + 1)
                 for balanced_genes_batch in even_batches(
                     data=unprocessed_gene_ids_list,
                     number_of_batches=FORKS_NUMBER,
@@ -292,8 +292,11 @@ class Exonize(object):
                         try:
                             for gene_id in balanced_genes_batch:
                                 self.blast_engine.find_coding_exon_duplicates(gene_id)
+                            progress.advance(task, advance=len(balanced_genes_batch))
                         except Exception as exception:
-                            sys.stdout.write(str(exception))
+                            self.environment.logger.exception(
+                                str(exception)
+                            )
                             status = os.EX_SOFTWARE
                         finally:
                             # This prevents the child process forked above to keep along the for loop upon completion
@@ -301,7 +304,6 @@ class Exonize(object):
                             # fork in turn its own children, duplicating the work done, and creating a huge mess.
                             # We do not want that, so we gracefully exit the process when it is done.
                             os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-                    progress.advance(task, advance=len(balanced_genes_batch))
                 # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
                 while forks > 0:
                     _, status = os.wait()
@@ -309,11 +311,11 @@ class Exonize(object):
                     assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                     assert code != os.EX_SOFTWARE
                     forks -= 1
-                # gc.unfreeze()
-                # pr.disable()
-                # pr.dump_stats(PROFILE_PATH)
-                # get_run_performance_profile(PROFILE_PATH)
-                progress.advance(task, advance=1)
+                    # gc.unfreeze()
+                    # pr.disable()
+                    # pr.dump_stats(PROFILE_PATH)
+                    # get_run_performance_profile(PROFILE_PATH)
+                    progress.advance(task, advance=1)
         else:
             self.environment.logger.info(
                 'All genes have been processed. If you want to re-run the analysis, '
