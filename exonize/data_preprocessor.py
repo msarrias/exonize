@@ -210,25 +210,26 @@ class DataPreprocessor(object):
         (i) Verifies that the database contains intron annotations, if not,
         it attempts to write them.
         """
-        if not os.path.exists(self.genome_database_path):
-            if 'gtf' in self.gff_file_path:
-                self.old_filename = self.gff_file_path
-                self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
-                self.convert_gtf_to_gff()
+        if not os.path.exists(self.gene_hierarchy_path):
+            if not os.path.exists(self.genome_database_path):
+                if 'gtf' in self.gff_file_path:
+                    self.old_filename = self.gff_file_path
+                    self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
+                    self.convert_gtf_to_gff()
+                    self.environment.logger.info(
+                        'the GTF file has been converted into a GFF3 file'
+                    )
+                    self.environment.logger.info(
+                        f'with filename: {self.gff_file_path}'
+                    )
+                self.create_genome_database()
+            if not self.genome_database:
                 self.environment.logger.info(
-                    'the GTF file has been converted into a GFF3 file'
+                    "Reading annotations database"
                 )
-                self.environment.logger.info(
-                    f'with filename: {self.gff_file_path}'
-                )
-            self.create_genome_database()
-        if not self.genome_database:
-            self.environment.logger.info(
-                "Reading annotations database"
-            )
-            self.load_genome_database()
-        self.database_features = list(self.genome_database.featuretypes())
-        self.search_create_intron_annotations()
+                self.load_genome_database()
+            self.database_features = list(self.genome_database.featuretypes())
+            self.search_create_intron_annotations()
 
     def load_genome_database(self,) -> None:
         """
@@ -545,6 +546,11 @@ class DataPreprocessor(object):
                 database_path=self.protein_database_path,
                 gene_args_list_tuple=gene_tuples_list_peptide_transcripts
             )
+
+    def clear_working_directory(self):
+        if (os.path.exists(self.gene_hierarchy_path)
+                and os.path.exists(self.genome_database_path)):
+            os.remove(elf.genome_database_path)
 
     def prepare_data(self) -> None:
         """
