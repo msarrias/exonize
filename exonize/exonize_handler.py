@@ -228,6 +228,9 @@ class Exonize(object):
                 batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
                 yield data[batch_start_index:batch_end_index]
 
+        self.environment.logger.info(
+            f'Running Exonize for specie:{self.specie_identifier}'
+        )
         self.data_container.prepare_data()
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         processed_gene_ids_list = set(
@@ -354,6 +357,7 @@ class Exonize(object):
             list_tuples=list(events_set)
         )
         self.database_interface.create_exclusive_pairs_view()
+        self.data_container.clear_working_directory()
         self.environment.logger.info(
             'Process completed successfully.'
         )
