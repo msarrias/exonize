@@ -620,7 +620,7 @@ class BLASTsearcher(object):
             f'{gene_id}_{chromosome}_'
             f'{str(query_coordinate.lower)}_'
             f'{query_coordinate.upper}'
-            ).replace(':', '_')
+        ).replace(':', '_')
         if self._DEBUG_MODE:
             tblastx_o = self.tblastx_with_saved_io(
                 identifier=identifier,
@@ -734,7 +734,8 @@ class BLASTsearcher(object):
                     # note that we are not accounting for the frame at this stage, that will be part of
                     # the filtering step (since tblastx alignments account for the 6 frames)
                     temp_dna_cds_sequence = str(
-                        Seq(self.data_container.genome_dictionary[chromosome][cds_coordinate.lower:cds_coordinate.upper])
+                        Seq(self.data_container.genome_dictionary[chromosome][
+                            cds_coordinate.lower:cds_coordinate.upper])
                     )
                     cds_dna_sequence = self.decide_action_based_on_masking(
                         chromosome=chromosome,
@@ -754,18 +755,37 @@ class BLASTsearcher(object):
                         )
                         if tblastx_o:
                             blast_hits_dictionary[cds_coordinate] = tblastx_o
+                attempt = False
                 if blast_hits_dictionary:
-                    self.populate_fragments_table(
-                        gene_id=gene_id,
-                        blast_results_dictionary=blast_hits_dictionary
-                    )
+                    while not attempt:
+                        try:
+                            self.populate_fragments_table(
+                                gene_id=gene_id,
+                                blast_results_dictionary=blast_hits_dictionary
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
                 else:
-                    self.database_interface.insert_gene_ids_table(
-                        gene_args_tuple=self.get_gene_tuple(
-                            gene_id=gene_id,
-                            has_duplication_binary=0
-                        )
-                    )
+                    while not attempt:
+                        try:
+                            self.database_interface.insert_gene_ids_table(
+                                gene_args_tuple=self.get_gene_tuple(
+                                    gene_id=gene_id,
+                                    has_duplication_binary=0
+                                )
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
 
     def populate_fragments_table(
             self,
