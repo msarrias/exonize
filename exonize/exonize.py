@@ -1,5 +1,4 @@
 import argparse
-import cProfile
 
 from exonize.exonize_handler import Exonize
 from exonize.profiling import get_run_performance_profile, PROFILE_PATH
@@ -7,7 +6,6 @@ from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 def exonize_ascii_art_logo() -> None:
     exonize_ansi_regular = """
-    
     ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
     ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
     █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
@@ -180,4 +178,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
