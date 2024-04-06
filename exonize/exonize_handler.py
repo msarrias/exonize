@@ -18,21 +18,12 @@
 # The pipeline is executed by the run_exonize_pipeline method.
 # ------------------------------------------------------------------------
 
-import cProfile
-import gc
 import os
-import re
-import sys
-import time
 from itertools import permutations
-from typing import Tuple, List, Union, Any, Optional, Sequence, Iterator
-import portion as P
-from collections.abc import Sequence, Iterator
-import networkx as nx
-from multiprocessing import Process, Queue
+from typing import Any, Optional, Sequence, Iterator
 from rich.progress import Progress
 
-from exonize.profiling import get_run_performance_profile, PROFILE_PATH
+# from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
