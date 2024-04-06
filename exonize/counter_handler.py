@@ -7,9 +7,6 @@ import os.path
 import networkx as nx
 from collections import defaultdict
 import portion as P
-import random
-import re
-import tempfile
 import matplotlib.pyplot as plt
 
 
@@ -19,7 +16,7 @@ class CounterHandler(object):
             blast_engine: object,
             cds_overlapping_threshold: float,
             draw_event_multigraphs: bool,
-            ):
+    ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
         self.blast_engine = blast_engine
@@ -77,8 +74,7 @@ class CounterHandler(object):
             if all(
                 [self.blast_engine.min_perc_overlap(
                     intv_i=cds_coordinate,
-                    intv_j=target_coordinate
-                ) > self.cds_overlapping_threshold
+                    intv_j=target_coordinate) > self.cds_overlapping_threshold
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -113,8 +109,7 @@ class CounterHandler(object):
                             target_coordinate != other_coordinate and
                             (self.blast_engine.min_perc_overlap(
                                 intv_i=target_coordinate,
-                                intv_j=other_coordinate
-                            ) > threshold
+                                intv_j=other_coordinate) > threshold
                              or target_coordinate.contains(other_coordinate))
                     ):
                         cluster.append((other_coordinate, other_evalue))
