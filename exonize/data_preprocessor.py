@@ -392,7 +392,7 @@ class DataPreprocessor(object):
             if coord_idx != n_coords:
                 frame_next_cds = int(cds_coordinates_list[coord_idx + 1]['frame'])
             cds_dna_sequence = self.trim_sequence_to_codon_length(
-                sequence=mrna_sequence[start_coord + frame_cds:  end_coord + frame_next_cds],
+                sequence=mrna_sequence[start_coord + frame_cds: end_coord + frame_next_cds],
                 is_final_cds=coord_idx == n_coords,
                 gene_id=gene_id,
                 transcript_id=transcript_id
