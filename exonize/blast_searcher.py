@@ -570,8 +570,10 @@ class BLASTsearcher(object):
                 for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation_structure in mrna_annotation['structure']
                 for coordinate in (annotation_structure['coordinate'],)
-                if (annotation_structure['type'] == 'CDS'
-                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
+                if (
+                        annotation_structure['type'] == 'CDS'
+                        and (coordinate.upper - coordinate.lower) >= self.min_exon_length
+                )
             )
         )
         if cds_coordinates_and_frames:
