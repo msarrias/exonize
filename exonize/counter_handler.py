@@ -37,21 +37,6 @@ class CounterHandler(object):
     ) -> float:
         return sum(a_list) / len(a_list)
 
-    def two_way_overlapping(
-            self,
-            intv_i: P.Interval,
-            intv_j: P.Interval,
-            threshold: float
-    ) -> bool:
-        return (self.blast_engine.get_overlap_percentage(
-                    intv_i=intv_i,
-                    intv_j=intv_j) > threshold
-                and
-                self.blast_engine.get_overlap_percentage(
-                    intv_i=intv_j,
-                    intv_j=intv_i) > threshold
-                )
-
     def get_candidate_cds_reference(
             self,
             cds_coordinates_list: list[P.Interval],
@@ -90,11 +75,10 @@ class CounterHandler(object):
             # the two-way overlapping percentage should be higher than the threshold
             # maybe this is a too strict condition, consider using the average instead
             if all(
-                [self.two_way_overlapping(
+                [self.blast_engine.min_perc_overlap(
                     intv_i=cds_coordinate,
-                    intv_j=target_coordinate,
-                    threshold=self.cds_overlapping_threshold
-                )
+                    intv_j=target_coordinate
+                ) > self.cds_overlapping_threshold
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -127,12 +111,11 @@ class CounterHandler(object):
                 for other_coordinate, other_evalue in sorted_coordinates:
                     if (
                             target_coordinate != other_coordinate and
-                            (self.two_way_overlapping(
+                            (self.blast_engine.min_perc_overlap(
                                 intv_i=target_coordinate,
-                                intv_j=other_coordinate,
-                                threshold=threshold
-                            ) or target_coordinate.contains(other_coordinate))
-
+                                intv_j=other_coordinate
+                            ) > threshold
+                             or target_coordinate.contains(other_coordinate))
                     ):
                         cluster.append((other_coordinate, other_evalue))
                         processed_intervals.add(other_coordinate)
