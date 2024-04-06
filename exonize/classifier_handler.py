@@ -3,10 +3,6 @@
 # The ClassifierHandler class is a class that contains the methods used to
 # classify tblastx hits as full-length duplications.
 # ------------------------------------------------------------------------
-import sys
-import random
-import re
-import tempfile
 import portion as P
 from typing import Union
 
@@ -40,7 +36,7 @@ class ClassifierHandler(object):
         initializes variables used in the identify_full_length_duplications function
         """
         self.__neither, self.__query, self.__target = 0, 0, 0
-        self.__both, self.__target_full, self.__target_insertion = 0,  0, 0
+        self.__both, self.__target_full, self.__target_insertion = 0, 0, 0
         self.__annot_target_start, self.__annot_target_end, self.__target_type = None, None, None
         self.__query_cds, self.__target_cds = "-", "-"
         self.__query_cds_frame, self.__target_cds_frame = " ", " "
@@ -460,7 +456,7 @@ class ClassifierHandler(object):
                     id=annotation['id'],
                     type=annotation['type'],
                     coordinate=annotation['coordinate']
-                    )
+                )
                 intersection_coordinate = feature_coordinate & target_coordinate
                 if intersection_coordinate not in coordinates_dictionary:
                     coordinates_dictionary[intersection_coordinate] = annotation_dictionary
