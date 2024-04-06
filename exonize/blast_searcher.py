@@ -570,10 +570,8 @@ class BLASTsearcher(object):
                 for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation_structure in mrna_annotation['structure']
                 for coordinate in (annotation_structure['coordinate'],)
-                if (
-                        annotation_structure['type'] == 'CDS' and
-                        (coordinate.upper - coordinate.lower) >= self.min_exon_length
-                )
+                if (annotation_structure['type'] == 'CDS'
+                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
             )
         )
         if cds_coordinates_and_frames:
@@ -712,10 +710,9 @@ class BLASTsearcher(object):
         """
         blast_hits_dictionary = dict()
         # time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-        chromosome, gene_coordinate, gene_strand = (
+        chromosome, gene_coordinate = (
             self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
-            self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'],
-            self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+            self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
         )
         temp_gene_sequence = str(
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
