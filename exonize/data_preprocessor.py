@@ -550,7 +550,7 @@ class DataPreprocessor(object):
     def clear_working_directory(self):
         if (os.path.exists(self.gene_hierarchy_path)
                 and os.path.exists(self.genome_database_path)):
-            os.remove(elf.genome_database_path)
+            os.remove(self.genome_database_path)
 
     def prepare_data(self) -> None:
         """
