@@ -95,7 +95,7 @@ def test_get_overlap_percentage():
     assert blast_engine.get_overlap_percentage(
         intv_i=P.open(10, 100),
         intv_j=P.open(15, 85)
-    ) == (85-15)/(85-15)
+    ) == (85 - 15) / (85 - 15)
 
     assert blast_engine.get_overlap_percentage(
         intv_i=P.open(15, 85),

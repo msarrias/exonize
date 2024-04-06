@@ -5,26 +5,26 @@ from Bio.Seq import Seq
 import portion as P
 
 data_container = DataPreprocessor(
-            logger_obj=Mock(),
-            database_interface=Mock(),
-            working_directory='',
-            gff_file_path='',
-            specie_identifier='test',
-            genome_file_path='',
-            genome_pickled_file_path='',
-            self_hit_threshold=0.5,
-            cds_overlapping_threshold=0.8,
-            query_overlapping_threshold=0.9,
-            masking_percentage_threshold=0.8,
-            min_exon_length=30,
-            debug_mode=False,
-            hard_masking=False,
-            evalue_threshold=1e-5,
+    logger_obj=Mock(),
+    database_interface=Mock(),
+    working_directory='',
+    gff_file_path='',
+    specie_identifier='test',
+    genome_file_path='',
+    genome_pickled_file_path='',
+    self_hit_threshold=0.5,
+    cds_overlapping_threshold=0.8,
+    query_overlapping_threshold=0.9,
+    masking_percentage_threshold=0.8,
+    min_exon_length=30,
+    debug_mode=False,
+    hard_masking=False,
+    evalue_threshold=1e-5,
 )
 
 data_container.genome_dictionary = {
-        "chr1": "ATGC" * 100  # Simulate a genome sequence for testing
-    }
+    "chr1": "ATGC" * 100  # Simulate a genome sequence for testing
+}
 
 
 def test_construct_mrna_sequence():
