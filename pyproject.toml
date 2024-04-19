@@ -1,7 +1,10 @@
 [project]
 name = "Exonize"
-description = "Find duplicated exons"
-version = "0.1"
+description = "A tool for finding duplicated exons in annotated genomes"
+authors = [
+    {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
+]
+version = "1.0"
 dependencies = [
 	     "gffutils>=0.11.1",
 	     "portion>=2.4.0",
@@ -13,7 +16,9 @@ dependencies = [
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
 [project.scripts]
 exonize = "exonize.exonize:main"
+
 [tool.setuptools]
 packages = ['exonize']
