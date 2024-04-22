@@ -6,7 +6,6 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 import portion as P
-from datetime import date
 
 
 class DataPreprocessor(object):
@@ -108,18 +107,6 @@ class DataPreprocessor(object):
         :param gene_strand: strand
         """
         return gene_strand == '-'
-
-    @staticmethod
-    def get_tblastx_version():
-        result = subprocess.run(
-            ["tblastx", "-version"],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-        else:
-            raise Exception("Error executing tblastx: " + result.stderr)
 
     def convert_gtf_to_gff(self,) -> None:
         """
@@ -572,27 +559,7 @@ class DataPreprocessor(object):
             self.environment.logger.info(
                 "Populating protein database"
             )
-            self.populate_proteins_table(
-            )
-        if self.database_interface.check_if_empty_table(
-            db_path=self.results_database,
-            table_name='Pipeline_settings'
-        ):
-            self.database_interface.insert_pipeline_settings(
-                settings_list=[
-                    self.specie_identifier,
-                    date.today(),
-                    self.get_tblastx_version(),
-                    self.genome_file_path,
-                    self.gff_file_path,
-                    self.results_database,
-                    self.evalue_threshold,
-                    self.self_hit_threshold,
-                    self.cds_overlapping_threshold,
-                    self.query_overlapping_threshold,
-                    self.min_exon_length
-                ]
-            )
+            self.populate_proteins_table()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
