@@ -552,7 +552,7 @@ class SqliteHandler(object):
             cursor.execute(
                 """
                 INSERT INTO Pipeline_settings
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 settings_list,
             )
