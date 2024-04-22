@@ -269,7 +269,7 @@ class Exonize(object):
             # pr.enable()
             # gc.collect()
             # gc.freeze()
-            transactions_pks: set[int]
+            # transactions_pks: set[int]
             status: int
             code: int
             forks: int = 0
