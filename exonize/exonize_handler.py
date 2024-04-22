@@ -275,7 +275,7 @@ class Exonize(object):
             forks: int = 0
             FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
             self.environment.logger.info(
-                'Exonizing ... this may take a while ...'
+                'Exonizing: this may take a while ...'
             )
             for balanced_genes_batch in even_batches(
                 data=unprocessed_gene_ids_list,
