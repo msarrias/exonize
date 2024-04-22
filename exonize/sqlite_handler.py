@@ -974,7 +974,8 @@ class SqliteHandler(object):
 
     def query_full_events(
             self,
-            gene_id: None) -> list:
+            gene_id: str = None
+    ) -> list:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
