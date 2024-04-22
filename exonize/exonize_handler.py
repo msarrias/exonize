@@ -21,6 +21,8 @@
 import os
 from itertools import permutations
 from typing import Any, Optional, Sequence, Iterator
+from datetime import date, datetime
+import sys
 
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
@@ -83,6 +85,10 @@ class Exonize(object):
             self.working_directory,
             self.genome_pickled_file_path
         )
+        self.log_file_name = os.path.join(
+            self.working_directory,
+            f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
+        )
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
@@ -130,6 +136,26 @@ class Exonize(object):
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             draw_event_multigraphs=self.draw_event_multigraphs,
         )
+        tblastx_version = self.blast_engine.get_tblastx_version()
+        self.exonize_pipeline_settings = f"""
+        Exonize - pipeline run settings
+        --------------------------------
+        Date:                       {date.today()}
+        python version:             {sys.version}
+        tblastx version:            {tblastx_version}
+        --------------------------------
+        Indentifier:                {self.specie_identifier}
+        GFF file:                   {gff_file_path}
+        Genome file:                {genome_file_path}
+        --------------------------------
+        tblastx e-value threshold:  {evalue_threshold}
+        CDS overlapping threshold:  {cds_overlapping_threshold}
+        Query overlapping threshold: {query_overlapping_threshold}
+        Self-hit threshold:         {self_hit_threshold}
+        Min exon length:            {min_exon_length}
+        --------------------------------
+        Exonize results database:   {self.results_database_path}
+        """
 
     def generate_unique_events_list(
             self,
@@ -327,7 +353,7 @@ class Exonize(object):
             list_tuples=identity_and_sequence_tuples
         )
         full_matches_list = self.database_interface.query_full_events()
-        self.environment.logger.info('Finding expansions')
+        self.environment.logger.info('Generating expansions')
         fragments_tuples_list, events_set = self.event_counter.assign_event_ids(
             tblastx_full_matches_list=full_matches_list
         )
@@ -339,6 +365,9 @@ class Exonize(object):
         )
         self.database_interface.create_exclusive_pairs_view()
         self.data_container.clear_working_directory()
+
+        with open(self.log_file_name, 'w') as f:
+            f.write(self.exonize_pipeline_settings)
         self.environment.logger.info(
-            'Process completed successfully.'
+            'Process completed successfully'
         )
