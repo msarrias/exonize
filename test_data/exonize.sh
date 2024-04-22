@@ -9,6 +9,5 @@ exonize $GFF_FILE_PATH \
         $GENOME_FILE_PATH \
         $SPECIE_ID \
         -el $MIN_SEQ_LENGTH \
-        --hard-force \
         --multigraphs \
         --output-directory-path $OUTPUT_DIRECTORY_PATH
