@@ -68,23 +68,6 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS Pipeline_settings (
-                    species_id VARCHAR(100) PRIMARY KEY,
-                    generation_date VARCHAR(100) NOT NULL,
-                    tblastx_version VARCHAR(100) NOT NULL,
-                    genome_file_name VARCHAR(100) NOT NULL,
-                    gff_file_name VARCHAR(100) NOT NULL,
-                    exonize_db_name VARCHAR(100) NOT NULL,
-                    e_value_threshold REAL NOT NULL,
-                    self_hit_threshold REAL NOT NULL,
-                    cds_overlapping_threshold REAL NOT NULL,
-                    query_overlap_threshold REAL NOT NULL,
-                    min_exon_length INTEGER NOT NULL
-                );
-                """
-            )
-            cursor.execute(
-                """
                 CREATE TABLE IF NOT EXISTS Genes (
                     gene_id VARCHAR(100) PRIMARY KEY,
                     gene_chrom VARCHAR(100) NOT NULL,
@@ -544,17 +527,6 @@ class SqliteHandler(object):
                     target_end
                 ;
             """
-            )
-
-    def insert_pipeline_settings(self, settings_list: list) -> None:
-        with sqlite3.connect(self.results_database_path) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """
-                INSERT INTO Pipeline_settings
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                settings_list,
             )
 
     def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
