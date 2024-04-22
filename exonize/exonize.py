@@ -43,7 +43,7 @@ def argument_parser():
     parser.add_argument(
         'specie_identifier',
         type=str,
-        help='Species identifier.')
+        help='Species identifier - used for naming output files.')
     # Optional Arguments for Flags
     parser.add_argument(
         '--debug',
@@ -62,12 +62,6 @@ def argument_parser():
         action='store_true',
         default=False,
         help='If set, all internal files will be overwritten if they already exist.'
-    )
-    parser.add_argument(
-        '--hard-masking',
-        action='store_true',
-        default=False,
-        help='Enable hard masking.'
     )
     parser.add_argument(
         '--multigraphs',
@@ -154,7 +148,6 @@ def main():
         enable_debug=args.debug,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
-        hard_masking=args.hard_masking,
         evalue_threshold=args.evalue_threshold,
         sleep_max_seconds=args.sleep_max_seconds,
         min_exon_length=args.min_exon_length,

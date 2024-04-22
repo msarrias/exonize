@@ -21,7 +21,6 @@
 import os
 from itertools import permutations
 from typing import Any, Optional, Sequence, Iterator
-from rich.progress import Progress
 
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
@@ -40,7 +39,6 @@ class Exonize(object):
             specie_identifier: str,
             draw_event_multigraphs: bool,
             enable_debug: bool,
-            hard_masking: bool,
             soft_force: bool,
             hard_force: bool,
             evalue_threshold: float,
@@ -56,7 +54,6 @@ class Exonize(object):
         self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
-        self.HARD_MASKING = hard_masking
         self.draw_event_multigraphs = draw_event_multigraphs
 
         self.gff_file_path = gff_file_path
@@ -108,7 +105,6 @@ class Exonize(object):
             genome_file_path=self.genome_file_path,
             genome_pickled_file_path=self.genome_pickled_file_path,
             debug_mode=self._DEBUG_MODE,
-            hard_masking=self.HARD_MASKING,
             evalue_threshold=evalue_threshold,
             self_hit_threshold=self.self_hit_threshold,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
@@ -252,61 +248,58 @@ class Exonize(object):
             code: int
             forks: int = 0
             FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
-            with Progress() as progress:
-                task = progress.add_task(
-                    description="[red]Exonizing...",
-                    total=len(unprocessed_gene_ids_list) + 1)
-                for balanced_genes_batch in even_batches(
-                    data=unprocessed_gene_ids_list,
-                    number_of_batches=FORKS_NUMBER,
-                ):
-                    # This part effectively forks a child process, independent of the parent process, and that
-                    # will be responsible for processing the genes in the batch, parallel to the other children forked
-                    # in the same way during the rest of the loop.
-                    # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
-                    # of the child process in the parent process. So the parent process always goes to the part
-                    # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
-                    # to false (0 is evaluated to False).
-                    # The parallel part happens because the main parent process will keep along the for loop, and will
-                    # fork more children, until the number of children reaches the maximum number of children allowed,
-                    # doing nothing else but forking until 'FORKS_NUMBER' is reached.
-                    if os.fork():
-                        forks += 1
-                        if forks >= FORKS_NUMBER:
-                            _, status = os.wait()
-                            code = os.waitstatus_to_exitcode(status)
-                            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-                            assert code != os.EX_SOFTWARE
-                            forks -= 1
-                    else:
-                        status = os.EX_OK
-                        try:
-                            for gene_id in balanced_genes_batch:
-                                self.blast_engine.find_coding_exon_duplicates(gene_id)
-                            progress.advance(task, advance=len(balanced_genes_batch))
-                        except Exception as exception:
-                            self.environment.logger.exception(
-                                str(exception)
-                            )
-                            status = os.EX_SOFTWARE
-                        finally:
-                            # This prevents the child process forked above to keep along the for loop upon completion
-                            # of the try/except block. If this was not present, it would resume were it left off, and
-                            # fork in turn its own children, duplicating the work done, and creating a huge mess.
-                            # We do not want that, so we gracefully exit the process when it is done.
-                            os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
-                while forks > 0:
-                    _, status = os.wait()
-                    code = os.waitstatus_to_exitcode(status)
-                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-                    assert code != os.EX_SOFTWARE
-                    forks -= 1
-                    # gc.unfreeze()
-                    # pr.disable()
-                    # pr.dump_stats(PROFILE_PATH)
-                    # get_run_performance_profile(PROFILE_PATH)
-                    progress.advance(task, advance=1)
+            self.environment.logger.info(
+                'Exonizing ... this may take a while ...'
+            )
+            for balanced_genes_batch in even_batches(
+                data=unprocessed_gene_ids_list,
+                number_of_batches=FORKS_NUMBER,
+            ):
+                # This part effectively forks a child process, independent of the parent process, and that
+                # will be responsible for processing the genes in the batch, parallel to the other children forked
+                # in the same way during the rest of the loop.
+                # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
+                # of the child process in the parent process. So the parent process always goes to the part
+                # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
+                # to false (0 is evaluated to False).
+                # The parallel part happens because the main parent process will keep along the for loop, and will
+                # fork more children, until the number of children reaches the maximum number of children allowed,
+                # doing nothing else but forking until 'FORKS_NUMBER' is reached.
+                if os.fork():
+                    forks += 1
+                    if forks >= FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
+                else:
+                    status = os.EX_OK
+                    try:
+                        for gene_id in balanced_genes_batch:
+                            self.blast_engine.find_coding_exon_duplicates(gene_id)
+                    except Exception as exception:
+                        self.environment.logger.exception(
+                            str(exception)
+                        )
+                        status = os.EX_SOFTWARE
+                    finally:
+                        # This prevents the child process forked above to keep along the for loop upon completion
+                        # of the try/except block. If this was not present, it would resume were it left off, and
+                        # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                        # We do not want that, so we gracefully exit the process when it is done.
+                        os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+            # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
+                # gc.unfreeze()
+                # pr.disable()
+                # pr.dump_stats(PROFILE_PATH)
+                # get_run_performance_profile(PROFILE_PATH)
         else:
             self.environment.logger.info(
                 'All genes have been processed. If you want to re-run the analysis, '

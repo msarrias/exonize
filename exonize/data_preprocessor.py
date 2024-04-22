@@ -1,7 +1,6 @@
 import gffutils
 import os
 import pickle
-import re
 import subprocess
 import sys
 from Bio import SeqIO
@@ -24,7 +23,6 @@ class DataPreprocessor(object):
             genome_file_path: str,
             genome_pickled_file_path: str,
             debug_mode: bool,
-            hard_masking: bool,
             evalue_threshold: float,
             self_hit_threshold: float,
             cds_overlapping_threshold: float,
@@ -46,7 +44,6 @@ class DataPreprocessor(object):
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
         self._DEBUG_MODE = debug_mode
-        self._HARD_MASKING = hard_masking
 
         self.database_features = None
         self.old_filename = None
@@ -257,7 +254,6 @@ class DataPreprocessor(object):
         the masked/unmasked genome sequence in a dictionary.
         The dictionary has the following structure: {chromosome: sequence}
         """
-        hard_masking_regex = re.compile(pattern='[a-z]')
         self.environment.logger.info("Reading genome")
         if (self.genome_pickled_file_path is not None
                 and os.path.exists(path=self.genome_pickled_file_path)):
@@ -268,16 +264,10 @@ class DataPreprocessor(object):
             try:
                 with open(self.genome_file_path) as genome_file:
                     parsed_genome = SeqIO.parse(genome_file, format='fasta')
-                    if self._HARD_MASKING:
-                        self.genome_dictionary = {
-                            fasta.id: hard_masking_regex.sub(repl='N', string=str(fasta.seq))
-                            for fasta in parsed_genome
-                        }
-                    else:
-                        self.genome_dictionary = {
-                            fasta.id: str(fasta.seq)
-                            for fasta in parsed_genome
-                        }
+                    self.genome_dictionary = {
+                        fasta.id: str(fasta.seq)
+                        for fasta in parsed_genome
+                    }
             except (ValueError, FileNotFoundError) as e:
                 self.environment.logger.exception(
                     f"Incorrect genome file path {e}"
