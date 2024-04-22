@@ -79,8 +79,7 @@ class SqliteHandler(object):
                     self_hit_threshold REAL NOT NULL,
                     cds_overlapping_threshold REAL NOT NULL,
                     query_overlap_threshold REAL NOT NULL,
-                    min_exon_length INTEGER NOT NULL,
-                    masking_percentage_threshold REAL NOT NULL
+                    min_exon_length INTEGER NOT NULL
                 );
                 """
             )
@@ -973,25 +972,42 @@ class SqliteHandler(object):
             )
             return cursor.fetchall()
 
-    def query_full_events(self) -> list:
+    def query_full_events(
+            self,
+            gene_id: None) -> list:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            matches_q = """
-            SELECT
+            if not gene_id:
+                matches_q = """
+                SELECT
+                    f.fragment_id,
+                    f.gene_id,
+                    f.cds_start - f.gene_start as cds_start,
+                    f.cds_end - f.gene_start as cds_end,
+                    f.target_start,
+                    f.target_end,
+                    f.evalue,
+                    f.event_type
+                FROM Transcript_classification_counts AS f
+                ORDER BY
+                    f.gene_id;
+                """
+            else:
+                matches_q = f"""
+                SELECT
                 f.fragment_id,
-                f.gene_id,
-                f.cds_start - f.gene_start as cds_start,
-                f.cds_end - f.gene_start as cds_end,
-                f.target_start,
-                f.target_end,
-                f.evalue,
-                f.event_type
-            FROM Transcript_classification_counts AS f
-            ORDER BY
-                f.gene_id;
-            """
+                    f.gene_id,
+                    f.cds_start - f.gene_start as cds_start,
+                    f.cds_end - f.gene_start as cds_end,
+                    f.target_start,
+                    f.target_end,
+                    f.evalue,
+                    f.event_type
+                FROM Transcript_classification_counts AS f
+                WHERE f.gene_id='{gene_id}'
+                """
             cursor.execute(matches_q)
             return cursor.fetchall()
 
