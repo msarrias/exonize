@@ -472,7 +472,7 @@ class CounterHandler(object):
     def generate_single_gene_multigraph(
             self,
             gene_id: str,
-            ):
+    ):
         tblastx_records_set = self.database_interface.query_full_events(
             gene_id=gene_id
         )
