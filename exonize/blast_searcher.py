@@ -20,7 +20,6 @@ class BLASTsearcher(object):
     def __init__(
             self,
             data_container: object,
-            masking_percentage_threshold: float,
             sleep_max_seconds: int,
             self_hit_threshold: float,
             min_exon_length: int,
@@ -31,7 +30,6 @@ class BLASTsearcher(object):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
-        self.masking_percentage_threshold = masking_percentage_threshold
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
@@ -178,6 +176,18 @@ class BLASTsearcher(object):
         return strand == '-'
 
     @staticmethod
+    def decide_action_based_on_masking(
+            sequence: str
+    ) -> str:
+        """
+        Decide the action to take based on the masking percentage.
+        """
+        if 'N' in sequence:
+            return ''
+        else:
+            return sequence
+
+    @staticmethod
     def get_hsp_dictionary(
             hsp,
             cds_frame: str,
@@ -199,93 +209,6 @@ class BLASTsearcher(object):
             target_num_stop_codons=hsp.sbjct.count('*'),
             match=hsp.match
         )
-
-    @staticmethod
-    def calculate_masking_percentage(
-            sequence: str
-    ) -> float:
-        """
-        Calculate and return the masking percentage of the sequence.
-        """
-        return round(sequence.count('N') / len(sequence), 3) if sequence else 0
-
-    def decide_action_based_on_masking(
-            self,
-            gene_id: str,
-            chromosome: str,
-            sequence: str,
-            coordinate: P.Interval,
-            annotation_type: str
-    ) -> str:
-        """
-        Decide the action to take based on the masking percentage.
-        """
-        masking_percentage = self.calculate_masking_percentage(sequence=sequence)
-        if masking_percentage > self.masking_percentage_threshold:
-            self.handle_high_masking(
-                gene_id=gene_id,
-                chromosome=chromosome,
-                coordinate=coordinate,
-                annotation_type=annotation_type,
-                masking_percentage=masking_percentage
-            )
-            return ''
-        else:
-            return sequence
-
-    def handle_high_masking(
-            self,
-            gene_id: str,
-            chromosome: str,
-            coordinate: P.Interval,
-            annotation_type: str,
-            masking_percentage: float
-    ) -> None:
-        """
-        Handle the scenario where masking is above the threshold.
-        """
-        # Logging
-        self.log_masking_info(
-            gene_id=gene_id,
-            chromosome=chromosome,
-            coordinate=coordinate,
-            annotation_type=annotation_type,
-            masking_percentage=masking_percentage
-        )
-        # Database operations
-        if annotation_type == 'gene':
-            self.database_interface.insert_gene_ids_table(
-                gene_args_tuple=self.get_gene_tuple(
-                    gene_id=gene_id,
-                    has_duplication_binary=0
-                )
-            )
-        # Other actions based on annotation_type
-
-    def log_masking_info(
-            self,
-            gene_id: str,
-            chromosome: str,
-            coordinate: P.Interval,
-            annotation_type: str,
-            masking_percentage: float
-    ) -> None:
-        """
-        Log information about masking.
-        """
-        if annotation_type == 'gene':
-            self.environment.logger.file_only_info(
-                f'Gene {gene_id} in chromosome {chromosome} '
-                f'and coordinates {str(coordinate.lower)}, '
-                f'{str(coordinate.upper)} is hardmasked.'
-            )
-        elif annotation_type == 'CDS':
-            self.environment.logger.file_only_info(
-                f'Gene {gene_id} - {masking_percentage * 100} '
-                f'of CDS {str(coordinate.lower)}, '
-                f'{str(coordinate.upper)} located in chromosome {chromosome} '
-                f'is hardmasked.'
-            )
 
     def execute_tblastx(
             self,
@@ -570,10 +493,8 @@ class BLASTsearcher(object):
                 for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation_structure in mrna_annotation['structure']
                 for coordinate in (annotation_structure['coordinate'],)
-                if (
-                        annotation_structure['type'] == 'CDS'
-                        and (coordinate.upper - coordinate.lower) >= self.min_exon_length
-                )
+                if (annotation_structure['type'] == 'CDS'
+                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
             )
         )
         if cds_coordinates_and_frames:
@@ -720,11 +641,7 @@ class BLASTsearcher(object):
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
         gene_dna_sequence = self.decide_action_based_on_masking(
-            chromosome=chromosome,
-            gene_id=gene_id,
-            sequence=temp_gene_sequence,
-            coordinate=gene_coordinate,
-            annotation_type='gene'
+            sequence=temp_gene_sequence
         )
         if gene_dna_sequence:
             cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
@@ -737,11 +654,7 @@ class BLASTsearcher(object):
                             cds_coordinate.lower:cds_coordinate.upper])
                     )
                     cds_dna_sequence = self.decide_action_based_on_masking(
-                        chromosome=chromosome,
-                        gene_id=gene_id,
-                        sequence=temp_dna_cds_sequence,
-                        coordinate=cds_coordinate,
-                        annotation_type='CDS'
+                        sequence=temp_dna_cds_sequence
                     )
                     if cds_dna_sequence:
                         cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
