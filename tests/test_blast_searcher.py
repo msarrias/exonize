@@ -6,7 +6,6 @@ import pytest
 
 blast_engine = BLASTsearcher(
     data_container=Mock(),
-    masking_percentage_threshold=0.8,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     min_exon_length=20,
@@ -160,13 +159,6 @@ def test_reformat_tblastx_frame_strand():
 def test_reverse_sequence_bool():
     assert blast_engine.reverse_sequence_bool(strand="+") is False
     assert blast_engine.reverse_sequence_bool(strand="-") is True
-
-
-def test_calculate_masking_percentage():
-    assert blast_engine.calculate_masking_percentage("NNNN") == 1.0
-    assert blast_engine.calculate_masking_percentage("NNNACGT") == 0.429
-    assert blast_engine.calculate_masking_percentage("ACGTNNNN") == 0.5
-    assert blast_engine.calculate_masking_percentage("ACGT") == 0.0
 
 
 def test_get_first_overlapping_intervals():

@@ -15,7 +15,6 @@ data_container = DataPreprocessor(
     self_hit_threshold=0.5,
     cds_overlapping_threshold=0.8,
     query_overlapping_threshold=0.9,
-    masking_percentage_threshold=0.8,
     min_exon_length=30,
     debug_mode=False,
     hard_masking=False,

@@ -5,7 +5,6 @@ import portion as P
 
 blast_engine = BLASTsearcher(
     data_container=Mock(),
-    masking_percentage_threshold=0.8,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     min_exon_length=20,
@@ -16,6 +15,7 @@ blast_engine = BLASTsearcher(
 )
 counter_handler = CounterHandler(
     blast_engine=blast_engine,
+    database_interface=Mock(),
     cds_overlapping_threshold=0.8,
     draw_event_multigraphs=False,
 )
