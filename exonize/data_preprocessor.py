@@ -563,6 +563,7 @@ class DataPreprocessor(object):
                 out_file_path=self.gene_hierarchy_path,
                 records_dictionary=self.gene_hierarchy_dictionary
             )
+            os.remove(self.genome_database_path)
         self.database_interface.connect_create_results_database()
         if not os.path.exists(self.protein_database_path):
             self.database_interface.create_protein_table(
