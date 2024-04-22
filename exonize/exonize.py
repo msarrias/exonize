@@ -1,7 +1,7 @@
 import argparse
 
 from exonize.exonize_handler import Exonize
-from exonize.profiling import get_run_performance_profile, PROFILE_PATH
+# from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 
 def exonize_ascii_art_logo() -> None:
@@ -118,13 +118,6 @@ def argument_parser():
         type=float,
         help='tblastx query overlapping threshold. Default is 0.9.'
     )
-    parser.add_argument(
-        '-mt',
-        '--masking-percentage-threshold',
-        default=0.8,
-        type=float,
-        help='Masking percentage threshold. Default is 0.8.'
-    )
     # Optional Argument for Timeout
     parser.add_argument(
         '-to',
@@ -167,7 +160,6 @@ def main():
         min_exon_length=args.min_exon_length,
         cds_overlapping_threshold=args.cds_overlapping_threshold,
         query_overlapping_threshold=args.query_overlapping_threshold,
-        masking_percentage_threshold=args.masking_percentage_threshold,
         self_hit_threshold=args.self_hit_threshold,
         timeout_database=args.timeout_database,
         genome_pickled_file_path=args.genome_pickled_file_path,
