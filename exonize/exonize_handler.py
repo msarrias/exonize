@@ -48,7 +48,6 @@ class Exonize(object):
             min_exon_length: int,
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
-            masking_percentage_threshold: float,
             self_hit_threshold: float,
             timeout_database: int,
             genome_pickled_file_path: Optional[str],
@@ -67,11 +66,11 @@ class Exonize(object):
         self.evalue_threshold = evalue_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.query_overlapping_threshold = query_overlapping_threshold
-        self.masking_percentage_threshold = masking_percentage_threshold
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
+
         if output_directory_path:
             self.working_directory = os.path.join(
                 output_directory_path,
@@ -115,12 +114,10 @@ class Exonize(object):
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             query_overlapping_threshold=self.query_overlapping_threshold,
             min_exon_length=self.min_exon_length,
-            masking_percentage_threshold=self.masking_percentage_threshold
         )
 
         self.blast_engine = BLASTsearcher(
             data_container=self.data_container,
-            masking_percentage_threshold=self.masking_percentage_threshold,
             sleep_max_seconds=self.sleep_max_seconds,
             self_hit_threshold=self.self_hit_threshold,
             min_exon_length=self.min_exon_length,
