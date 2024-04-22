@@ -30,7 +30,6 @@ class DataPreprocessor(object):
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             min_exon_length: int,
-            masking_percentage_threshold: float,
     ):
         self.environment = logger_obj
         self.database_interface = database_interface
@@ -44,7 +43,6 @@ class DataPreprocessor(object):
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.query_overlapping_threshold = query_overlapping_threshold
         self.min_exon_length = min_exon_length
-        self.masking_percentage_threshold = masking_percentage_threshold
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
         self._DEBUG_MODE = debug_mode
@@ -601,8 +599,7 @@ class DataPreprocessor(object):
                     self.self_hit_threshold,
                     self.cds_overlapping_threshold,
                     self.query_overlapping_threshold,
-                    self.min_exon_length,
-                    self.masking_percentage_threshold
+                    self.min_exon_length
                 ]
             )
         if self._DEBUG_MODE:
