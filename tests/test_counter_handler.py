@@ -15,7 +15,6 @@ blast_engine = BLASTsearcher(
 )
 counter_handler = CounterHandler(
     blast_engine=blast_engine,
-    database_interface=Mock(),
     cds_overlapping_threshold=0.8,
     draw_event_multigraphs=False,
 )
