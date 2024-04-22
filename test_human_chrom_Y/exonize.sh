@@ -1,8 +1,8 @@
 #!/bin/bash
 
-GFF_FILE_PATH=Homo_sapiens.GRCh38.111.chromosome.21.gff3
-GENOME_FILE_PATH=Homo_sapiens.GRCh38.dna.chromosome.21.fa
-SPECIE_ID=Homo_sapiens_ch21
+GFF_FILE_PATH=Homo_sapiens.GRCh38.111.chromosome.Y.gff3
+GENOME_FILE_PATH=Homo_sapiens.GRCh38.dna.chromosome.Y.fa
+SPECIE_ID=Homo_sapiens_chrom_Y
 MIN_SEQ_LENGTH=30
 OUTPUT_DIRECTORY_PATH=.
 exonize $GFF_FILE_PATH \
