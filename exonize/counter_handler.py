@@ -19,6 +19,7 @@ class CounterHandler(object):
     ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
+        self.database_interface = blast_engine.database_interface
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.draw_event_multigraphs = draw_event_multigraphs
@@ -467,6 +468,42 @@ class CounterHandler(object):
             [(P.open(record[4], record[5]), record[-2]) for record in tblastx_records_set]
         )
         return query_coordinates, target_coordinates
+
+    def generate_single_gene_multigraph(
+            self,
+            gene_id: str,
+            ):
+        tblastx_records_set = self.database_interface.query_full_events(
+            gene_id=gene_id
+        )
+        gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+        cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+            gene_id=gene_id
+        )
+        # center cds coordinates to gene start
+        cds_candidates_dictionary['candidates_cds_coordinates'] = sorted(
+            list(set([
+                P.open(i.lower - gene_start, i.upper - gene_start)
+                for i in cds_candidates_dictionary['candidates_cds_coordinates']])),
+            key=lambda x: (x.lower, x.upper)
+        )
+        query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
+            tblastx_records_set=tblastx_records_set
+        )
+        overlapping_targets = self.get_overlapping_clusters(
+            target_coordinates_set=target_coordinates,
+            threshold=self.cds_overlapping_threshold
+        )
+        reference_coordinates_dictionary = self.build_reference_dictionary(
+            cds_candidates_dictionary=cds_candidates_dictionary,
+            clusters_list=overlapping_targets
+        )
+        gene_graph = self.create_events_multigraph(
+            reference_coordinates_dictionary=reference_coordinates_dictionary,
+            query_coordinates_set=query_coordinates,
+            tblastx_records_set=tblastx_records_set
+        )
+        return gene_graph
 
     def assign_event_ids(
             self,
