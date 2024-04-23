@@ -38,18 +38,6 @@ class BLASTsearcher(object):
         self._DEBUG_MODE = debug_mode
 
     @staticmethod
-    def get_tblastx_version():
-        result = subprocess.run(
-            ["tblastx", "-version"],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-        else:
-            raise Exception("Error executing tblastx: " + result.stderr)
-
-    @staticmethod
     def dump_fasta_file(
             out_file_path: str,
             seq_dictionary: dict,

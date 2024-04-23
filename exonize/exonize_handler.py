@@ -136,13 +136,11 @@ class Exonize(object):
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             draw_event_multigraphs=self.draw_event_multigraphs,
         )
-        tblastx_version = self.blast_engine.get_tblastx_version()
         self.exonize_pipeline_settings = f"""
         Exonize - pipeline run settings
         --------------------------------
         Date:                       {date.today()}
         python version:             {sys.version}
-        tblastx version:            {tblastx_version}
         --------------------------------
         Indentifier:                {self.specie_identifier}
         GFF file:                   {gff_file_path}
