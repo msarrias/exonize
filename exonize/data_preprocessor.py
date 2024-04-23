@@ -151,7 +151,7 @@ class DataPreprocessor(object):
                 disable_infer_transcripts=True
             )
         except ValueError as e:
-            self.environment.logger.exception(
+            self.environment.logger.critical(
                 f"Incorrect genome annotations file {e}"
             )
             sys.exit()
