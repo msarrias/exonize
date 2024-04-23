@@ -3,12 +3,12 @@ from exonize.exonize_handler import Exonize
 
 gene_hierarchy_dictionary = {
     'gene_1': {
-        'coordinate': P.open(1,3000),
+        'coordinate': P.open(1, 3000),
         'chrom': 'Y',
         'strand': '+',
         'mRNAs': {
             'transcript_g1_1': {
-                'coordinate': P.open(1,3000),
+                'coordinate': P.open(1, 3000),
                 'strand': '+',
                 'structure': [
                     {'id': 'cds1_g1_t1', 'coordinate': P.open(1, 200), 'frame': 0, 'type': 'CDS'},
@@ -34,7 +34,7 @@ gene_hierarchy_dictionary = {
                 ]
             },
             'transcript_g1_2': {
-                'coordinate': P.open(1,3000),
+                'coordinate': P.open(1, 3000),
                 'strand': '+',
                 'structure': [
                     {'id': 'cds2_g1_t2', 'coordinate': P.open(250, 350), 'frame': 0, 'type': 'CDS'},
@@ -61,7 +61,7 @@ gene_hierarchy_dictionary = {
                 ]
             },
             'transcript_g1_3': {
-                'coordinate': P.open(1,3000),                
+                'coordinate': P.open(1, 3000),
                 'strand': '+',
                 'structure': [
                     {'id': 'transcript_g1_3', 'coordinate': P.open(1, 3000), 'frame': 0, 'type': 'mRNA'},
@@ -96,10 +96,12 @@ fragments = [
     ('gene_1', 1080, 1120, 0, 0, '+', 0, '+', 0, 0, 1e-5, 40, 1, 40, 1420, 1450, '-', '-', '-', 0, 0),
     ('gene_1', 1420, 1450, 0, 0, '+', 0, '+', 0, 0, 1e-5, 40, 1, 40, 1080, 1120, '-', '-', '-', 0, 0)
 ]
+
+
 def main():
     exonize_obj = Exonize(
-        gff_file_path=_,
-        genome_file_path=None,
+        gff_file_path='mock_gff.gff3',
+        genome_file_path='mock_genome.fa',
         specie_identifier="human",
         draw_event_multigraphs=False,
         enable_debug=False,
@@ -131,6 +133,6 @@ def main():
     exonize_obj.database_interface.create_cumulative_counts_table()
     exonize_obj.database_interface.create_exclusive_pairs_view()
 
+
 if __name__ == '__main__':
     main()
-            
