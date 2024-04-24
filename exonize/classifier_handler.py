@@ -279,7 +279,7 @@ class ClassifierHandler(object):
         self.tuples_obligatory_events.append((
             fragment_id, gene_id, mrna_id,
             transcript_coordinate.lower, transcript_coordinate.upper,
-            cds_start, cds_end, self.__query_cds, self.__query_cds_frame,
+            self.__query_cds, self.__query_cds_frame, cds_start, cds_end,
             query_start, query_end, self.__target_cds, self.__target_cds_frame,
             self.__annot_target_start, self.__annot_target_end,
             target_start, target_end, self.__target_type
