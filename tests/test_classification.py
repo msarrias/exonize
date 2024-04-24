@@ -2,6 +2,7 @@ import os.path
 import portion as P
 import sqlite3
 from exonize.exonize_handler import Exonize
+import shutil
 
 gene_hierarchy_dictionary = {
     'gene_1': {
@@ -209,6 +210,7 @@ exonize_obj = Exonize(
         genome_pickled_file_path=".",
         output_directory_path="",
     )
+shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = "mock_results.db"
 exonize_obj.database_interface.connect_create_results_database()
 exonize_obj.database_interface.insert_fragments(
@@ -226,7 +228,7 @@ exonize_obj.database_interface.create_cumulative_counts_table()
 exonize_obj.database_interface.create_exclusive_pairs_view()
 
 
-def test_classification():
+def test_matches_transcript_classification():
     with sqlite3.connect("mock_results.db") as db:
         cursor = db.cursor()
         cursor.execute(
@@ -238,4 +240,62 @@ def test_classification():
         records = cursor.fetchall()
     for my_record, exonize_record in zip(matches, records):
         assert my_record == exonize_record
-    os.remove("mock_results.db")
+
+
+def test_obligate_evnts():
+    with sqlite3.connect("mock_results.db") as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT
+            fragment_id,
+            gene_id,
+            transcript_id,
+            query_cds_start,
+            query_cds_end,
+            query_cds_id,
+            query_start,
+            query_end,
+            type,
+            target_cds_id,
+            target_cds_start,
+            target_cds_end,
+            target_start,
+            target_end
+            FROM Obligate_events
+            ORDER BY gene_id, fragment_id
+            """
+        )
+        records = cursor.fetchall()
+    obligate_pairs = [record[1:-5] for record in matches if record[-2] == 1]
+
+    for my_record, exonize_record in zip(obligate_pairs, records):
+        assert my_record == exonize_record
+
+
+def test_truncate_results():
+    exonize_obj.database_interface.truncate_results_database()
+    with sqlite3.connect("mock_results.db") as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM Truncation_events
+            """
+        )
+        records = cursor.fetchall()
+    assert len(records) == 0
+
+
+def test_exclusive_events():
+    with sqlite3.connect("mock_results.db") as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT fragment_id FROM Exclusive_pairs
+            """
+        )
+        records = [fragment_id[0] for fragment_id in cursor.fetchall()]
+    assert records == [5, 6]
+
+
+os.remove("mock_results.db")
