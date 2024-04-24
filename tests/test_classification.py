@@ -225,6 +225,9 @@ exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hie
 exonize_obj.event_classifier.identify_full_length_duplications()
 exonize_obj.event_classifier.insert_classified_tuples_in_results_database()
 exonize_obj.database_interface.create_cumulative_counts_table()
+exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
+    list_tuples=[(1, 1, '-', '-', i) for i in range(1, len(fragments)+1)]
+)
 exonize_obj.database_interface.create_exclusive_pairs_view()
 
 
@@ -242,7 +245,7 @@ def test_matches_transcript_classification():
         assert my_record == exonize_record
 
 
-def test_obligate_evnts():
+def test_obligate_events():
     with sqlite3.connect("mock_results.db") as db:
         cursor = db.cursor()
         cursor.execute(
@@ -274,7 +277,6 @@ def test_obligate_evnts():
 
 
 def test_truncate_results():
-    exonize_obj.database_interface.truncate_results_database()
     with sqlite3.connect("mock_results.db") as db:
         cursor = db.cursor()
         cursor.execute(
@@ -296,6 +298,3 @@ def test_exclusive_events():
         )
         records = [fragment_id[0] for fragment_id in cursor.fetchall()]
     assert records == [5, 6]
-
-
-os.remove("mock_results.db")
