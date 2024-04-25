@@ -21,7 +21,7 @@ def exonize_ascii_art_logo() -> None:
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
           
           "maintainers: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
-          "             Lars Arvestad, Mathematics Department, Stockholm University\n"
+          "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
           "    Contact: arvestad@math.su.se\n"
           "     GitHub: https://github.com/msarrias/exonize\n"
           "\n")
