@@ -69,7 +69,7 @@ def argument_parser():
         '--multigraphs',
         action='store_true',
         default=False,
-        help='Generate event graphs.'
+        help='Generate expansion graphs figures. Default is False.'
     )
     # Optional Arguments for Numerical Values and Thresholds
     parser.add_argument(
