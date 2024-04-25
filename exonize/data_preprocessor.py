@@ -18,7 +18,7 @@ class DataPreprocessor(object):
             database_interface: object,
             working_directory: str,
             gff_file_path: str,
-            specie_identifier: str,
+            output_prefix: str,
             genome_file_path: str,
             genome_pickled_file_path: str,
             debug_mode: bool,
@@ -32,7 +32,7 @@ class DataPreprocessor(object):
         self.database_interface = database_interface
         self.working_directory = working_directory
         self.gff_file_path = gff_file_path
-        self.specie_identifier = specie_identifier
+        self.output_prefix = output_prefix
         self.genome_file_path = genome_file_path
         self.genome_pickled_file_path = genome_pickled_file_path
         self.evalue_threshold = evalue_threshold
@@ -53,15 +53,15 @@ class DataPreprocessor(object):
         # Derived attributes that depend on initial parameters
         self.genome_database_path = os.path.join(
             self.working_directory,
-            f'{self.specie_identifier}_genome_annotations.db'
+            f'{self.output_prefix}_genome_annotations.db'
         )
         self.protein_database_path = os.path.join(
             self.working_directory,
-            f'{self.specie_identifier}_protein.db'
+            f'{self.output_prefix}_protein.db'
         )
         self.gene_hierarchy_path = os.path.join(
             self.working_directory,
-            f"{self.specie_identifier}_gene_hierarchy.pkl"
+            f"{self.output_prefix}_gene_hierarchy.pkl"
         )
 
     @staticmethod
@@ -176,7 +176,7 @@ class DataPreprocessor(object):
                     make_backup=False
                 )
             except ValueError as e:
-                self.environment.logger.exception(
+                self.environment.logger.critical(
                     f"failed to write intron annotations in database. "
                     f"Please provide a GFF3 file with intron annotations {e}"
                 )
@@ -228,7 +228,7 @@ class DataPreprocessor(object):
                 keep_order=True
             )
         except ValueError as e:
-            self.environment.logger.exception(
+            self.environment.logger.critical(
                 f"Incorrect data base path {e}"
             )
             sys.exit()
@@ -256,7 +256,7 @@ class DataPreprocessor(object):
                         for fasta in parsed_genome
                     }
             except (ValueError, FileNotFoundError) as e:
-                self.environment.logger.exception(
+                self.environment.logger.critical(
                     f"Incorrect genome file path {e}"
                 )
                 sys.exit()

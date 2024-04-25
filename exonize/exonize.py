@@ -41,7 +41,7 @@ def argument_parser():
         help='Path to genome file.'
     )
     parser.add_argument(
-        'specie_identifier',
+        'output_prefix',
         type=str,
         help='Species identifier - used for naming output files.')
     # Optional Arguments for Flags
@@ -143,7 +143,7 @@ def main():
     exonize_obj = Exonize(
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
-        specie_identifier=args.specie_identifier,
+        output_prefix=args.output_prefix,
         draw_event_multigraphs=args.multigraphs,
         enable_debug=args.debug,
         soft_force=args.soft_force,

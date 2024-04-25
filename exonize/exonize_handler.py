@@ -38,7 +38,7 @@ class Exonize(object):
             self,
             gff_file_path: str,
             genome_file_path: str,
-            specie_identifier: str,
+            output_prefix: str,
             draw_event_multigraphs: bool,
             enable_debug: bool,
             soft_force: bool,
@@ -61,7 +61,7 @@ class Exonize(object):
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
         self.genome_pickled_file_path = genome_pickled_file_path
-        self.specie_identifier = specie_identifier
+        self.output_prefix = output_prefix
         self.evalue_threshold = evalue_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.query_overlapping_threshold = query_overlapping_threshold
@@ -73,13 +73,13 @@ class Exonize(object):
         if output_directory_path:
             self.working_directory = os.path.join(
                 output_directory_path,
-                f'{self.specie_identifier}_exonize'
+                f'{self.output_prefix}_exonize'
             )
         else:
-            self.working_directory = f'{self.specie_identifier}_exonize'
+            self.working_directory = f'{self.output_prefix}_exonize'
         self.results_database_path = os.path.join(
             self.working_directory,
-            f'{self.specie_identifier}_results.db'
+            f'{self.output_prefix}_results.db'
         )
         self.genome_pickled_file_path = os.path.join(
             self.working_directory,
@@ -107,7 +107,7 @@ class Exonize(object):
             database_interface=self.database_interface,
             working_directory=self.working_directory,
             gff_file_path=self.gff_file_path,
-            specie_identifier=self.specie_identifier,
+            output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
             genome_pickled_file_path=self.genome_pickled_file_path,
             debug_mode=self._DEBUG_MODE,
@@ -144,7 +144,7 @@ class Exonize(object):
         python version:             {sys.version}
         tblastx version:            {tblastx_version}
         --------------------------------
-        Indentifier:                {self.specie_identifier}
+        Indentifier:                {self.output_prefix}
         GFF file:                   {gff_file_path}
         Genome file:                {genome_file_path}
         --------------------------------
@@ -239,7 +239,7 @@ class Exonize(object):
                 yield data[batch_start_index:batch_end_index]
 
         self.environment.logger.info(
-            f'Running Exonize for specie:{self.specie_identifier}'
+            f'Running Exonize for specie:{self.output_prefix}'
         )
         self.data_container.prepare_data()
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
