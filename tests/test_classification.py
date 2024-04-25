@@ -206,7 +206,7 @@ if os.path.exists("mock_results.db"):
 exonize_obj = Exonize(
         gff_file_path='mock_gff.gff3',
         genome_file_path='mock_genome.fa',
-        specie_identifier="mock_specie",
+        output_prefix="mock_specie",
         draw_event_multigraphs=False,
         enable_debug=False,
         soft_force=False,
