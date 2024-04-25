@@ -100,26 +100,24 @@ class ClassifierHandler(object):
         target_out_of_mrna is a function that identifies tblastx hits
         that are outside the mRNA transcript.
         """
-        (fragment_id, gene_id, gene_start,
-         _, cds_start, cds_end, query_start, query_end,
-         target_start, target_end, evalue
-         ) = row_tuple
+        (fragment_id, gene_id, gene_start, _, cds_start, cds_end,
+         query_start, query_end, target_start, target_end, evalue) = row_tuple
         target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
         if (target_coordinate.upper < transcript_coordinate.lower
                 or transcript_coordinate.upper < target_coordinate.lower):
             if (self.__query + self.__target) == 0:
                 self.__neither = 1
-                self.tuples_full_length_duplications.append((
-                    fragment_id, gene_id, mrna_id,
-                    cds_start, cds_end, self.__query_cds, query_start, query_end,
-                    "OUT_OF_MRNA",
-                    self.__target_cds, self.__annot_target_start,
-                    self.__annot_target_end,
-                    target_start, target_end,
-                    self.__neither, self.__query, self.__target, self.__both,
-                    evalue
-                ))
-                return True
+            self.tuples_full_length_duplications.append((
+                fragment_id, gene_id, mrna_id,
+                cds_start, cds_end, self.__query_cds, query_start, query_end,
+                "OUT_OF_MRNA",
+                self.__target_cds, self.__annot_target_start,
+                self.__annot_target_end,
+                target_start, target_end,
+                self.__neither, self.__query, self.__target, self.__both,
+                evalue
+            ))
+            return True
         return False
 
     def find_overlapping_annotation(
@@ -281,7 +279,7 @@ class ClassifierHandler(object):
         self.tuples_obligatory_events.append((
             fragment_id, gene_id, mrna_id,
             transcript_coordinate.lower, transcript_coordinate.upper,
-            cds_start, cds_end, self.__query_cds, self.__query_cds_frame,
+            self.__query_cds, self.__query_cds_frame, cds_start, cds_end,
             query_start, query_end, self.__target_cds, self.__target_cds_frame,
             self.__annot_target_start, self.__annot_target_end,
             target_start, target_end, self.__target_type
@@ -363,9 +361,7 @@ class ClassifierHandler(object):
         rows = self.database_interface.query_filtered_full_duplication_events()
         self.initialize_list_of_tuples()
         for row in rows:
-            (_, gene_id, gene_start, _,
-             cds_start, cds_end, _, _,
-             target_start, target_end, _) = row
+            (_, gene_id, gene_start, _, cds_start, cds_end, _, _, target_start, target_end, _) = row
             cds_coordinate = P.open(cds_start, cds_end)
             target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
             for mrna_id, transcript_dictionary \
