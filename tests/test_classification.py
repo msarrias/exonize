@@ -2,6 +2,7 @@ import os.path
 import portion as P
 import sqlite3
 from exonize.exonize_handler import Exonize
+from exonize.environment_setup import EnvironmentSetup
 import shutil
 
 gene_hierarchy_dictionary = {
@@ -203,23 +204,29 @@ matches = [
 if os.path.exists("mock_results.db"):
     os.remove("mock_results.db")
 
+exonize_environment = EnvironmentSetup(
+    hard_force=False,
+    soft_force=False,
+    draw_event_multigraphs=False,
+    output_prefix="mock_species",
+    results_database_path='',
+    output_directory_path="",
+    debug_mode=False
+)
+
 exonize_obj = Exonize(
+        environment=exonize_environment,
         gff_file_path='mock_gff.gff3',
         genome_file_path='mock_genome.fa',
-        output_prefix="mock_specie",
-        draw_event_multigraphs=False,
-        enable_debug=False,
-        soft_force=False,
+        draw_event_multigraphs=True,
         evalue_threshold=0.01,
         sleep_max_seconds=0,
         min_exon_length=30,
         self_hit_threshold=0.5,
         timeout_database=60,
-        hard_force=False,
         cds_overlapping_threshold=0.9,
         query_overlapping_threshold=0.9,
         genome_pickled_file_path=".",
-        output_directory_path="",
     )
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = "mock_results.db"

@@ -1,8 +1,12 @@
 from unittest.mock import Mock
 from exonize.blast_searcher import BLASTsearcher
+from exonize.environment_setup import EnvironmentSetup
 import portion as P
 import pytest
 
+
+env = Mock(EnvironmentSetup)
+env.working_directory=''
 
 blast_engine = BLASTsearcher(
     data_container=Mock(),
@@ -11,7 +15,6 @@ blast_engine = BLASTsearcher(
     min_exon_length=20,
     cds_overlapping_threshold=0.8,
     evalue_threshold=1e-5,
-    debug_mode=False,
 )
 
 

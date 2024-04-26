@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+from typing import Optional
 
 
 class EnvironmentSetup(object):
@@ -11,16 +12,34 @@ class EnvironmentSetup(object):
             hard_force: bool,
             soft_force: bool,
             draw_event_multigraphs: bool,
-            working_directory: str,
+            output_prefix: str,
             results_database_path: str,
+            output_directory_path: Optional[str],
+            debug_mode: Optional[bool]
     ):
         self.__FILE_ONLY_INFO = 9
+        self._DEBUG_MODE = debug_mode
         self.HARD_FORCE = hard_force
         self.SOFT_FORCE = soft_force
         self.draw_event_multigraphs = draw_event_multigraphs
-        self.working_directory = working_directory
+        self.output_prefix = output_prefix
         self.results_database_path = results_database_path
-        self.setup_environment()
+
+        if output_directory_path:
+            self.working_directory = os.path.join(
+                output_directory_path,
+                f'{output_prefix}_exonize'
+            )
+        else:
+            self.working_directory = f'{self.output_prefix}_exonize'
+
+        self.results_database_path = os.path.join(
+            self.working_directory,
+            f'{self.output_prefix}_results.db'
+        )
+        self.cleanup_environment()
+        self.configure_logger()
+        
 
     def configure_logger(self):
         """
@@ -39,7 +58,10 @@ class EnvironmentSetup(object):
             level=logging.INFO, handlers=[console_handler]
         )
 
-    def setup_environment(self):
+    def cleanup_environment(self):
+        '''
+        Ensure that we can output to the directories we want.
+        '''
         if self.HARD_FORCE:
             if os.path.exists(self.working_directory):
                 shutil.rmtree(self.working_directory)
@@ -49,4 +71,3 @@ class EnvironmentSetup(object):
         os.makedirs(self.working_directory, exist_ok=True)
         if self.draw_event_multigraphs:
             os.makedirs(os.path.join(self.working_directory, 'multigraphs'), exist_ok=True)
-        self.configure_logger()

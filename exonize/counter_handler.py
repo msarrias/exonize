@@ -25,7 +25,7 @@ class CounterHandler(object):
         self.draw_event_multigraphs = draw_event_multigraphs
         if self.draw_event_multigraphs:
             self.multigraphs_path = os.path.join(
-                self.data_container.working_directory,
+                self.environment.working_directory,
                 'multigraphs'
             )
 

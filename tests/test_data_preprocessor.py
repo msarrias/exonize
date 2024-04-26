@@ -1,13 +1,15 @@
 from exonize.data_preprocessor import DataPreprocessor
+from exonize.environment_setup import EnvironmentSetup
 from unittest.mock import Mock
 import pytest
 from Bio.Seq import Seq
 import portion as P
 
+env = Mock(EnvironmentSetup)
+env.working_directory=''
 data_container = DataPreprocessor(
-    logger_obj=Mock(),
+    environment=env
     database_interface=Mock(),
-    working_directory='',
     gff_file_path='',
     output_prefix='test',
     genome_file_path='',
@@ -16,7 +18,6 @@ data_container = DataPreprocessor(
     cds_overlapping_threshold=0.8,
     query_overlapping_threshold=0.9,
     min_exon_length=30,
-    debug_mode=False,
     evalue_threshold=1e-5,
 )
 

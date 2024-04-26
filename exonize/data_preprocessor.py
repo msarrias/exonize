@@ -14,25 +14,20 @@ class DataPreprocessor(object):
 
     def __init__(
             self,
-            logger_obj: object,
+            environment: object,
             database_interface: object,
-            working_directory: str,
             gff_file_path: str,
-            output_prefix: str,
             genome_file_path: str,
             genome_pickled_file_path: str,
-            debug_mode: bool,
             evalue_threshold: float,
             self_hit_threshold: float,
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             min_exon_length: int,
     ):
-        self.environment = logger_obj
+        self.environment = environment
         self.database_interface = database_interface
-        self.working_directory = working_directory
         self.gff_file_path = gff_file_path
-        self.output_prefix = output_prefix
         self.genome_file_path = genome_file_path
         self.genome_pickled_file_path = genome_pickled_file_path
         self.evalue_threshold = evalue_threshold
@@ -42,7 +37,6 @@ class DataPreprocessor(object):
         self.min_exon_length = min_exon_length
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
-        self._DEBUG_MODE = debug_mode
 
         self.database_features = None
         self.old_filename = None
@@ -52,16 +46,16 @@ class DataPreprocessor(object):
 
         # Derived attributes that depend on initial parameters
         self.genome_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_genome_annotations.db'
+            self.environment.working_directory,
+            f'{environment.output_prefix}_genome_annotations.db'
         )
         self.protein_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_protein.db'
+            self.environment.working_directory,
+            f'{environment.output_prefix}_protein.db'
         )
         self.gene_hierarchy_path = os.path.join(
-            self.working_directory,
-            f"{self.output_prefix}_gene_hierarchy.pkl"
+            self.environment.working_directory,
+            f"{environment.output_prefix}_gene_hierarchy.pkl"
         )
 
     @staticmethod
@@ -535,9 +529,9 @@ class DataPreprocessor(object):
         (iii) reads the genome sequence
         (iv)  connects or creates the results database
         """
-        if self._DEBUG_MODE:
-            os.makedirs(os.path.join(self.working_directory, 'input'), exist_ok=True)
-            os.makedirs(os.path.join(self.working_directory, 'output'), exist_ok=True)
+        if self.environment._DEBUG_MODE:
+            os.makedirs(os.path.join(self.environment.working_directory, 'input'), exist_ok=True)
+            os.makedirs(os.path.join(self.environment.working_directory, 'output'), exist_ok=True)
         self.create_parse_or_update_database()
         self.read_genome()
         if os.path.exists(self.gene_hierarchy_path):
@@ -560,7 +554,7 @@ class DataPreprocessor(object):
                 "Populating protein database"
             )
             self.populate_proteins_table()
-        if self._DEBUG_MODE:
+        if self.environment._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."

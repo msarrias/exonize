@@ -10,7 +10,6 @@ blast_engine = BLASTsearcher(
     min_exon_length=20,
     cds_overlapping_threshold=0.8,
     evalue_threshold=1e-5,
-    debug_mode=False,
 )
 classifier_handler = ClassifierHandler(
     blast_engine=blast_engine,

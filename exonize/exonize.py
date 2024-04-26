@@ -2,6 +2,10 @@ import argparse
 
 from exonize.exonize_handler import Exonize
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
+from exonize.environment_setup import EnvironmentSetup
+from exonize.data_preprocessor import DataPreprocessor
+from exonize.sqlite_handler import SqliteHandler
+from exonize.blast_searcher import BLASTsearcher
 
 
 def exonize_ascii_art_logo() -> None:
@@ -142,10 +146,19 @@ def argument_parser():
 def main():
     exonize_ascii_art_logo()
     args = argument_parser()
+    exonize_environment = EnvironmentSetup(
+        hard_force=args.hard_force,
+        soft_force=args.soft_force,
+        draw_event_multigraphs=args.multigraphs,
+        output_prefix=args.output_prefix
+        results_database_path=self.results_database_path, # Should be created in the object
+        output_directory_path=args.output_directory_path  # Check this
+        )
+
     exonize_obj = Exonize(
+        exonize_environment,    # New object
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
-        output_prefix=args.output_prefix,
         draw_event_multigraphs=args.multigraphs,
         enable_debug=args.debug,
         soft_force=args.soft_force,
@@ -158,7 +171,6 @@ def main():
         self_hit_threshold=args.self_hit_threshold,
         timeout_database=args.timeout_database,
         genome_pickled_file_path=args.genome_pickled_file_path,
-        output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
 

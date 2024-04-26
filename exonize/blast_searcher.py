@@ -25,7 +25,6 @@ class BLASTsearcher(object):
             min_exon_length: int,
             cds_overlapping_threshold: float,
             evalue_threshold: float,
-            debug_mode: bool,
     ):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
@@ -35,7 +34,6 @@ class BLASTsearcher(object):
         self.min_exon_length = min_exon_length
         self.cds_overlapping_threshold = cds_overlapping_threshold
         self.evalue_threshold = evalue_threshold
-        self._DEBUG_MODE = debug_mode
 
     @staticmethod
     def dump_fasta_file(
@@ -320,16 +318,16 @@ class BLASTsearcher(object):
          the identifier of the query sequence (CDS).
         """
         output_file_path = os.path.join(
-            self.data_container.working_directory,
+            self.environment.working_directory,
             f'output/{identifier}_output.xml'
         )
         if not os.path.exists(output_file_path):
             query_file_path = os.path.join(
-                self.data_container.working_directory,
+                self.environment.working_directory,
                 f'input/{identifier}_query.fa'
             )
             target_file_path = os.path.join(
-                self.data_container.working_directory,
+                self.environment.working_directory,
                 f'input/{gene_id}_target.fa'
             )
             if not os.path.exists(target_file_path):
@@ -372,7 +370,7 @@ class BLASTsearcher(object):
         execute_tblastx_using_tempfiles is a function that executes
         a tblastx search using temporary files.
         """
-        with tempfile.TemporaryDirectory(dir=self.data_container.working_directory) as temporary_directory:
+        with tempfile.TemporaryDirectory(dir=self.environment.working_directory) as temporary_directory:
             query_file_path = f'{temporary_directory}/query.fa'
             target_file_path = f'{temporary_directory}/target.fa'
             self.dump_fasta_file(
@@ -542,7 +540,7 @@ class BLASTsearcher(object):
             f'{str(query_coordinate.lower)}_'
             f'{query_coordinate.upper}'
         ).replace(':', '_')
-        if self._DEBUG_MODE:
+        if self.environment._DEBUG_MODE:
             tblastx_o = self.tblastx_with_saved_io(
                 identifier=identifier,
                 gene_id=gene_id,
