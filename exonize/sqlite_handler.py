@@ -125,17 +125,17 @@ class SqliteHandler(object):
                     fragment_id INTEGER NOT NULL,
                     gene_id VARCHAR(100) NOT NULL,
                     transcript_id VARCHAR(100) NOT NULL,
-                    cds_start INTEGER NOT NULL,
-                    cds_end INTEGER NOT NULL,
+                    cds_start INTEGER NOT NULL, -- Redundant?
+                    cds_end INTEGER NOT NULL, -- Redundant?
                     query_id VARCHAR(100) NOT NULL,
-                    query_start INTEGER NOT NULL,
-                    query_end INTEGER NOT NULL,
+                    query_start INTEGER NOT NULL, -- Redundant?
+                    query_end INTEGER NOT NULL, -- Redundant?
                     event_type VARCHAR(100) NOT NULL,
                     target_id VARCHAR(100), /* TRUNCTATION envents will take NULL value */
                     annot_target_start INTEGER,
                     annot_target_end INTEGER,
-                    target_start INTEGER NOT NULL,
-                    target_end INTEGER NOT NULL,
+                    target_start INTEGER NOT NULL, -- Redundant?
+                    target_end INTEGER NOT NULL, -- Redundant?
                     neither BINARY(1) NOT NULL,
                     query BINARY(1) NOT NULL,
                     target BINARY(1) NOT NULL,
@@ -789,7 +789,7 @@ class SqliteHandler(object):
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
 
-    def instert_full_length_event(self, tuples_list: list) -> None:
+    def insert_full_length_event(self, tuples_list: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -829,7 +829,7 @@ class SqliteHandler(object):
                 """
                 cursor.executemany(insert_full_length_event_table_param, tuples_list)
 
-    def instert_obligate_event(self, tuples_list: list) -> None:
+    def insert_obligate_event(self, tuples_list: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
