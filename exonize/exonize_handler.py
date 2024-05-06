@@ -20,9 +20,10 @@
 
 import os
 from itertools import permutations
-from typing import Any, Optional, Sequence, Iterator
+from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
+from pathlib import Path
 
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
@@ -36,8 +37,8 @@ from exonize.counter_handler import CounterHandler
 class Exonize(object):
     def __init__(
             self,
-            gff_file_path: str,
-            genome_file_path: str,
+            gff_file_path: Path,
+            genome_file_path: Path,
             output_prefix: str,
             draw_event_multigraphs: bool,
             enable_debug: bool,
@@ -50,8 +51,8 @@ class Exonize(object):
             query_overlapping_threshold: float,
             self_hit_threshold: float,
             timeout_database: int,
-            genome_pickled_file_path: Optional[str],
-            output_directory_path: Optional[str]
+            genome_pickled_file_path: Path,
+            output_directory_path: Path
     ):
         self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
@@ -69,26 +70,16 @@ class Exonize(object):
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
+        if not self.output_prefix:
+            self.output_prefix = genome_file_path.stem
 
         if output_directory_path:
-            self.working_directory = os.path.join(
-                output_directory_path,
-                f'{self.output_prefix}_exonize'
-            )
+            self.working_directory = output_directory_path / f'{self.output_prefix}_exonize'
         else:
-            self.working_directory = f'{self.output_prefix}_exonize'
-        self.results_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_results.db'
-        )
-        self.genome_pickled_file_path = os.path.join(
-            self.working_directory,
-            self.genome_pickled_file_path
-        )
-        self.log_file_name = os.path.join(
-            self.working_directory,
-            f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
-        )
+            self.working_directory = Path(f'{self.output_prefix}_exonize')
+        self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
+
+        self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
@@ -175,9 +166,7 @@ class Exonize(object):
         return new_events_list
 
     @staticmethod
-    def generate_combinations(
-            strings: list,
-    ) -> list:
+    def generate_combinations(strings: list[str]) -> list[str]:
         result = set()
         for perm in permutations(strings):
             result.add('-'.join(perm))
