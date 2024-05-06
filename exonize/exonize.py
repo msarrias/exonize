@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from exonize.exonize_handler import Exonize
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
@@ -34,12 +35,12 @@ def argument_parser():
     # Required Arguments
     parser.add_argument(
         'gff_file_path',
-        type=str,
+        type=Path,
         help='Path to GFF file.'
     )
     parser.add_argument(
         'genome_file_path',
-        type=str,
+        type=Path,
         help='Path to genome file.'
     )
     # Optional Arguments for Flags
@@ -126,13 +127,13 @@ def argument_parser():
     parser.add_argument(
         '--genome-pickled-file-path',
         default='parsed_genome.pkl',
-        type=str,
+        type=Path,
         help='Parsed genome pickled file path. Default is parsed_genome.pkl.'
     )
     parser.add_argument(
         '--output-directory-path',
         default=None,
-        type=str,
+        type=Path,
         help='Output directory path. Default is current directory.'
     )
     args = parser.parse_args()
