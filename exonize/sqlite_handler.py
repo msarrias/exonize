@@ -4,12 +4,13 @@
 # ------------------------------------------------------------------------
 import sqlite3
 import contextlib
+from pathlib import Path
 
 
 class SqliteHandler(object):
     def __init__(
         self,
-        results_database_path: str,
+        results_database_path: Path,
         timeout_database: int,
     ):
         self.results_database_path = results_database_path

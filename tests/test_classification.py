@@ -1,8 +1,9 @@
-import os.path
+import os
 import portion as P
 import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
+from pathlib import Path
 
 gene_hierarchy_dictionary = {
     'gene_1': {
@@ -199,13 +200,13 @@ matches = [
     (39, 13, 'gene_1', 'transcript_g1_3', 1750, 1900, '-', 1, 150, 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1210, 1360, 1, 0, 0, 0, 1e-05)
 ]
-
-if os.path.exists("mock_results.db"):
+results_db_path = Path("mock_results.db")
+if results_db_path.exists():
     os.remove("mock_results.db")
 
 exonize_obj = Exonize(
-        gff_file_path='mock_gff.gff3',
-        genome_file_path='mock_genome.fa',
+        gff_file_path=Path('mock_gff.gff3'),
+        genome_file_path=Path('mock_genome.fa'),
         output_prefix="mock_specie",
         draw_event_multigraphs=False,
         enable_debug=False,
@@ -218,11 +219,11 @@ exonize_obj = Exonize(
         hard_force=False,
         cds_overlapping_threshold=0.9,
         query_overlapping_threshold=0.9,
-        genome_pickled_file_path=".",
-        output_directory_path="",
+        genome_pickled_file_path=Path("."),
+        output_directory_path=Path("."),
     )
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)
-exonize_obj.database_interface.results_database_path = "mock_results.db"
+exonize_obj.database_interface.results_database_path = results_db_path
 exonize_obj.database_interface.connect_create_results_database()
 exonize_obj.database_interface.insert_fragments(
     gene_args_tuple=mock_gene,
@@ -243,7 +244,7 @@ exonize_obj.database_interface.create_exclusive_pairs_view()
 
 
 def test_matches_transcript_classification():
-    with sqlite3.connect("mock_results.db") as db:
+    with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
             """
@@ -257,7 +258,7 @@ def test_matches_transcript_classification():
 
 
 def test_obligate_events():
-    with sqlite3.connect("mock_results.db") as db:
+    with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
             """
@@ -288,7 +289,7 @@ def test_obligate_events():
 
 
 def test_truncate_results():
-    with sqlite3.connect("mock_results.db") as db:
+    with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
             """
@@ -300,7 +301,7 @@ def test_truncate_results():
 
 
 def test_exclusive_events():
-    with sqlite3.connect("mock_results.db") as db:
+    with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
             """
