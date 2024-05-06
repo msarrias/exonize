@@ -42,11 +42,11 @@ def argument_parser():
         type=str,
         help='Path to genome file.'
     )
+    # Optional Arguments for Flags
     parser.add_argument(
-        'output_prefix',
+        '--output_prefix',
         type=str,
         help='Species identifier - used for naming output files.')
-    # Optional Arguments for Flags
     parser.add_argument(
         '--debug',
         action='store_true',
