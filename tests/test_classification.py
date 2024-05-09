@@ -219,7 +219,6 @@ exonize_obj = Exonize(
         hard_force=False,
         cds_overlapping_threshold=0.9,
         query_overlapping_threshold=0.9,
-        genome_pickled_file_path=Path("."),
         output_directory_path=Path("."),
     )
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)

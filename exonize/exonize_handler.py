@@ -51,7 +51,6 @@ class Exonize(object):
             query_overlapping_threshold: float,
             self_hit_threshold: float,
             timeout_database: int,
-            genome_pickled_file_path: Path,
             output_directory_path: Path
     ):
         self._DEBUG_MODE = enable_debug
@@ -61,7 +60,6 @@ class Exonize(object):
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
-        self.genome_pickled_file_path = genome_pickled_file_path
         self.output_prefix = output_prefix
         self.evalue_threshold = evalue_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
@@ -80,6 +78,7 @@ class Exonize(object):
         self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
 
         self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
+        self.genome_pickled_file_path = self.working_directory / 'parsed_genome.pkl'
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(

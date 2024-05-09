@@ -125,12 +125,6 @@ def argument_parser():
     )
     # Optional Argument for saving the parsed genome as a pickle file
     parser.add_argument(
-        '--genome-pickled-file-path',
-        default='parsed_genome.pkl',
-        type=Path,
-        help='Parsed genome pickled file path. Default is parsed_genome.pkl.'
-    )
-    parser.add_argument(
         '--output-directory-path',
         default=None,
         type=Path,
@@ -158,7 +152,6 @@ def main():
         query_overlapping_threshold=args.query_overlapping_threshold,
         self_hit_threshold=args.self_hit_threshold,
         timeout_database=args.timeout_database,
-        genome_pickled_file_path=args.genome_pickled_file_path,
         output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
