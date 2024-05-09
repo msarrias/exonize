@@ -543,14 +543,14 @@ class DataPreprocessor(object):
             )
             os.remove(self.genome_database_path)
         self.database_interface.connect_create_results_database()
-        if not self.protein_database_path.exists():
-            self.database_interface.create_protein_table(
-                database_path=self.protein_database_path
-            )
-            self.environment.logger.info(
-                "Populating protein database"
-            )
-            self.populate_proteins_table()
+        # if not self.protein_database_path.exists():
+        #     self.database_interface.create_protein_table(
+        #         database_path=self.protein_database_path
+        #     )
+        # self.environment.logger.info(
+        #     "Populating protein database"
+        # )
+        # self.populate_proteins_table()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
