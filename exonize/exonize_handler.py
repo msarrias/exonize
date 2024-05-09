@@ -226,7 +226,7 @@ class Exonize(object):
                 yield data[batch_start_index:batch_end_index]
 
         self.environment.logger.info(
-            f'Running Exonize for specie:{self.output_prefix}'
+            f'Running Exonize for specie: {self.output_prefix}'
         )
         self.data_container.prepare_data()
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
