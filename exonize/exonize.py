@@ -83,8 +83,8 @@ def argument_parser():
     parser.add_argument(
         '-el',
         '--min-exon-length',
-        type=int,
         default=30,
+        type=int,
         help='Minimum exon length. Default is 30.'
     )
     parser.add_argument(
@@ -115,7 +115,11 @@ def argument_parser():
         type=float,
         help='tblastx query overlapping threshold. Default is 0.9.'
     )
-    # Optional Argument for Timeout
+    parser.add_argument(
+        '--cpus_number',
+        default=os.cpu_count(),  # This is pretty greedy, could be changed and put in a config file
+        type=int,
+        help='Number of CPUs to use. Default is the number of CPUs available.')
     parser.add_argument(
         '-to',
         '--timeout-database',
@@ -123,10 +127,8 @@ def argument_parser():
         type=int,
         help='Database timeout. Default is 160.'
     )
-    # Optional Argument for saving the parsed genome as a pickle file
     parser.add_argument(
         '--output-directory-path',
-        default=None,
         type=Path,
         help='Output directory path. Default is current directory.'
     )
@@ -151,6 +153,7 @@ def main():
         cds_overlapping_threshold=args.cds_overlapping_threshold,
         query_overlapping_threshold=args.query_overlapping_threshold,
         self_hit_threshold=args.self_hit_threshold,
+        cpus_number=args.cpus_number,
         timeout_database=args.timeout_database,
         output_directory_path=args.output_directory_path
     )
