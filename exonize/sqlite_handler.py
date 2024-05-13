@@ -432,18 +432,23 @@ class SqliteHandler(object):
                         g.gene_end,
                         f.cds_frame,
                         f.query_frame,
+                        f.target_frame,
                         g.gene_strand,
                         f.query_strand,
+                        f.target_strand,
                         f.cds_start,
                         f.cds_end,
                         f.query_start,
                         f.query_end,
                         f.target_start,
                         f.target_end,
+                        f.target_aln_prot_seq,
                         f.evalue
                     FROM Matches AS f
                     JOIN Genes g ON g.gene_id = f.gene_id
-                    WHERE f.percent_query >= {query_overlap_threshold} AND f.cds_frame = f.query_frame
+                    WHERE f.percent_query >= {query_overlap_threshold} 
+                    AND g.gene_strand = f.target_strand
+                    AND f.cds_frame = f.query_frame
                     ),
                     -- Identify gene_ids+cdss with more than one dupl fragment
                     multi_fragment_genes AS (
@@ -488,7 +493,7 @@ class SqliteHandler(object):
                             AND ofr.target_start <= f2.target_end
                             AND ofr.target_end >= f2.target_start
                             ORDER BY
-                                CASE WHEN gene_strand = query_strand THEN 1 ELSE 2 END,
+                                CASE WHEN target_aln_prot_seq NOT LIKE '%*%' THEN 1 ELSE 2 END,
                                 evalue
                                 LIMIT 1
                             )
