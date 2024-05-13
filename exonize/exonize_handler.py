@@ -50,12 +50,14 @@ class Exonize(object):
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             self_hit_threshold: float,
+            cpus_number: int,
             timeout_database: int,
             output_directory_path: Path
     ):
         self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
+        self.FORKS_NUMBER = cpus_number
         self.draw_event_multigraphs = draw_event_multigraphs
 
         self.gff_file_path = gff_file_path
@@ -259,13 +261,12 @@ Exonize results database:   {self.results_database_path.name}
             status: int
             code: int
             forks: int = 0
-            FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
             self.environment.logger.info(
                 'Exonizing: this may take a while ...'
             )
             for balanced_genes_batch in even_batches(
                 data=unprocessed_gene_ids_list,
-                number_of_batches=FORKS_NUMBER,
+                number_of_batches=self.FORKS_NUMBER,
             ):
                 # This part effectively forks a child process, independent of the parent process, and that
                 # will be responsible for processing the genes in the batch, parallel to the other children forked
@@ -279,7 +280,7 @@ Exonize results database:   {self.results_database_path.name}
                 # doing nothing else but forking until 'FORKS_NUMBER' is reached.
                 if os.fork():
                     forks += 1
-                    if forks >= FORKS_NUMBER:
+                    if forks >= self.FORKS_NUMBER:
                         _, status = os.wait()
                         code = os.waitstatus_to_exitcode(status)
                         assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
