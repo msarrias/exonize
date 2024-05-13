@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-
+import os
 from exonize.exonize_handler import Exonize
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
