@@ -215,6 +215,7 @@ exonize_obj = Exonize(
         sleep_max_seconds=0,
         min_exon_length=30,
         self_hit_threshold=0.5,
+        cpus_number=1,
         timeout_database=60,
         hard_force=False,
         cds_overlapping_threshold=0.9,
