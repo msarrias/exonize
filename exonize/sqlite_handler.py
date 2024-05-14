@@ -658,33 +658,33 @@ class SqliteHandler(object):
                     """DROP VIEW IF EXISTS Full_length_matches;"""
                 )
                 cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN percent_query;"""
+                    """ALTER TABLE Matches DROP COLUMN percent_query;"""
                 )
             cursor.execute(
                 """
-            ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
-            """
+                ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
+                """
             )
             cursor.execute(
                 """
-            UPDATE Matches
-            SET percent_query =
-             ROUND(
-                CAST(int.intersect_end - int.intersect_start AS REAL) /
-                CAST(int.cds_end - int.cds_start AS REAL), 3
-            )
-            FROM (
-                SELECT
-                    Fragment_id,
-                    MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
-                    MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
-                    f.cds_end,
-                    f.cds_start
-                FROM Matches AS f
-                WHERE f.cds_end >= (f.query_start + f.cds_start)
-                AND f.cds_start <= (f.query_end + f.cds_start)
-            ) AS int
-            WHERE Matches.Fragment_id = int.Fragment_id;
+                UPDATE Matches
+                SET percent_query =
+                 ROUND(
+                    CAST(int.intersect_end - int.intersect_start AS REAL) /
+                    CAST(int.cds_end - int.cds_start AS REAL), 3
+                )
+                FROM (
+                    SELECT
+                        Fragment_id,
+                        MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
+                        MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
+                        f.cds_end,
+                        f.cds_start
+                    FROM Matches AS f
+                    WHERE f.cds_end >= (f.query_start + f.cds_start)
+                    AND f.cds_start <= (f.query_end + f.cds_start)
+                ) AS int
+                WHERE Matches.Fragment_id = int.Fragment_id;
             """
             )
 
