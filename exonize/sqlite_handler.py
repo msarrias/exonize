@@ -446,7 +446,7 @@ class SqliteHandler(object):
                         f.evalue
                     FROM Matches AS f
                     JOIN Genes g ON g.gene_id = f.gene_id
-                    WHERE f.percent_query >= {query_overlap_threshold} 
+                    WHERE f.percent_query >= {query_overlap_threshold}
                     AND g.gene_strand = f.target_strand
                     AND f.cds_frame = f.query_frame
                     ),
