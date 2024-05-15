@@ -19,11 +19,13 @@
 # ------------------------------------------------------------------------
 
 import os
+import shutil
 from itertools import permutations
 from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
 from pathlib import Path
+import tarfile
 
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
@@ -172,6 +174,15 @@ Exonize results database:   {self.results_database_path.name}
         for perm in permutations(strings):
             result.add('-'.join(perm))
         return list(result)
+
+    @staticmethod
+    def compress_directory(
+            source_dir: Path
+    ):
+        output_filename = source_dir.with_suffix('.tar.gz')
+        with tarfile.open(output_filename, "w:gz") as tar:
+            base_dir = source_dir.name
+            tar.add(source_dir, arcname=base_dir)
 
     def run_exonize_pipeline(self) -> None:
         """
@@ -352,6 +363,13 @@ Exonize results database:   {self.results_database_path.name}
         )
         self.database_interface.create_exclusive_pairs_view()
         self.data_container.clear_working_directory()
+
+        if self.draw_event_multigraphs:
+            multigraph_directory = self.working_directory / 'multigraphs'
+            self.compress_directory(
+                source_dir=Path(multigraph_directory)
+            )
+            shutil.rmtree(multigraph_directory)
 
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)
