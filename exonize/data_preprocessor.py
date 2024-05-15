@@ -1,4 +1,5 @@
 import gffutils
+import gzip
 import os
 import pickle
 import subprocess
@@ -233,6 +234,7 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
+            
     def read_genome(
             self,
     ) -> None:
@@ -248,24 +250,27 @@ class DataPreprocessor(object):
                 file_path=self.genome_pickled_file_path
             )
         else:
+            read_fasta_file(self.genome_file_path)
             try:
-                with open(self.genome_file_path) as genome_file:
-                    parsed_genome = SeqIO.parse(genome_file, format='fasta')
-                    self.genome_dictionary = {
-                        fasta.id: str(fasta.seq)
-                        for fasta in parsed_genome
-                    }
+                self.genome_dictionary = read_fasta_file(self.genome_file_path)
             except (ValueError, FileNotFoundError) as e:
                 self.environment.logger.critical(
-                    f"Incorrect genome file path {e}"
+                    f"Incorrect genome file path: {e}"
                 )
                 sys.exit()
+            except OSError as e:
+                self.environment.logger.critical(
+                    f"There was an error reading the genome file: {e}"
+                )
+                sys.exit()
+                
             if self.genome_pickled_file_path is not None:
                 self.dump_pkl_file(
                     out_file_path=self.genome_pickled_file_path,
                     records_dictionary=self.genome_dictionary,
                 )
 
+                
     def construct_mrna_sequence(
             self,
             chromosome: str,
@@ -565,3 +570,26 @@ class DataPreprocessor(object):
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."
             )
+
+
+        
+def read_fasta_file(file_path) -> dict:
+    '''
+    Open a Fasta file _or_ gzipped Fasta file and return a
+    dictionary mapping accession to sequence string.
+
+    Raises OSError, FileNotFoundError, ValueError (and possibly more)
+    if there are general problems with the file.
+    '''
+    genome_dictionary = {}
+    try:
+        with gzip.open(file_path, mode='rt') as genome_file: # 'rt' for textmode
+            for record in SeqIO.parse(genome_file, 'fasta'):
+                genome_dictionary[record.id] = str(record.seq)
+    except gzip.BadGzipFile:
+        # Assume regular "flat" Fasta file
+        with open(file_path) as genome_file:
+            for record in SeqIO.parse(genome_file, 'fasta'):
+                genome_dictionary[record.id] = str(record.seq)
+
+    return genome_dictionary

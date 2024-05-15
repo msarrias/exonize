@@ -40,7 +40,7 @@ def argument_parser():
     parser.add_argument(
         'genome_file_path',
         type=str,
-        help='Path to genome file.'
+        help='Path to genome file in Fasta format or gzipped Fasta format.'
     )
     parser.add_argument(
         'output_prefix',
