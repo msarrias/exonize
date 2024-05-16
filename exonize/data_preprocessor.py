@@ -36,7 +36,6 @@ class DataPreprocessor(object):
         self.gff_file_path = gff_file_path
         self.output_prefix = output_prefix
         self.genome_file_path = genome_file_path
-        self.genome_pickled_file_path = genome_pickled_file_path
         self.evalue_threshold = evalue_threshold
         self.self_hit_threshold = self_hit_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
@@ -100,34 +99,6 @@ class DataPreprocessor(object):
         :param gene_strand: strand
         """
         return gene_strand == '-'
-
-    def read_fasta_file(
-            self,
-            file_path: Path
-    ) -> dict:
-        """
-        Open a Fasta file _or_ gzipped Fasta file and return a
-        dictionary mapping accession to sequence string.
-
-        Raises OSError, FileNotFoundError, ValueError (and possibly more)
-        if there are general problems with the file.
-        """
-        genome_dictionary = {}
-        if file_path.suffix == '.gz':
-            with gzip.open(file_path, mode='rt') as genome_file:  # 'rt' for textmode
-                for record in SeqIO.parse(genome_file, 'fasta'):
-                    genome_dictionary[record.id] = str(record.seq)
-        else:
-            try:
-                with open(file_path, mode='r') as genome_file:
-                    for record in SeqIO.parse(genome_file, 'fasta'):
-                        genome_dictionary[record.id] = str(record.seq)
-            except (OSError, FileNotFoundError, ValueError) as e:
-                self.environment.logger.critical(
-                    f"Incorrect genome annotations file {e}"
-                )
-                sys.exit()
-        return genome_dictionary
 
     def convert_gtf_to_gff(self,) -> None:
         """
@@ -263,31 +234,26 @@ class DataPreprocessor(object):
         The dictionary has the following structure: {chromosome: sequence}
         """
         self.environment.logger.info("Reading genome")
-        if (self.genome_pickled_file_path is not None
-                and self.genome_pickled_file_path.exists()):
-            self.genome_dictionary = self.read_pkl_file(
-                file_path=self.genome_pickled_file_path
+        try:
+            self.genome_dictionary = {}
+            if self.genome_file_path.suffix == '.gz':
+                with gzip.open(self.genome_file_path, mode='rt') as genome_file:  # 'rt' for textmode
+                    for record in SeqIO.parse(genome_file, 'fasta'):
+                        self.genome_dictionary[record.id] = str(record.seq)
+            else:
+                with open(self.genome_file_path, mode='r') as genome_file:
+                    for record in SeqIO.parse(genome_file, 'fasta'):
+                        genome_dictionary[record.id] = str(record.seq)
+        except (ValueError, FileNotFoundError) as e:
+            self.environment.logger.critical(
+                f"Incorrect genome file path: {e}"
             )
-        else:
-            try:
-                self.genome_dictionary = self.read_fasta_file(
-                    file_path=self.genome_file_path
-                )
-            except (ValueError, FileNotFoundError) as e:
-                self.environment.logger.critical(
-                    f"Incorrect genome file path: {e}"
-                )
-                sys.exit()
-            except OSError as e:
-                self.environment.logger.critical(
-                    f"There was an error reading the genome file: {e}"
-                )
-                sys.exit()
-            if self.genome_pickled_file_path is not None:
-                self.dump_pkl_file(
-                    out_file_path=self.genome_pickled_file_path,
-                    records_dictionary=self.genome_dictionary,
-                )
+            sys.exit()
+        except OSError as e:
+            self.environment.logger.critical(
+                f"There was an error reading the genome file: {e}"
+            )
+            sys.exit()
 
     def construct_mrna_sequence(
             self,
