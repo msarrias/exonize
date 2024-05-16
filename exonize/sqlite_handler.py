@@ -4,12 +4,13 @@
 # ------------------------------------------------------------------------
 import sqlite3
 import contextlib
+from pathlib import Path
 
 
 class SqliteHandler(object):
     def __init__(
         self,
-        results_database_path: str,
+        results_database_path: Path,
         timeout_database: int,
     ):
         self.results_database_path = results_database_path
@@ -431,18 +432,23 @@ class SqliteHandler(object):
                         g.gene_end,
                         f.cds_frame,
                         f.query_frame,
+                        f.target_frame,
                         g.gene_strand,
                         f.query_strand,
+                        f.target_strand,
                         f.cds_start,
                         f.cds_end,
                         f.query_start,
                         f.query_end,
                         f.target_start,
                         f.target_end,
+                        f.target_aln_prot_seq,
                         f.evalue
                     FROM Matches AS f
                     JOIN Genes g ON g.gene_id = f.gene_id
-                    WHERE f.percent_query >= {query_overlap_threshold} AND f.cds_frame = f.query_frame
+                    WHERE f.percent_query >= {query_overlap_threshold}
+                    AND g.gene_strand = f.target_strand
+                    AND f.cds_frame = f.query_frame
                     ),
                     -- Identify gene_ids+cdss with more than one dupl fragment
                     multi_fragment_genes AS (
@@ -487,7 +493,7 @@ class SqliteHandler(object):
                             AND ofr.target_start <= f2.target_end
                             AND ofr.target_end >= f2.target_start
                             ORDER BY
-                                CASE WHEN gene_strand = query_strand THEN 1 ELSE 2 END,
+                                CASE WHEN target_aln_prot_seq NOT LIKE '%*%' THEN 1 ELSE 2 END,
                                 evalue
                                 LIMIT 1
                             )
@@ -652,33 +658,33 @@ class SqliteHandler(object):
                     """DROP VIEW IF EXISTS Full_length_matches;"""
                 )
                 cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN percent_query;"""
+                    """ALTER TABLE Matches DROP COLUMN percent_query;"""
                 )
             cursor.execute(
                 """
-            ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
-            """
+                ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
+                """
             )
             cursor.execute(
                 """
-            UPDATE Matches
-            SET percent_query =
-             ROUND(
-                CAST(int.intersect_end - int.intersect_start AS REAL) /
-                CAST(int.cds_end - int.cds_start AS REAL), 3
-            )
-            FROM (
-                SELECT
-                    Fragment_id,
-                    MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
-                    MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
-                    f.cds_end,
-                    f.cds_start
-                FROM Matches AS f
-                WHERE f.cds_end >= (f.query_start + f.cds_start)
-                AND f.cds_start <= (f.query_end + f.cds_start)
-            ) AS int
-            WHERE Matches.Fragment_id = int.Fragment_id;
+                UPDATE Matches
+                SET percent_query =
+                 ROUND(
+                    CAST(int.intersect_end - int.intersect_start AS REAL) /
+                    CAST(int.cds_end - int.cds_start AS REAL), 3
+                )
+                FROM (
+                    SELECT
+                        Fragment_id,
+                        MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
+                        MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
+                        f.cds_end,
+                        f.cds_start
+                    FROM Matches AS f
+                    WHERE f.cds_end >= (f.query_start + f.cds_start)
+                    AND f.cds_start <= (f.query_end + f.cds_start)
+                ) AS int
+                WHERE Matches.Fragment_id = int.Fragment_id;
             """
             )
 

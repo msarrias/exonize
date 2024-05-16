@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+from pathlib import Path
 
 
 class EnvironmentSetup(object):
@@ -11,8 +12,8 @@ class EnvironmentSetup(object):
             hard_force: bool,
             soft_force: bool,
             draw_event_multigraphs: bool,
-            working_directory: str,
-            results_database_path: str,
+            working_directory: Path,
+            results_database_path: Path,
     ):
         self.__FILE_ONLY_INFO = 9
         self.HARD_FORCE = hard_force
@@ -41,12 +42,12 @@ class EnvironmentSetup(object):
 
     def setup_environment(self):
         if self.HARD_FORCE:
-            if os.path.exists(self.working_directory):
+            if self.working_directory.exists():
                 shutil.rmtree(self.working_directory)
         elif self.SOFT_FORCE:
-            if os.path.exists(self.results_database_path):
+            if self.results_database_path.exists():
                 os.remove(self.results_database_path)
         os.makedirs(self.working_directory, exist_ok=True)
         if self.draw_event_multigraphs:
-            os.makedirs(os.path.join(self.working_directory, 'multigraphs'), exist_ok=True)
+            os.makedirs(self.working_directory / 'multigraphs', exist_ok=True)
         self.configure_logger()

@@ -19,10 +19,13 @@
 # ------------------------------------------------------------------------
 
 import os
+import shutil
 from itertools import permutations
-from typing import Any, Optional, Sequence, Iterator
+from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
+from pathlib import Path
+import tarfile
 
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 from exonize.environment_setup import EnvironmentSetup
@@ -36,8 +39,8 @@ from exonize.counter_handler import CounterHandler
 class Exonize(object):
     def __init__(
             self,
-            gff_file_path: str,
-            genome_file_path: str,
+            gff_file_path: Path,
+            genome_file_path: Path,
             output_prefix: str,
             draw_event_multigraphs: bool,
             enable_debug: bool,
@@ -49,18 +52,18 @@ class Exonize(object):
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             self_hit_threshold: float,
+            cpus_number: int,
             timeout_database: int,
-            genome_pickled_file_path: Optional[str],
-            output_directory_path: Optional[str]
+            output_directory_path: Path
     ):
         self._DEBUG_MODE = enable_debug
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
+        self.FORKS_NUMBER = cpus_number
         self.draw_event_multigraphs = draw_event_multigraphs
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
-        self.genome_pickled_file_path = genome_pickled_file_path
         self.output_prefix = output_prefix
         self.evalue_threshold = evalue_threshold
         self.cds_overlapping_threshold = cds_overlapping_threshold
@@ -69,26 +72,17 @@ class Exonize(object):
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
+        if not self.output_prefix:
+            self.output_prefix = genome_file_path.stem
 
         if output_directory_path:
-            self.working_directory = os.path.join(
-                output_directory_path,
-                f'{self.output_prefix}_exonize'
-            )
+            self.working_directory = output_directory_path / f'{self.output_prefix}_exonize'
         else:
-            self.working_directory = f'{self.output_prefix}_exonize'
-        self.results_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_results.db'
-        )
-        self.genome_pickled_file_path = os.path.join(
-            self.working_directory,
-            self.genome_pickled_file_path
-        )
-        self.log_file_name = os.path.join(
-            self.working_directory,
-            f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
-        )
+            self.working_directory = Path(f'{self.output_prefix}_exonize')
+        self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
+
+        self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
+        self.genome_pickled_file_path = self.working_directory / 'parsed_genome.pkl'
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
@@ -137,22 +131,22 @@ class Exonize(object):
             draw_event_multigraphs=self.draw_event_multigraphs,
         )
         self.exonize_pipeline_settings = f"""
-        Exonize - pipeline run settings
-        --------------------------------
-        Date:                       {date.today()}
-        python version:             {sys.version}
-        --------------------------------
-        Indentifier:                {self.output_prefix}
-        GFF file:                   {gff_file_path}
-        Genome file:                {genome_file_path}
-        --------------------------------
-        tblastx e-value threshold:  {evalue_threshold}
-        CDS overlapping threshold:  {cds_overlapping_threshold}
-        Query overlapping threshold: {query_overlapping_threshold}
-        Self-hit threshold:         {self_hit_threshold}
-        Min exon length:            {min_exon_length}
-        --------------------------------
-        Exonize results database:   {self.results_database_path}
+Exonize - pipeline run settings
+--------------------------------
+Date:                       {date.today()}
+python version:             {sys.version}
+--------------------------------
+Indentifier:                {self.output_prefix}
+GFF file:                   {gff_file_path}
+Genome file:                {genome_file_path}
+--------------------------------
+tblastx e-value threshold:  {evalue_threshold}
+CDS overlapping threshold:  {cds_overlapping_threshold}
+Query overlapping threshold: {query_overlapping_threshold}
+Self-hit threshold:         {self_hit_threshold}
+Min exon length:            {min_exon_length}
+--------------------------------
+Exonize results database:   {self.results_database_path.name}
         """
 
     def generate_unique_events_list(
@@ -175,13 +169,20 @@ class Exonize(object):
         return new_events_list
 
     @staticmethod
-    def generate_combinations(
-            strings: list,
-    ) -> list:
+    def generate_combinations(strings: list[str]) -> list[str]:
         result = set()
         for perm in permutations(strings):
             result.add('-'.join(perm))
         return list(result)
+
+    @staticmethod
+    def compress_directory(
+            source_dir: Path
+    ):
+        output_filename = source_dir.with_suffix('.tar.gz')
+        with tarfile.open(output_filename, "w:gz") as tar:
+            base_dir = source_dir.name
+            tar.add(source_dir, arcname=base_dir)
 
     def run_exonize_pipeline(self) -> None:
         """
@@ -237,7 +238,7 @@ class Exonize(object):
                 yield data[batch_start_index:batch_end_index]
 
         self.environment.logger.info(
-            f'Running Exonize for specie:{self.output_prefix}'
+            f'Running Exonize for specie: {self.output_prefix}'
         )
         self.data_container.prepare_data()
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -271,13 +272,12 @@ class Exonize(object):
             status: int
             code: int
             forks: int = 0
-            FORKS_NUMBER = os.cpu_count()  # This is pretty greedy, could be changed and put in a config file
             self.environment.logger.info(
                 'Exonizing: this may take a while ...'
             )
             for balanced_genes_batch in even_batches(
                 data=unprocessed_gene_ids_list,
-                number_of_batches=FORKS_NUMBER,
+                number_of_batches=self.FORKS_NUMBER,
             ):
                 # This part effectively forks a child process, independent of the parent process, and that
                 # will be responsible for processing the genes in the batch, parallel to the other children forked
@@ -291,7 +291,7 @@ class Exonize(object):
                 # doing nothing else but forking until 'FORKS_NUMBER' is reached.
                 if os.fork():
                     forks += 1
-                    if forks >= FORKS_NUMBER:
+                    if forks >= self.FORKS_NUMBER:
                         _, status = os.wait()
                         code = os.waitstatus_to_exitcode(status)
                         assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
@@ -363,6 +363,13 @@ class Exonize(object):
         )
         self.database_interface.create_exclusive_pairs_view()
         self.data_container.clear_working_directory()
+
+        if self.draw_event_multigraphs:
+            multigraph_directory = self.working_directory / 'multigraphs'
+            self.compress_directory(
+                source_dir=Path(multigraph_directory)
+            )
+            shutil.rmtree(multigraph_directory)
 
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)

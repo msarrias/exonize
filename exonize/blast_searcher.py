@@ -176,18 +176,6 @@ class BLASTsearcher(object):
         return strand == '-'
 
     @staticmethod
-    def decide_action_based_on_masking(
-            sequence: str
-    ) -> str:
-        """
-        Decide the action to take based on the masking percentage.
-        """
-        if 'N' in sequence:
-            return ''
-        else:
-            return sequence
-
-    @staticmethod
     def get_hsp_dictionary(
             hsp,
             cds_frame: str,
@@ -215,6 +203,7 @@ class BLASTsearcher(object):
             query_file_path: str,
             target_file_path: str,
             output_file_path: str,
+            strand: str,
     ):
         """
         execute_tblastx is a function that executes a tblastx
@@ -238,6 +227,8 @@ class BLASTsearcher(object):
             target_file_path,
             '-evalue',
             str(self.evalue_threshold),
+            '-strand',
+            strand,
             '-qcov_hsp_perc',
             str(self.cds_overlapping_threshold * 100),
             '-outfmt',
@@ -302,11 +293,12 @@ class BLASTsearcher(object):
             self,
             identifier: str,
             gene_id: str,
+            strand: str,
+            cds_frame: str,
             hit_sequence: str,
             query_sequence: str,
             query_coordinate: P.Interval,
-            gene_coordinate: P.Interval,
-            cds_frame: str,
+            gene_coordinate: P.Interval
     ) -> dict:
         """
         tblastx_with_saved_io is a function that executes a tblastx
@@ -344,7 +336,8 @@ class BLASTsearcher(object):
             self.execute_tblastx(
                 query_file_path=query_file_path,
                 target_file_path=target_file_path,
-                output_file_path=output_file_path
+                output_file_path=output_file_path,
+                strand=strand
             )
         with open(output_file_path, "r") as result_handle:
             blast_records = NCBIXML.parse(result_handle)
@@ -367,6 +360,7 @@ class BLASTsearcher(object):
             query_coordinate: P.Interval,
             gene_coordinate: P.Interval,
             cds_frame: str,
+            strand: str
     ) -> dict:
         """
         execute_tblastx_using_tempfiles is a function that executes
@@ -387,7 +381,8 @@ class BLASTsearcher(object):
             self.execute_tblastx(
                 query_file_path=query_file_path,
                 target_file_path=target_file_path,
-                output_file_path=output_file_path
+                output_file_path=output_file_path,
+                strand=strand
             )
             with open(output_file_path, 'r') as result_handle:
                 blast_records = NCBIXML.parse(result_handle)
@@ -537,6 +532,8 @@ class BLASTsearcher(object):
         """
         chromosome = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
         gene_coordinate = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
+        gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+        tblastx_strand_input = 'plus' if gene_strand == '+' else 'minus'
         identifier = (
             f'{gene_id}_{chromosome}_'
             f'{str(query_coordinate.lower)}_'
@@ -550,7 +547,8 @@ class BLASTsearcher(object):
                 query_sequence=query_sequence,
                 query_coordinate=query_coordinate,
                 gene_coordinate=gene_coordinate,
-                cds_frame=cds_frame
+                cds_frame=cds_frame,
+                strand=tblastx_strand_input
             )
         else:
             tblastx_o = self.execute_tblastx_using_tempfiles(
@@ -558,7 +556,8 @@ class BLASTsearcher(object):
                 query_sequence=query_sequence,
                 query_coordinate=query_coordinate,
                 gene_coordinate=gene_coordinate,
-                cds_frame=cds_frame
+                cds_frame=cds_frame,
+                strand=tblastx_strand_input
             )
         return tblastx_o
 
@@ -640,32 +639,25 @@ class BLASTsearcher(object):
         gene_dna_sequence = str(
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
-        # gene_dna_sequence = self.decide_action_based_on_masking(
-        #     sequence=temp_gene_sequence
-        # )
         cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
         if cds_coordinates_dictionary:
             for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
                 # note that we are not accounting for the frame at this stage, that will be part of
-                # the filtering step (since tblastx alignments account for the 6 frames)
-                temp_dna_cds_sequence = str(
+                # the filtering step (since tblastx alignments account for 3 frames)
+                cds_dna_sequence = str(
                     Seq(self.data_container.genome_dictionary[chromosome][
                         cds_coordinate.lower:cds_coordinate.upper])
                 )
-                cds_dna_sequence = self.decide_action_based_on_masking(
-                    sequence=temp_dna_cds_sequence
+                cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
+                tblastx_o = self.align_cds(
+                    gene_id=gene_id,
+                    query_sequence=cds_dna_sequence,
+                    hit_sequence=gene_dna_sequence,
+                    query_coordinate=cds_coordinate,
+                    cds_frame=cds_frame
                 )
-                if cds_dna_sequence:
-                    cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
-                    tblastx_o = self.align_cds(
-                        gene_id=gene_id,
-                        query_sequence=cds_dna_sequence,
-                        hit_sequence=gene_dna_sequence,
-                        query_coordinate=cds_coordinate,
-                        cds_frame=cds_frame
-                    )
-                    if tblastx_o:
-                        blast_hits_dictionary[cds_coordinate] = tblastx_o
+                if tblastx_o:
+                    blast_hits_dictionary[cds_coordinate] = tblastx_o
             attempt = False
             if blast_hits_dictionary:
                 while not attempt:

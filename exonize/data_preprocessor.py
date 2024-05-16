@@ -7,6 +7,7 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 import portion as P
+from pathlib import Path
 
 
 class DataPreprocessor(object):
@@ -17,11 +18,11 @@ class DataPreprocessor(object):
             self,
             logger_obj: object,
             database_interface: object,
-            working_directory: str,
-            gff_file_path: str,
+            working_directory: Path,
+            gff_file_path: Path,
             output_prefix: str,
-            genome_file_path: str,
-            genome_pickled_file_path: str,
+            genome_file_path: Path,
+            genome_pickled_file_path: Path,
             debug_mode: bool,
             evalue_threshold: float,
             self_hit_threshold: float,
@@ -52,22 +53,13 @@ class DataPreprocessor(object):
         self.gene_hierarchy_dictionary = dict()
 
         # Derived attributes that depend on initial parameters
-        self.genome_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_genome_annotations.db'
-        )
-        self.protein_database_path = os.path.join(
-            self.working_directory,
-            f'{self.output_prefix}_protein.db'
-        )
-        self.gene_hierarchy_path = os.path.join(
-            self.working_directory,
-            f"{self.output_prefix}_gene_hierarchy.pkl"
-        )
+        self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
+        self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
+        self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
 
     @staticmethod
     def dump_pkl_file(
-            out_file_path: str,
+            out_file_path: Path,
             records_dictionary: dict
     ) -> None:
         """
@@ -77,7 +69,7 @@ class DataPreprocessor(object):
             pickle.dump(records_dictionary, handle)
 
     @staticmethod
-    def read_pkl_file(file_path: str) -> dict:
+    def read_pkl_file(file_path: Path) -> dict:
         """
         read_pkl_file is a function that reads a pickle file and returns
          the object stored in it.
@@ -170,8 +162,8 @@ class DataPreprocessor(object):
                 "Creating annotations database - This may take a while..."
             )
             self.genome_database = gffutils.create_db(
-                self.gff_file_path,
-                dbfn=self.genome_database_path,
+                data=str(self.gff_file_path),
+                dbfn=str(self.genome_database_path),
                 force=True,
                 keep_order=True,
                 merge_strategy='create_unique',
@@ -221,11 +213,11 @@ class DataPreprocessor(object):
         (i) Verifies that the database contains intron annotations, if not,
         it attempts to write them.
         """
-        if not os.path.exists(self.gene_hierarchy_path):
-            if not os.path.exists(self.genome_database_path):
-                if 'gtf' in self.gff_file_path:
-                    self.old_filename = self.gff_file_path
-                    self.gff_file_path = f"{self.old_filename.rsplit('.gtf')[0]}.gff"
+        if not self.gene_hierarchy_path.exists():
+            if not self.genome_database_path.exists():
+                if '.gtf' in self.gff_file_path.suffix:
+                    self.old_filename = self.gff_file_path.stem
+                    self.gff_file_path = Path(f"{self.old_filename}.gff")
                     self.convert_gtf_to_gff()
                     self.environment.logger.info(
                         'the GTF file has been converted into a GFF3 file'
@@ -253,7 +245,7 @@ class DataPreprocessor(object):
         """
         try:
             self.genome_database = gffutils.FeatureDB(
-                self.genome_database_path,
+                str(self.genome_database_path),
                 keep_order=True
             )
         except ValueError as e:
@@ -272,7 +264,7 @@ class DataPreprocessor(object):
         """
         self.environment.logger.info("Reading genome")
         if (self.genome_pickled_file_path is not None
-                and os.path.exists(path=self.genome_pickled_file_path)):
+                and self.genome_pickled_file_path.exists()):
             self.genome_dictionary = self.read_pkl_file(
                 file_path=self.genome_pickled_file_path
             )
@@ -554,8 +546,7 @@ class DataPreprocessor(object):
             )
 
     def clear_working_directory(self):
-        if (os.path.exists(self.gene_hierarchy_path)
-                and os.path.exists(self.genome_database_path)):
+        if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
 
     def prepare_data(self) -> None:
@@ -567,11 +558,11 @@ class DataPreprocessor(object):
         (iv)  connects or creates the results database
         """
         if self._DEBUG_MODE:
-            os.makedirs(os.path.join(self.working_directory, 'input'), exist_ok=True)
-            os.makedirs(os.path.join(self.working_directory, 'output'), exist_ok=True)
+            os.makedirs(self.working_directory / 'input', exist_ok=True)
+            os.makedirs(self.working_directory / 'output', exist_ok=True)
         self.create_parse_or_update_database()
         self.read_genome()
-        if os.path.exists(self.gene_hierarchy_path):
+        if self.gene_hierarchy_path.exists():
             self.gene_hierarchy_dictionary = self.read_pkl_file(
                 file_path=self.gene_hierarchy_path
             )
@@ -583,14 +574,14 @@ class DataPreprocessor(object):
             )
             os.remove(self.genome_database_path)
         self.database_interface.connect_create_results_database()
-        if not os.path.exists(self.protein_database_path):
-            self.database_interface.create_protein_table(
-                database_path=self.protein_database_path
-            )
-            self.environment.logger.info(
-                "Populating protein database"
-            )
-            self.populate_proteins_table()
+        # if not self.protein_database_path.exists():
+        #     self.database_interface.create_protein_table(
+        #         database_path=self.protein_database_path
+        #     )
+        # self.environment.logger.info(
+        #     "Populating protein database"
+        # )
+        # self.populate_proteins_table()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."

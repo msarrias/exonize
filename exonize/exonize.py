@@ -1,5 +1,6 @@
 import argparse
-
+from pathlib import Path
+import os
 from exonize.exonize_handler import Exonize
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
@@ -16,9 +17,10 @@ def exonize_ascii_art_logo() -> None:
     print(exonize_ansi_regular)
     print("Exonize v1.0\n"
           "    authors: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
-          "             Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
+          "             Liam M. Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "             Christopher Wheat, Department of Zoology, Stockholm University\n"
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
+
           "maintainers: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
           "    Contact: arvestad@math.su.se\n"
@@ -33,19 +35,19 @@ def argument_parser():
     # Required Arguments
     parser.add_argument(
         'gff_file_path',
-        type=str,
+        type=Path,
         help='Path to GFF file.'
     )
     parser.add_argument(
         'genome_file_path',
-        type=str,
-        help='Path to genome file in Fasta format or gzipped Fasta format.'
+        type=Path,
+        help='Path to genome file.'
     )
+    # Optional Arguments for Flags
     parser.add_argument(
-        'output_prefix',
+        '--output_prefix',
         type=str,
         help='Species identifier - used for naming output files.')
-    # Optional Arguments for Flags
     parser.add_argument(
         '--debug',
         action='store_true',
@@ -81,8 +83,8 @@ def argument_parser():
     parser.add_argument(
         '-el',
         '--min-exon-length',
-        type=int,
         default=30,
+        type=int,
         help='Minimum exon length. Default is 30.'
     )
     parser.add_argument(
@@ -113,7 +115,11 @@ def argument_parser():
         type=float,
         help='tblastx query overlapping threshold. Default is 0.9.'
     )
-    # Optional Argument for Timeout
+    parser.add_argument(
+        '--cpus_number',
+        default=os.cpu_count(),  # This is pretty greedy, could be changed and put in a config file
+        type=int,
+        help='Number of CPUs to use. Default is the number of CPUs available.')
     parser.add_argument(
         '-to',
         '--timeout-database',
@@ -121,17 +127,9 @@ def argument_parser():
         type=int,
         help='Database timeout. Default is 160.'
     )
-    # Optional Argument for saving the parsed genome as a pickle file
-    parser.add_argument(
-        '--genome-pickled-file-path',
-        default='parsed_genome.pkl',
-        type=str,
-        help='Parsed genome pickled file path. Default is parsed_genome.pkl.'
-    )
     parser.add_argument(
         '--output-directory-path',
-        default=None,
-        type=str,
+        type=Path,
         help='Output directory path. Default is current directory.'
     )
     args = parser.parse_args()
@@ -155,8 +153,8 @@ def main():
         cds_overlapping_threshold=args.cds_overlapping_threshold,
         query_overlapping_threshold=args.query_overlapping_threshold,
         self_hit_threshold=args.self_hit_threshold,
+        cpus_number=args.cpus_number,
         timeout_database=args.timeout_database,
-        genome_pickled_file_path=args.genome_pickled_file_path,
         output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
