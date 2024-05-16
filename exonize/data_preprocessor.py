@@ -1,4 +1,5 @@
 import gffutils
+import gzip
 import os
 import pickle
 import subprocess
@@ -99,6 +100,34 @@ class DataPreprocessor(object):
         :param gene_strand: strand
         """
         return gene_strand == '-'
+
+    def read_fasta_file(
+            self,
+            file_path: Path
+    ) -> dict:
+        """
+        Open a Fasta file _or_ gzipped Fasta file and return a
+        dictionary mapping accession to sequence string.
+
+        Raises OSError, FileNotFoundError, ValueError (and possibly more)
+        if there are general problems with the file.
+        """
+        genome_dictionary = {}
+        if file_path.suffix == '.gz':
+            with gzip.open(file_path, mode='rt') as genome_file:  # 'rt' for textmode
+                for record in SeqIO.parse(genome_file, 'fasta'):
+                    genome_dictionary[record.id] = str(record.seq)
+        else:
+            try:
+                with open(file_path, mode='r') as genome_file:
+                    for record in SeqIO.parse(genome_file, 'fasta'):
+                        genome_dictionary[record.id] = str(record.seq)
+            except (OSError, FileNotFoundError, ValueError) as e:
+                self.environment.logger.critical(
+                    f"Incorrect genome annotations file {e}"
+                )
+                sys.exit()
+        return genome_dictionary
 
     def convert_gtf_to_gff(self,) -> None:
         """
@@ -241,15 +270,17 @@ class DataPreprocessor(object):
             )
         else:
             try:
-                with open(self.genome_file_path) as genome_file:
-                    parsed_genome = SeqIO.parse(genome_file, format='fasta')
-                    self.genome_dictionary = {
-                        fasta.id: str(fasta.seq)
-                        for fasta in parsed_genome
-                    }
+                self.genome_dictionary = self.read_fasta_file(
+                    file_path=self.genome_file_path
+                )
             except (ValueError, FileNotFoundError) as e:
                 self.environment.logger.critical(
-                    f"Incorrect genome file path {e}"
+                    f"Incorrect genome file path: {e}"
+                )
+                sys.exit()
+            except OSError as e:
+                self.environment.logger.critical(
+                    f"There was an error reading the genome file: {e}"
                 )
                 sys.exit()
             if self.genome_pickled_file_path is not None:

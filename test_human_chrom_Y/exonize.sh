@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GFF_FILE_PATH=Homo_sapiens.GRCh38.111.chromosome.Y.gff3
-GENOME_FILE_PATH=Homo_sapiens.GRCh38.dna.chromosome.Y.fa
+GENOME_FILE_PATH=Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz
 SPECIE_ID=Homo_sapiens_chrom_Y
 MIN_SEQ_LENGTH=30
 OUTPUT_DIRECTORY_PATH=.
