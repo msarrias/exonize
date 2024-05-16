@@ -127,7 +127,7 @@ class DataPreprocessor(object):
                     genome_dictionary[record.id] = str(record.seq)
         else:
             try:
-                with open(file_path) as genome_file:
+                with open(file_path, mode='r') as genome_file:
                     for record in SeqIO.parse(genome_file, 'fasta'):
                         genome_dictionary[record.id] = str(record.seq)
             except (OSError, FileNotFoundError, ValueError) as e:
@@ -262,7 +262,6 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
-            
     def read_genome(
             self,
     ) -> None:
@@ -278,9 +277,10 @@ class DataPreprocessor(object):
                 file_path=self.genome_pickled_file_path
             )
         else:
-            read_fasta_file(self.genome_file_path)
             try:
-                self.genome_dictionary = read_fasta_file(self.genome_file_path)
+                self.genome_dictionary = self.read_fasta_file(
+                    file_path=self.genome_file_path
+                )
             except (ValueError, FileNotFoundError) as e:
                 self.environment.logger.critical(
                     f"Incorrect genome file path: {e}"
@@ -298,7 +298,6 @@ class DataPreprocessor(object):
                     records_dictionary=self.genome_dictionary,
                 )
 
-                
     def construct_mrna_sequence(
             self,
             chromosome: str,
@@ -598,7 +597,3 @@ class DataPreprocessor(object):
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."
             )
-
-
-        
-
