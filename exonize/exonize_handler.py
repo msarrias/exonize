@@ -82,7 +82,6 @@ class Exonize(object):
         self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
 
         self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
-        self.genome_pickled_file_path = self.working_directory / 'parsed_genome.pkl'
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
@@ -103,7 +102,6 @@ class Exonize(object):
             gff_file_path=self.gff_file_path,
             output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
-            genome_pickled_file_path=self.genome_pickled_file_path,
             debug_mode=self._DEBUG_MODE,
             evalue_threshold=evalue_threshold,
             self_hit_threshold=self.self_hit_threshold,
