@@ -109,6 +109,34 @@ class DataPreprocessor(object):
         """
         return gene_strand == '-'
 
+    @staticmethod
+    def read_fasta_file(
+            file_path: Path
+    ) -> dict:
+        """
+        Open a Fasta file _or_ gzipped Fasta file and return a
+        dictionary mapping accession to sequence string.
+
+        Raises OSError, FileNotFoundError, ValueError (and possibly more)
+        if there are general problems with the file.
+        """
+        genome_dictionary = {}
+        if file_path.suffix == '.gz':
+            with gzip.open(file_path, mode='rt') as genome_file:  # 'rt' for textmode
+                for record in SeqIO.parse(genome_file, 'fasta'):
+                    genome_dictionary[record.id] = str(record.seq)
+        else:
+            try:
+                with open(file_path) as genome_file:
+                    for record in SeqIO.parse(genome_file, 'fasta'):
+                        genome_dictionary[record.id] = str(record.seq)
+            except (OSError, FileNotFoundError, ValueError) as e:
+                self.environment.logger.critical(
+                    f"Incorrect genome annotations file {e}"
+                )
+                sys.exit()
+        return genome_dictionary
+
     def convert_gtf_to_gff(self,) -> None:
         """
         Convert a GTF file to GFF format using gffread. Flags description:
@@ -573,23 +601,4 @@ class DataPreprocessor(object):
 
 
         
-def read_fasta_file(file_path) -> dict:
-    '''
-    Open a Fasta file _or_ gzipped Fasta file and return a
-    dictionary mapping accession to sequence string.
 
-    Raises OSError, FileNotFoundError, ValueError (and possibly more)
-    if there are general problems with the file.
-    '''
-    genome_dictionary = {}
-    try:
-        with gzip.open(file_path, mode='rt') as genome_file: # 'rt' for textmode
-            for record in SeqIO.parse(genome_file, 'fasta'):
-                genome_dictionary[record.id] = str(record.seq)
-    except gzip.BadGzipFile:
-        # Assume regular "flat" Fasta file
-        with open(file_path) as genome_file:
-            for record in SeqIO.parse(genome_file, 'fasta'):
-                genome_dictionary[record.id] = str(record.seq)
-
-    return genome_dictionary
