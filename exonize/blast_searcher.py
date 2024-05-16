@@ -640,6 +640,7 @@ class BLASTsearcher(object):
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
         cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
+        no_dup = True
         if cds_coordinates_dictionary:
             for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
                 # note that we are not accounting for the frame at this stage, that will be part of
@@ -660,6 +661,7 @@ class BLASTsearcher(object):
                     blast_hits_dictionary[cds_coordinate] = tblastx_o
             attempt = False
             if blast_hits_dictionary:
+                no_dup = False
                 while not attempt:
                     try:
                         self.populate_fragments_table(
@@ -673,22 +675,23 @@ class BLASTsearcher(object):
                         else:
                             self.environment.logger.exception(e)
                             sys.exit()
-            else:
-                while not attempt:
-                    try:
-                        self.database_interface.insert_gene_ids_table(
-                            gene_args_tuple=self.get_gene_tuple(
-                                gene_id=gene_id,
-                                has_duplication_binary=0
-                            )
+        if no_dup:
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_gene_ids_table(
+                        gene_args_tuple=self.get_gene_tuple(
+                            gene_id=gene_id,
+                            has_duplication_binary=0
                         )
-                        attempt = True
-                    except Exception as e:
-                        if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                        else:
-                            self.environment.logger.exception(e)
-                            sys.exit()
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
 
     def populate_fragments_table(
             self,
