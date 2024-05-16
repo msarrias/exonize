@@ -12,7 +12,6 @@ data_container = DataPreprocessor(
     gff_file_path=Path(''),
     output_prefix='test',
     genome_file_path=Path(''),
-    genome_pickled_file_path=Path(''),
     self_hit_threshold=0.5,
     cds_overlapping_threshold=0.8,
     query_overlapping_threshold=0.9,
