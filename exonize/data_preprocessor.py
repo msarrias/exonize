@@ -109,8 +109,8 @@ class DataPreprocessor(object):
         """
         return gene_strand == '-'
 
-    @staticmethod
     def read_fasta_file(
+            self,
             file_path: Path
     ) -> dict:
         """
@@ -291,7 +291,6 @@ class DataPreprocessor(object):
                     f"There was an error reading the genome file: {e}"
                 )
                 sys.exit()
-                
             if self.genome_pickled_file_path is not None:
                 self.dump_pkl_file(
                     out_file_path=self.genome_pickled_file_path,
