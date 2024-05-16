@@ -19,7 +19,6 @@ def exonize_ascii_art_logo() -> None:
           "             Liam Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "             Christopher Wheat, Department of Zoology, Stockholm University\n"
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
-          
           "maintainers: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
           "    Contact: arvestad@math.su.se\n"
