@@ -242,7 +242,7 @@ class DataPreprocessor(object):
             else:
                 with open(self.genome_file_path, mode='r') as genome_file:
                     for record in SeqIO.parse(genome_file, 'fasta'):
-                        genome_dictionary[record.id] = str(record.seq)
+                        self.genome_dictionary[record.id] = str(record.seq)
         except (ValueError, FileNotFoundError) as e:
             self.environment.logger.critical(
                 f"Incorrect genome file path: {e}"
