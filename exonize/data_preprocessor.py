@@ -22,7 +22,6 @@ class DataPreprocessor(object):
             gff_file_path: Path,
             output_prefix: str,
             genome_file_path: Path,
-            genome_pickled_file_path: Path,
             debug_mode: bool,
             evalue_threshold: float,
             self_hit_threshold: float,
