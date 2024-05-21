@@ -131,18 +131,18 @@ class Exonize(object):
         self.exonize_pipeline_settings = f"""
 Exonize - pipeline run settings
 --------------------------------
-Date:                       {date.today()}
-python version:             {sys.version}
+Date:                        {date.today()}
+python version:              {sys.version}
 --------------------------------
-Indentifier:                {self.output_prefix}
-GFF file:                   {gff_file_path}
-Genome file:                {genome_file_path}
+Indentifier:                 {self.output_prefix}
+GFF file:                    {gff_file_path}
+Genome file:                 {genome_file_path}
 --------------------------------
-tblastx e-value threshold:  {evalue_threshold}
-CDS overlapping threshold:  {cds_overlapping_threshold}
+tblastx e-value threshold:   {evalue_threshold}
+CDS overlapping threshold:   {cds_overlapping_threshold}
 Query overlapping threshold: {query_overlapping_threshold}
-Self-hit threshold:         {self_hit_threshold}
-Min exon length:            {min_exon_length}
+Self-hit threshold:          {self_hit_threshold}
+Min exon length (bps):       {min_exon_length}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
