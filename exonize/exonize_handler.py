@@ -75,7 +75,7 @@ class Exonize(object):
         self.timeout_database = timeout_database
         self.tic = datetime.now()
         if not self.output_prefix:
-            self.output_prefix = genome_file_path.stem
+            self.output_prefix = gff_file_path.stem
 
         if output_directory_path:
             self.working_directory = output_directory_path / f'{self.output_prefix}_exonize'
