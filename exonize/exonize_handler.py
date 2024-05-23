@@ -350,7 +350,7 @@ Exonize results database:   {self.results_database_path.name}
             list_tuples=identity_and_sequence_tuples
         )
         full_matches_list = self.database_interface.query_full_events()
-        self.environment.logger.info('Generating expansions')
+        self.environment.logger.info('Fetching expansions')
         fragments_tuples_list, events_set = self.event_counter.assign_event_ids(
             tblastx_full_matches_list=full_matches_list
         )
