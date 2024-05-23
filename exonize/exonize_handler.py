@@ -26,8 +26,9 @@ from datetime import date, datetime
 import sys
 from pathlib import Path
 import tarfile
-
-# from exonize.profiling import get_run_performance_profile, PROFILE_PATH
+import cProfile
+import gc
+from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
@@ -72,6 +73,7 @@ class Exonize(object):
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
+        self.tic = datetime.now()
         if not self.output_prefix:
             self.output_prefix = genome_file_path.stem
 
@@ -82,6 +84,7 @@ class Exonize(object):
         self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
 
         self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
+        self.PROFILE_PATH = self.working_directory / 'cProfile_dump_stats.dmp'
 
         # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
@@ -129,10 +132,11 @@ class Exonize(object):
             draw_event_multigraphs=self.draw_event_multigraphs,
         )
         self.exonize_pipeline_settings = f"""
-Exonize - pipeline run settings
+Exonize - settings
 --------------------------------
 Date:                        {date.today()}
 python version:              {sys.version}
+cpu count:                   {self.FORKS_NUMBER}
 --------------------------------
 Indentifier:                 {self.output_prefix}
 GFF file:                    {gff_file_path}
@@ -250,22 +254,19 @@ Exonize results database:   {self.results_database_path.name}
                 f'Starting exon duplication search for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
             )
-
-            # Benchmark without any parallel computation:
+            # # Benchmark without any parallel computation:
             # pr = cProfile.Profile()
             # pr.enable()
             # for gene_id in unprocessed_gene_ids_list:
             #     self.blast_engine.find_coding_exon_duplicates(gene_id)
-            #     progress_bar.update(1)
             # pr.disable()
-            # pr.dump_stats(PROFILE_PATH)
-            # get_run_performance_profile(PROFILE_PATH)
+            # get_run_performance_profile(self.PROFILE_PATH, pr)
 
             # Benchmark with parallel computation using os.fork:
-            # pr = cProfile.Profile()
-            # pr.enable()
-            # gc.collect()
-            # gc.freeze()
+            pr = cProfile.Profile()
+            pr.enable()
+            gc.collect()
+            gc.freeze()
             # transactions_pks: set[int]
             status: int
             code: int
@@ -318,10 +319,10 @@ Exonize results database:   {self.results_database_path.name}
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-                # gc.unfreeze()
-                # pr.disable()
-                # pr.dump_stats(PROFILE_PATH)
-                # get_run_performance_profile(PROFILE_PATH)
+                gc.unfreeze()
+                pr.disable()
+                get_run_performance_profile(self.PROFILE_PATH, pr)
+
         else:
             self.environment.logger.info(
                 'All genes have been processed. If you want to re-run the analysis, '
@@ -368,9 +369,14 @@ Exonize results database:   {self.results_database_path.name}
                 source_dir=Path(multigraph_directory)
             )
             shutil.rmtree(multigraph_directory)
+        tac = datetime.now()
+        runtime_hours = round((tac - self.tic).total_seconds() / 3600, 2)
+        if runtime_hours < 1:
+            runtime_hours = ' < 1'
 
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)
+            f.write(f'\nruntime (hours):             {runtime_hours}\n')
         self.environment.logger.info(
             'Process completed successfully'
         )
