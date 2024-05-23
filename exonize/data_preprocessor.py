@@ -129,7 +129,7 @@ class DataPreprocessor(object):
         """
         try:
             self.environment.logger.info(
-                "Creating annotations database - This may take a while..."
+                "Parsing annotations - This may take a while..."
             )
             self.genome_database = gffutils.create_db(
                 data=str(self.gff_file_path),
