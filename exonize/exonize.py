@@ -1,7 +1,9 @@
 import argparse
 from pathlib import Path
 import os
+import sys
 from exonize.exonize_handler import Exonize
+from exonize.version import __version__
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 
@@ -14,8 +16,8 @@ def exonize_ascii_art_logo() -> None:
     ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
     ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
         """
-    print(exonize_ansi_regular)
-    print("Exonize v1.0\n"
+    print(exonize_ansi_regular, file=sys.stderr)
+    print(f"Exonize {__version__}\n"
           "    authors: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
           "             Liam M. Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "             Christopher Wheat, Department of Zoology, Stockholm University\n"
@@ -25,7 +27,8 @@ def exonize_ascii_art_logo() -> None:
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
           "    Contact: arvestad@math.su.se\n"
           "     GitHub: https://github.com/msarrias/exonize\n"
-          "\n")
+          "\n",
+          file=sys.stderr)
 
 
 def argument_parser():
@@ -71,6 +74,11 @@ def argument_parser():
         action='store_true',
         default=False,
         help='Generate expansion graphs figures. Default is False.'
+    )
+    parser.add_argument(
+        '--csv',
+        metavar='csv-output-prefix',
+        help='File prefix for storing CSV file with identified exon duplicates and their classification.'
     )
     # Optional Arguments for Numerical Values and Thresholds
     parser.add_argument(
@@ -132,13 +140,18 @@ def argument_parser():
         type=Path,
         help='Output directory path. Default is current directory.'
     )
+    parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version='%(prog)s '+__version__
+    )
     args = parser.parse_args()
     return args
 
 
 def main():
-    exonize_ascii_art_logo()
     args = argument_parser()
+    exonize_ascii_art_logo()
     exonize_obj = Exonize(
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
@@ -158,6 +171,8 @@ def main():
         output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
+    if args.csv:
+        exonize_obj.output_csv(args.csv)
 
 
 if __name__ == '__main__':
