@@ -163,13 +163,13 @@ class ClassifierHandler(object):
 
         return best_matching_cds
 
-    def indetify_full_target(
+    def identify_full_target(
             self,
             transcript_dictionary: dict[dict],
             target_coordinate: P.Interval,
     ) -> None:
         """
-        indetify_full_target is a function that identifies tblastx
+        identify_full_target is a function that identifies tblastx
         hits that are full-length duplications as described
         in self.get_candidate_query_cds
         """
@@ -322,10 +322,10 @@ class ClassifierHandler(object):
         of tuples collected by the identify_full_length_duplications
         function into the results database.
         """
-        self.database_interface.instert_full_length_event(
+        self.database_interface.insert_full_length_event(
             tuples_list=self.tuples_full_length_duplications
         )
-        self.database_interface.instert_obligate_event(
+        self.database_interface.insert_obligate_event(
             tuples_list=self.tuples_obligatory_events
         )
         self.database_interface.insert_truncation_event(
@@ -382,7 +382,7 @@ class ClassifierHandler(object):
                 ):
                     continue
                 # ####### TARGET ONLY - FULL LENGTH #######
-                self.indetify_full_target(
+                self.identify_full_target(
                     transcript_dictionary=transcript_dictionary,
                     target_coordinate=target_coordinate
                 )
