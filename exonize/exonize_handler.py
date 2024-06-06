@@ -336,7 +336,7 @@ Exonize results database:   {self.results_database_path.name}
             query_overlap_threshold=self.query_overlapping_threshold
         )
         self.environment.logger.info('Classifying tblastx hits')
-        self.event_classifier.identify_full_length_duplications()
+        self.event_classifier.classify_matches_interdependence()
         self.event_classifier.insert_classified_tuples_in_results_database()
         self.environment.logger.info('Classifying events')
         self.database_interface.create_cumulative_counts_table()

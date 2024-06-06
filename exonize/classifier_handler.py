@@ -33,7 +33,7 @@ class ClassifierHandler(object):
             self,
     ) -> None:
         """
-        initializes variables used in the identify_full_length_duplications function
+        initializes variables used in the classify_matches_interdependence function
         """
         self.__neither, self.__query, self.__target = 0, 0, 0
         self.__both, self.__target_full, self.__target_insertion = 0, 0, 0
@@ -47,7 +47,7 @@ class ClassifierHandler(object):
     ) -> None:
         """
         initializes the list of tuples used to store the identified events in the
-         identify_full_length_duplications function
+         classify_matches_interdependence function
         """
         self.tuples_full_length_duplications = list()
         self.tuples_obligatory_events = list()
@@ -319,7 +319,7 @@ class ClassifierHandler(object):
     def insert_classified_tuples_in_results_database(self) -> None:
         """
         insert_tuples_in_results_database is a function that inserts the list
-        of tuples collected by the identify_full_length_duplications
+        of tuples collected by the classify_matches_interdependence
         function into the results database.
         """
         self.database_interface.insert_full_length_event(
@@ -332,11 +332,11 @@ class ClassifierHandler(object):
             tuples_list=self.tuples_truncation_events
         )
 
-    def identify_full_length_duplications(
+    def classify_matches_interdependence(
             self,
     ) -> None:
         """
-        identify_full_length_duplications is a function that identifies full-length
+        classify_matches_interdependence is a function that identifies full-length
         duplications following our classification model.
         The function iterates over all representative tblastx hits and for each transcript
         associated with the gene harboring the event it identifies the following events:
@@ -345,7 +345,7 @@ class ClassifierHandler(object):
         - II. Insertion: the match is found within a larger CDS.
         - III. Deactivation or unnanotated: the match is found in an intron or UTR.
         - IV. Trunctation: the match spans more than one annotation (e.g., CDS, intron, UTR).
-        The identify_full_length_duplications function also looks for:
+        The classify_matches_interdependence function also looks for:
          - I. Obligate events: defined as events where the query CDS and the target CDS are
           included within the same transcript.
         - II. Neither events: defined as events where the query CDS is not found in the
