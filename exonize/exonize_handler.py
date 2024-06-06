@@ -250,8 +250,11 @@ Exonize results database:   {self.results_database_path.name}
         unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
+            out_message = 'Starting exon duplication search'
+            if len(unprocessed_gene_ids_list) != gene_count:
+                out_message = 'Resuming search'
             self.environment.logger.info(
-                f'Starting exon duplication search for'
+                f'{out_message} for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
             )
             # # Benchmark without any parallel computation:
