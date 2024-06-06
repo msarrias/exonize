@@ -121,7 +121,7 @@ class SqliteHandler(object):
             )
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS Matches_transcript_classification (
+                CREATE TABLE IF NOT EXISTS Matches_interdependence_classification (
                     fragment_match_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     fragment_id INTEGER NOT NULL,
                     gene_id VARCHAR(100) NOT NULL,
@@ -160,8 +160,8 @@ class SqliteHandler(object):
             )
             cursor.execute(
                 """
-                CREATE INDEX IF NOT EXISTS Matches_transcript_classification_idx
-                ON Matches_transcript_classification (fragment_id, gene_id, transcript_id, cds_start, cds_end);
+                CREATE INDEX IF NOT EXISTS Matches_interdependence_classification_idx
+                ON Matches_interdependence_classification (fragment_id, gene_id, transcript_id, cds_start, cds_end);
                 """
             )
             cursor.execute(
@@ -198,40 +198,40 @@ class SqliteHandler(object):
                 );
                 """
             )
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Truncation_events (
-                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    fragment_id INTEGER NOT NULL,
-                    gene_id VARCHAR(100) NOT NULL,
-                    transcript_id VARCHAR(100) NOT NULL,
-                    transcript_start INTEGER NOT NULL,
-                    transcript_end INTEGER NOT NULL,
-                    query_cds_id VARCHAR(100) NOT NULL,
-                    query_cds_start INTEGER NOT NULL,
-                    query_cds_end INTEGER NOT NULL,
-                    query_start INTEGER NOT NULL,
-                    query_end INTEGER NOT NULL,
-                    target_start INTEGER NOT NULL,
-                    target_end INTEGER NOT NULL,
-                    id_overlap_annot VARCHAR(100) NOT NULL,
-                    type_overlap_annot VARCHAR(100) NOT NULL,
-                    overlap_annot_start INTEGER NOT NULL,
-                    overlap_annot_end INTEGER NOT NULL,
-                    target_overlap_annot_start INTEGER NOT NULL,
-                    target_overlap_annot_end INTEGER NOT NULL,
-                    FOREIGN KEY (fragment_id) REFERENCES Matches(fragment_id),
-                    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
-                    UNIQUE (
-                        fragment_id,
-                        gene_id,
-                        transcript_id,
-                        query_cds_id,
-                        id_overlap_annot
-                    )
-                );
-                """
-            )
+            # cursor.execute(
+            #     """
+            #     CREATE TABLE IF NOT EXISTS Truncation_events (
+            #         event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            #         fragment_id INTEGER NOT NULL,
+            #         gene_id VARCHAR(100) NOT NULL,
+            #         transcript_id VARCHAR(100) NOT NULL,
+            #         transcript_start INTEGER NOT NULL,
+            #         transcript_end INTEGER NOT NULL,
+            #         query_cds_id VARCHAR(100) NOT NULL,
+            #         query_cds_start INTEGER NOT NULL,
+            #         query_cds_end INTEGER NOT NULL,
+            #         query_start INTEGER NOT NULL,
+            #         query_end INTEGER NOT NULL,
+            #         target_start INTEGER NOT NULL,
+            #         target_end INTEGER NOT NULL,
+            #         id_overlap_annot VARCHAR(100) NOT NULL,
+            #         type_overlap_annot VARCHAR(100) NOT NULL,
+            #         overlap_annot_start INTEGER NOT NULL,
+            #         overlap_annot_end INTEGER NOT NULL,
+            #         target_overlap_annot_start INTEGER NOT NULL,
+            #         target_overlap_annot_end INTEGER NOT NULL,
+            #         FOREIGN KEY (fragment_id) REFERENCES Matches(fragment_id),
+            #         FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
+            #         UNIQUE (
+            #             fragment_id,
+            #             gene_id,
+            #             transcript_id,
+            #             query_cds_id,
+            #             id_overlap_annot
+            #         )
+            #     );
+            #     """
+            # )
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS Expansions (
@@ -254,48 +254,14 @@ class SqliteHandler(object):
                 """
             )
 
-    def create_protein_table(self, database_path) -> None:
-        with sqlite3.connect(database_path, timeout=self.timeout_database) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Gene_Transcript_Proteins (
-                    transcript_id VARCHAR(100) PRIMARY KEY,
-                    gene_id VARCHAR(100) NOT NULL,
-                    gene_chrom VARCHAR(100) NOT NULL,
-                    gene_strand VARCHAR(1) NOT NULL,
-                    gene_start INTEGER NOT NULL,
-                    gene_end INTEGER NOT NULL,
-                    transcript_start INTEGER NOT NULL,
-                    transcript_end INTEGER NOT NULL,
-                    prot_seq VARCHAR NOT NULL
-                );
-                """
-            )
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Gene_CDS_Proteins (
-                    cds_id VARCHAR(100) PRIMARY KEY,
-                    gene_id VARCHAR(100) NOT NULL,
-                    transcript_id VARCHAR(100) NOT NULL,
-                    rank INTEGER NOT NULL,
-                    cds_frame INTEGER NOT NULL,
-                    cds_start INTEGER NOT NULL,
-                    cds_end INTEGER NOT NULL,
-                    cds_dna_seq VARCHAR NOT NULL,
-                    cds_prot_seq VARCHAR NOT NULL
-                    );
-                """
-            )
-
-    def create_cumulative_counts_table(self) -> None:
+    def create_matches_interdependence_counts_table(self) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS Transcript_classification_counts AS
+                CREATE TABLE IF NOT EXISTS Matches_interdependence_counts AS
                     SELECT * FROM (
                         SELECT
                             fn.fragment_id,
@@ -333,7 +299,7 @@ class SqliteHandler(object):
                             JOIN Genes AS g ON fm.gene_id = g.gene_id
                             ORDER BY fm.fragment_id
                         ) AS fn
-                        JOIN Matches_transcript_classification AS fld ON fn.gene_id = fld.gene_id
+                        JOIN Matches_interdependence_classification AS fld ON fn.gene_id = fld.gene_id
                         AND fn.fragment_id = fld.fragment_id
                         AND fn.cds_start = fld.cds_start
                         AND fn.cds_end = fld.cds_end
@@ -344,14 +310,14 @@ class SqliteHandler(object):
                 """
             )
 
-    def create_exclusive_pairs_view(self) -> None:
+    def create_exclusive_events_view(self) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
                 """
-                CREATE VIEW IF NOT EXISTS Exclusive_pairs AS
+                CREATE VIEW IF NOT EXISTS Exclusive_events AS
                     SELECT
                         fm3.fragment_id,
                         fm3.gene_id,
@@ -387,7 +353,7 @@ class SqliteHandler(object):
                     FROM (
                         SELECT
                             *
-                        FROM Transcript_classification_counts AS fle
+                        FROM Matches_interdependence_counts AS fle
                         WHERE (fle.cum_query==(fle.transcript_count-fle.cum_target)
                         AND fle.cum_target>0
                         AND fle.cum_target< fle.transcript_count)
@@ -399,7 +365,7 @@ class SqliteHandler(object):
                     AND fm3.query_end=fms.query_end
                     AND fm3.target_start=fms.target_start
                     AND fm3.target_end=fms.target_end
-                    LEFT JOIN Matches_transcript_classification AS fld ON fm3.gene_id = fld.gene_id
+                    LEFT JOIN Matches_interdependence_classification AS fld ON fm3.gene_id = fld.gene_id
                     AND fm3.fragment_id = fld.fragment_id
                     AND fm3.cds_start = fld.cds_start
                     AND fm3.cds_end = fld.cds_end
@@ -545,7 +511,7 @@ class SqliteHandler(object):
                 column_name="dna_perc_identity",
             ):
                 cursor.execute(
-                    """ DROP VIEW IF EXISTS Exclusive_pairs;"""
+                    """ DROP VIEW IF EXISTS Exclusive_events;"""
                 )
                 cursor.execute(
                     """ ALTER TABLE Matches DROP COLUMN dna_perc_identity;"""
@@ -596,7 +562,7 @@ class SqliteHandler(object):
                 list_tuples,
             )
 
-        self.create_exclusive_pairs_view()
+        self.create_exclusive_events_view()
 
     def insert_event_categ_full_length_events_cumulative_counts(
         self,
@@ -607,16 +573,16 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             if self.check_if_column_in_table_exists(
-                table_name="Transcript_classification_counts", column_name="event_type"
+                table_name="Matches_interdependence_counts", column_name="event_type"
             ):
                 cursor.execute(
-                    """ ALTER TABLE Transcript_classification_counts DROP COLUMN event_type;"""
+                    """ ALTER TABLE Matches_interdependence_counts DROP COLUMN event_type;"""
                 )
             cursor.execute(
-                """ ALTER TABLE Transcript_classification_counts ADD COLUMN event_type VARCHAR(100);"""
+                """ ALTER TABLE Matches_interdependence_counts ADD COLUMN event_type VARCHAR(100);"""
             )
             cursor.executemany(
-                """ UPDATE Transcript_classification_counts SET event_type=? WHERE fragment_id=? """,
+                """ UPDATE Matches_interdependence_counts SET event_type=? WHERE fragment_id=? """,
                 list_tuples,
             )
 
@@ -628,17 +594,17 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             if self.check_if_column_in_table_exists(
-                table_name="Transcript_classification_counts", column_name="event_id"
+                table_name="Matches_interdependence_counts", column_name="event_id"
             ):
                 cursor.execute(
-                    """ALTER TABLE Transcript_classification_counts DROP COLUMN event_id;"""
+                    """ALTER TABLE Matches_interdependence_counts DROP COLUMN event_id;"""
                 )
             cursor.execute(
-                """ALTER TABLE Transcript_classification_counts ADD COLUMN event_id INTEGER;"""
+                """ALTER TABLE Matches_interdependence_counts ADD COLUMN event_id INTEGER;"""
             )
             cursor.executemany(
                 """
-                UPDATE Transcript_classification_counts
+                UPDATE Matches_interdependence_counts
                 SET event_id=?
                 WHERE fragment_id=?
                 """,
@@ -795,12 +761,12 @@ class SqliteHandler(object):
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
 
-    def insert_full_length_event(self, tuples_list: list) -> None:
+    def insert_matches_interdependence_classification(self, tuples_list: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute("""SELECT * FROM Matches_transcript_classification;""")
+            cursor.execute("""SELECT * FROM Matches_interdependence_classification;""")
             records = cursor.fetchall()
             if records:
                 tuples_list = [
@@ -810,7 +776,7 @@ class SqliteHandler(object):
                 ]
             if tuples_list:
                 insert_full_length_event_table_param = """
-                INSERT INTO Matches_transcript_classification (
+                INSERT INTO Matches_interdependence_classification (
                     fragment_id,
                     gene_id,
                     transcript_id,
@@ -945,7 +911,7 @@ class SqliteHandler(object):
             SELECT
                 fragment_id,
                 concat_event_type
-            FROM Transcript_classification_counts;
+            FROM Matches_interdependence_counts;
             """
             )
             return cursor.fetchall()
@@ -969,7 +935,7 @@ class SqliteHandler(object):
                     f.target_end,
                     f.evalue,
                     f.event_type
-                FROM Transcript_classification_counts AS f
+                FROM Matches_interdependence_counts AS f
                 ORDER BY
                     f.gene_id;
                 """
@@ -984,7 +950,7 @@ class SqliteHandler(object):
                     f.target_end,
                     f.evalue,
                     f.event_type
-                FROM Transcript_classification_counts AS f
+                FROM Matches_interdependence_counts AS f
                 WHERE f.gene_id='{gene_id}'
                 """
             cursor.execute(matches_q)
