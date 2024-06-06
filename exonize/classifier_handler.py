@@ -322,10 +322,10 @@ class ClassifierHandler(object):
         of tuples collected by the identify_full_length_duplications
         function into the results database.
         """
-        self.database_interface.instert_full_length_event(
+        self.database_interface.insert_full_length_event(
             tuples_list=self.tuples_full_length_duplications
         )
-        self.database_interface.instert_obligate_event(
+        self.database_interface.insert_obligate_event(
             tuples_list=self.tuples_obligatory_events
         )
         self.database_interface.insert_truncation_event(

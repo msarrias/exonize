@@ -795,7 +795,7 @@ class SqliteHandler(object):
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
 
-    def instert_full_length_event(self, tuples_list: list) -> None:
+    def insert_full_length_event(self, tuples_list: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -835,7 +835,7 @@ class SqliteHandler(object):
                 """
                 cursor.executemany(insert_full_length_event_table_param, tuples_list)
 
-    def instert_obligate_event(self, tuples_list: list) -> None:
+    def insert_obligate_event(self, tuples_list: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
