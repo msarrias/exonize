@@ -373,10 +373,12 @@ Exonize results database:   {self.results_database_path.name}
         runtime_hours = round((tac - self.tic).total_seconds() / 3600, 2)
         if runtime_hours < 1:
             runtime_hours = ' < 1'
-
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)
-            f.write(f'\nruntime (hours):             {runtime_hours}\n')
+            f.write(
+                f'\nRuntime (hours):             {runtime_hours}'
+                f'\nNumber of processed genes:   {len(gene_ids_list)}'
+            )
         self.environment.logger.info(
             'Process completed successfully'
         )
