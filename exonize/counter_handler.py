@@ -2,12 +2,11 @@
 # This module contains the CounterHandler class, which is used to handle
 # the counter object in the BlastEngine class.
 # ------------------------------------------------------------------------
-import os.path
-
 import networkx as nx
 from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 class ReconcilerHandler(object):
@@ -15,19 +14,12 @@ class ReconcilerHandler(object):
             self,
             blast_engine: object,
             cds_overlapping_threshold: float,
-            draw_event_multigraphs: bool,
     ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
         self.database_interface = blast_engine.database_interface
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.draw_event_multigraphs = draw_event_multigraphs
-        if self.draw_event_multigraphs:
-            self.multigraphs_path = os.path.join(
-                self.data_container.working_directory,
-                'multigraphs'
-            )
 
     @staticmethod
     def compute_average(
@@ -483,7 +475,7 @@ class ReconcilerHandler(object):
             gene_id=gene_id
         )
         # center cds coordinates to gene start
-        cds_candidates_dictionary['candidates_cds_coordinates'] = center_and_sort_cds_coordinates(
+        cds_candidates_dictionary['candidates_cds_coordinates'] = self.center_and_sort_cds_coordinates(
             cds_coordinates=cds_candidates_dictionary['candidates_cds_coordinates'],
             gene_start=gene_start
         )
