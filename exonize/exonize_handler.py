@@ -19,7 +19,6 @@
 # ------------------------------------------------------------------------
 
 import os
-import shutil
 from itertools import permutations
 from typing import Any, Sequence, Iterator
 from datetime import date, datetime
@@ -34,7 +33,7 @@ from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
 from exonize.blast_searcher import BLASTsearcher
 from exonize.classifier_handler import ClassifierHandler
-from exonize.counter_handler import ReconcilerHandler
+from exonize.reconciler_handler import ReconcilerHandler
 
 
 class Exonize(object):
@@ -130,7 +129,6 @@ class Exonize(object):
         self.event_reconciler = ReconcilerHandler(
             blast_engine=self.blast_engine,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
-            draw_event_multigraphs=self.draw_event_multigraphs,
         )
         self.exonize_pipeline_settings = f"""
 Exonize - settings
@@ -286,7 +284,6 @@ Exonize results database:   {self.results_database_path.name}
     def classification(
             self
     ):
-        self.environment.logger.info('Classifying matches')
         # Classify matches based on the mode and interdependence
         self.event_classifier.matches_classification()
         # MODE
@@ -438,8 +435,9 @@ Exonize results database:   {self.results_database_path.name}
         self.environment.logger.info(f'Running Exonize for specie: {self.output_prefix}')
         self.data_container.prepare_data()
         self.search()
-        self.environment.logger.info('Reconciling events')
+        self.environment.logger.info('Reconciling matches')
         self.reconciliation()
+        self.environment.logger.info('Classifying events')
         self.classification()
         self.runtime_logger()
         self.environment.logger.info('Process completed successfully')
