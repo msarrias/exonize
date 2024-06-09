@@ -600,7 +600,7 @@ class BLASTsearcher(object):
     def get_gene_tuple(
             self,
             gene_id: str,
-            has_duplication_binary: int
+            has_duplication_binary: int = 0
     ) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id,
@@ -681,8 +681,7 @@ class BLASTsearcher(object):
                 try:
                     self.database_interface.insert_gene_ids_table(
                         gene_args_tuple=self.get_gene_tuple(
-                            gene_id=gene_id,
-                            has_duplication_binary=0
+                            gene_id=gene_id
                         )
                     )
                     attempt = True
@@ -730,7 +729,9 @@ class BLASTsearcher(object):
             for hsp_idx, hsp_dictionary in blast_hits.items()
         ]
         self.database_interface.insert_fragments(
-            gene_args_tuple=self.get_gene_tuple(gene_id=gene_id, has_duplication_binary=1),
+            gene_args_tuple=self.get_gene_tuple(
+                gene_id=gene_id
+            ),
             fragments_tuples_list=tuple_list
         )
 
