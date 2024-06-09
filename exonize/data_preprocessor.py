@@ -4,6 +4,7 @@ import os
 import pickle
 import subprocess
 import sys
+import shutil
 from Bio import SeqIO
 from Bio.Seq import Seq
 import portion as P
@@ -56,6 +57,8 @@ class DataPreprocessor(object):
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
         self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
         self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
+        if self.draw_event_multigraphs:
+            self.multigraphs_path = self.data_container.working_directory / 'multigraphs'
 
     @staticmethod
     def dump_pkl_file(
@@ -547,14 +550,6 @@ class DataPreprocessor(object):
             )
             os.remove(self.genome_database_path)
         self.database_interface.connect_create_results_database()
-        # if not self.protein_database_path.exists():
-        #     self.database_interface.create_protein_table(
-        #         database_path=self.protein_database_path
-        #     )
-        # self.environment.logger.info(
-        #     "Populating protein database"
-        # )
-        # self.populate_proteins_table()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
