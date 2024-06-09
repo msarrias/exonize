@@ -28,6 +28,7 @@ class DataPreprocessor(object):
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             min_exon_length: int,
+            draw_event_multigraphs: bool = False
     ):
         self.environment = logger_obj
         self.database_interface = database_interface
@@ -42,6 +43,7 @@ class DataPreprocessor(object):
         self.min_exon_length = min_exon_length
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
+        self.draw_event_multigraphs = draw_event_multigraphs
         self._DEBUG_MODE = debug_mode
 
         self.database_features = None
@@ -513,6 +515,12 @@ class DataPreprocessor(object):
     def clear_working_directory(self):
         if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
+            if self.draw_event_multigraphs:
+                multigraph_directory = self.working_directory / 'multigraphs'
+                self.compress_directory(
+                    source_dir=Path(multigraph_directory)
+                )
+                shutil.rmtree(multigraph_directory)
 
     def prepare_data(self) -> None:
         """
