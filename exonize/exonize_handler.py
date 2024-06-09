@@ -34,7 +34,7 @@ from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
 from exonize.blast_searcher import BLASTsearcher
 from exonize.classifier_handler import ClassifierHandler
-from exonize.counter_handler import CounterHandler
+from exonize.counter_handler import ReconcilerHandler
 
 
 class Exonize(object):
@@ -111,6 +111,7 @@ class Exonize(object):
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             query_overlapping_threshold=self.query_overlapping_threshold,
             min_exon_length=self.min_exon_length,
+            draw_event_multigraphs=self.draw_event_multigraphs,
         )
 
         self.blast_engine = BLASTsearcher(
@@ -126,7 +127,7 @@ class Exonize(object):
             blast_engine=self.blast_engine,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
         )
-        self.event_counter = CounterHandler(
+        self.event_reconciler = ReconcilerHandler(
             blast_engine=self.blast_engine,
             cds_overlapping_threshold=self.cds_overlapping_threshold,
             draw_event_multigraphs=self.draw_event_multigraphs,
@@ -186,63 +187,9 @@ Exonize results database:   {self.results_database_path.name}
             base_dir = source_dir.name
             tar.add(source_dir, arcname=base_dir)
 
-    def run_exonize_pipeline(self) -> None:
-        """
-        run_exonize_pipeline iterates over all genes in the gene_hierarchy_dictionary
-        attribute and performs a tblastx search for each representative
-        CDS (see get_candidate_CDS_coords).
-        The steps are the following:
-        - 1. The function checks if the gene has already been processed.
-         If so, the gene is skipped.
-        - 2. For each gene, the function iterates over all representative
-         CDSs and performs a tblastx search.
-        - 3. The percent_query (hit query coverage) column is inserted
-        in the Fragments table.
-        - 4. The Filtered_full_length_events View is created. This view
-        contains all tblastx hits that have passed the filtering step.
-        - 5. The Mrna_counts View is created. This view contains the number
-        of transcripts associated with each gene.
-        - 6. The function creates the Cumulative_counts table. This table
-        contains the cumulative counts of the different event types across
-        transcripts.
-        - 7. The function collects all the raw concatenated event types
-        (see query_concat_categ_pairs).
-        - 8. The function generates the unique event types
-         (see generate_unique_events_list) so that no event type is repeated.
-        - 9. The function inserts the unique event types in the
-        Event_categ_full_length_events_cumulative_counts table.
-        - 10. The function collects the identity and DNA sequence tuples
-         (see get_identity_and_dna_seq_tuples) and inserts them in the Fragments table.
-        - 11. The function collects all events in the
-        Full_length_events_cumulative_counts table.
-        - 12. The function reconciles the events by assigning a "pair ID"
-         to each event (see assign_pair_ids).
-        - 13. The function creates the Exclusive_pairs view. This view contains
-         all the events that follow the mutually exclusive category.
-        """
-
-        def even_batches(
-            data: Sequence[Any],
-            number_of_batches: int = 1,
-        ) -> Iterator[Sequence[Any]]:
-            """
-            Given a list and a number of batches, returns 'number_of_batches'
-             consecutive subsets elements of 'data' of even size each, except
-             for the last one whose size is the remainder of the division of
-            the length of 'data' by 'number_of_batches'.
-            """
-            # We round up to the upper integer value to guarantee that there
-            # will be 'number_of_batches' batches
-            even_batch_size = (len(data) // number_of_batches) + 1
-            for batch_number in range(number_of_batches):
-                batch_start_index = batch_number * even_batch_size
-                batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
-                yield data[batch_start_index:batch_end_index]
-
-        self.environment.logger.info(
-            f'Running Exonize for specie: {self.output_prefix}'
-        )
-        self.data_container.prepare_data()
+    def search(
+            self
+    ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         processed_gene_ids_list = set(
             self.database_interface.query_gene_ids_in_results_database()
@@ -277,7 +224,7 @@ Exonize results database:   {self.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while ...'
             )
-            for balanced_genes_batch in even_batches(
+            for balanced_genes_batch in self.even_batches(
                 data=unprocessed_gene_ids_list,
                 number_of_batches=self.FORKS_NUMBER,
             ):
@@ -335,45 +282,97 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_overlapping_threshold
         )
-        self.environment.logger.info('Classifying tblastx hits')
-        self.event_classifier.classify_matches_interdependence()
-        self.event_classifier.insert_classified_tuples_in_results_database()
-        self.environment.logger.info('Classifying events')
-        self.database_interface.create_cumulative_counts_table()
+
+    def classification(
+            self
+    ):
+        self.environment.logger.info('Classifying matches')
+        # Classify matches based on the mode and interdependence
+        self.event_classifier.matches_classification()
+        # MODE
+        self.database_interface.insert_matches_interdependence_classification(
+            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
+        )
+        # TRANSCRIPT INTERDEPENDENCE
+        self.database_interface.insert_matches_mode_classification(
+            tuples_list=self.event_classifier.tuples_duplication_mode
+        )
+        self.database_interface.create_matches_interdependence_counts_table()
         query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
         reduced_event_types_tuples = self.generate_unique_events_list(
             events_list=query_concat_categ_pair_list,
             event_type_idx=-1
         )
-        self.database_interface.insert_event_categ_full_length_events_cumulative_counts(
+        self.database_interface.insert_event_categ_matches_interdependence_counts(
             list_tuples=reduced_event_types_tuples
         )
         identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
         self.database_interface.insert_identity_and_dna_algns_columns(
             list_tuples=identity_and_sequence_tuples
         )
-        full_matches_list = self.database_interface.query_full_events()
-        self.environment.logger.info('Fetching expansions')
-        fragments_tuples_list, events_set = self.event_counter.assign_event_ids(
-            tblastx_full_matches_list=full_matches_list
+        # EXCLUSIVE EVENTS TABLE
+        self.database_interface.create_exclusive_events_view()
+        # OBLIGATE EVENTS TABLE
+        self.database_interface.insert_obligate_event(
+            tuples_list=self.event_classifier.tuples_obligatory_events
         )
-        self.database_interface.insert_event_id_column_to_full_length_events_cumulative_counts(
-            list_tuples=fragments_tuples_list
+
+    def reconciliation(
+            self,
+    ):
+        tblastx_full_matches_list = self.database_interface.query_full_events()
+        genes_events_tuples = list()
+        genes_events_set = set()
+        # group full matches by gene id
+        full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
+            tblastx_full_matches_list=tblastx_full_matches_list
+        )
+        for gene_id, tblastx_records_set in full_matches_dictionary.items():
+            (query_coordinates,
+             reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
+                gene_id=gene_id,
+                tblastx_records_set=tblastx_records_set
+            )
+            gene_graph = self.event_reconciler.create_events_multigraph(
+                tblastx_records_set=tblastx_records_set,
+                query_coordinates=query_coordinates,
+                reference_coordinates_dictionary=reference_coordinates_dictionary
+            )
+            if self.draw_event_multigraphs:
+                self.event_reconciler.draw_event_multigraph(
+                    gene_graph=gene_graph,
+                    figure_path=self.multigraphs_path / f'{gene_id}.png'
+                )
+            (gene_fragments_with_event_ids_list,
+             gene_events_set) = self.event_reconciler.get_events_tuples_from_multigraph(
+                reference_coordinates_dictionary=reference_coordinates_dictionary,
+                gene_id=gene_id,
+                gene_graph=gene_graph
+            )
+            genes_events_tuples.extend(gene_fragments_with_event_ids_list)
+            genes_events_set.update(gene_events_set)
+
+        if len(genes_events_tuples) != len(tblastx_full_matches_list):
+            self.environment.logger.exception(
+                f'{len(genes_events_tuples)} events found,'
+                f' {len(tblastx_full_matches_list)} expected.'
+            )
+
+        self.database_interface.insert_event_id_column_to_matches_interdependence_counts(
+            list_tuples=genes_events_tuples
         )
         self.database_interface.insert_expansion_table(
-            list_tuples=list(events_set)
+            list_tuples=list(genes_events_set)
         )
-        self.database_interface.create_exclusive_pairs_view()
-        self.data_container.clear_working_directory()
+        genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
+        self.database_interface.update_has_duplicate_genes_table(
+            list_tuples=genes_with_duplicates
 
-        if self.draw_event_multigraphs:
-            multigraph_directory = self.working_directory / 'multigraphs'
-            self.compress_directory(
-                source_dir=Path(multigraph_directory)
-            )
-            shutil.rmtree(multigraph_directory)
-        tac = datetime.now()
-        runtime_hours = round((tac - self.tic).total_seconds() / 3600, 2)
+        )
+
+    def runtime_logger(self):
+        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
+        runtime_hours = round((datetime.now() - self.tic).total_seconds() / 3600, 2)
         if runtime_hours < 1:
             runtime_hours = ' < 1'
         with open(self.log_file_name, 'w') as f:
@@ -382,6 +381,66 @@ Exonize results database:   {self.results_database_path.name}
                 f'\nRuntime (hours):             {runtime_hours}'
                 f'\nNumber of processed genes:   {len(gene_ids_list)}'
             )
-        self.environment.logger.info(
-            'Process completed successfully'
-        )
+
+    @staticmethod
+    def even_batches(
+            data: Sequence[Any],
+            number_of_batches: int = 1,
+    ) -> Iterator[Sequence[Any]]:
+        """
+        Given a list and a number of batches, returns 'number_of_batches'
+         consecutive subsets elements of 'data' of even size each, except
+         for the last one whose size is the remainder of the division of
+        the length of 'data' by 'number_of_batches'.
+        """
+        # We round up to the upper integer value to guarantee that there
+        # will be 'number_of_batches' batches
+        even_batch_size = (len(data) // number_of_batches) + 1
+        for batch_number in range(number_of_batches):
+            batch_start_index = batch_number * even_batch_size
+            batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
+            yield data[batch_start_index:batch_end_index]
+
+    def run_exonize_pipeline(self) -> None:
+        """
+        run_exonize_pipeline iterates over all genes in the gene_hierarchy_dictionary
+        attribute and performs a tblastx search for each representative
+        CDS (see get_candidate_CDS_coords).
+        The steps are the following:
+        - 1. The function checks if the gene has already been processed.
+         If so, the gene is skipped.
+        - 2. For each gene, the function iterates over all representative
+         CDSs and performs a tblastx search.
+        - 3. The percent_query (hit query coverage) column is inserted
+        in the Fragments table.
+        - 4. The Filtered_full_length_events View is created. This view
+        contains all tblastx hits that have passed the filtering step.
+        - 5. The Mrna_counts View is created. This view contains the number
+        of transcripts associated with each gene.
+        - 6. The function creates the Cumulative_counts table. This table
+        contains the cumulative counts of the different event types across
+        transcripts.
+        - 7. The function collects all the raw concatenated event types
+        (see query_concat_categ_pairs).
+        - 8. The function generates the unique event types
+         (see generate_unique_events_list) so that no event type is repeated.
+        - 9. The function inserts the unique event types in the
+        Event_categ_full_length_events_cumulative_counts table.
+        - 10. The function collects the identity and DNA sequence tuples
+         (see get_identity_and_dna_seq_tuples) and inserts them in the Fragments table.
+        - 11. The function collects all events in the
+        Full_length_events_cumulative_counts table.
+        - 12. The function reconciles the events by assigning a "pair ID"
+         to each event (see assign_pair_ids).
+        - 13. The function creates the Exclusive_pairs view. This view contains
+         all the events that follow the mutually exclusive category.
+        """
+        self.environment.logger.info(f'Running Exonize for specie: {self.output_prefix}')
+        self.data_container.prepare_data()
+        self.search()
+        self.environment.logger.info('Reconciling events')
+        self.reconciliation()
+        self.classification()
+        self.runtime_logger()
+        self.environment.logger.info('Process completed successfully')
+        self.data_container.clear_working_directory()
