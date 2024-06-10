@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from exonize.counter_handler import CounterHandler
+from exonize.reconciler_handler import ReconcilerHandler
 from exonize.blast_searcher import BLASTsearcher
 import portion as P
 
@@ -13,10 +13,9 @@ blast_engine = BLASTsearcher(
     debug_mode=False,
 
 )
-counter_handler = CounterHandler(
+counter_handler = ReconcilerHandler(
     blast_engine=blast_engine,
     cds_overlapping_threshold=0.8,
-    draw_event_multigraphs=False,
 )
 
 
@@ -28,7 +27,8 @@ def test_get_overlapping_clusters():
         (P.open(200, 300), 0.7)
     }
     expected_clusters_1 = [
-        [(P.open(0, 50), 0.9), (P.open(40, 100), 0.8)],
+        [(P.open(0, 50), 0.9),
+         (P.open(40, 100), 0.8)],
         [(P.open(200, 300), 0.7)]
     ]
 
@@ -79,35 +79,34 @@ def test_build_reference_dictionary():
     expected_output = {
         P.open(200, 250): {
             'reference_coordinate': P.open(200, 250),
-            'reference_type': 'full'
+            'reference_type': 'FULL'
         },
         P.open(210, 250): {
             'reference_coordinate': P.open(210, 250),
-            'reference_type': 'insertion'
+            'reference_type': 'INSERTION_EXCISION'
         },
         P.open(0, 50): {
             'reference_coordinate': P.open(0, 50),
-            'reference_type': 'insertion'
+            'reference_type': 'INSERTION_EXCISION'
         },
         P.open(40, 90): {
             'reference_coordinate': P.open(40, 90),
-            'reference_type': 'insertion'
+            'reference_type': 'INSERTION_EXCISION'
         },
         P.open(220, 270): {
             'reference_coordinate': P.open(220, 270),
-            'reference_type': 'truncation'
+            'reference_type': 'TRUNCATION_ACQUISITION'
         },
         P.open(400, 450): {
             'reference_coordinate': P.open(400, 450),
-            'reference_type': 'deactivated'
+            'reference_type': 'INACTIVE_UNANNOTATED'
         }  # Assuming no CDS overlap
     }
-
+    print(counter_handler.build_reference_dictionary(
+        cds_candidates_dictionary=cds_candidates_dictionary,
+        clusters_list=overlapping_targets))
     assert counter_handler.build_reference_dictionary(
         cds_candidates_dictionary=cds_candidates_dictionary,
         clusters_list=overlapping_targets
     ) == expected_output
 
-
-def test_assign_event_ids():
-    pass
