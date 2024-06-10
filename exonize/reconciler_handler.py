@@ -203,20 +203,17 @@ class ReconcilerHandler(object):
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
 
         for event in tblastx_records_set:
-            (fragment_id, _, source_start, source_end,
-             target_start, target_end, evalue, event_type) = event[:8]
+            (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
             reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference_coordinate']
             reference_type = reference_coordinates_dictionary[target_coordinate]['reference_type']
             gene_graph.add_edge(
-                u_for_edge=(source_start, source_end),
+                u_for_edge=(cds_start, cds_end),
                 v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
                 fragment_id=fragment_id,
-                query_CDS=(source_start, source_end),
                 target=(target_start, target_end),
                 evalue=evalue,
-                event_type=event_type,
                 reference_type=reference_type,
                 color='black',
                 width=2
@@ -322,7 +319,7 @@ class ReconcilerHandler(object):
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
-            ref_type = reference_type_dict.get(node_coord, 'full')
+            ref_type = reference_type_dict.get(node_coord, "FULL")
             degree = gene_graph.degree((start, end))
             event_coord_dict[node_coord] = [ref_type, degree, None]  # cluster_id is None initially
         return event_coord_dict
@@ -354,7 +351,7 @@ class ReconcilerHandler(object):
     @staticmethod
     def map_edges_to_records(
             graph: nx.MultiGraph,
-            event_id_counter: int,
+            expansion_id_counter: int,
             component: set[tuple]
     ) -> list[tuple]:
         comp_event_list = []
@@ -365,7 +362,7 @@ class ReconcilerHandler(object):
         for edge in subgraph.edges(data=True):
             # edge is a tuple (node1, node2, attributes)
             comp_event_list.append(
-                (event_id_counter, edge[-1]['fragment_id'])
+                (expansion_id_counter, edge[-1]['fragment_id'])
             )
         return comp_event_list
 
@@ -373,7 +370,7 @@ class ReconcilerHandler(object):
     def build_events_list(
             gene_id: str,
             event_coordinates_dictionary: dict,
-            event_id_counter: int,
+            expansion_id_counter: int,
     ) -> list[tuple]:
         return [
             (gene_id,
@@ -381,7 +378,7 @@ class ReconcilerHandler(object):
              node_coordinate.lower,
              node_coordinate.upper,
              *node_attributes[1:],
-             event_id_counter
+             expansion_id_counter
              )
             for node_coordinate, node_attributes in event_coordinates_dictionary.items()
         ]
@@ -401,7 +398,7 @@ class ReconcilerHandler(object):
         disconnected_components = list(nx.connected_components(gene_graph))
         gene_fragments_with_event_ids_list = []
         gene_events_list = []
-        event_id_counter = 0
+        expansion_id_counter = 0
         for component in disconnected_components:
             # First: Assign event id to each component
             event_coordinates_dictionary = self.build_event_coordinates_dictionary(
@@ -416,7 +413,7 @@ class ReconcilerHandler(object):
             # Third: map each BLAST hit to an event id
             component_fragments_with_event_ids_list = self.map_edges_to_records(
                 graph=gene_graph,
-                event_id_counter=event_id_counter,
+                expansion_id_counter=expansion_id_counter,
                 component=component
             )
             gene_fragments_with_event_ids_list.extend(
@@ -426,10 +423,10 @@ class ReconcilerHandler(object):
                 self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary,
-                    event_id_counter=event_id_counter
+                    expansion_id_counter=expansion_id_counter
                 )
             )
-            event_id_counter += 1
+            expansion_id_counter += 1
         return gene_fragments_with_event_ids_list, gene_events_list
 
     @staticmethod
