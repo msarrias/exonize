@@ -25,7 +25,8 @@ class ClassifierHandler(object):
         self.__query_cds, self.__target_cds = "-", "-"
         self.__query_cds_frame, self.__target_cds_frame = " ", " "
         self.__found = False
-        self.tuples_full_length_duplications = list()
+        self.tuples_match_transcript_interdependence = list()
+        self.tuples_duplication_mode = list()
         self.tuples_truncation_events = list()
         self.tuples_obligatory_events = list()
 
@@ -49,12 +50,13 @@ class ClassifierHandler(object):
         initializes the list of tuples used to store the identified events in the
          classify_matches_interdependence function
         """
-        self.tuples_full_length_duplications = list()
+        self.tuples_match_transcript_interdependence = list()
         self.tuples_obligatory_events = list()
         self.tuples_truncation_events = list()
+        self.tuples_duplication_mode = list()
 
     @staticmethod
-    def recover_query_cds(
+    def recover_cds(
             transcript_dictionary: dict,
             query_coordinate: P.Interval,
     ) -> Union[tuple, None]:
@@ -80,7 +82,7 @@ class ClassifierHandler(object):
         A transcript cannot have overlapping CDSs. If the query CDS overlaps
         with more than one CDS, the program exits.
         """
-        query_cds = self.recover_query_cds(
+        query_cds = self.recover_cds(
             transcript_dictionary=transcript_dictionary,
             query_coordinate=cds_coordinate
         )
@@ -94,28 +96,26 @@ class ClassifierHandler(object):
             self,
             transcript_coordinate: P.Interval,
             mrna_id: str,
-            row_tuple: list[tuple],
+            row_tuple: tuple,
     ) -> bool:
         """
         target_out_of_mrna is a function that identifies tblastx hits
         that are outside the mRNA transcript.
         """
-        (fragment_id, gene_id, gene_start, _, cds_start, cds_end,
-         query_start, query_end, target_start, target_end, evalue) = row_tuple
+        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
         target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
         if (target_coordinate.upper < transcript_coordinate.lower
                 or transcript_coordinate.upper < target_coordinate.lower):
             if (self.__query + self.__target) == 0:
                 self.__neither = 1
-            self.tuples_full_length_duplications.append((
-                fragment_id, gene_id, mrna_id,
-                cds_start, cds_end, self.__query_cds, query_start, query_end,
+            self.tuples_match_transcript_interdependence.append((
+                match_id, gene_id, mrna_id,
+                cds_start, cds_end, self.__query_cds,
                 "OUT_OF_MRNA",
                 self.__target_cds, self.__annot_target_start,
                 self.__annot_target_end,
                 target_start, target_end,
-                self.__neither, self.__query, self.__target, self.__both,
-                evalue
+                self.__neither, self.__query, self.__target, self.__both
             ))
             return True
         return False
@@ -154,10 +154,8 @@ class ClassifierHandler(object):
                 intv_j=cds_coordinate
             ) > self.cds_overlapping_threshold
         ]
-
         if not overlaps:
             return None
-
         # Find the tuple with the maximum average overlap
         _, best_matching_cds = max(overlaps, key=lambda x: x[0])
 
@@ -222,7 +220,6 @@ class ClassifierHandler(object):
     def indentify_truncation_target(
             self,
             transcript_dictionary: dict[str],
-            mrna_id: str,
             row_tuple: list
     ) -> None:
         """
@@ -231,9 +228,7 @@ class ClassifierHandler(object):
         in the transcript architecture. We record a line per annotation
         that is truncated.
         """
-        (fragment_id, gene_id, gene_start,
-         _, cds_start, cds_end, query_start, query_end,
-         target_start, target_end, evalue) = row_tuple
+        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
         target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
         coordinate_dictionary = self.get_interval_dictionary(
             transcript_dictionary=transcript_dictionary['structure'],
@@ -245,42 +240,26 @@ class ClassifierHandler(object):
             self.__target_cds = None
             self.__annot_target_start = None
             self.__annot_target_end = None
-            for seg_b, annotation_dictionary in coordinate_dictionary.items():
-                coord_b = annotation_dictionary['coordinate']
-                self.tuples_truncation_events.append(
-                    (
-                        fragment_id, gene_id, mrna_id,
-                        transcript_dictionary['coordinate'].lower,
-                        transcript_dictionary['coordinate'].upper,
-                        self.__query_cds, cds_start, cds_end, query_start, query_end,
-                        target_start, target_end,
-                        annotation_dictionary['id'],
-                        annotation_dictionary['type'],
-                        coord_b.lower, coord_b.upper, seg_b.lower, seg_b.upper
-                    )
-                )
 
     def identify_obligate_pair(
             self,
             transcript_coordinate: P.Interval,
             mrna_id: str,
-            row_tuple: list[tuple]
+            row_tuple: tuple
     ) -> None:
         """
         Identifies tblastx hits that are obligate pairs.
         These are hits where the query and target show as CDSs
         in the transcript in question.
         """
-        (fragment_id, gene_id, _, _,
-         cds_start, cds_end, query_start, query_end,
-         target_start, target_end, evalue) = row_tuple
+        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
         self.__both = 1
         self.__query, self.__target = 0, 0
         self.tuples_obligatory_events.append((
-            fragment_id, gene_id, mrna_id,
+            match_id, gene_id, mrna_id,
             transcript_coordinate.lower, transcript_coordinate.upper,
             self.__query_cds, self.__query_cds_frame, cds_start, cds_end,
-            query_start, query_end, self.__target_cds, self.__target_cds_frame,
+            self.__target_cds, self.__target_cds_frame,
             self.__annot_target_start, self.__annot_target_end,
             target_start, target_end, self.__target_type
         ))
@@ -294,46 +273,57 @@ class ClassifierHandler(object):
         self.__neither = 1
         self.__target_type = 'NEITHER'
 
-    def insert_full_length_duplication_tuple(
+    def insert_match_transcript_interdependence(
             self,
             mrna_id: str,
-            row_tuple: list[tuple]
+            row_tuple: tuple
     ):
         """
-        insert_full_length_duplication_tuple is a function that appends
+        insert_match_transcript_interdependence is a function that appends
          the "row" event to the list of tuples.
         """
-        (fragment_id, gene_id, _, _,
-         cds_start, cds_end, query_start, query_end,
-         target_start, target_end, evalue) = row_tuple
-        self.tuples_full_length_duplications.append((
-            fragment_id, gene_id, mrna_id,
-            cds_start, cds_end, self.__query_cds, query_start, query_end,
+
+        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
+        self.tuples_match_transcript_interdependence.append((
+            match_id, gene_id, mrna_id,
+            cds_start, cds_end, self.__query_cds,
             self.__target_type, self.__target_cds, self.__annot_target_start,
             self.__annot_target_end,
             target_start, target_end, self.__neither, self.__query,
-            self.__target,
-            self.__both, evalue
+            self.__target, self.__both
         ))
 
-    def insert_classified_tuples_in_results_database(self) -> None:
-        """
-        insert_tuples_in_results_database is a function that inserts the list
-        of tuples collected by the classify_matches_interdependence
-        function into the results database.
-        """
-        self.database_interface.insert_full_length_event(
-            tuples_list=self.tuples_full_length_duplications
-        )
-        self.database_interface.insert_obligate_event(
-            tuples_list=self.tuples_obligatory_events
-        )
-        self.database_interface.insert_truncation_event(
-            tuples_list=self.tuples_truncation_events
-        )
+    def classify_expansion_transcript_interdependence(
+            self,
+            gene_id: str,
+            expansion_id: str,
+            coding_coordinates_list: list[P.Interval],
+    ):
+        records_list = list()
+        transcripts_dict = self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']
+        for mrna_id, transcript_dictionary \
+                in transcripts_dict.items():
+            counter = 0
+            missing_cds=''
+            for coding_sequence_coordinate in coding_coordinates_list:
+                if self.recover_cds(
+                    transcript_dictionary=transcript_dictionary,
+                    query_coordinate=coding_sequence_coordinate
+                ):
+                    counter += 1
+                else:
+                    missing_cds += f'{coding_sequence_coordinate}_'
+
+            records_list.append(
+                (gene_id, expansion_id,
+                 len(transcripts_dict), mrna_id, counter,
+                 len(coding_coordinates_list), missing_cds[:-1] if missing_cds else '')
+            )
+        return records_list
 
     def classify_matches_interdependence(
             self,
+            row_tuple: tuple,
     ) -> None:
         """
         classify_matches_interdependence is a function that identifies full-length
@@ -358,62 +348,59 @@ class ClassifierHandler(object):
           The number of records per event will correspond to the number of transcripts associated
           with the gene harboring the event.
         """
-        rows = self.database_interface.query_filtered_full_duplication_events()
-        self.initialize_list_of_tuples()
-        for row in rows:
-            (_, gene_id, gene_start, _, cds_start, cds_end, _, _, target_start, target_end, _) = row
-            cds_coordinate = P.open(cds_start, cds_end)
-            target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
-            for mrna_id, transcript_dictionary \
-                    in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items():
-                # we want to classify each transcript independently
-                self.initialize_variables()
-                transcript_coordinate = transcript_dictionary['coordinate']
-                # ####### QUERY ONLY - FULL LENGTH #######
-                self.identify_query(
-                    transcript_dictionary=transcript_dictionary,
-                    cds_coordinate=cds_coordinate
-                )
-                # ###### CHECK: TARGET REGION NOT IN mRNA #######
-                if self.target_out_of_mrna(
-                        transcript_coordinate=transcript_coordinate,
-                        mrna_id=mrna_id,
-                        row_tuple=row
-                ):
-                    continue
-                # ####### TARGET ONLY - FULL LENGTH #######
-                self.indetify_full_target(
+        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
+        cds_coordinate = P.open(cds_start + gene_start, cds_end + gene_start)
+        target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
+        for mrna_id, transcript_dictionary \
+                in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items():
+            # we want to classify each transcript independently
+            self.initialize_variables()
+            transcript_coordinate = transcript_dictionary['coordinate']
+            # ####### QUERY ONLY - FULL LENGTH #######
+            self.identify_query(
+                transcript_dictionary=transcript_dictionary,
+                cds_coordinate=cds_coordinate
+            )
+            # ###### CHECK: TARGET REGION NOT IN mRNA #######
+            if self.target_out_of_mrna(
+                    transcript_coordinate=transcript_coordinate,
+                    mrna_id=mrna_id,
+                    row_tuple=row_tuple
+            ):
+                continue
+            # ####### TARGET ONLY - FULL LENGTH #######
+            self.indetify_full_target(
+                transcript_dictionary=transcript_dictionary,
+                target_coordinate=target_coordinate
+            )
+            if self.__target_full == 0:
+                # ####### INSERTION #######
+                self.indentify_insertion_target(
                     transcript_dictionary=transcript_dictionary,
                     target_coordinate=target_coordinate
                 )
-                if self.__target_full == 0:
-                    # ####### INSERTION #######
-                    self.indentify_insertion_target(
+                if not self.__found:
+                    # ####### TRUNCATION #######
+                    self.indentify_truncation_target(
                         transcript_dictionary=transcript_dictionary,
-                        target_coordinate=target_coordinate
-                    )
-                    if not self.__found:
-                        # ####### TRUNCATION #######
-                        self.indentify_truncation_target(
-                            transcript_dictionary=transcript_dictionary,
-                            mrna_id=mrna_id,
-                            row_tuple=row
-                        )
-                self.__target = self.__target_full + self.__target_insertion
-                # ####### OBLIGATE PAIR #######
-                if self.__query + self.__target == 2:
-                    self.identify_obligate_pair(
-                        transcript_coordinate=transcript_dictionary['coordinate'],
                         mrna_id=mrna_id,
-                        row_tuple=row
+                        row_tuple=row_tuple
                     )
-                # ####### NEITHER PAIR #######
-                elif self.__query + self.__target == 0:
-                    self.identify_neither_pair()
-                self.insert_full_length_duplication_tuple(
+            self.__target = self.__target_full + self.__target_insertion
+            # ####### OBLIGATE PAIR #######
+            if self.__query + self.__target == 2:
+                self.identify_obligate_pair(
+                    transcript_coordinate=transcript_dictionary['coordinate'],
                     mrna_id=mrna_id,
-                    row_tuple=row
+                    row_tuple=row_tuple
                 )
+            # ####### NEITHER PAIR #######
+            elif self.__query + self.__target == 0:
+                self.identify_neither_pair()
+            self.insert_match_transcript_interdependence(
+                mrna_id=mrna_id,
+                row_tuple=row_tuple
+            )
 
     @staticmethod
     def get_interval_dictionary(
