@@ -34,7 +34,7 @@ class ClassifierHandler(object):
             self,
     ) -> None:
         """
-        initializes variables used in the classify_matches_interdependence function
+        initializes variables used in the classify_match_interdependence function
         """
         self.__neither, self.__query, self.__target = 0, 0, 0
         self.__both, self.__target_full, self.__target_insertion = 0, 0, 0
@@ -48,7 +48,7 @@ class ClassifierHandler(object):
     ) -> None:
         """
         initializes the list of tuples used to store the identified events in the
-         classify_matches_interdependence function
+         classify_match_interdependence function
         """
         self.tuples_match_transcript_interdependence = list()
         self.tuples_obligatory_events = list()
@@ -321,12 +321,12 @@ class ClassifierHandler(object):
             )
         return records_list
 
-    def classify_matches_interdependence(
+    def classify_match_interdependence(
             self,
             row_tuple: tuple,
     ) -> None:
         """
-        classify_matches_interdependence is a function that identifies full-length
+        classify_match_interdependence is a function that identifies full-length
         duplications following our classification model.
         The function iterates over all representative tblastx hits and for each transcript
         associated with the gene harboring the event it identifies the following events:
@@ -335,7 +335,7 @@ class ClassifierHandler(object):
         - II. Insertion: the match is found within a larger CDS.
         - III. Deactivation or unnanotated: the match is found in an intron or UTR.
         - IV. Trunctation: the match spans more than one annotation (e.g., CDS, intron, UTR).
-        The classify_matches_interdependence function also looks for:
+        The classify_match_interdependence function also looks for:
          - I. Obligate events: defined as events where the query CDS and the target CDS are
           included within the same transcript.
         - II. Neither events: defined as events where the query CDS is not found in the
