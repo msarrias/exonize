@@ -9,6 +9,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 import portion as P
 from pathlib import Path
+import tarfile
 
 
 class DataPreprocessor(object):
@@ -58,7 +59,7 @@ class DataPreprocessor(object):
         self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
         self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
         if self.draw_event_multigraphs:
-            self.multigraphs_path = self.data_container.working_directory / 'multigraphs'
+            self.multigraphs_path = self.working_directory / 'multigraphs'
 
     @staticmethod
     def dump_pkl_file(
@@ -515,15 +516,24 @@ class DataPreprocessor(object):
                 gene_args_list_tuple=gene_tuples_list_peptide_transcripts
             )
 
+    @staticmethod
+    def compress_directory(
+            source_dir: Path
+    ):
+        output_filename = source_dir.with_suffix('.tar.gz')
+        with tarfile.open(output_filename, "w:gz") as tar:
+            base_dir = source_dir.name
+            tar.add(source_dir, arcname=base_dir)
+
     def clear_working_directory(self):
         if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
-            if self.draw_event_multigraphs:
-                multigraph_directory = self.working_directory / 'multigraphs'
-                self.compress_directory(
-                    source_dir=Path(multigraph_directory)
-                )
-                shutil.rmtree(multigraph_directory)
+        if self.draw_event_multigraphs:
+            multigraph_directory = self.working_directory / 'multigraphs'
+            self.compress_directory(
+                source_dir=Path(multigraph_directory)
+            )
+            shutil.rmtree(multigraph_directory)
 
     def prepare_data(self) -> None:
         """
