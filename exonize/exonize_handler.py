@@ -320,47 +320,9 @@ Exonize results database:   {self.results_database_path.name}
 
         )
 
-    def events_classification(
-            self
+    def classify_expansion_transcript_interdependence(
+            self,
     ):
-        # Classify matches based on the mode and interdependence
-        expansions_gene_dictionary = self.database_interface.query_expansion_events()
-        self.event_classifier.initialize_list_of_tuples()
-        for gene_id, expansions_dict in expansions_gene_dictionary.items():
-            for expansion_id, records in expansions_dict.items():
-                queries = [query_record for query_record in records if query_record[-2] == 'FULL']
-                for query in queries:
-                    _, _, cds_start, cds_end, *_ = query
-                    records_to_classify = [
-                        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end)
-                        for match_id, gene_start, target_start, target_end, *_
-                        in [record for record in records if record != query]
-                    ]
-                    for record in records_to_classify:
-                        self.event_classifier.classify_matches_interdependence(
-                            row_tuple=record
-                        )
-            # TRANSCRIPT INTERDEPENDENCE
-        self.database_interface.insert_matches_interdependence_classification(
-            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
-        )
-        self.database_interface.create_matches_interdependence_counts_table()
-        # self.database_interface.insert_event_id_column_to_matches_interdependence_counts(
-        #     list_tuples=self.genes_events_tuples
-        # )
-        query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
-        reduced_event_types_tuples = self.generate_unique_events_list(
-            events_list=query_concat_categ_pair_list,
-            event_type_idx=-1
-        )
-        self.database_interface.insert_event_categ_matches_interdependence_counts(
-            list_tuples=reduced_event_types_tuples
-        )
-        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
-        self.database_interface.insert_identity_and_dna_algns_columns(
-            list_tuples=identity_and_sequence_tuples
-        )
-        # CLASSIFY EXPANSION TRANSCRIPT INTERDEPENDENCE
         self.database_interface.create_matches_interdependence_expansions_counts_table()
         expansion_interdependence_tuples = []
         expansion_events_dict = self.database_interface.query_full_expansion_events()
@@ -377,6 +339,57 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.insert_matches_interdependence_expansions_counts(
             tuples_list=expansion_interdependence_tuples
         )
+
+    def classify_matches_transcript_interdependence(
+            self
+    ):
+        # Classify matches based on the mode and interdependence
+        expansions_gene_dictionary = self.database_interface.query_expansion_events()
+        self.event_classifier.initialize_list_of_tuples()
+        for gene_id, expansions_dict in expansions_gene_dictionary.items():
+            for expansion_id, records in expansions_dict.items():
+                queries = [query_record for query_record in records if query_record[-2] == 'FULL']
+                for query in queries:
+                    _, _, cds_start, cds_end, *_ = query
+                    records_to_classify = [
+                        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end)
+                        for match_id, gene_start, target_start, target_end, *_
+                        in [record for record in records if record != query]
+                    ]
+                    for record in records_to_classify:
+                        self.event_classifier.classify_match_interdependence(
+                            row_tuple=record
+                        )
+            # TRANSCRIPT INTERDEPENDENCE
+        self.database_interface.insert_matches_interdependence_classification(
+            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
+        )
+
+    def create_matches_interdependence_cumulative_counts_table(
+            self,
+    ):
+        self.database_interface.create_matches_interdependence_counts_table()
+        query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
+        reduced_event_types_tuples = self.generate_unique_events_list(
+            events_list=query_concat_categ_pair_list,
+            event_type_idx=-1
+        )
+        self.database_interface.insert_event_categ_matches_interdependence_counts(
+            list_tuples=reduced_event_types_tuples
+        )
+
+    def events_classification(
+            self
+    ):
+        # CLASSIFY MATCHES TRANSCRIPT INTERDEPENDENCE
+        self.classify_matches_transcript_interdependence()
+        self.create_matches_interdependence_cumulative_counts_table()
+        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
+        self.database_interface.insert_identity_and_dna_algns_columns(
+            list_tuples=identity_and_sequence_tuples
+        )
+        # CLASSIFY EXPANSION TRANSCRIPT INTERDEPENDENCE
+        self.classify_expansion_transcript_interdependence()
         # EXCLUSIVE EVENTS TABLE
         # self.database_interface.create_exclusive_events_view()
         # OBLIGATE EVENTS TABLE
