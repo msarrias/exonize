@@ -24,7 +24,6 @@ from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
 from pathlib import Path
-import tarfile
 import cProfile
 import gc
 from exonize.profiling import get_run_performance_profile
@@ -149,6 +148,7 @@ Min exon length (bps):       {min_exon_length}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
+        self.genes_events_tuples = list()
 
     def generate_unique_events_list(
             self,
@@ -175,15 +175,6 @@ Exonize results database:   {self.results_database_path.name}
         for perm in permutations(strings):
             result.add('-'.join(perm))
         return list(result)
-
-    @staticmethod
-    def compress_directory(
-            source_dir: Path
-    ):
-        output_filename = source_dir.with_suffix('.tar.gz')
-        with tarfile.open(output_filename, "w:gz") as tar:
-            base_dir = source_dir.name
-            tar.add(source_dir, arcname=base_dir)
 
     def search(
             self
@@ -281,45 +272,12 @@ Exonize results database:   {self.results_database_path.name}
             query_overlap_threshold=self.query_overlapping_threshold
         )
 
-    def classification(
-            self
-    ):
-        # Classify matches based on the mode and interdependence
-        self.event_classifier.matches_classification()
-        # MODE
-        self.database_interface.insert_matches_interdependence_classification(
-            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
-        )
-        # TRANSCRIPT INTERDEPENDENCE
-        self.database_interface.insert_matches_mode_classification(
-            tuples_list=self.event_classifier.tuples_duplication_mode
-        )
-        self.database_interface.create_matches_interdependence_counts_table()
-        query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
-        reduced_event_types_tuples = self.generate_unique_events_list(
-            events_list=query_concat_categ_pair_list,
-            event_type_idx=-1
-        )
-        self.database_interface.insert_event_categ_matches_interdependence_counts(
-            list_tuples=reduced_event_types_tuples
-        )
-        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
-        self.database_interface.insert_identity_and_dna_algns_columns(
-            list_tuples=identity_and_sequence_tuples
-        )
-        # EXCLUSIVE EVENTS TABLE
-        self.database_interface.create_exclusive_events_view()
-        # OBLIGATE EVENTS TABLE
-        self.database_interface.insert_obligate_event(
-            tuples_list=self.event_classifier.tuples_obligatory_events
-        )
-
     def reconciliation(
             self,
     ):
         tblastx_full_matches_list = self.database_interface.query_full_events()
-        genes_events_tuples = list()
         genes_events_set = set()
+
         # group full matches by gene id
         full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
             tblastx_full_matches_list=tblastx_full_matches_list
@@ -332,13 +290,13 @@ Exonize results database:   {self.results_database_path.name}
             )
             gene_graph = self.event_reconciler.create_events_multigraph(
                 tblastx_records_set=tblastx_records_set,
-                query_coordinates=query_coordinates,
+                query_coordinates_set=query_coordinates,
                 reference_coordinates_dictionary=reference_coordinates_dictionary
             )
             if self.draw_event_multigraphs:
                 self.event_reconciler.draw_event_multigraph(
                     gene_graph=gene_graph,
-                    figure_path=self.multigraphs_path / f'{gene_id}.png'
+                    figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
                 )
             (gene_fragments_with_event_ids_list,
              gene_events_set) = self.event_reconciler.get_events_tuples_from_multigraph(
@@ -346,18 +304,13 @@ Exonize results database:   {self.results_database_path.name}
                 gene_id=gene_id,
                 gene_graph=gene_graph
             )
-            genes_events_tuples.extend(gene_fragments_with_event_ids_list)
+            self.genes_events_tuples.extend(gene_fragments_with_event_ids_list)
             genes_events_set.update(gene_events_set)
-
-        if len(genes_events_tuples) != len(tblastx_full_matches_list):
+        if len(self.genes_events_tuples) != len(tblastx_full_matches_list):
             self.environment.logger.exception(
                 f'{len(genes_events_tuples)} events found,'
                 f' {len(tblastx_full_matches_list)} expected.'
             )
-
-        self.database_interface.insert_event_id_column_to_matches_interdependence_counts(
-            list_tuples=genes_events_tuples
-        )
         self.database_interface.insert_expansion_table(
             list_tuples=list(genes_events_set)
         )
@@ -366,6 +319,70 @@ Exonize results database:   {self.results_database_path.name}
             list_tuples=genes_with_duplicates
 
         )
+
+    def events_classification(
+            self
+    ):
+        # Classify matches based on the mode and interdependence
+        expansions_gene_dictionary = self.database_interface.query_expansion_events()
+        self.event_classifier.initialize_list_of_tuples()
+        for gene_id, expansions_dict in expansions_gene_dictionary.items():
+            for expansion_id, records in expansions_dict.items():
+                queries = [query_record for query_record in records if query_record[-2] == 'FULL']
+                for query in queries:
+                    _, _, cds_start, cds_end, *_ = query
+                    records_to_classify = [
+                        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end)
+                        for match_id, gene_start, target_start, target_end, *_
+                        in [record for record in records if record != query]
+                    ]
+                    for record in records_to_classify:
+                        self.event_classifier.classify_matches_interdependence(
+                            row_tuple=record
+                        )
+            # TRANSCRIPT INTERDEPENDENCE
+        self.database_interface.insert_matches_interdependence_classification(
+            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
+        )
+        self.database_interface.create_matches_interdependence_counts_table()
+        # self.database_interface.insert_event_id_column_to_matches_interdependence_counts(
+        #     list_tuples=self.genes_events_tuples
+        # )
+        query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
+        reduced_event_types_tuples = self.generate_unique_events_list(
+            events_list=query_concat_categ_pair_list,
+            event_type_idx=-1
+        )
+        self.database_interface.insert_event_categ_matches_interdependence_counts(
+            list_tuples=reduced_event_types_tuples
+        )
+        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
+        self.database_interface.insert_identity_and_dna_algns_columns(
+            list_tuples=identity_and_sequence_tuples
+        )
+        # CLASSIFY EXPANSION TRANSCRIPT INTERDEPENDENCE
+        self.database_interface.create_matches_interdependence_expansions_counts_table()
+        expansion_interdependence_tuples = []
+        expansion_events_dict = self.database_interface.query_full_expansion_events()
+        for gene_id, expansions_dict in expansion_events_dict.items():
+            for expansion_id, coding_events_coordinates_list in expansions_dict.items():
+                if len(coding_events_coordinates_list) > 1:
+                    expansion_interdependence_tuples.extend(
+                        self.event_classifier.classify_expansion_transcript_interdependence(
+                            gene_id=gene_id,
+                            expansion_id=expansion_id,
+                            coding_coordinates_list=coding_events_coordinates_list
+                        )
+                    )
+        self.database_interface.insert_matches_interdependence_expansions_counts(
+            tuples_list=expansion_interdependence_tuples
+        )
+        # EXCLUSIVE EVENTS TABLE
+        # self.database_interface.create_exclusive_events_view()
+        # OBLIGATE EVENTS TABLE
+        # self.database_interface.insert_obligate_event(
+        #     tuples_list=self.event_classifier.tuples_obligatory_events
+        # )
 
     def runtime_logger(self):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -438,7 +455,7 @@ Exonize results database:   {self.results_database_path.name}
         self.environment.logger.info('Reconciling matches')
         self.reconciliation()
         self.environment.logger.info('Classifying events')
-        self.classification()
+        self.events_classification()
         self.runtime_logger()
         self.environment.logger.info('Process completed successfully')
         self.data_container.clear_working_directory()
