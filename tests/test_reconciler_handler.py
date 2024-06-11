@@ -79,27 +79,27 @@ def test_build_reference_dictionary():
     expected_output = {
         P.open(200, 250): {
             'reference_coordinate': P.open(200, 250),
-            'reference_type': 'FULL'
+            'mode': 'FULL'
         },
         P.open(210, 250): {
             'reference_coordinate': P.open(210, 250),
-            'reference_type': 'INSERTION_EXCISION'
+            'mode': 'INSERTION_EXCISION'
         },
         P.open(0, 50): {
             'reference_coordinate': P.open(0, 50),
-            'reference_type': 'INSERTION_EXCISION'
+            'mode': 'INSERTION_EXCISION'
         },
         P.open(40, 90): {
             'reference_coordinate': P.open(40, 90),
-            'reference_type': 'INSERTION_EXCISION'
+            'mode': 'INSERTION_EXCISION'
         },
         P.open(220, 270): {
             'reference_coordinate': P.open(220, 270),
-            'reference_type': 'TRUNCATION_ACQUISITION'
+            'mode': 'TRUNCATION_ACQUISITION'
         },
         P.open(400, 450): {
             'reference_coordinate': P.open(400, 450),
-            'reference_type': 'INACTIVE_UNANNOTATED'
+            'mode': 'INACTIVE_UNANNOTATED'
         }  # Assuming no CDS overlap
     }
     print(counter_handler.build_reference_dictionary(
