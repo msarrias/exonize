@@ -654,12 +654,12 @@ class SqliteHandler(object):
             """
             cursor.execute(insert_gene_table_param, gene_args_tuple)
 
-    def insert_fragments(
+    def insert_matches(
         self,
         gene_args_tuple: tuple,
         fragments_tuples_list: list,
     ) -> None:
-        insert_fragments_table_param = """
+        insert_matches_table_param = """
         INSERT INTO Matches (
             gene_id,
             cds_start,
@@ -704,7 +704,7 @@ class SqliteHandler(object):
                 with contextlib.closing(db.cursor()) as cursor:
                     cursor.execute(insert_gene_table_param, gene_args_tuple)
                     cursor.executemany(
-                        insert_fragments_table_param, fragments_tuples_list
+                        insert_matches_table_param, fragments_tuples_list
                     )
 
     def insert_expansion_table(self, list_tuples: list) -> None:
@@ -939,7 +939,7 @@ class SqliteHandler(object):
                 e.expansion_id
             FROM Expansions AS e
             INNER JOIN Genes AS g ON g.gene_id=e.gene_id
-            ORDER BY e.gene_id;
+            ORDER BY e.gene_id, e.expansion_id, e.match_id;
             """
             cursor.execute(fragments_query)
             records = cursor.fetchall()
