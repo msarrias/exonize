@@ -140,7 +140,7 @@ class ReconcilerHandler(object):
                 for target_coordinate, _ in coordinates_cluster:
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': candidate_reference,
-                        'reference_type': ref_type
+                        'mode': ref_type
                     }
             else:
                 for target_coordinate, _ in coordinates_cluster:
@@ -172,7 +172,7 @@ class ReconcilerHandler(object):
 
                     reference_dictionary[target_coordinate] = {
                         'reference_coordinate': individual_reference,
-                        'reference_type': ref_type
+                        'mode': ref_type
                     }
         return reference_dictionary
 
@@ -184,7 +184,7 @@ class ReconcilerHandler(object):
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
-            (reference['reference_coordinate'], reference['reference_type'])
+            (reference['reference_coordinate'], reference['mode'])
             for reference in reference_coordinates_dictionary.values()
         ])
 
@@ -207,14 +207,14 @@ class ReconcilerHandler(object):
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
             reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference_coordinate']
-            reference_type = reference_coordinates_dictionary[target_coordinate]['reference_type']
+            mode = reference_coordinates_dictionary[target_coordinate]['mode']
             gene_graph.add_edge(
                 u_for_edge=(cds_start, cds_end),
                 v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
                 fragment_id=fragment_id,
                 target=(target_start, target_end),
                 evalue=evalue,
-                reference_type=reference_type,
+                mode=mode,
                 color='black',
                 width=2
             )
@@ -302,24 +302,24 @@ class ReconcilerHandler(object):
         plt.close()
 
     @staticmethod
-    def build_reference_type_dictionary(
+    def build_mode_dictionary(
             reference_coordinates_dictionary: dict
     ) -> dict:
         return {
-            reference_coordinate['reference_coordinate']: reference_coordinate['reference_type']
+            reference_coordinate['reference_coordinate']: reference_coordinate['mode']
             for reference_coordinate in reference_coordinates_dictionary.values()
         }
 
     @staticmethod
     def build_event_coordinates_dictionary(
             component: set[tuple],
-            reference_type_dict: dict,
+            mode_dict: dict,
             gene_graph: nx.MultiGraph
     ) -> dict:
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
-            ref_type = reference_type_dict.get(node_coord, "FULL")
+            ref_type = mode_dict.get(node_coord, "FULL")
             degree = gene_graph.degree((start, end))
             event_coord_dict[node_coord] = [ref_type, degree, None]  # cluster_id is None initially
         return event_coord_dict
@@ -389,7 +389,7 @@ class ReconcilerHandler(object):
             gene_id: str,
             gene_graph: nx.MultiGraph
     ):
-        reference_type_dictionary = self.build_reference_type_dictionary(
+        mode_dictionary = self.build_mode_dictionary(
             reference_coordinates_dictionary=reference_coordinates_dictionary
         )
         # each disconnected component will represent a duplication event within a gene
@@ -403,7 +403,7 @@ class ReconcilerHandler(object):
             # First: Assign event id to each component
             event_coordinates_dictionary = self.build_event_coordinates_dictionary(
                 component=component,
-                reference_type_dict=reference_type_dictionary,
+                mode_dict=mode_dictionary,
                 gene_graph=gene_graph
             )
             # Second : Assign cluster ids within events
