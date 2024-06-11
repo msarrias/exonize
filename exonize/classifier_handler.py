@@ -304,7 +304,7 @@ class ClassifierHandler(object):
         for mrna_id, transcript_dictionary \
                 in transcripts_dict.items():
             counter = 0
-            missing_cds=''
+            missing_cds = ''
             for coding_sequence_coordinate in coding_coordinates_list:
                 if self.recover_cds(
                     transcript_dictionary=transcript_dictionary,
