@@ -349,13 +349,15 @@ Exonize results database:   {self.results_database_path.name}
         for gene_id, expansions_dict in expansions_gene_dictionary.items():
             for expansion_id, records in expansions_dict.items():
                 queries = [query_record for query_record in records if query_record[-2] == 'FULL']
+                processed_queries = []
                 for query in queries:
                     _, _, cds_start, cds_end, *_ = query
                     records_to_classify = [
                         (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end)
                         for match_id, gene_start, target_start, target_end, *_
-                        in [record for record in records if record != query]
+                        in [record for record in records if record != query and record not in processed_queries]
                     ]
+                    processed_queries.append(query)
                     for record in records_to_classify:
                         self.event_classifier.classify_match_interdependence(
                             row_tuple=record
