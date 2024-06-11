@@ -308,7 +308,7 @@ Exonize results database:   {self.results_database_path.name}
             genes_events_set.update(gene_events_set)
         if len(self.genes_events_tuples) != len(tblastx_full_matches_list):
             self.environment.logger.exception(
-                f'{len(genes_events_tuples)} events found,'
+                f'{len(self.genes_events_tuples)} events found,'
                 f' {len(tblastx_full_matches_list)} expected.'
             )
         self.database_interface.insert_expansion_table(
