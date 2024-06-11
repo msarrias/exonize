@@ -78,27 +78,27 @@ def test_build_reference_dictionary():
 
     expected_output = {
         P.open(200, 250): {
-            'reference_coordinate': P.open(200, 250),
+            'reference': P.open(200, 250),
             'mode': 'FULL'
         },
         P.open(210, 250): {
-            'reference_coordinate': P.open(210, 250),
+            'reference': P.open(210, 250),
             'mode': 'INSERTION_EXCISION'
         },
         P.open(0, 50): {
-            'reference_coordinate': P.open(0, 50),
+            'reference': P.open(0, 50),
             'mode': 'INSERTION_EXCISION'
         },
         P.open(40, 90): {
-            'reference_coordinate': P.open(40, 90),
+            'reference': P.open(40, 90),
             'mode': 'INSERTION_EXCISION'
         },
         P.open(220, 270): {
-            'reference_coordinate': P.open(220, 270),
+            'reference': P.open(220, 270),
             'mode': 'TRUNCATION_ACQUISITION'
         },
         P.open(400, 450): {
-            'reference_coordinate': P.open(400, 450),
+            'reference': P.open(400, 450),
             'mode': 'INACTIVE_UNANNOTATED'
         }  # Assuming no CDS overlap
     }
@@ -109,4 +109,3 @@ def test_build_reference_dictionary():
         cds_candidates_dictionary=cds_candidates_dictionary,
         clusters_list=overlapping_targets
     ) == expected_output
-
