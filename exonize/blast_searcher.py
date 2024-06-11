@@ -728,7 +728,7 @@ class BLASTsearcher(object):
             for cds_coord, blast_hits in blast_results_dictionary.items()
             for hsp_idx, hsp_dictionary in blast_hits.items()
         ]
-        self.database_interface.insert_fragments(
+        self.database_interface.insert_matches(
             gene_args_tuple=self.get_gene_tuple(
                 gene_id=gene_id
             ),
