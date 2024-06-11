@@ -139,7 +139,7 @@ class ReconcilerHandler(object):
             if candidate_reference:
                 for target_coordinate, _ in coordinates_cluster:
                     reference_dictionary[target_coordinate] = {
-                        'reference_coordinate': candidate_reference,
+                        'reference': candidate_reference,
                         'mode': ref_type
                     }
             else:
@@ -171,7 +171,7 @@ class ReconcilerHandler(object):
                         individual_reference = target_coordinate
 
                     reference_dictionary[target_coordinate] = {
-                        'reference_coordinate': individual_reference,
+                        'reference': individual_reference,
                         'mode': ref_type
                     }
         return reference_dictionary
@@ -184,7 +184,7 @@ class ReconcilerHandler(object):
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
-            (reference['reference_coordinate'], reference['mode'])
+            (reference['reference'], reference['mode'])
             for reference in reference_coordinates_dictionary.values()
         ])
 
@@ -206,7 +206,7 @@ class ReconcilerHandler(object):
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
-            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference_coordinate']
+            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
             mode = reference_coordinates_dictionary[target_coordinate]['mode']
             gene_graph.add_edge(
                 u_for_edge=(cds_start, cds_end),
@@ -306,7 +306,7 @@ class ReconcilerHandler(object):
             reference_coordinates_dictionary: dict
     ) -> dict:
         return {
-            reference_coordinate['reference_coordinate']: reference_coordinate['mode']
+            reference_coordinate['reference']: reference_coordinate['mode']
             for reference_coordinate in reference_coordinates_dictionary.values()
         }
 
