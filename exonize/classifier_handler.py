@@ -220,7 +220,7 @@ class ClassifierHandler(object):
     def indentify_truncation_target(
             self,
             transcript_dictionary: dict[str],
-            row_tuple: list
+            row_tuple: tuple
     ) -> None:
         """
         Identifies tblastx hits that are truncation duplications.
@@ -383,7 +383,6 @@ class ClassifierHandler(object):
                     # ####### TRUNCATION #######
                     self.indentify_truncation_target(
                         transcript_dictionary=transcript_dictionary,
-                        mrna_id=mrna_id,
                         row_tuple=row_tuple
                     )
             self.__target = self.__target_full + self.__target_insertion
