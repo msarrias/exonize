@@ -271,46 +271,6 @@ Exonize results database:   {self.results_database_path.name}
             query_overlap_threshold=self.query_overlapping_threshold
         )
 
-    def reconciliation(
-            self,
-    ):
-        tblastx_full_matches_list = self.database_interface.query_full_events()
-        genes_events_set = set()
-        # group full matches by gene id
-        full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
-            tblastx_full_matches_list=tblastx_full_matches_list
-        )
-        for gene_id, tblastx_records_set in full_matches_dictionary.items():
-            (query_coordinates,
-             reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set
-            )
-            gene_graph = self.event_reconciler.create_events_multigraph(
-                tblastx_records_set=tblastx_records_set,
-                query_coordinates_set=query_coordinates,
-                reference_coordinates_dictionary=reference_coordinates_dictionary
-            )
-            gene_graph, gene_events_set = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                gene_id=gene_id,
-                gene_graph=gene_graph
-            )
-            genes_events_set.update(gene_events_set)
-            if self.draw_event_multigraphs:
-                self.event_reconciler.draw_event_multigraph(
-                    gene_graph=gene_graph,
-                    figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
-                )
-        self.database_interface.insert_expansion_table(
-            list_tuples=list(genes_events_set)
-        )
-        genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
-        self.database_interface.update_has_duplicate_genes_table(
-            list_tuples=genes_with_duplicates
-
-        )
-
     def classify_expansion_transcript_interdependence(
             self,
     ):
@@ -371,6 +331,45 @@ Exonize results database:   {self.results_database_path.name}
             list_tuples=reduced_event_types_tuples
         )
 
+    def reconciliation(
+            self,
+    ):
+        tblastx_full_matches_list = self.database_interface.query_full_events()
+        genes_events_set = set()
+        # group full matches by gene id
+        full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
+            tblastx_full_matches_list=tblastx_full_matches_list
+        )
+        for gene_id, tblastx_records_set in full_matches_dictionary.items():
+            (query_coordinates,
+             reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
+                gene_id=gene_id,
+                tblastx_records_set=tblastx_records_set
+            )
+            gene_graph = self.event_reconciler.create_events_multigraph(
+                tblastx_records_set=tblastx_records_set,
+                query_coordinates_set=query_coordinates,
+                reference_coordinates_dictionary=reference_coordinates_dictionary
+            )
+            gene_graph, gene_events_set = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+                reference_coordinates_dictionary=reference_coordinates_dictionary,
+                gene_id=gene_id,
+                gene_graph=gene_graph
+            )
+            genes_events_set.update(gene_events_set)
+            if self.draw_event_multigraphs:
+                self.event_reconciler.draw_event_multigraph(
+                    gene_graph=gene_graph,
+                    figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
+                )
+        self.database_interface.insert_expansion_table(
+            list_tuples=list(genes_events_set)
+        )
+        genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
+        self.database_interface.update_has_duplicate_genes_table(
+            list_tuples=genes_with_duplicates
+        )
+
     def events_classification(
             self
     ):
@@ -381,14 +380,14 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.insert_identity_and_dna_algns_columns(
             list_tuples=identity_and_sequence_tuples
         )
-        # CLASSIFY EXPANSION TRANSCRIPT INTERDEPENDENCE
         self.classify_expansion_transcript_interdependence()
-        # EXCLUSIVE EVENTS TABLE
-        # self.database_interface.create_exclusive_events_view()
-        # OBLIGATE EVENTS TABLE
-        # self.database_interface.insert_obligate_event(
-        #     tuples_list=self.event_classifier.tuples_obligatory_events
-        # )
+        records = self.database_interface.query_interdependence_counts_matches()
+        records_to_insert = self.event_classifier.classify_transcript_interdependence_counts(
+            records
+        )
+        self.database_interface.insert_classification_column_to_matches_interdependence_counts_table(
+            list_tuples=records_to_insert
+        )
 
     def runtime_logger(self):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -455,7 +454,7 @@ Exonize results database:   {self.results_database_path.name}
         - 13. The function creates the Exclusive_pairs view. This view contains
          all the events that follow the mutually exclusive category.
         """
-        self.environment.logger.info(f'Running Exonize for specie: {self.output_prefix}')
+        self.environment.logger.info(f'Running Exonize for: {self.output_prefix}')
         self.data_container.prepare_data()
         self.search()
         self.environment.logger.info('Reconciling matches')
