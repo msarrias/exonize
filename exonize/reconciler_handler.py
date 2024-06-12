@@ -316,24 +316,39 @@ class ReconcilerHandler(object):
             mode_dict: dict,
             gene_graph: nx.MultiGraph
     ) -> dict:
-        event_coord_dict = {}
+        event_coordinates_dictionary = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
+            # when all matches are inactive/unannotated
+            # the node without a reference is the query CDS
             ref_type = mode_dict.get(node_coord, "FULL")
             degree = gene_graph.degree((start, end))
-            event_coord_dict[node_coord] = [ref_type, degree, None]  # cluster_id is None initially
-        return event_coord_dict
+            event_coordinates_dictionary[node_coord] = [ref_type, degree]
+        return event_coordinates_dictionary
 
-    def assign_cluster_ids_to_event_coordinates(
+    @staticmethod
+    def get_candidate_node(
+            cluster_list: list[tuple]
+    ) -> P.Interval:
+        cluster_mode = [mode for _, mode, _ in cluster_list]
+        if 'FULL' in cluster_mode:
+            return max(
+                [(coord, degree) for (coord, mode, degree) in cluster_list if mode == 'FULL'],
+                key=lambda x: x[-1]
+            )[0]
+        elif 'INSERTION_EXCISION' in cluster_mode:
+            return max(
+                [(coord, degree) for (coord, mode, degree) in cluster_list if mode == 'INSERTION_EXCISION'],
+                key=lambda x: x[-1]
+            )[0]
+        else:
+            return max(cluster_list, key=lambda x: x[0].upper - x[0].lower)[0]
+
+    def get_node_coordinates_clusters(
             self,
-            event_coordinates_dictionary: dict
-    ) -> None:
-        # Convert event coordinates to a set of tuples for clustering
-        node_coordinates_set = set((node_coordinate, 0)
-                                   for node_coordinate in event_coordinates_dictionary.keys()
-                                   )
-        # get clusters of overlapping nodes
-        node_coordinates_clusters = [
+            node_coordinates_set: set[tuple[P.Interval, int]]
+    ) -> list[list[P.Interval]]:
+        return [
             [node_coordinate for node_coordinate, _ in cluster]
             for cluster in self.get_overlapping_clusters(
                 target_coordinates_set=node_coordinates_set,
@@ -341,12 +356,51 @@ class ReconcilerHandler(object):
             )
             if len(cluster) > 1
         ]
-        cluster_id = 0
-        # Assign cluster id to each cluster within the component
+
+    @staticmethod
+    def remove_nodes_from_dict(
+            event_coordinates_dictionary: dict,
+            nodes_to_remove: list[P.Interval]
+    ) -> None:
+        for node in nodes_to_remove:
+            del event_coordinates_dictionary[node]
+
+    @staticmethod
+    def remove_nodes_from_graph(
+            gene_graph: nx.MultiGraph,
+            nodes_to_remove: list[P.Interval]
+    ) -> None:
+        for node in nodes_to_remove:
+            gene_graph.remove_node((node.lower, node.upper))
+
+    def reconcile_overlapping_events_in_expansions(
+            self,
+            gene_graph: nx.MultiGraph,
+            event_coordinates_dictionary: dict,
+    ) -> None:
+        # Convert event coordinates to a set of tuples for clustering
+        node_coordinates_set = set((node_coordinate, 0)
+                                   for node_coordinate in event_coordinates_dictionary.keys())
+        # get clusters of overlapping nodes
+        node_coordinates_clusters = self.get_node_coordinates_clusters(
+            node_coordinates_set=node_coordinates_set
+        )
         for cluster in node_coordinates_clusters:
-            for node_coordinate in cluster:
-                event_coordinates_dictionary[node_coordinate][2] = cluster_id
-            cluster_id += 1
+            cluster_list = [
+                (node_coordinate, *event_coordinates_dictionary[node_coordinate])
+                for node_coordinate in cluster
+                if node_coordinate in event_coordinates_dictionary
+            ]
+            candidate = self.get_candidate_node(cluster_list=cluster_list)
+            nodes_to_remove = [coord for (coord, mode, degree) in cluster_list if coord != candidate]
+            self.remove_nodes_from_dict(
+                event_coordinates_dictionary=event_coordinates_dictionary,
+                nodes_to_remove=nodes_to_remove
+            )
+            self.remove_nodes_from_graph(
+                gene_graph=gene_graph,
+                nodes_to_remove=nodes_to_remove
+            )
 
     @staticmethod
     def map_edges_to_records(
@@ -374,16 +428,16 @@ class ReconcilerHandler(object):
     ) -> list[tuple]:
         return [
             (gene_id,
-             node_attributes[0],
+             mode,
              node_coordinate.lower,
              node_coordinate.upper,
-             *node_attributes[1:],
+             degree,
              expansion_id_counter
              )
-            for node_coordinate, node_attributes in event_coordinates_dictionary.items()
+            for node_coordinate, (mode, degree) in event_coordinates_dictionary.items()
         ]
 
-    def get_events_tuples_from_multigraph(
+    def get_reconciled_graph_and_expansion_events_tuples(
             self,
             reference_coordinates_dictionary: dict,
             gene_id: str,
@@ -396,8 +450,7 @@ class ReconcilerHandler(object):
         # and the number of nodes in the component is the number of duplicated exons
         # i.e., each event is described by a number of duplicated exons
         disconnected_components = list(nx.connected_components(gene_graph))
-        gene_fragments_with_event_ids_list = []
-        gene_events_list = []
+        expansion_events_list = []
         expansion_id_counter = 0
         for component in disconnected_components:
             # First: Assign event id to each component
@@ -406,20 +459,12 @@ class ReconcilerHandler(object):
                 mode_dict=mode_dictionary,
                 gene_graph=gene_graph
             )
-            # Second : Assign cluster ids within events
-            self.assign_cluster_ids_to_event_coordinates(
+            # Second : Reconcile overlapping events in expansions
+            self.reconcile_overlapping_events_in_expansions(
+                gene_graph=gene_graph,
                 event_coordinates_dictionary=event_coordinates_dictionary
             )
-            # Third: map each BLAST hit to an event id
-            component_fragments_with_event_ids_list = self.map_edges_to_records(
-                graph=gene_graph,
-                expansion_id_counter=expansion_id_counter,
-                component=component
-            )
-            gene_fragments_with_event_ids_list.extend(
-                component_fragments_with_event_ids_list
-            )
-            gene_events_list.extend(
+            expansion_events_list.extend(
                 self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary,
@@ -427,7 +472,7 @@ class ReconcilerHandler(object):
                 )
             )
             expansion_id_counter += 1
-        return gene_fragments_with_event_ids_list, gene_events_list
+        return gene_graph, expansion_events_list
 
     @staticmethod
     def get_gene_events_dictionary(
