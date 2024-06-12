@@ -402,6 +402,34 @@ class ClassifierHandler(object):
             )
 
     @staticmethod
+    def classify_transcript_interdependence_counts(
+            records_list: list[tuple]
+    ) -> list:
+        new_records = []
+        for record in records_list:
+            classification = ''
+            (record_id, gene_id, transcript_count,
+             cum_both, cum_query, cum_target, cum_neither) = record
+            if cum_both == transcript_count:
+                classification = 'OBLIGATE'
+            elif cum_query + cum_target == transcript_count:
+                classification = 'EXCLUSIVE'
+            elif cum_neither == 0:
+                if cum_both > 0:
+                    classification = 'FLEXIBLE'
+            elif cum_neither > 0:
+                if cum_both > 0:
+                    if cum_both + cum_neither == transcript_count:
+                        classification = 'OPTIONAL_OBLIGATE'
+                    if cum_both + cum_query + cum_target + cum_neither == transcript_count:
+                        classification = 'OPTIONAL_FLEXIBLE'
+                if cum_both == 0:
+                    if cum_query + cum_target + cum_neither == transcript_count:
+                        classification = 'OPTIONAL_EXCLUSIVE'
+            new_records.append((classification, record_id))
+        return new_records
+
+    @staticmethod
     def get_interval_dictionary(
             transcript_dictionary: dict,
             target_coordinate: P.Interval,
