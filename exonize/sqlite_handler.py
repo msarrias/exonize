@@ -188,7 +188,6 @@ class SqliteHandler(object):
                     start INTEGER NOT NULL,
                     end INTEGER NOT NULL,
                     degree INTEGER NOT NULL,
-                    cluster_id INTEGER,
                     expansion_id INTEGER NOT NULL,
                     FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
                     UNIQUE (
@@ -719,7 +718,6 @@ class SqliteHandler(object):
                 start,
                 end,
                 degree,
-                cluster_id,
                 expansion_id
                 FROM Expansions;"""
             )
@@ -735,10 +733,9 @@ class SqliteHandler(object):
                 start,
                 end,
                 degree,
-                cluster_id,
                 expansion_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
 
@@ -935,7 +932,6 @@ class SqliteHandler(object):
                 e.end,
                 e.mode,
                 e.degree,
-                e.cluster_id,
                 e.expansion_id
             FROM Expansions AS e
             INNER JOIN Genes AS g ON g.gene_id=e.gene_id
@@ -946,9 +942,9 @@ class SqliteHandler(object):
             for record in records:
                 (gene_id, match_id, gene_start,
                  start, end, mode,
-                 degree, cluster_id, expansion_id) = record
+                 degree, expansion_id) = record
                 expansions_gene_dictionary[gene_id][expansion_id].append(
-                    (match_id, gene_start, start, end, cluster_id, mode, degree)
+                    (match_id, gene_start, start, end, mode, degree)
                 )
             return expansions_gene_dictionary
 
@@ -965,7 +961,6 @@ class SqliteHandler(object):
                 e.gene_id,
                 e.start + g.gene_start as cds_start,
                 e.end + g.gene_start as cds_end,
-                e.cluster_id,
                 e.expansion_id
             FROM Expansions AS e
             INNER JOIN Genes AS g ON g.gene_id=e.gene_id
@@ -977,7 +972,7 @@ class SqliteHandler(object):
             records = cursor.fetchall()
             expansion_events_dict = defaultdict(lambda: defaultdict(list))
             for record in records:
-                gene_id, cds_start, cds_end, cluster_id, expansion_id = record
+                gene_id, cds_start, cds_end, expansion_id = record
                 expansion_events_dict[gene_id][expansion_id].append(
                     P.open(cds_start, cds_end)
                 )
