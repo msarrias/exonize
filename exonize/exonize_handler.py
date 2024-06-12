@@ -148,7 +148,6 @@ Min exon length (bps):       {min_exon_length}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
-        self.genes_events_tuples = list()
 
     def generate_unique_events_list(
             self,
@@ -277,7 +276,6 @@ Exonize results database:   {self.results_database_path.name}
     ):
         tblastx_full_matches_list = self.database_interface.query_full_events()
         genes_events_set = set()
-
         # group full matches by gene id
         full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
             tblastx_full_matches_list=tblastx_full_matches_list
@@ -293,24 +291,17 @@ Exonize results database:   {self.results_database_path.name}
                 query_coordinates_set=query_coordinates,
                 reference_coordinates_dictionary=reference_coordinates_dictionary
             )
+            gene_graph, gene_events_set = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+                reference_coordinates_dictionary=reference_coordinates_dictionary,
+                gene_id=gene_id,
+                gene_graph=gene_graph
+            )
+            genes_events_set.update(gene_events_set)
             if self.draw_event_multigraphs:
                 self.event_reconciler.draw_event_multigraph(
                     gene_graph=gene_graph,
                     figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
                 )
-            (gene_fragments_with_event_ids_list,
-             gene_events_set) = self.event_reconciler.get_events_tuples_from_multigraph(
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                gene_id=gene_id,
-                gene_graph=gene_graph
-            )
-            self.genes_events_tuples.extend(gene_fragments_with_event_ids_list)
-            genes_events_set.update(gene_events_set)
-        if len(self.genes_events_tuples) != len(tblastx_full_matches_list):
-            self.environment.logger.exception(
-                f'{len(self.genes_events_tuples)} events found,'
-                f' {len(tblastx_full_matches_list)} expected.'
-            )
         self.database_interface.insert_expansion_table(
             list_tuples=list(genes_events_set)
         )
