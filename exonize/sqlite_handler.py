@@ -843,6 +843,7 @@ class SqliteHandler(object):
                 e.expansion_id
             FROM Expansions AS e
             INNER JOIN Genes AS g ON g.gene_id=e.gene_id
+            WHERE e.mode == "FULL" OR e.mode == "INSERTION_EXCISION"
             ORDER BY e.gene_id, e.expansion_id, e.match_id;
             """
             cursor.execute(fragments_query)
