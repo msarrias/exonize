@@ -7,6 +7,7 @@ from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
 from pathlib import Path
+from Bio.Seq import Seq
 
 
 class ReconcilerHandler(object):
@@ -74,7 +75,8 @@ class ReconcilerHandler(object):
         if cand_reference_list:
             # Since we are considering all CDSs across all transcripts,
             # we might end up with more than one CDS candidate.
-            return max(cand_reference_list, key=lambda x: x[1])[0]
+            candidate_reference, _ = max(cand_reference_list, key=lambda x: x[1])
+            return candidate_reference
         return P.open(0, 0)
 
     def get_overlapping_clusters(
@@ -143,14 +145,14 @@ class ReconcilerHandler(object):
                         'mode': ref_type
                     }
             else:
-                for target_coordinate, _ in coordinates_cluster:
+                for coordinate_tuple in coordinates_cluster:
+                    target_coordinate, _ = coordinate_tuple
                     # Process separately if no shared reference
                     individual_reference = self.get_candidate_cds_reference(
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
-                        overlapping_coordinates_list=[(target_coordinate, _)]
+                        overlapping_coordinates_list=[coordinate_tuple]
                     )
                     ref_type = 'FULL' if individual_reference else None
-
                     if not ref_type:
                         contained_match_in_cds = [
                             cds_coordinate
@@ -329,9 +331,10 @@ class ReconcilerHandler(object):
             event_coordinates_dictionary: dict
     ) -> None:
         # Convert event coordinates to a set of tuples for clustering
-        node_coordinates_set = set((node_coordinate, 0)
-                                   for node_coordinate in event_coordinates_dictionary.keys()
-                                   )
+        node_coordinates_set = set(
+            (node_coordinate, 0)
+            for node_coordinate in event_coordinates_dictionary.keys()
+        )
         # get clusters of overlapping nodes
         node_coordinates_clusters = [
             [node_coordinate for node_coordinate, _ in cluster]
@@ -436,11 +439,17 @@ class ReconcilerHandler(object):
             tblastx_records_set: set,
     ):
         query_coordinates = set()
-        target_coordinates = set()
+        min_e_values = {}
         for record in tblastx_records_set:
             fragment_id, gene_id, cds_start, cds_end, target_start, target_end, evalue = record
+            target_coordinate = P.open(target_start, target_end)
             query_coordinates.add(P.open(cds_start, cds_end))
-            target_coordinates.add((P.open(target_start, target_end), evalue))
+            if target_coordinate not in min_e_values or evalue < min_e_values[target_coordinate]:
+                min_e_values[target_coordinate] = evalue
+        target_coordinates = set([
+            (target_coordinate, min_evalue)
+            for target_coordinate, min_evalue in min_e_values.items()
+        ])
         return query_coordinates, target_coordinates
 
     @staticmethod
@@ -452,6 +461,101 @@ class ReconcilerHandler(object):
                 list(set([P.open(i.lower - gene_start, i.upper - gene_start) for i in cds_coordinates])),
                 key=lambda x: (x.lower, x.upper)
         )
+
+    def get_corrected_frames_and_identity(
+            self,
+            gene_id: str,
+            cds_coordinate: P.Interval,
+            corrected_coordinate: P.Interval,
+            cds_candidates_dictionary: dict
+    ):
+        target_sequence_frames_translations = []
+        gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+        chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
+        strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+        aligned_cds_coord = P.open(cds_coordinate.lower + gene_start, cds_coordinate.upper + gene_start)
+        query_frame = int(cds_candidates_dictionary['cds_frame_dict'][aligned_cds_coord])
+        q_s, q_e = self.adjust_coordinates_to_frame(
+            coordinate=aligned_cds_coord,
+            frame=query_frame
+        )
+        query = Seq(self.data_container.genome_dictionary[chrom][q_s:q_e])
+        if strand == '-':
+            query = query.reverse_complement()
+        for frame in [0, 1, 2]:
+            t_s, t_e = self.adjust_coordinates_to_frame(
+                coordinate=P.open(corrected_coordinate.lower + gene_start, corrected_coordinate.upper + gene_start),
+                frame=frame
+            )
+            target = Seq(self.data_container.genome_dictionary[chrom][t_s:t_e])
+            if strand == '-':
+                target = target.reverse_complement()
+            alignment = self.blast_engine.perform_msa(
+                query=query.translate(),
+                target=target.translate()
+            )
+            prot_identity = self.blast_engine.compute_identity(
+                sequence_i=alignment[0],
+                sequence_j=alignment[1]
+            )
+            target_sequence_frames_translations.append((prot_identity, frame, target))
+        # we want the frame that gives us the highest identity alignment
+        corrected_prot_perc_id, corrected_frame, target = max(target_sequence_frames_translations, key=lambda x: x[0])
+        alignment = self.blast_engine.perform_msa(
+            query=query,
+            target=target
+        )
+        dna_identity = self.blast_engine.compute_identity(
+            sequence_i=alignment[0],
+            sequence_j=alignment[1]
+        )
+        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame
+
+    @staticmethod
+    def adjust_coordinates_to_frame(
+            coordinate: P.Interval,
+            frame: int
+    ):
+        start, end = coordinate.lower, coordinate.upper
+        adjusted_start = start + frame
+        length = end - adjusted_start
+        if length % 3 != 0:
+            adjusted_end = end - (length % 3)
+        else:
+            adjusted_end = end
+        return adjusted_start, adjusted_end
+
+    def get_matches_corrected_coordinates_and_identity(
+            self,
+            gene_id: str,
+            tblastx_records_set: set[tuple],
+            reference_coordinates_dictionary: dict,
+            cds_candidates_dictionary: dict
+    ) -> list[tuple]:
+        corrected_coordinates_list = []
+        for record in tblastx_records_set:
+            fragment_id, _, cds_start, cds_end, target_start, target_end, _ = record
+            target_coordinate = P.open(target_start, target_end)
+            corrected_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
+            if target_coordinate != corrected_coordinate:
+                (corrected_dna_ident,
+                 corrected_prot_ident,
+                 corrected_target_frame,
+                 corrected_query_frame) = self.get_corrected_frames_and_identity(
+                    gene_id=gene_id,
+                    cds_coordinate=P.open(cds_start, cds_end),
+                    corrected_coordinate=corrected_coordinate,
+                    cds_candidates_dictionary=cds_candidates_dictionary
+                )
+                corrected_coordinates_list.append((
+                    corrected_coordinate.lower,
+                    corrected_coordinate.upper,
+                    corrected_dna_ident,
+                    corrected_prot_ident,
+                    corrected_target_frame,
+                    corrected_query_frame,
+                    fragment_id))
+        return corrected_coordinates_list
 
     def align_target_coordinates(
             self,
