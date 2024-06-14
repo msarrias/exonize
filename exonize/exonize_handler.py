@@ -260,23 +260,25 @@ Exonize results database:   {self.results_database_path.name}
                 gc.unfreeze()
                 pr.disable()
                 get_run_performance_profile(self.PROFILE_PATH, pr)
-
+                # compute matches identity
+            matches_list = self.database_interface.query_fragments()
+            identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
+                matches_list=matches_list
+            )
+            self.database_interface.insert_identity_and_dna_algns_columns(
+                list_tuples=identity_and_sequence_tuples
+            )
+            self.database_interface.insert_percent_query_column_to_fragments()
         else:
             self.environment.logger.info(
                 'All genes have been processed. If you want to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
-        self.database_interface.insert_percent_query_column_to_fragments()
+            self.database_interface.clear_results_database()
+            self.database_interface.connect_create_results_database()
+            self.database_interface.create_matches_interdependence_expansions_counts_table()
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_overlapping_threshold
-        )
-        # compute matches identity
-        matches_list = self.database_interface.query_fragments()
-        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
-            matches_list=matches_list
-        )
-        self.database_interface.insert_identity_and_dna_algns_columns(
-            list_tuples=identity_and_sequence_tuples
         )
 
     def classify_expansion_events_interdependence(
@@ -343,10 +345,22 @@ Exonize results database:   {self.results_database_path.name}
             tblastx_full_matches_list=tblastx_full_matches_list
         )
         for gene_id, tblastx_records_set in full_matches_dictionary.items():
+            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+                gene_id=gene_id
+            )
             (query_coordinates,
              reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
                 gene_id=gene_id,
                 tblastx_records_set=tblastx_records_set
+            )
+            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                gene_id=gene_id,
+                tblastx_records_set=tblastx_records_set,
+                reference_coordinates_dictionary=reference_coordinates_dictionary,
+                cds_candidates_dictionary=cds_candidates_dictionary
+            )
+            self.database_interface.insert_corrected_target_start_end(
+                list_tuples=corrected_coordinates_tuples
             )
             gene_graph = self.event_reconciler.create_events_multigraph(
                 tblastx_records_set=tblastx_records_set,
@@ -465,7 +479,7 @@ Exonize results database:   {self.results_database_path.name}
         self.environment.logger.info('Reconciling matches')
         self.reconciliation()
         self.environment.logger.info('Classifying events')
-        self.events_classification()
+        # self.events_classification()
         self.runtime_logger()
         self.environment.logger.info('Process completed successfully')
         self.data_container.clear_working_directory()
