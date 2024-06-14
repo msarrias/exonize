@@ -320,7 +320,6 @@ Exonize results database:   {self.results_database_path.name}
                         )
         return self.event_classifier.tuples_match_transcript_interdependence
 
-
     def update_mode_cumulative_counts_table(
             self,
     ):
@@ -385,6 +384,7 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.insert_matches_interdependence_expansions_counts(
             tuples_list=expansion_interdependence_tuples
         )
+        self.database_interface.create_matches_interdependence_counts_table()
         self.update_mode_cumulative_counts_table()
         records = self.database_interface.query_interdependence_counts_matches()
         records_to_insert = self.event_classifier.classify_transcript_interdependence_counts(
