@@ -62,6 +62,26 @@ class SqliteHandler(object):
             )
             return cursor.fetchone()[0] == 0
 
+    def clear_results_database(
+            self
+    ) -> None:
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT
+                name,
+                type
+            FROM sqlite_master
+            WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%';
+            """)
+            items = cursor.fetchall()
+            # Drop each table and view except 'Genes'
+            for name, type_ in items:
+                if name not in ['Genes', 'Matches']:
+                    cursor.execute(f"DROP {type_} IF EXISTS {name};")
+
     def connect_create_results_database(
         self,
     ) -> None:
@@ -130,7 +150,7 @@ class SqliteHandler(object):
                     neither BINARY(1) NOT NULL,
                     query BINARY(1) NOT NULL,
                     target BINARY(1) NOT NULL,
-                    both BINARY(1) NOT NULL,     
+                    both BINARY(1) NOT NULL,
                     FOREIGN KEY (match_id) REFERENCES Expansions(match_id),
                     FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
                     PRIMARY KEY (
@@ -256,7 +276,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute(
                 f"""
-                CREATE VIEW IF NOT EXISTS Matches_full_length AS
+                CREATE TABLE IF NOT EXISTS Matches_full_length AS
                 WITH
                 -- Identify candidate fragments that satisfy our coverage and in-frame criteria.
                 in_frame_candidate_fragments AS (
@@ -277,8 +297,10 @@ class SqliteHandler(object):
                         f.query_end,
                         f.target_start,
                         f.target_end,
-                        f.target_aln_prot_seq,
-                        f.evalue
+                        f.evalue,
+                        f.dna_identity,
+                        f.prot_identity,
+                        f.target_aln_prot_seq
                     FROM Matches AS f
                     JOIN Genes g ON g.gene_id = f.gene_id
                     WHERE f.percent_query >= {query_overlap_threshold}
@@ -358,8 +380,8 @@ class SqliteHandler(object):
                     *
                 FROM filtered_overlapping_fragments
                 ORDER BY
-                    fragment_id,
                     gene_id,
+                    fragment_id,
                     cds_start,
                     cds_end,
                     query_start,
@@ -369,45 +391,47 @@ class SqliteHandler(object):
                 ;
             """
             )
+        cursor.execute("""CREATE INDEX IF NOT EXISTS Matches_full_length_idx ON Matches_full_length (fragment_id);""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_target_start INT;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_target_end INT;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_dna_identity REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_prot_identity REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_target_frame REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN corrected_query_frame REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length DROP COLUMN target_aln_prot_seq;""")
+
+    def insert_corrected_target_start_end(
+            self,
+            list_tuples: list
+    ) -> None:
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.executemany(
+                """
+                UPDATE Matches_full_length
+                SET corrected_target_start=?,
+                corrected_target_end=?,
+                corrected_dna_identity=?,
+                corrected_prot_identity=?,
+                corrected_target_frame=?,
+                corrected_query_frame=?
+                WHERE fragment_id=?
+                """,
+                list_tuples,
+            )
 
     def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            if self.check_if_column_in_table_exists(
-                table_name="Matches",
-                column_name="dna_perc_identity",
-            ):
-                cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN dna_perc_identity;"""
-                )
-            if self.check_if_column_in_table_exists(
-                table_name="Matches",
-                column_name="prot_perc_identity",
-            ):
-                cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN prot_perc_identity;"""
-                )
-            if self.check_if_column_in_table_exists(
-                table_name="Matches",
-                column_name="query_dna_seq",
-            ):
-                cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN query_dna_seq;"""
-                )
-            if self.check_if_column_in_table_exists(
-                table_name="Matches",
-                column_name="target_dna_seq",
-            ):
-                cursor.execute(
-                    """ ALTER TABLE Matches DROP COLUMN target_dna_seq;"""
-                )
             cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN dna_perc_identity REAL;"""
+                """ ALTER TABLE Matches ADD COLUMN dna_identity REAL;"""
             )
             cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN prot_perc_identity REAL;"""
+                """ ALTER TABLE Matches ADD COLUMN prot_identity REAL;"""
             )
             cursor.execute(
                 """ ALTER TABLE Matches ADD COLUMN query_dna_seq VARCHAR;"""
@@ -419,8 +443,8 @@ class SqliteHandler(object):
                 """
             UPDATE Matches
             SET
-                dna_perc_identity=?,
-                prot_perc_identity=?,
+                dna_identity=?,
+                prot_identity=?,
                 query_dna_seq=?,
                 target_dna_seq=?
             WHERE fragment_id=?
@@ -450,12 +474,6 @@ class SqliteHandler(object):
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            if self.check_if_column_in_table_exists(
-                table_name="Matches_interdependence_counts", column_name="mode"
-            ):
-                cursor.execute(
-                    """ ALTER TABLE Matches_interdependence_counts DROP COLUMN mode;"""
-                )
             cursor.execute(
                 """ ALTER TABLE Matches_interdependence_counts ADD COLUMN mode VARCHAR(100);"""
             )
@@ -483,73 +501,41 @@ class SqliteHandler(object):
                 list_tuples,
             )
 
-    def insert_event_id_column_to_matches_interdependence_counts(
-        self, list_tuples: list
-    ) -> None:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            if self.check_if_column_in_table_exists(
-                table_name="Matches_interdependence_counts", column_name="expansion_id"
-            ):
-                cursor.execute(
-                    """ALTER TABLE Matches_interdependence_counts DROP COLUMN expansion_id;"""
-                )
-            cursor.execute(
-                """ALTER TABLE Matches_interdependence_counts ADD COLUMN expansion_id INTEGER;"""
-            )
-            cursor.executemany(
-                """
-                UPDATE Matches_interdependence_counts
-                SET expansion_id=?
-                WHERE match_id=?
-                """,
-                list_tuples,
-            )
-
     def insert_percent_query_column_to_fragments(self) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
-            cursor = db.cursor()
-            if self.check_if_column_in_table_exists(
-                table_name="Matches",
-                column_name="percent_query",
+            if not self.check_if_column_in_table_exists(
+                table_name="Matches", column_name="percent_query"
             ):
+                cursor = db.cursor()
                 cursor.execute(
-                    """DROP VIEW IF EXISTS Matches_full_length;"""
+                    """
+                    ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
+                    """
                 )
                 cursor.execute(
-                    """ALTER TABLE Matches DROP COLUMN percent_query;"""
+                    """
+                    UPDATE Matches
+                    SET percent_query =
+                     ROUND(
+                        CAST(int.intersect_end - int.intersect_start AS REAL) /
+                        CAST(int.cds_end - int.cds_start AS REAL), 3
+                    )
+                    FROM (
+                        SELECT
+                            fragment_id,
+                            MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
+                            MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
+                            f.cds_end,
+                            f.cds_start
+                        FROM Matches AS f
+                        WHERE f.cds_end >= (f.query_start + f.cds_start)
+                        AND f.cds_start <= (f.query_end + f.cds_start)
+                    ) AS int
+                    WHERE Matches.fragment_id = int.fragment_id;
+                """
                 )
-            cursor.execute(
-                """
-                ALTER TABLE Matches ADD COLUMN percent_query DECIMAL(10, 3);
-                """
-            )
-            cursor.execute(
-                """
-                UPDATE Matches
-                SET percent_query =
-                 ROUND(
-                    CAST(int.intersect_end - int.intersect_start AS REAL) /
-                    CAST(int.cds_end - int.cds_start AS REAL), 3
-                )
-                FROM (
-                    SELECT
-                        fragment_id,
-                        MAX(f.cds_start, (f.query_start + f.cds_start)) AS intersect_start,
-                        MIN(f.cds_end, (f.query_end + f.cds_start)) AS intersect_end,
-                        f.cds_end,
-                        f.cds_start
-                    FROM Matches AS f
-                    WHERE f.cds_end >= (f.query_start + f.cds_start)
-                    AND f.cds_start <= (f.query_end + f.cds_start)
-                ) AS int
-                WHERE Matches.fragment_id = int.fragment_id;
-            """
-            )
 
     def insert_gene_ids_table(self, gene_args_tuple: tuple) -> None:
         with sqlite3.connect(
