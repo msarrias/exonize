@@ -599,8 +599,7 @@ class BLASTsearcher(object):
 
     def get_gene_tuple(
             self,
-            gene_id: str,
-            has_duplication_binary: int = 0
+            gene_id: str
     ) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id,
@@ -615,8 +614,7 @@ class BLASTsearcher(object):
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
             len(self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']),
             gene_coordinate.lower,
-            gene_coordinate.upper,
-            has_duplication_binary
+            gene_coordinate.upper
         )
 
     def find_coding_exon_duplicates(
