@@ -82,6 +82,7 @@ class SqliteHandler(object):
                 );
                 """
             )
+            cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (gene_id);""")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS Matches (
