@@ -270,6 +270,14 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_overlapping_threshold
         )
+        # compute matches identity
+        matches_list = self.database_interface.query_fragments()
+        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
+            matches_list=matches_list
+        )
+        self.database_interface.insert_identity_and_dna_algns_columns(
+            list_tuples=identity_and_sequence_tuples
+        )
 
     def classify_expansion_events_interdependence(
             self,
@@ -290,7 +298,7 @@ Exonize results database:   {self.results_database_path.name}
 
     def classify_matches_transcript_interdependence(
             self
-    ):
+    ) -> list[tuple]:
         # Classify matches based on the mode and interdependence
         expansions_gene_dictionary = self.database_interface.query_expansion_events()
         self.event_classifier.initialize_list_of_tuples()
@@ -310,10 +318,8 @@ Exonize results database:   {self.results_database_path.name}
                         self.event_classifier.classify_match_interdependence(
                             row_tuple=record
                         )
-            # TRANSCRIPT INTERDEPENDENCE
-        self.database_interface.insert_matches_interdependence_classification(
-            tuples_list=self.event_classifier.tuples_match_transcript_interdependence
-        )
+        return self.event_classifier.tuples_match_transcript_interdependence
+
 
     def update_mode_cumulative_counts_table(
             self,
@@ -370,10 +376,9 @@ Exonize results database:   {self.results_database_path.name}
     def events_classification(
             self
     ):
-        self.classify_matches_transcript_interdependence()
-        identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples()
-        self.database_interface.insert_identity_and_dna_algns_columns(
-            list_tuples=identity_and_sequence_tuples
+        transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence()
+        self.database_interface.insert_matches_interdependence_classification(
+            tuples_list=transcripts_iterdependence_tuples
         )
         # CLASSIFY MATCHES TRANSCRIPT INTERDEPENDENCE
         expansion_interdependence_tuples = self.classify_expansion_events_interdependence()
