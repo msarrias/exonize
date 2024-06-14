@@ -319,13 +319,14 @@ Exonize results database:   {self.results_database_path.name}
             self,
     ):
         query_concat_categ_pair_list = self.database_interface.query_concat_categ_pairs()
-        reduced_event_types_tuples = self.generate_unique_events_list(
-            events_list=query_concat_categ_pair_list,
-            event_type_idx=-1
-        )
-        self.database_interface.insert_event_categ_matches_interdependence_counts(
-            list_tuples=reduced_event_types_tuples
-        )
+        if query_concat_categ_pair_list:
+            reduced_event_types_tuples = self.generate_unique_events_list(
+                events_list=query_concat_categ_pair_list,
+                event_type_idx=-1
+            )
+            self.database_interface.insert_event_categ_matches_interdependence_counts(
+                list_tuples=reduced_event_types_tuples
+            )
 
     def reconciliation(
             self,
