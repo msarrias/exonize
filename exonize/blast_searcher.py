@@ -810,6 +810,7 @@ class BLASTsearcher(object):
 
     def get_identity_and_dna_seq_tuples(
             self,
+            matches_list: list
     ) -> list[tuple]:
         """
         Retrieves DNA sequences from tblastx query and target,
@@ -818,4 +819,4 @@ class BLASTsearcher(object):
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
         return [self.process_fragment(fragment=fragment)
-                for fragment in self.database_interface.query_fragments()]
+                for fragment in matches_list]
