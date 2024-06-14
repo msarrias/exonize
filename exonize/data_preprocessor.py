@@ -560,7 +560,6 @@ class DataPreprocessor(object):
             )
             os.remove(self.genome_database_path)
         self.database_interface.connect_create_results_database()
-        self.database_interface.create_matches_interdependence_counts_table()
         self.database_interface.create_matches_interdependence_expansions_counts_table()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
