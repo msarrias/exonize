@@ -725,16 +725,21 @@ class SqliteHandler(object):
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
-            cursor = db.cursor()
-            cursor.execute(
+            if self.check_if_column_in_table_exists(
+                table_name="Matches_interdependence_counts", column_name="concat_mode"
+            ):
+                cursor = db.cursor()
+                cursor.execute(
+                    """
+                SELECT
+                    match_id,
+                    concat_mode
+                FROM Matches_interdependence_counts;
                 """
-            SELECT
-                match_id,
-                concat_mode
-            FROM Matches_interdependence_counts;
-            """
-            )
-            return cursor.fetchall()
+                )
+                records = cursor.fetchall()
+                cursor.execute("""ALTER TABLE Matches_interdependence_counts DROP COLUMN concat_mode;""")
+                return records
 
     def query_interdependence_counts_matches(
             self
