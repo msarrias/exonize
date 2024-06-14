@@ -7,13 +7,15 @@ import random
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 import time
 import portion as P
 from typing import Union
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
+from Bio.Align.Applications import MuscleCommandline
 
 
 class BLASTsearcher(object):
@@ -39,7 +41,7 @@ class BLASTsearcher(object):
 
     @staticmethod
     def dump_fasta_file(
-            out_file_path: str,
+            out_file_path: Path,
             seq_dictionary: dict,
     ) -> None:
         """
@@ -200,9 +202,9 @@ class BLASTsearcher(object):
 
     def execute_tblastx(
             self,
-            query_file_path: str,
-            target_file_path: str,
-            output_file_path: str,
+            query_file_path: Path,
+            target_file_path: Path,
+            output_file_path: Path,
             strand: str,
     ):
         """
@@ -311,20 +313,11 @@ class BLASTsearcher(object):
         - output: output/{ident}_output.xml where ident is
          the identifier of the query sequence (CDS).
         """
-        output_file_path = os.path.join(
-            self.data_container.working_directory,
-            f'output/{identifier}_output.xml'
-        )
+        output_file_path = self.data_container.working_directory / f'{identifier}_output.xml'
         if not os.path.exists(output_file_path):
-            query_file_path = os.path.join(
-                self.data_container.working_directory,
-                f'input/{identifier}_query.fa'
-            )
-            target_file_path = os.path.join(
-                self.data_container.working_directory,
-                f'input/{gene_id}_target.fa'
-            )
-            if not os.path.exists(target_file_path):
+            query_file_path = self.data_container.working_directory / f'input/{identifier}_query.fa'
+            target_file_path = self.data_container.working_directory / f'input/{gene_id}_target.fa'
+            if not target_file_path.exists():
                 self.dump_fasta_file(
                     out_file_path=target_file_path,
                     seq_dictionary={f"{gene_id}": hit_sequence}
@@ -367,8 +360,8 @@ class BLASTsearcher(object):
         a tblastx search using temporary files.
         """
         with tempfile.TemporaryDirectory(dir=self.data_container.working_directory) as temporary_directory:
-            query_file_path = f'{temporary_directory}/query.fa'
-            target_file_path = f'{temporary_directory}/target.fa'
+            query_file_path = Path(temporary_directory, 'query.fa')
+            target_file_path = Path(temporary_directory, 'target.fa')
             self.dump_fasta_file(
                 out_file_path=query_file_path,
                 seq_dictionary={'query': query_sequence}
@@ -377,7 +370,7 @@ class BLASTsearcher(object):
                 out_file_path=target_file_path,
                 seq_dictionary={'target': hit_sequence}
             )
-            output_file_path = f'{temporary_directory}/output.xml'
+            output_file_path = Path(temporary_directory, 'output.xml')
             self.execute_tblastx(
                 query_file_path=query_file_path,
                 target_file_path=target_file_path,
@@ -807,6 +800,31 @@ class BLASTsearcher(object):
             target_dna_seq,
             fragment_id
         )
+
+    def perform_msa(
+            self,
+            query: str,
+            target: str
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_file = Path(temp_dir, 'input.fasta')
+            output_file = Path(temp_dir, 'align.fasta')
+            self.dump_fasta_file(
+                out_file_path=input_file,
+                seq_dictionary={'query': query, 'target': target}
+            )
+            muscle_cline = MuscleCommandline(
+                input=input_file,
+                out=output_file
+            )
+            # Run the MUSCLE command line
+            _, _ = muscle_cline()
+            # Read the alignment result from the output file
+            alignment = AlignIO.read(output_file, "fasta")
+            if alignment:
+                return [str(i.seq) for i in alignment]
+            else:
+                return []
 
     def get_identity_and_dna_seq_tuples(
             self,
