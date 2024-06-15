@@ -72,6 +72,8 @@ class Exonize(object):
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
         self.tic = datetime.now()
+        self.full_matches_dictionary = {}
+
         if not self.output_prefix:
             self.output_prefix = gff_file_path.stem
 
@@ -169,11 +171,84 @@ Exonize results database:   {self.results_database_path.name}
         return new_events_list
 
     @staticmethod
-    def generate_combinations(strings: list[str]) -> list[str]:
+    def generate_combinations(
+            strings: list[str]
+    ) -> list[str]:
         result = set()
         for perm in permutations(strings):
             result.add('-'.join(perm))
         return list(result)
+
+    def paralellize_search(
+            self,
+            tuples_to_process: list[tuple],
+            process_function: callable
+    ):
+        for balanced_batch in self.even_batches(
+                data=tuples_to_process,
+                number_of_batches=self.FORKS_NUMBER,
+        ):
+            # This part effectively forks a child process, independent of the parent process, and that
+            # will be responsible for processing the genes in the batch, parallel to the other children forked
+            # in the same way during the rest of the loop.
+            # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
+            # of the child process in the parent process. So the parent process always goes to the part
+            # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
+            # to false (0 is evaluated to False).
+            # The parallel part happens because the main parent process will keep along the for loop, and will
+            # fork more children, until the number of children reaches the maximum number of children allowed,
+            # doing nothing else but forking until 'FORKS_NUMBER' is reached.
+            # # Benchmark without any parallel computation:
+            # pr = cProfile.Profile()
+            # pr.enable()
+            # for gene_id in unprocessed_gene_ids_list:
+            #     self.blast_engine.find_coding_exon_duplicates(gene_id)
+            # pr.disable()
+            # get_run_performance_profile(self.PROFILE_PATH, pr)
+            # Benchmark with parallel computation using os.fork:
+            pr = cProfile.Profile()
+            pr.enable()
+            gc.collect()
+            gc.freeze()
+            # transactions_pks: set[int]
+            status: int
+            code: int
+            forks: int = 0
+            if os.fork():
+                forks += 1
+                if forks >= self.FORKS_NUMBER:
+                    _, status = os.wait()
+                    code = os.waitstatus_to_exitcode(status)
+                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                    assert code != os.EX_SOFTWARE
+                    forks -= 1
+            else:
+                status = os.EX_OK
+                try:
+                    for item in balanced_batch:
+                        process_function(item)
+                except Exception as exception:
+                    self.environment.logger.exception(
+                        str(exception)
+                    )
+                    status = os.EX_SOFTWARE
+                finally:
+                    # This prevents the child process forked above to keep along the for loop upon completion
+                    # of the try/except block. If this was not present, it would resume were it left off, and
+                    # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                    # We do not want that, so we gracefully exit the process when it is done.
+                    os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+            # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
+                gc.unfreeze()
+                pr.disable()
+                get_run_performance_profile(self.PROFILE_PATH, pr)
+                # compute matches identity
 
     def search(
             self
@@ -192,75 +267,14 @@ Exonize results database:   {self.results_database_path.name}
                 f'{out_message} for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
             )
-            # # Benchmark without any parallel computation:
-            # pr = cProfile.Profile()
-            # pr.enable()
-            # for gene_id in unprocessed_gene_ids_list:
-            #     self.blast_engine.find_coding_exon_duplicates(gene_id)
-            # pr.disable()
-            # get_run_performance_profile(self.PROFILE_PATH, pr)
 
-            # Benchmark with parallel computation using os.fork:
-            pr = cProfile.Profile()
-            pr.enable()
-            gc.collect()
-            gc.freeze()
-            # transactions_pks: set[int]
-            status: int
-            code: int
-            forks: int = 0
             self.environment.logger.info(
                 'Exonizing: this may take a while ...'
             )
-            for balanced_genes_batch in self.even_batches(
-                data=unprocessed_gene_ids_list,
-                number_of_batches=self.FORKS_NUMBER,
-            ):
-                # This part effectively forks a child process, independent of the parent process, and that
-                # will be responsible for processing the genes in the batch, parallel to the other children forked
-                # in the same way during the rest of the loop.
-                # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
-                # of the child process in the parent process. So the parent process always goes to the part
-                # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
-                # to false (0 is evaluated to False).
-                # The parallel part happens because the main parent process will keep along the for loop, and will
-                # fork more children, until the number of children reaches the maximum number of children allowed,
-                # doing nothing else but forking until 'FORKS_NUMBER' is reached.
-                if os.fork():
-                    forks += 1
-                    if forks >= self.FORKS_NUMBER:
-                        _, status = os.wait()
-                        code = os.waitstatus_to_exitcode(status)
-                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-                        assert code != os.EX_SOFTWARE
-                        forks -= 1
-                else:
-                    status = os.EX_OK
-                    try:
-                        for gene_id in balanced_genes_batch:
-                            self.blast_engine.find_coding_exon_duplicates(gene_id)
-                    except Exception as exception:
-                        self.environment.logger.exception(
-                            str(exception)
-                        )
-                        status = os.EX_SOFTWARE
-                    finally:
-                        # This prevents the child process forked above to keep along the for loop upon completion
-                        # of the try/except block. If this was not present, it would resume were it left off, and
-                        # fork in turn its own children, duplicating the work done, and creating a huge mess.
-                        # We do not want that, so we gracefully exit the process when it is done.
-                        os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-            # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
-            while forks > 0:
-                _, status = os.wait()
-                code = os.waitstatus_to_exitcode(status)
-                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-                assert code != os.EX_SOFTWARE
-                forks -= 1
-                gc.unfreeze()
-                pr.disable()
-                get_run_performance_profile(self.PROFILE_PATH, pr)
-                # compute matches identity
+            self.paralellize_search(
+                tuples_to_process=unprocessed_gene_ids_list,
+                process_function=self.blast_engine.find_coding_exon_duplicates
+            )
             matches_list = self.database_interface.query_fragments()
             identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
                 matches_list=matches_list
@@ -335,51 +349,61 @@ Exonize results database:   {self.results_database_path.name}
                 list_tuples=reduced_event_types_tuples
             )
 
+    def temp_reconciliation(
+            self,
+            gene_id: str,
+    ):
+        genes_events_set = set()
+        tblastx_records_set = self.full_matches_dictionary[gene_id]
+        cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+            gene_id=gene_id
+        )
+        (query_coordinates,
+         reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
+            gene_id=gene_id,
+            tblastx_records_set=tblastx_records_set
+        )
+        corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+            gene_id=gene_id,
+            tblastx_records_set=tblastx_records_set,
+            reference_coordinates_dictionary=reference_coordinates_dictionary,
+            cds_candidates_dictionary=cds_candidates_dictionary
+        )
+        self.database_interface.insert_corrected_target_start_end(
+            list_tuples=corrected_coordinates_tuples
+        )
+        gene_graph = self.event_reconciler.create_events_multigraph(
+            tblastx_records_set=tblastx_records_set,
+            query_coordinates_set=query_coordinates,
+            reference_coordinates_dictionary=reference_coordinates_dictionary
+        )
+        gene_graph, gene_events_set = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+            reference_coordinates_dictionary=reference_coordinates_dictionary,
+            gene_id=gene_id,
+            gene_graph=gene_graph
+        )
+        genes_events_set.update(gene_events_set)
+        # if self.draw_event_multigraphs:
+        #     self.event_reconciler.draw_event_multigraph(
+        #         gene_graph=gene_graph,
+        #         figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
+        #     )
+        self.database_interface.insert_expansion_table(
+            list_tuples=list(genes_events_set)
+        )
+
     def reconciliation(
             self,
     ):
         tblastx_full_matches_list = self.database_interface.query_full_events()
-        genes_events_set = set()
         # group full matches by gene id
-        full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
+        self.full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
             tblastx_full_matches_list=tblastx_full_matches_list
         )
-        for gene_id, tblastx_records_set in full_matches_dictionary.items():
-            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
-                gene_id=gene_id
-            )
-            (query_coordinates,
-             reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set
-            )
-            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set,
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                cds_candidates_dictionary=cds_candidates_dictionary
-            )
-            self.database_interface.insert_corrected_target_start_end(
-                list_tuples=corrected_coordinates_tuples
-            )
-            gene_graph = self.event_reconciler.create_events_multigraph(
-                tblastx_records_set=tblastx_records_set,
-                query_coordinates_set=query_coordinates,
-                reference_coordinates_dictionary=reference_coordinates_dictionary
-            )
-            gene_graph, gene_events_set = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                gene_id=gene_id,
-                gene_graph=gene_graph
-            )
-            genes_events_set.update(gene_events_set)
-            if self.draw_event_multigraphs:
-                self.event_reconciler.draw_event_multigraph(
-                    gene_graph=gene_graph,
-                    figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
-                )
-        self.database_interface.insert_expansion_table(
-            list_tuples=list(genes_events_set)
+        genes_to_process = list(self.full_matches_dictionary.keys())
+        self.paralellize_search(
+            tuples_to_process=genes_to_process,
+            process_function=self.temp_reconciliation
         )
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
         self.database_interface.update_has_duplicate_genes_table(
