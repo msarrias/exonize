@@ -177,7 +177,7 @@ class ClassifierHandler(object):
             self.__annot_target_start = target_cds_coordinate.lower
             self.__annot_target_end = target_cds_coordinate.upper
 
-    def indentify_insertion_target(
+    def identify_insertion_target(
             self,
             transcript_dictionary: dict,
             target_coordinate: P.Interval
@@ -211,7 +211,7 @@ class ClassifierHandler(object):
             else:  # assuming the only other type is 'intron'
                 self.__target_type = "DEACTIVATED"
 
-    def indentify_truncation_target(
+    def identify_truncation_target(
             self,
             transcript_dictionary: dict[str],
             row_tuple: tuple
@@ -351,19 +351,19 @@ class ClassifierHandler(object):
             ):
                 continue
             # ####### TARGET ONLY - FULL LENGTH #######
-            self.indetify_full_target(
+            self.identify_full_target(
                 transcript_dictionary=transcript_dictionary,
                 target_coordinate=target_coordinate
             )
             if self.__target_full == 0:
                 # ####### INSERTION #######
-                self.indentify_insertion_target(
+                self.identify_insertion_target(
                     transcript_dictionary=transcript_dictionary,
                     target_coordinate=target_coordinate
                 )
                 if not self.__found:
                     # ####### TRUNCATION #######
-                    self.indentify_truncation_target(
+                    self.identify_truncation_target(
                         transcript_dictionary=transcript_dictionary,
                         row_tuple=row_tuple
                     )
