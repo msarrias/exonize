@@ -92,72 +92,72 @@ class SqliteHandler(object):
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS Genes (
-                    gene_id VARCHAR(100) PRIMARY KEY,
-                    gene_chrom VARCHAR(100) NOT NULL,
-                    gene_strand VARCHAR(1) NOT NULL,
-                    transcript_count INTEGER NOT NULL,
-                    gene_start INTEGER NOT NULL,
-                    gene_end INTEGER NOT NULL,
-                    has_duplicated_cds BINARY(1) DEFAULT 0
+                    GeneID VARCHAR(100) PRIMARY KEY,
+                    GeneChrom VARCHAR(100) NOT NULL,
+                    GeneStrand VARCHAR(1) NOT NULL,
+                    TranscriptCount INTEGER NOT NULL,
+                    GeneStart INTEGER NOT NULL,
+                    GeneEnd INTEGER NOT NULL,
+                    Duplication BINARY(1) DEFAULT 0
                 );
                 """
             )
-            cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (gene_id);""")
+            cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS Matches (
-                    fragment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    gene_id  VARCHAR(100) NOT NULL,
-                    cds_start INTEGER NOT NULL,
-                    cds_end INTEGER NOT NULL,
-                    cds_frame VARCHAR NOT NULL,
-                    query_frame INTEGER NOT NULL,
-                    query_strand VARCHAR(1) NOT NULL,
-                    target_frame INTEGER NOT NULL,
-                    target_strand VARCHAR(1) NOT NULL,
-                    score INTEGER NOT NULL,
-                    bits INTEGER NOT NULL,
-                    evalue REAL NOT NULL,
-                    alignment_len INTEGER NOT NULL,
-                    query_start INTEGER NOT NULL,
-                    query_end INTEGER NOT NULL,
-                    target_start INTEGER NOT NULL,
-                    target_end INTEGER NOT NULL,
-                    query_aln_prot_seq VARCHAR NOT NULL,
-                    target_aln_prot_seq VARCHAR NOT NULL,
-                    match VARCHAR NOT NULL,
-                    query_num_stop_codons INTEGER NOT NULL,
-                    target_num_stop_codons INTEGER NOT NULL,
-                    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id)
+                    FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    GeneID  VARCHAR(100) NOT NULL,
+                    QueryExonStart INTEGER NOT NULL,
+                    QueryExonEnd INTEGER NOT NULL,
+                    QueryExonFrame VARCHAR NOT NULL,
+                    QueryFrame INTEGER NOT NULL,
+                    QueryStrand VARCHAR(1) NOT NULL,
+                    TargetFrame INTEGER NOT NULL,
+                    TargetStrand VARCHAR(1) NOT NULL,
+                    Score INTEGER NOT NULL,
+                    Bits INTEGER NOT NULL,
+                    Evalue REAL NOT NULL,
+                    AlignmentLength INTEGER NOT NULL,
+                    QueryStart INTEGER NOT NULL,
+                    QueryEnd INTEGER NOT NULL,
+                    TargetStart INTEGER NOT NULL,
+                    TargetEnd INTEGER NOT NULL,
+                    QueryAlnProtSeq VARCHAR NOT NULL,
+                    TargetAlnProtSeq VARCHAR NOT NULL,
+                    Match VARCHAR NOT NULL,
+                    QueryCountStopCodons INTEGER NOT NULL,
+                    TargetCountStopCodons INTEGER NOT NULL,
+                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
                 );
             """
             )
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS Matches_interdependence_classification (
-                    match_id INTEGER NOT NULL,
-                    gene_id VARCHAR(100) NOT NULL,
-                    transcript_id VARCHAR(100) NOT NULL,
-                    cds_start INTEGER NOT NULL,
-                    cds_end INTEGER NOT NULL,
-                    query_id VARCHAR(100) NOT NULL,
-                    mode VARCHAR(100) NOT NULL,
-                    target_id VARCHAR(100), /* TRUNCTATION envents will take NULL value */
-                    annot_target_start INTEGER,
-                    annot_target_end INTEGER,
-                    target_start INTEGER NOT NULL,
-                    target_end INTEGER NOT NULL,
-                    neither BINARY(1) NOT NULL,
-                    query BINARY(1) NOT NULL,
-                    target BINARY(1) NOT NULL,
-                    both BINARY(1) NOT NULL,
-                    FOREIGN KEY (match_id) REFERENCES Expansions(match_id),
-                    FOREIGN KEY (gene_id) REFERENCES Genes(gene_id),
+                    MatchID INTEGER NOT NULL,
+                    GeneID VARCHAR(100) NOT NULL,
+                    TranscriptID VARCHAR(100) NOT NULL,
+                    QueryExonStart INTEGER NOT NULL,
+                    QueryExonEnd INTEGER NOT NULL,
+                    QueryExonID VARCHAR(100) NOT NULL,
+                    Mode VARCHAR(100) NOT NULL,
+                    TargetID VARCHAR(100), /* TRUNCTATION envents will take NULL value */
+                    TargetIDStart INTEGER,
+                    TargetIDEnd INTEGER,
+                    TargetStart INTEGER NOT NULL,
+                    TargetEnd INTEGER NOT NULL,
+                    Neither BINARY(1) NOT NULL,
+                    Query BINARY(1) NOT NULL,
+                    Target BINARY(1) NOT NULL,
+                    Both BINARY(1) NOT NULL,
+                    FOREIGN KEY (MatchID) REFERENCES Expansions(MatchID),
+                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                     PRIMARY KEY (
-                        match_id,
-                        transcript_id,
-                        cds_start,
-                        cds_end
+                        MatchID,
+                        TranscriptID,
+                        QueryExonStart,
+                        QueryExonEnd
                         )
                 );
                 """
