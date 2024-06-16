@@ -18,7 +18,7 @@ classifier_handler = ClassifierHandler(
 )
 
 
-def test_recover_query_cds():
+def test_recover_cds():
     transcript_dictionary = {
         "structure": [
             {"id": "CDS1", "coordinate": P.open(74, 123), "frame": "0", "type": "CDS"},
@@ -28,7 +28,7 @@ def test_recover_query_cds():
         ]
     }
     cds_coordinate = P.open(76, 123)
-    cds_annot = classifier_handler.recover_query_cds(
+    cds_annot = classifier_handler.recover_cds(
         transcript_dictionary=transcript_dictionary,
         query_coordinate=cds_coordinate
     )

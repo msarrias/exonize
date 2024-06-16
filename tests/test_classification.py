@@ -7,7 +7,7 @@ from pathlib import Path
 
 gene_hierarchy_dictionary = {
     'gene_1': {
-        'coordinate': P.open(1, 3000),
+        'coordinate': P.open(0, 3000),
         'chrom': 'Y',
         'strand': '+',
         'mRNAs': {
@@ -90,7 +90,21 @@ gene_hierarchy_dictionary = {
     }
 }
 
-mock_gene = ['gene_1', 'Y', '+', 3, 1, 3000, 1]
+representative_cds = sorted([
+    P.open(1, 200), P.open(250, 350),
+    P.open(400, 500), P.open(550, 600),
+    P.open(680, 780), P.open(840, 900),
+    P.open(950, 1000), P.open(1080, 1120),
+    P.open(1200, 1400), P.open(1420, 1460),
+    P.open(1520, 1700), P.open(1520, 1560),
+    P.open(1750, 1900), P.open(1750, 2100),
+    P.open(1800, 2100), P.open(2300, 2400),
+    P.open(2540, 2600), P.open(2800, 3000)
+], key=lambda x: (x.lower, x.upper))
+
+
+mock_gene = ['gene_1', 'Y', '+', 3, 0, 3000]
+
 fragments = [
     ('gene_1', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1200, 1400, '-', '-', '-', 0, 0),
     ('gene_1', 1200, 1400, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1, 200, '-', '-', '-', 0, 0),
@@ -107,99 +121,116 @@ fragments = [
     ('gene_1', 1750, 1900, 0, 0, '+', 0, '+', 0, 0, 1e-5, 150, 1, 150, 1210, 1360, '-', '-', '-', 0, 0)
 ]
 
+expansions = [
+    ('gene_1', 'FULL', 1, 200, 2, 0),
+    ('gene_1', 'FULL', 1200, 1400, 2, 0),
+    ('gene_1', 'FULL', 400, 500, 2, 1),
+    ('gene_1', 'FULL', 2300, 2400, 2, 1),
+    ('gene_1', 'FULL', 840, 900, 2, 2),
+    ('gene_1', 'FULL', 2540, 2600, 2, 2),
+    ('gene_1', 'FULL', 550, 600, 2, 3),
+    ('gene_1', 'FULL', 950, 1000, 2, 3),
+    ('gene_1', 'FULL', 250, 350, 2, 4),
+    ('gene_1', 'FULL', 680, 780, 2, 4),
+    ('gene_1', 'FULL', 1080, 1120, 2, 5),
+    ('gene_1', 'FULL', 1420, 1460, 2, 5),
+    ('gene_1', 'FULL', 1750, 1900, 1, 6),
+    ('gene_1', 'INSERTION_EXCISION', 1210, 1360, 1, 6)
+]
 matches = [
     # FULL - FLEXIBLE
-    (1, 1, 'gene_1', 'transcript_g1_1', 1, 200, 'cds1_g1_t1', 1, 200, 'FULL', 'cds9_g1_t1',
+    (1, 'gene_1', 'transcript_g1_1', 1, 200, 'cds1_g1_t1', 'FULL', 'cds9_g1_t1',
      1200, 1400, 1200, 1400, 0, 0, 0, 1, 1e-05),
-    (2, 1, 'gene_1', 'transcript_g1_2', 1, 200, 'cds1_g1_t2', 1, 200, 'FULL', 'cds7_g1_t2',
+    (2, 'gene_1', 'transcript_g1_2', 1, 200, 'cds1_g1_t2', 'FULL', 'cds7_g1_t2',
      1200, 1400, 1200, 1400, 0, 0, 0, 1, 1e-05),
-    (3, 1, 'gene_1', 'transcript_g1_3', 1, 200, 'cds1_g1_t3', 1, 200, 'DEACTIVATED', 'intron2_g1_t3',
+    (3, 'gene_1', 'transcript_g1_3', 1, 200, 'cds1_g1_t3', 'DEACTIVATED', 'intron2_g1_t3',
      501, 1519, 1200, 1400, 0, 1, 0, 0, 1e-05),
     # FULL - FLEXIBLE - 1 RECIPROCAL
-    (4, 2, 'gene_1', 'transcript_g1_1', 1200, 1400, 'cds9_g1_t1', 1, 200, 'FULL', 'cds1_g1_t1',
+    (4, 'gene_1', 'transcript_g1_1', 1200, 1400, 'cds9_g1_t1', 'FULL', 'cds1_g1_t1',
      1, 200, 1, 200, 0, 0, 0, 1, 1e-05),
-    (5, 2, 'gene_1', 'transcript_g1_2', 1200, 1400, 'cds7_g1_t2', 1, 200, 'FULL', 'cds1_g1_t2',
+    (5, 'gene_1', 'transcript_g1_2', 1200, 1400, 'cds7_g1_t2', 'FULL', 'cds1_g1_t2',
      1, 200, 1, 200, 0, 0, 0, 1, 1e-05),
-    (6, 2, 'gene_1', 'transcript_g1_3', 1200, 1400, '-', 1, 200, 'FULL', 'cds1_g1_t3',
+    (6, 'gene_1', 'transcript_g1_3', 1200, 1400, '-', 'FULL', 'cds1_g1_t3',
      1, 200, 1, 200, 0, 0, 1, 0, 1e-05),
     # FULL - OBLIGATE
-    (7, 3, 'gene_1', 'transcript_g1_1', 400, 500, 'cds3_g1_t1', 1, 100, 'FULL', 'cds11_g1_t1',
+    (7, 'gene_1', 'transcript_g1_1', 400, 500, 'cds3_g1_t1', 'FULL', 'cds11_g1_t1',
      2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
-    (8, 3, 'gene_1', 'transcript_g1_2', 400, 500, 'cds3_g1_t2', 1, 100, 'FULL', 'cds11_g1_t2',
+    (8,  'gene_1', 'transcript_g1_2', 400, 500, 'cds3_g1_t2', 'FULL', 'cds11_g1_t2',
      2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
-    (9, 3, 'gene_1', 'transcript_g1_3', 400, 500, 'cds2_g1_t3', 1, 100, 'FULL', 'cds5_g1_t3',
+    (9,  'gene_1', 'transcript_g1_3', 400, 500, 'cds2_g1_t3', 'FULL', 'cds5_g1_t3',
      2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
     # FULL - OBLIGATE - 3 RECIPROCAL
-    (10, 4, 'gene_1', 'transcript_g1_1', 2300, 2400, 'cds11_g1_t1', 1, 100, 'FULL', 'cds3_g1_t1',
+    (10, 'gene_1', 'transcript_g1_1', 2300, 2400, 'cds11_g1_t1', 'FULL', 'cds3_g1_t1',
      400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
-    (11, 4, 'gene_1', 'transcript_g1_2', 2300, 2400, 'cds11_g1_t2', 1, 100, 'FULL', 'cds3_g1_t2',
+    (11, 'gene_1', 'transcript_g1_2', 2300, 2400, 'cds11_g1_t2', 'FULL', 'cds3_g1_t2',
      400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
-    (12, 4, 'gene_1', 'transcript_g1_3', 2300, 2400, 'cds5_g1_t3', 1, 100, 'FULL', 'cds2_g1_t3',
+    (12, 'gene_1', 'transcript_g1_3', 2300, 2400, 'cds5_g1_t3', 'FULL', 'cds2_g1_t3',
      400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
     # FULL - EXCLUSIVE
-    (13, 5, 'gene_1', 'transcript_g1_1', 840, 900, 'cds6_g1_t1', 1, 60, 'OUT_OF_MRNA', '-', None, None,
+    (13, 'gene_1', 'transcript_g1_1', 840, 900, 'cds6_g1_t1', 'OUT_OF_MRNA', '-', None, None,
      2540, 2600, 0, 1, 0, 0, 1e-05),
-    (14, 5, 'gene_1', 'transcript_g1_2', 840, 900, 'cds5_g1_t2', 1, 60, 'DEACTIVATED', 'intron10_g1_t2',
+    (14, 'gene_1', 'transcript_g1_2', 840, 900, 'cds5_g1_t2', 'DEACTIVATED', 'intron10_g1_t2',
      2401, 2799, 2540, 2600, 0, 1, 0, 0, 1e-05),
-    (15, 5, 'gene_1', 'transcript_g1_3', 840, 900, '-', 1, 60, 'FULL', 'cds6_g1_t3',
+    (15, 'gene_1', 'transcript_g1_3', 840, 900, '-', 'FULL', 'cds6_g1_t3',
      2540, 2600, 2540, 2600, 0, 0, 1, 0, 1e-05),
     # FULL - EXCLUSIVE - 5 RECIPROCAL
-    (16, 6, 'gene_1', 'transcript_g1_1', 2540, 2600, '-', 1, 60, 'FULL', 'cds6_g1_t1',
+    (16, 'gene_1', 'transcript_g1_1', 2540, 2600, '-', 'FULL', 'cds6_g1_t1',
      840, 900, 840, 900, 0, 0, 1, 0, 1e-05),
-    (17, 6, 'gene_1', 'transcript_g1_2', 2540, 2600, '-', 1, 60, 'FULL', 'cds5_g1_t2',
+    (17, 'gene_1', 'transcript_g1_2', 2540, 2600, '-', 'FULL', 'cds5_g1_t2',
      840, 900, 840, 900, 0, 0, 1, 0, 1e-05),
-    (18, 6, 'gene_1', 'transcript_g1_3', 2540, 2600, 'cds6_g1_t3', 1, 60, 'DEACTIVATED', 'intron2_g1_t3',
+    (18, 'gene_1', 'transcript_g1_3', 2540, 2600, 'cds6_g1_t3', 'DEACTIVATED', 'intron2_g1_t3',
      501, 1519, 840, 900, 0, 1, 0, 0, 1e-05),
     # FULL - OPTIONAL - OBLIGATE
-    (19, 7, 'gene_1', 'transcript_g1_1', 550, 600, 'cds4_g1_t1', 1, 50, 'FULL', 'cds7_g1_t1',
+    (19, 'gene_1', 'transcript_g1_1', 550, 600, 'cds4_g1_t1', 'FULL', 'cds7_g1_t1',
      950, 1000, 950, 1000, 0, 0, 0, 1, 1e-05),
-    (20, 7, 'gene_1', 'transcript_g1_2', 550, 600, 'cds4_g1_t2', 1, 50, 'FULL', 'cds6_g1_t2',
+    (20, 'gene_1', 'transcript_g1_2', 550, 600, 'cds4_g1_t2', 'FULL', 'cds6_g1_t2',
      950, 1000, 950, 1000, 0, 0, 0, 1, 1e-05),
-    (21, 7, 'gene_1', 'transcript_g1_3', 550, 600, '-', 1, 50, 'NEITHER', 'intron2_g1_t3',
+    (21, 'gene_1', 'transcript_g1_3', 550, 600, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 950, 1000, 1, 0, 0, 0, 1e-05),
     # FULL - OPTIONAL - OBLIGATE - 7 RECIPROCAL
-    (22, 8, 'gene_1', 'transcript_g1_1', 950, 1000, 'cds7_g1_t1', 1, 50, 'FULL', 'cds4_g1_t1',
+    (22, 'gene_1', 'transcript_g1_1', 950, 1000, 'cds7_g1_t1', 'FULL', 'cds4_g1_t1',
      550, 600, 550, 600, 0, 0, 0, 1, 1e-05),
-    (23, 8, 'gene_1', 'transcript_g1_2', 950, 1000, 'cds6_g1_t2', 1, 50, 'FULL', 'cds4_g1_t2',
+    (23, 'gene_1', 'transcript_g1_2', 950, 1000, 'cds6_g1_t2', 'FULL', 'cds4_g1_t2',
      550, 600, 550, 600, 0, 0, 0, 1, 1e-05),
-    (24, 8, 'gene_1', 'transcript_g1_3', 950, 1000, '-', 1, 50, 'NEITHER', 'intron2_g1_t3',
+    (24, 'gene_1', 'transcript_g1_3', 950, 1000, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 550, 600, 1, 0, 0, 0, 1e-05),
     # FULL - OPTIONAL - FLEXIBLE
-    (25, 9, 'gene_1', 'transcript_g1_1', 250, 350, 'cds2_g1_t1', 1, 100, 'FULL', 'cds5_g1_t1',
+    (25, 'gene_1', 'transcript_g1_1', 250, 350, 'cds2_g1_t1', 'FULL', 'cds5_g1_t1',
      680, 780, 680, 780, 0, 0, 0, 1, 1e-05),
-    (26, 9, 'gene_1', 'transcript_g1_2', 250, 350, 'cds2_g1_t2', 1, 100, 'DEACTIVATED', 'intron3_g1_t2',
+    (26, 'gene_1', 'transcript_g1_2', 250, 350, 'cds2_g1_t2', 'DEACTIVATED', 'intron3_g1_t2',
      601, 839, 680, 780, 0, 1, 0, 0, 1e-05),
-    (27, 9, 'gene_1', 'transcript_g1_3', 250, 350, '-', 1, 100, 'NEITHER', 'intron2_g1_t3',
+    (27, 'gene_1', 'transcript_g1_3', 250, 350, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 680, 780, 1, 0, 0, 0, 1e-05),
     # FULL - OPTIONAL - FLEXIBLE  - 9 RECIPROCAL
-    (28, 10, 'gene_1', 'transcript_g1_1', 680, 780, 'cds5_g1_t1', 1, 100, 'FULL', 'cds2_g1_t1',
+    (28, 'gene_1', 'transcript_g1_1', 680, 780, 'cds5_g1_t1', 'FULL', 'cds2_g1_t1',
      250, 350, 250, 350, 0, 0, 0, 1, 1e-05),
-    (29, 10, 'gene_1', 'transcript_g1_2', 680, 780, '-', 1, 100, 'FULL', 'cds2_g1_t2',
+    (29, 'gene_1', 'transcript_g1_2', 680, 780, '-', 'FULL', 'cds2_g1_t2',
      250, 350, 250, 350, 0, 0, 1, 0, 1e-05),
-    (30, 10, 'gene_1', 'transcript_g1_3', 680, 780, '-', 1, 100, 'NEITHER', 'intron1_g1_t3',
+    (30, 'gene_1', 'transcript_g1_3', 680, 780, '-', 'NEITHER', 'intron1_g1_t3',
      201, 399, 250, 350, 1, 0, 0, 0, 1e-05),
     # FULL - OPTIONAL - EXCLUSIVE
-    (31, 11, 'gene_1', 'transcript_g1_1', 1080, 1120, 'cds8_g1_t1', 1, 40, 'DEACTIVATED', 'intron9_g1_t1',
+    (31, 'gene_1', 'transcript_g1_1', 1080, 1120, 'cds8_g1_t1', 'DEACTIVATED', 'intron9_g1_t1',
      1401, 1749, 1420, 1460, 0, 1, 0, 0, 1e-05),
-    (32, 11, 'gene_1', 'transcript_g1_2', 1080, 1120, '-', 1, 40, 'FULL', 'cds8_g1_t2',
+    (32, 'gene_1', 'transcript_g1_2', 1080, 1120, '-', 'FULL', 'cds8_g1_t2',
      1420, 1460, 1420, 1460, 0, 0, 1, 0, 1e-05),
-    (33, 11, 'gene_1', 'transcript_g1_3', 1080, 1120, '-', 1, 40, 'NEITHER', 'intron2_g1_t3',
+    (33, 'gene_1', 'transcript_g1_3', 1080, 1120, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1420, 1460, 1, 0, 0, 0, 1e-05),
     # FULL - OPTIONAL - EXCLUSIVE - 11 RECIPROCAL
-    (34, 12, 'gene_1', 'transcript_g1_1', 1420, 1460, '-', 1, 40, 'FULL', 'cds8_g1_t1',
+    (34, 'gene_1', 'transcript_g1_1', 1420, 1460, '-', 'FULL', 'cds8_g1_t1',
      1080, 1120, 1080, 1120, 0, 0, 1, 0, 1e-05),
-    (35, 12, 'gene_1', 'transcript_g1_2', 1420, 1460, 'cds8_g1_t2', 1, 40, 'DEACTIVATED', 'intron5_g1_t2',
+    (35, 'gene_1', 'transcript_g1_2', 1420, 1460, 'cds8_g1_t2', 'DEACTIVATED', 'intron5_g1_t2',
      1001, 1199, 1080, 1120, 0, 1, 0, 0, 1e-05),
-    (36, 12, 'gene_1', 'transcript_g1_3', 1420, 1460, '-', 1, 40, 'NEITHER', 'intron2_g1_t3',
+    (36, 'gene_1', 'transcript_g1_3', 1420, 1460, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1080, 1120, 1, 0, 0, 0, 1e-05),
     # INSERTION - OPTIONAL
-    (37, 13, 'gene_1', 'transcript_g1_1', 1750, 1900, 'cds10_g1_t1', 1, 150, 'INS_CDS', 'cds9_g1_t1',
+    (37, 'gene_1', 'transcript_g1_1', 1750, 1900, 'cds10_g1_t1', 'INS_CDS', 'cds9_g1_t1',
      1200, 1400, 1210, 1360, 0, 0, 0, 1, 1e-05),
-    (38, 13, 'gene_1', 'transcript_g1_2', 1750, 1900, '-', 1, 150, 'INS_CDS', 'cds7_g1_t2',
+    (38, 'gene_1', 'transcript_g1_2', 1750, 1900, '-', 'INS_CDS', 'cds7_g1_t2',
      1200, 1400, 1210, 1360, 0, 0, 1, 0, 1e-05),
-    (39, 13, 'gene_1', 'transcript_g1_3', 1750, 1900, '-', 1, 150, 'NEITHER', 'intron2_g1_t3',
+    (39, 'gene_1', 'transcript_g1_3', 1750, 1900, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1210, 1360, 1, 0, 0, 0, 1e-05)
 ]
+
 results_db_path = Path("mock_results.db")
 if results_db_path.exists():
     os.remove("mock_results.db")
@@ -225,22 +256,34 @@ exonize_obj = Exonize(
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = results_db_path
 exonize_obj.database_interface.connect_create_results_database()
-exonize_obj.database_interface.insert_fragments(
+exonize_obj.database_interface.insert_matches(
     gene_args_tuple=mock_gene,
     fragments_tuples_list=fragments
 )
-exonize_obj.database_interface.insert_percent_query_column_to_fragments()
-exonize_obj.database_interface.create_filtered_full_length_events_view(
-    query_overlap_threshold=0.9
-)
-exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
-exonize_obj.event_classifier.identify_full_length_duplications()
-exonize_obj.event_classifier.insert_classified_tuples_in_results_database()
-exonize_obj.database_interface.create_cumulative_counts_table()
+matches_list = exonize_obj.database_interface.query_fragments()
 exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
-    list_tuples=[(1, 1, '-', '-', i) for i in range(1, len(fragments)+1)]
+    list_tuples=[(1, 1, '', '', i[0]) for i in matches_list]
 )
-exonize_obj.database_interface.create_exclusive_pairs_view()
+exonize_obj.database_interface.insert_percent_query_column_to_fragments()
+
+exonize_obj.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=exonize_obj.query_overlapping_threshold
+        )
+exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
+exonize_obj.events_reconciliation()
+exonize_obj.events_classification()
+
+
+def test_expansion():
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT gene_id, mode, start, end, degree FROM Expansions
+            """
+        )
+        records = set(cursor.fetchall())
+        assert set([i[:-1] for i in expansions]) == records
 
 
 def test_matches_transcript_classification():
@@ -248,65 +291,9 @@ def test_matches_transcript_classification():
         cursor = db.cursor()
         cursor.execute(
             """
-            SELECT * FROM Matches_transcript_classification
-            ORDER BY gene_id, fragment_id;
+            SELECT * FROM Matches_interdependence_classification;
             """
         )
-        records = cursor.fetchall()
-    for my_record, exonize_record in zip(matches, records):
-        assert my_record == exonize_record
-
-
-def test_obligate_events():
-    with sqlite3.connect(results_db_path) as db:
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            SELECT
-            fragment_id,
-            gene_id,
-            transcript_id,
-            query_cds_start,
-            query_cds_end,
-            query_cds_id,
-            query_start,
-            query_end,
-            type,
-            target_cds_id,
-            target_cds_start,
-            target_cds_end,
-            target_start,
-            target_end
-            FROM Obligate_events
-            ORDER BY gene_id, fragment_id
-            """
-        )
-        records = cursor.fetchall()
-    obligate_pairs = [record[1:-5] for record in matches if record[-2] == 1]
-
-    for my_record, exonize_record in zip(obligate_pairs, records):
-        assert my_record == exonize_record
-
-
-def test_truncate_results():
-    with sqlite3.connect(results_db_path) as db:
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            SELECT * FROM Truncation_events
-            """
-        )
-        records = cursor.fetchall()
-    assert len(records) == 0
-
-
-def test_exclusive_events():
-    with sqlite3.connect(results_db_path) as db:
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            SELECT DISTINCT fragment_id FROM Exclusive_pairs
-            """
-        )
-        records = [fragment_id[0] for fragment_id in cursor.fetchall()]
-    assert records == [5, 6]
+        records = set([i[1:] for i in cursor.fetchall()])
+        res_list = set([i[1:-1] for i in matches])
+        assert len(res_list - records) == 6 * 3  # 6 reciprocal hits * 3 transcripts

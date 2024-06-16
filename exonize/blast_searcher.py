@@ -7,13 +7,15 @@ import random
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 import time
 import portion as P
 from typing import Union
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
+from Bio.Align.Applications import MuscleCommandline
 
 
 class BLASTsearcher(object):
@@ -39,7 +41,7 @@ class BLASTsearcher(object):
 
     @staticmethod
     def dump_fasta_file(
-            out_file_path: str,
+            out_file_path: Path,
             seq_dictionary: dict,
     ) -> None:
         """
@@ -200,9 +202,9 @@ class BLASTsearcher(object):
 
     def execute_tblastx(
             self,
-            query_file_path: str,
-            target_file_path: str,
-            output_file_path: str,
+            query_file_path: Path,
+            target_file_path: Path,
+            output_file_path: Path,
             strand: str,
     ):
         """
@@ -311,20 +313,11 @@ class BLASTsearcher(object):
         - output: output/{ident}_output.xml where ident is
          the identifier of the query sequence (CDS).
         """
-        output_file_path = os.path.join(
-            self.data_container.working_directory,
-            f'output/{identifier}_output.xml'
-        )
+        output_file_path = self.data_container.working_directory / f'{identifier}_output.xml'
         if not os.path.exists(output_file_path):
-            query_file_path = os.path.join(
-                self.data_container.working_directory,
-                f'input/{identifier}_query.fa'
-            )
-            target_file_path = os.path.join(
-                self.data_container.working_directory,
-                f'input/{gene_id}_target.fa'
-            )
-            if not os.path.exists(target_file_path):
+            query_file_path = self.data_container.working_directory / f'input/{identifier}_query.fa'
+            target_file_path = self.data_container.working_directory / f'input/{gene_id}_target.fa'
+            if not target_file_path.exists():
                 self.dump_fasta_file(
                     out_file_path=target_file_path,
                     seq_dictionary={f"{gene_id}": hit_sequence}
@@ -367,8 +360,8 @@ class BLASTsearcher(object):
         a tblastx search using temporary files.
         """
         with tempfile.TemporaryDirectory(dir=self.data_container.working_directory) as temporary_directory:
-            query_file_path = f'{temporary_directory}/query.fa'
-            target_file_path = f'{temporary_directory}/target.fa'
+            query_file_path = Path(temporary_directory, 'query.fa')
+            target_file_path = Path(temporary_directory, 'target.fa')
             self.dump_fasta_file(
                 out_file_path=query_file_path,
                 seq_dictionary={'query': query_sequence}
@@ -377,7 +370,7 @@ class BLASTsearcher(object):
                 out_file_path=target_file_path,
                 seq_dictionary={'target': hit_sequence}
             )
-            output_file_path = f'{temporary_directory}/output.xml'
+            output_file_path = Path(temporary_directory, 'output.xml')
             self.execute_tblastx(
                 query_file_path=query_file_path,
                 target_file_path=target_file_path,
@@ -599,8 +592,7 @@ class BLASTsearcher(object):
 
     def get_gene_tuple(
             self,
-            gene_id: str,
-            has_duplication_binary: int
+            gene_id: str
     ) -> tuple:
         """
         get_gene_tuple is a function that given a gene_id,
@@ -615,8 +607,7 @@ class BLASTsearcher(object):
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
             len(self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']),
             gene_coordinate.lower,
-            gene_coordinate.upper,
-            has_duplication_binary
+            gene_coordinate.upper
         )
 
     def find_coding_exon_duplicates(
@@ -640,6 +631,7 @@ class BLASTsearcher(object):
             Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
         )
         cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
+        no_dup = True
         if cds_coordinates_dictionary:
             for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
                 # note that we are not accounting for the frame at this stage, that will be part of
@@ -660,6 +652,7 @@ class BLASTsearcher(object):
                     blast_hits_dictionary[cds_coordinate] = tblastx_o
             attempt = False
             if blast_hits_dictionary:
+                no_dup = False
                 while not attempt:
                     try:
                         self.populate_fragments_table(
@@ -673,22 +666,22 @@ class BLASTsearcher(object):
                         else:
                             self.environment.logger.exception(e)
                             sys.exit()
-            else:
-                while not attempt:
-                    try:
-                        self.database_interface.insert_gene_ids_table(
-                            gene_args_tuple=self.get_gene_tuple(
-                                gene_id=gene_id,
-                                has_duplication_binary=0
-                            )
+        if no_dup:
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_gene_ids_table(
+                        gene_args_tuple=self.get_gene_tuple(
+                            gene_id=gene_id
                         )
-                        attempt = True
-                    except Exception as e:
-                        if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                        else:
-                            self.environment.logger.exception(e)
-                            sys.exit()
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
 
     def populate_fragments_table(
             self,
@@ -726,8 +719,10 @@ class BLASTsearcher(object):
             for cds_coord, blast_hits in blast_results_dictionary.items()
             for hsp_idx, hsp_dictionary in blast_hits.items()
         ]
-        self.database_interface.insert_fragments(
-            gene_args_tuple=self.get_gene_tuple(gene_id=gene_id, has_duplication_binary=1),
+        self.database_interface.insert_matches(
+            gene_args_tuple=self.get_gene_tuple(
+                gene_id=gene_id
+            ),
             fragments_tuples_list=tuple_list
         )
 
@@ -806,8 +801,34 @@ class BLASTsearcher(object):
             fragment_id
         )
 
+    def perform_msa(
+            self,
+            query: str,
+            target: str
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_file = Path(temp_dir, 'input.fasta')
+            output_file = Path(temp_dir, 'align.fasta')
+            self.dump_fasta_file(
+                out_file_path=input_file,
+                seq_dictionary={'query': query, 'target': target}
+            )
+            muscle_cline = MuscleCommandline(
+                input=input_file,
+                out=output_file
+            )
+            # Run the MUSCLE command line
+            _, _ = muscle_cline()
+            # Read the alignment result from the output file
+            alignment = AlignIO.read(output_file, "fasta")
+            if alignment:
+                return [str(i.seq) for i in alignment]
+            else:
+                return []
+
     def get_identity_and_dna_seq_tuples(
             self,
+            matches_list: list
     ) -> list[tuple]:
         """
         Retrieves DNA sequences from tblastx query and target,
@@ -816,4 +837,4 @@ class BLASTsearcher(object):
         (DNA_identity, AA_identity, query_dna_seq, target_dna_seq, fragment_id)
         """
         return [self.process_fragment(fragment=fragment)
-                for fragment in self.database_interface.query_fragments()]
+                for fragment in matches_list]

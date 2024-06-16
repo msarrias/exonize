@@ -18,6 +18,7 @@ data_container = DataPreprocessor(
     min_exon_length=30,
     debug_mode=False,
     evalue_threshold=1e-5,
+    draw_event_multigraphs=False,
 )
 
 data_container.genome_dictionary = {

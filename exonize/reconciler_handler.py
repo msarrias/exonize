@@ -2,32 +2,27 @@
 # This module contains the CounterHandler class, which is used to handle
 # the counter object in the BlastEngine class.
 # ------------------------------------------------------------------------
-import os.path
-
+import matplotlib
 import networkx as nx
 from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
+from pathlib import Path
+from Bio.Seq import Seq
+matplotlib.use('Agg')
 
 
-class CounterHandler(object):
+class ReconcilerHandler(object):
     def __init__(
             self,
             blast_engine: object,
             cds_overlapping_threshold: float,
-            draw_event_multigraphs: bool,
     ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
         self.database_interface = blast_engine.database_interface
         self.blast_engine = blast_engine
         self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.draw_event_multigraphs = draw_event_multigraphs
-        if self.draw_event_multigraphs:
-            self.multigraphs_path = os.path.join(
-                self.data_container.working_directory,
-                'multigraphs'
-            )
 
     @staticmethod
     def compute_average(
@@ -82,7 +77,8 @@ class CounterHandler(object):
         if cand_reference_list:
             # Since we are considering all CDSs across all transcripts,
             # we might end up with more than one CDS candidate.
-            return max(cand_reference_list, key=lambda x: x[1])[0]
+            candidate_reference, _ = max(cand_reference_list, key=lambda x: x[1])
+            return candidate_reference
         return P.open(0, 0)
 
     def get_overlapping_clusters(
@@ -98,12 +94,10 @@ class CounterHandler(object):
 
         # Sort the coordinates by their lower bound for efficient processing
         sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
-
         for target_coordinate, evalue in sorted_coordinates:
             if target_coordinate not in processed_intervals:
                 # Create a cluster for the current coordinate
                 cluster = [(target_coordinate, evalue)]
-
                 # Find overlapping coordinates and add to the cluster
                 for other_coordinate, other_evalue in sorted_coordinates:
                     if (
@@ -115,10 +109,8 @@ class CounterHandler(object):
                     ):
                         cluster.append((other_coordinate, other_evalue))
                         processed_intervals.add(other_coordinate)
-
                 overlapping_clusters.append(cluster)
                 processed_intervals.add(target_coordinate)
-
         overlapping_clusters.sort(key=len, reverse=True)
         return overlapping_clusters
 
@@ -137,7 +129,7 @@ class CounterHandler(object):
                 overlapping_coordinates_list=coordinates_cluster
             )
             if candidate_reference:
-                ref_type = 'full'
+                ref_type = 'FULL'
             # Second: let's look for targets contained in introns if all
             # the targets in the cluster are contained in introns
             # we take the hit with the lowest evalue as reference
@@ -147,22 +139,22 @@ class CounterHandler(object):
                     for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']
                     for target_coordinate, _ in coordinates_cluster
                 ) else None
-                ref_type = 'deactivated' if candidate_reference else None
+                ref_type = 'INACTIVE_UNANNOTATED' if candidate_reference else None
             if candidate_reference:
                 for target_coordinate, _ in coordinates_cluster:
                     reference_dictionary[target_coordinate] = {
-                        'reference_coordinate': candidate_reference,
-                        'reference_type': ref_type
+                        'reference': candidate_reference,
+                        'mode': ref_type
                     }
             else:
-                for target_coordinate, _ in coordinates_cluster:
+                for coordinate_tuple in coordinates_cluster:
+                    target_coordinate, _ = coordinate_tuple
                     # Process separately if no shared reference
                     individual_reference = self.get_candidate_cds_reference(
                         cds_coordinates_list=cds_candidates_dictionary['candidates_cds_coordinates'],
-                        overlapping_coordinates_list=[(target_coordinate, _)]
+                        overlapping_coordinates_list=[coordinate_tuple]
                     )
-                    ref_type = 'full' if individual_reference else None
-
+                    ref_type = 'FULL' if individual_reference else None
                     if not ref_type:
                         contained_match_in_cds = [
                             cds_coordinate
@@ -171,20 +163,20 @@ class CounterHandler(object):
                             if cds_coordinate.contains(target_coordinate)
                         ]
                         if contained_match_in_cds:
-                            ref_type = 'insertion'
+                            ref_type = 'INSERTION_EXCISION'
 
                         elif all([
                             not cds_coordinate.overlaps(target_coordinate)
                             for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']]
                         ):
-                            ref_type = 'deactivated'
+                            ref_type = 'INACTIVE_UNANNOTATED'
                         else:
-                            ref_type = 'truncation'
+                            ref_type = 'TRUNCATION_ACQUISITION'
                         individual_reference = target_coordinate
 
                     reference_dictionary[target_coordinate] = {
-                        'reference_coordinate': individual_reference,
-                        'reference_type': ref_type
+                        'reference': individual_reference,
+                        'mode': ref_type
                     }
         return reference_dictionary
 
@@ -196,41 +188,39 @@ class CounterHandler(object):
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
-            (reference['reference_coordinate'], reference['reference_type'])
+            (reference['reference'], reference['mode'])
             for reference in reference_coordinates_dictionary.values()
         ])
 
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, 'full') for coordinate in query_coordinates_set],
+                *[(coordinate, 'FULL') for coordinate in query_coordinates_set],
                 *target_coordinates_set
             ]
         ])
         gene_graph.add_nodes_from(
             [node_coordinate for node_coordinate, _ in set_of_nodes]
         )
-
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
 
         for event in tblastx_records_set:
-            (fragment_id, _, source_start, source_end,
-             target_start, target_end, evalue, event_type) = event[:8]
+            (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
-            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference_coordinate']
-            reference_type = reference_coordinates_dictionary[target_coordinate]['reference_type']
+            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
+            mode = reference_coordinates_dictionary[target_coordinate]['mode']
             gene_graph.add_edge(
-                u_for_edge=(source_start, source_end),
+                u_for_edge=(cds_start, cds_end),
                 v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
                 fragment_id=fragment_id,
-                query_CDS=(source_start, source_end),
                 target=(target_start, target_end),
+                corrected_target=(reference_coordinate.lower, reference_coordinate.upper),
+                query=(cds_start, cds_end),
                 evalue=evalue,
-                event_type=event_type,
-                reference_type=reference_type,
+                mode=mode,
                 color='black',
                 width=2
             )
@@ -239,13 +229,13 @@ class CounterHandler(object):
     @staticmethod
     def draw_event_multigraph(
             gene_graph: nx.MultiGraph,
-            figure_path: str,
+            figure_path: Path,
     ):
         color_map = {
-            'insertion': 'blue',
-            'full': 'green',
-            'deactivated': 'red',
-            'truncation': 'orange'
+            'INSERTION_EXCISION': 'blue',
+            'FULL': 'green',
+            'INACTIVE_UNANNOTATED': 'red',
+            'TRUNCATION_ACQUISITION': 'orange'
         }
 
         plt.figure(figsize=(16, 8))
@@ -300,7 +290,6 @@ class CounterHandler(object):
                 facecolor="white"
             )
         )
-
         # Draw edges with different styles and colors
         for edge in gene_graph.edges(data=True):
             source, target, attributes = edge
@@ -319,26 +308,26 @@ class CounterHandler(object):
         plt.close()
 
     @staticmethod
-    def build_reference_type_dictionary(
+    def build_mode_dictionary(
             reference_coordinates_dictionary: dict
     ) -> dict:
         return {
-            reference_coordinate['reference_coordinate']: reference_coordinate['reference_type']
+            reference_coordinate['reference']: reference_coordinate['mode']
             for reference_coordinate in reference_coordinates_dictionary.values()
         }
 
     @staticmethod
     def build_event_coordinates_dictionary(
             component: set[tuple],
-            reference_type_dict: dict,
+            mode_dict: dict,
             gene_graph: nx.MultiGraph
     ) -> dict:
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
-            ref_type = reference_type_dict.get(node_coord, 'full')
+            mode = mode_dict.get(node_coord, "FULL")  # queries are not included in the mode dictionary
             degree = gene_graph.degree((start, end))
-            event_coord_dict[node_coord] = [ref_type, degree, None]  # cluster_id is None initially
+            event_coord_dict[node_coord] = [mode, degree, None]  # cluster_id is None initially
         return event_coord_dict
 
     def assign_cluster_ids_to_event_coordinates(
@@ -346,9 +335,10 @@ class CounterHandler(object):
             event_coordinates_dictionary: dict
     ) -> None:
         # Convert event coordinates to a set of tuples for clustering
-        node_coordinates_set = set((node_coordinate, 0)
-                                   for node_coordinate in event_coordinates_dictionary.keys()
-                                   )
+        node_coordinates_set = set(
+            (node_coordinate, 0)
+            for node_coordinate in event_coordinates_dictionary.keys()
+        )
         # get clusters of overlapping nodes
         node_coordinates_clusters = [
             [node_coordinate for node_coordinate, _ in cluster]
@@ -368,7 +358,7 @@ class CounterHandler(object):
     @staticmethod
     def map_edges_to_records(
             graph: nx.MultiGraph,
-            event_id_counter: int,
+            expansion_id_counter: int,
             component: set[tuple]
     ) -> list[tuple]:
         comp_event_list = []
@@ -379,7 +369,7 @@ class CounterHandler(object):
         for edge in subgraph.edges(data=True):
             # edge is a tuple (node1, node2, attributes)
             comp_event_list.append(
-                (event_id_counter, edge[-1]['fragment_id'])
+                (expansion_id_counter, edge[-1]['fragment_id'])
             )
         return comp_event_list
 
@@ -387,64 +377,77 @@ class CounterHandler(object):
     def build_events_list(
             gene_id: str,
             event_coordinates_dictionary: dict,
-            event_id_counter: int,
+            expansion_id_counter: int,
     ) -> list[tuple]:
         return [
             (gene_id,
-             node_attributes[0],
+             mode,
              node_coordinate.lower,
              node_coordinate.upper,
-             *node_attributes[1:],
-             event_id_counter
+             degree,
+             cluster_id,
+             expansion_id_counter
              )
-            for node_coordinate, node_attributes in event_coordinates_dictionary.items()
+            for node_coordinate, (mode, degree, cluster_id) in event_coordinates_dictionary.items()
         ]
 
-    def get_events_tuples_from_multigraph(
+    @staticmethod
+    def gene_non_reciprocal_fragments(
+            gene_graph: nx.MultiGraph,
+            events_list: list[tuple]
+    ):
+        event_reduced_fragments_list = list()
+        skip_pair = list()
+        for event in events_list:
+            _, _, node_start, node_end, *_, event_id = event
+            for adjacent_node, adjacent_edges in gene_graph[(node_start, node_end)].items():
+                pair = {(node_start, node_end), adjacent_node}
+                if pair not in skip_pair:
+                    event_reduced_fragments_list.append(adjacent_edges[0]['fragment_id'])
+                    skip_pair.append(pair)
+        return event_reduced_fragments_list
+
+    def get_reconciled_graph_and_expansion_events_tuples(
             self,
             reference_coordinates_dictionary: dict,
             gene_id: str,
             gene_graph: nx.MultiGraph
-    ):
-        reference_type_dictionary = self.build_reference_type_dictionary(
+    ) -> tuple[list[tuple], list]:
+        mode_dictionary = self.build_mode_dictionary(
             reference_coordinates_dictionary=reference_coordinates_dictionary
         )
         # each disconnected component will represent a duplication event within a gene
         # and the number of nodes in the component is the number of duplicated exons
         # i.e., each event is described by a number of duplicated exons
         disconnected_components = list(nx.connected_components(gene_graph))
-        gene_fragments_with_event_ids_list = []
-        gene_events_list = []
-        event_id_counter = 0
+        expansion_events_list = []
+        expansion_non_reciprocal_fragments = []
+        expansion_id_counter = 0
         for component in disconnected_components:
             # First: Assign event id to each component
             event_coordinates_dictionary = self.build_event_coordinates_dictionary(
                 component=component,
-                reference_type_dict=reference_type_dictionary,
+                mode_dict=mode_dictionary,
                 gene_graph=gene_graph
             )
             # Second : Assign cluster ids within events
             self.assign_cluster_ids_to_event_coordinates(
                 event_coordinates_dictionary=event_coordinates_dictionary
             )
-            # Third: map each BLAST hit to an event id
-            component_fragments_with_event_ids_list = self.map_edges_to_records(
-                graph=gene_graph,
-                event_id_counter=event_id_counter,
-                component=component
-            )
-            gene_fragments_with_event_ids_list.extend(
-                component_fragments_with_event_ids_list
-            )
-            gene_events_list.extend(
-                self.build_events_list(
+            events_list = self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary,
-                    event_id_counter=event_id_counter
+                    expansion_id_counter=expansion_id_counter
+                )
+            expansion_events_list.extend(events_list)
+            expansion_non_reciprocal_fragments.extend(
+                self.gene_non_reciprocal_fragments(
+                    gene_graph=gene_graph,
+                    events_list=events_list
                 )
             )
-            event_id_counter += 1
-        return gene_fragments_with_event_ids_list, gene_events_list
+            expansion_id_counter += 1
+        return expansion_events_list, expansion_non_reciprocal_fragments
 
     @staticmethod
     def get_gene_events_dictionary(
@@ -461,31 +464,138 @@ class CounterHandler(object):
     def get_hits_query_and_target_coordinates(
             tblastx_records_set: set,
     ):
-        query_coordinates = set(
-            [P.open(record[2], record[3]) for record in tblastx_records_set]
-        )
-        target_coordinates = set(
-            [(P.open(record[4], record[5]), record[-2]) for record in tblastx_records_set]
-        )
+        query_coordinates = set()
+        min_e_values = {}
+        for record in tblastx_records_set:
+            fragment_id, gene_id, cds_start, cds_end, target_start, target_end, evalue = record
+            target_coordinate = P.open(target_start, target_end)
+            query_coordinates.add(P.open(cds_start, cds_end))
+            if target_coordinate not in min_e_values or evalue < min_e_values[target_coordinate]:
+                min_e_values[target_coordinate] = evalue
+        target_coordinates = set([
+            (target_coordinate, min_evalue)
+            for target_coordinate, min_evalue in min_e_values.items()
+        ])
         return query_coordinates, target_coordinates
 
-    def generate_single_gene_multigraph(
+    @staticmethod
+    def center_and_sort_cds_coordinates(
+            cds_coordinates: list,
+            gene_start: int
+    ) -> list[P.Interval]:
+        return sorted(
+                list(set([P.open(i.lower - gene_start, i.upper - gene_start) for i in cds_coordinates])),
+                key=lambda x: (x.lower, x.upper)
+        )
+
+    def get_corrected_frames_and_identity(
             self,
             gene_id: str,
+            cds_coordinate: P.Interval,
+            corrected_coordinate: P.Interval,
+            cds_candidates_dictionary: dict
     ):
-        tblastx_records_set = self.database_interface.query_full_events(
-            gene_id=gene_id
+        target_sequence_frames_translations = []
+        gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+        chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
+        strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+        aligned_cds_coord = P.open(cds_coordinate.lower + gene_start, cds_coordinate.upper + gene_start)
+        query_frame = int(cds_candidates_dictionary['cds_frame_dict'][aligned_cds_coord])
+        q_s, q_e = self.adjust_coordinates_to_frame(
+            coordinate=aligned_cds_coord,
+            frame=query_frame
         )
+        query = Seq(self.data_container.genome_dictionary[chrom][q_s:q_e])
+        if strand == '-':
+            query = query.reverse_complement()
+        for frame in [0, 1, 2]:
+            t_s, t_e = self.adjust_coordinates_to_frame(
+                coordinate=P.open(corrected_coordinate.lower + gene_start, corrected_coordinate.upper + gene_start),
+                frame=frame
+            )
+            target = Seq(self.data_container.genome_dictionary[chrom][t_s:t_e])
+            if strand == '-':
+                target = target.reverse_complement()
+            alignment = self.blast_engine.perform_msa(
+                query=query.translate(),
+                target=target.translate()
+            )
+            prot_identity = self.blast_engine.compute_identity(
+                sequence_i=alignment[0],
+                sequence_j=alignment[1]
+            )
+            target_sequence_frames_translations.append((prot_identity, frame, target))
+        # we want the frame that gives us the highest identity alignment
+        corrected_prot_perc_id, corrected_frame, target = max(target_sequence_frames_translations, key=lambda x: x[0])
+        alignment = self.blast_engine.perform_msa(
+            query=query,
+            target=target
+        )
+        dna_identity = self.blast_engine.compute_identity(
+            sequence_i=alignment[0],
+            sequence_j=alignment[1]
+        )
+        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame
+
+    @staticmethod
+    def adjust_coordinates_to_frame(
+            coordinate: P.Interval,
+            frame: int
+    ):
+        start, end = coordinate.lower, coordinate.upper
+        adjusted_start = start + frame
+        length = end - adjusted_start
+        if length % 3 != 0:
+            adjusted_end = end - (length % 3)
+        else:
+            adjusted_end = end
+        return adjusted_start, adjusted_end
+
+    def get_matches_corrected_coordinates_and_identity(
+            self,
+            gene_id: str,
+            tblastx_records_set: set[tuple],
+            reference_coordinates_dictionary: dict,
+            cds_candidates_dictionary: dict
+    ) -> list[tuple]:
+        corrected_coordinates_list = []
+        for record in tblastx_records_set:
+            fragment_id, _, cds_start, cds_end, target_start, target_end, _ = record
+            target_coordinate = P.open(target_start, target_end)
+            corrected_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
+            if target_coordinate != corrected_coordinate:
+                (corrected_dna_ident,
+                 corrected_prot_ident,
+                 corrected_target_frame,
+                 corrected_query_frame) = self.get_corrected_frames_and_identity(
+                    gene_id=gene_id,
+                    cds_coordinate=P.open(cds_start, cds_end),
+                    corrected_coordinate=corrected_coordinate,
+                    cds_candidates_dictionary=cds_candidates_dictionary
+                )
+                corrected_coordinates_list.append((
+                    corrected_coordinate.lower,
+                    corrected_coordinate.upper,
+                    corrected_dna_ident,
+                    corrected_prot_ident,
+                    corrected_target_frame,
+                    corrected_query_frame,
+                    fragment_id))
+        return corrected_coordinates_list
+
+    def align_target_coordinates(
+            self,
+            gene_id: str,
+            tblastx_records_set: set[tuple],
+    ) -> tuple[set[P.Interval], dict]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
         cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
             gene_id=gene_id
         )
         # center cds coordinates to gene start
-        cds_candidates_dictionary['candidates_cds_coordinates'] = sorted(
-            list(set([
-                P.open(i.lower - gene_start, i.upper - gene_start)
-                for i in cds_candidates_dictionary['candidates_cds_coordinates']])),
-            key=lambda x: (x.lower, x.upper)
+        cds_candidates_dictionary['candidates_cds_coordinates'] = self.center_and_sort_cds_coordinates(
+            cds_coordinates=cds_candidates_dictionary['candidates_cds_coordinates'],
+            gene_start=gene_start
         )
         query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
             tblastx_records_set=tblastx_records_set
@@ -498,76 +608,4 @@ class CounterHandler(object):
             cds_candidates_dictionary=cds_candidates_dictionary,
             clusters_list=overlapping_targets
         )
-        gene_graph = self.create_events_multigraph(
-            reference_coordinates_dictionary=reference_coordinates_dictionary,
-            query_coordinates_set=query_coordinates,
-            tblastx_records_set=tblastx_records_set
-        )
-        return gene_graph
-
-    def assign_event_ids(
-            self,
-            tblastx_full_matches_list: list[tuple],
-    ) -> (list[tuple], set[tuple]):
-        genes_events_tuples = list()
-        genes_events_set = set()
-        # group full matches by gene id
-        full_matches_dictionary = self.get_gene_events_dictionary(
-            tblastx_full_matches_list=tblastx_full_matches_list
-        )
-        for gene_id, tblastx_records_set in full_matches_dictionary.items():
-            gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
-            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
-                gene_id=gene_id
-            )
-            # center cds coordinates to gene start
-            cds_candidates_dictionary['candidates_cds_coordinates'] = sorted(
-                list(set([
-                    P.open(i.lower - gene_start, i.upper - gene_start)
-                    for i in cds_candidates_dictionary['candidates_cds_coordinates']])),
-                key=lambda x: (x.lower, x.upper)
-            )
-            query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
-                tblastx_records_set=tblastx_records_set
-            )
-            overlapping_targets = self.get_overlapping_clusters(
-                target_coordinates_set=target_coordinates,
-                threshold=self.cds_overlapping_threshold
-            )
-            reference_coordinates_dictionary = self.build_reference_dictionary(
-                cds_candidates_dictionary=cds_candidates_dictionary,
-                clusters_list=overlapping_targets
-            )
-            gene_graph = self.create_events_multigraph(
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                query_coordinates_set=query_coordinates,
-                tblastx_records_set=tblastx_records_set
-            )
-
-            if self.draw_event_multigraphs:
-                self.draw_event_multigraph(
-                    gene_graph=gene_graph,
-                    figure_path=os.path.join(
-                        self.multigraphs_path,
-                        f'{gene_id}.png'
-                    )
-                )
-
-            gene_fragments_with_event_ids_list, gene_events_set = self.get_events_tuples_from_multigraph(
-                reference_coordinates_dictionary=reference_coordinates_dictionary,
-                gene_id=gene_id,
-                gene_graph=gene_graph
-            )
-            if len(gene_fragments_with_event_ids_list) != len(tblastx_records_set):
-                self.environment.logger.exception(
-                    f'{gene_id}: {len(gene_fragments_with_event_ids_list)} events found,'
-                    f' {len(tblastx_records_set)} expected.'
-                )
-            genes_events_tuples.extend(gene_fragments_with_event_ids_list)
-            genes_events_set.update(gene_events_set)
-        if len(genes_events_tuples) != len(tblastx_full_matches_list):
-            self.environment.logger.exception(
-                f'{len(genes_events_tuples)} events found,'
-                f' {len(tblastx_full_matches_list)} expected.'
-            )
-        return genes_events_tuples, genes_events_set
+        return query_coordinates, reference_coordinates_dictionary
