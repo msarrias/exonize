@@ -26,9 +26,6 @@ class ClassifierHandler(object):
         self.__query_cds_frame, self.__target_cds_frame = " ", " "
         self.__found = False
         self.tuples_match_transcript_interdependence = list()
-        self.tuples_duplication_mode = list()
-        self.tuples_truncation_events = list()
-        self.tuples_obligatory_events = list()
 
     def initialize_variables(
             self,
@@ -51,9 +48,6 @@ class ClassifierHandler(object):
          classify_match_interdependence function
         """
         self.tuples_match_transcript_interdependence = list()
-        self.tuples_obligatory_events = list()
-        self.tuples_truncation_events = list()
-        self.tuples_duplication_mode = list()
 
     @staticmethod
     def recover_cds(
@@ -102,8 +96,8 @@ class ClassifierHandler(object):
         target_out_of_mrna is a function that identifies tblastx hits
         that are outside the mRNA transcript.
         """
-        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
-        target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
+        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
+        target_coordinate = P.open(target_start, target_end)
         if (target_coordinate.upper < transcript_coordinate.lower
                 or transcript_coordinate.upper < target_coordinate.lower):
             if (self.__query + self.__target) == 0:
@@ -228,8 +222,8 @@ class ClassifierHandler(object):
         in the transcript architecture. We record a line per annotation
         that is truncated.
         """
-        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
-        target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
+        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
+        target_coordinate = P.open(target_start, target_end)
         coordinate_dictionary = self.get_interval_dictionary(
             transcript_dictionary=transcript_dictionary['structure'],
             target_coordinate=target_coordinate,
@@ -243,26 +237,14 @@ class ClassifierHandler(object):
 
     def identify_obligate_pair(
             self,
-            transcript_coordinate: P.Interval,
-            mrna_id: str,
-            row_tuple: tuple
     ) -> None:
         """
         Identifies tblastx hits that are obligate pairs.
         These are hits where the query and target show as CDSs
         in the transcript in question.
         """
-        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
         self.__both = 1
         self.__query, self.__target = 0, 0
-        self.tuples_obligatory_events.append((
-            match_id, gene_id, mrna_id,
-            transcript_coordinate.lower, transcript_coordinate.upper,
-            self.__query_cds, self.__query_cds_frame, cds_start, cds_end,
-            self.__target_cds, self.__target_cds_frame,
-            self.__annot_target_start, self.__annot_target_end,
-            target_start, target_end, self.__target_type
-        ))
 
     def identify_neither_pair(self) -> None:
         """
@@ -283,7 +265,7 @@ class ClassifierHandler(object):
          the "row" event to the list of tuples.
         """
 
-        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
+        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
         self.tuples_match_transcript_interdependence.append((
             match_id, gene_id, mrna_id,
             cds_start, cds_end, self.__query_cds,
@@ -348,9 +330,9 @@ class ClassifierHandler(object):
           The number of records per event will correspond to the number of transcripts associated
           with the gene harboring the event.
         """
-        (match_id, gene_id, gene_start, cds_start, cds_end, target_start, target_end) = row_tuple
-        cds_coordinate = P.open(cds_start + gene_start, cds_end + gene_start)
-        target_coordinate = P.open(target_start + gene_start, target_end + gene_start)
+        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
+        cds_coordinate = P.open(cds_start, cds_end)
+        target_coordinate = P.open(target_start, target_end)
         for mrna_id, transcript_dictionary \
                 in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items():
             # we want to classify each transcript independently
