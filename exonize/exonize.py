@@ -171,8 +171,8 @@ def main():
         output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
-    if args.csv:
-        exonize_obj.output_csv(args.csv)
+    # if args.csv:
+    #     exonize_obj.output_csv(args.csv)
 
 
 if __name__ == '__main__':
