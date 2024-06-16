@@ -103,7 +103,7 @@ representative_cds = sorted([
 ], key=lambda x: (x.lower, x.upper))
 
 
-mock_gene = ['gene_1', 'Y', '+', 3, 0, 3000, 1]
+mock_gene = ['gene_1', 'Y', '+', 3, 0, 3000]
 
 fragments = [
     ('gene_1', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1200, 1400, '-', '-', '-', 0, 0),
@@ -260,17 +260,18 @@ exonize_obj.database_interface.insert_matches(
     gene_args_tuple=mock_gene,
     fragments_tuples_list=fragments
 )
-exonize_obj.database_interface.insert_percent_query_column_to_fragments()
-exonize_obj.database_interface.create_filtered_full_length_events_view(
-    query_overlap_threshold=0.9
-)
-exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
-exonize_obj.reconciliation()
+matches_list = exonize_obj.database_interface.query_fragments()
 exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
-    list_tuples=[(1, 1, '-', '-', i) for i in range(1, len(fragments)+1)]
+    list_tuples=[(1, 1, '', '', i[0]) for i in matches_list]
 )
-exonize_obj.classify_matches_transcript_interdependence()
-exonize_obj.create_matches_interdependence_cumulative_counts_table()
+exonize_obj.database_interface.insert_percent_query_column_to_fragments()
+
+exonize_obj.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=exonize_obj.query_overlapping_threshold
+        )
+exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
+exonize_obj.events_reconciliation()
+exonize_obj.events_classification()
 
 
 def test_expansion():
@@ -294,59 +295,5 @@ def test_matches_transcript_classification():
             """
         )
         records = set([i[1:] for i in cursor.fetchall()])
-        matches_list = set([i[1:-1] for i in matches])
-        assert len(matches_list - records) == 6 * 3  # 6 reciprocal hits * 3 transcripts
-
-# def test_obligate_events():
-#     with sqlite3.connect(results_db_path) as db:
-#         cursor = db.cursor()
-#         cursor.execute(
-#             """
-#             SELECT
-#             fragment_id,
-#             gene_id,
-#             transcript_id,
-#             query_cds_start,
-#             query_cds_end,
-#             query_cds_id,
-#             query_start,
-#             query_end,
-#             type,
-#             target_cds_id,
-#             target_cds_start,
-#             target_cds_end,
-#             target_start,
-#             target_end
-#             FROM Obligate_events
-#             ORDER BY gene_id, fragment_id
-#             """
-#         )
-#         records = cursor.fetchall()
-#     obligate_pairs = [record[1:-5] for record in matches if record[-2] == 1]
-
-#     for my_record, exonize_record in zip(obligate_pairs, records):
-#         assert my_record == exonize_record
-
-
-# def test_truncate_results():
-#     with sqlite3.connect(results_db_path) as db:
-#         cursor = db.cursor()
-#         cursor.execute(
-#             """
-#             SELECT * FROM Truncation_events
-#             """
-#         )
-#         records = cursor.fetchall()
-#     assert len(records) == 0
-
-
-# def test_exclusive_events():
-#     with sqlite3.connect(results_db_path) as db:
-#         cursor = db.cursor()
-#         cursor.execute(
-#             """
-#             SELECT DISTINCT fragment_id FROM Exclusive_pairs
-#             """
-#         )
-#         records = [fragment_id[0] for fragment_id in cursor.fetchall()]
-#     assert records == [5, 6]
+        res_list = set([i[1:-1] for i in matches])
+        assert len(res_list - records) == 6 * 3  # 6 reciprocal hits * 3 transcripts
