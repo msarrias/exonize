@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 import sys
 from exonize.exonize_handler import Exonize
-from exonize.version import __version__
+from exonize import __version__
 # from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 
