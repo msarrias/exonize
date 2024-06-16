@@ -242,7 +242,7 @@ class SqliteHandler(object):
                             SUM(fld.neither) AS cum_neither
                         FROM Matches_interdependence_classification AS fld
                         INNER JOIN Genes AS g ON g.gene_id = fld.gene_id
-                        INNER JOIN Expansions AS e ON e.gene_id = fld.gene_id AND e.match_id = fld.match_id 
+                        INNER JOIN Expansions AS e ON e.gene_id = fld.gene_id AND e.match_id = fld.match_id
                         GROUP BY fld.match_id, fld.cds_start, fld.cds_end
                         ORDER BY fld.gene_id, e.expansion_id
                     );
