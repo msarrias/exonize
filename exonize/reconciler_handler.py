@@ -2,12 +2,14 @@
 # This module contains the CounterHandler class, which is used to handle
 # the counter object in the BlastEngine class.
 # ------------------------------------------------------------------------
+import matplotlib
 import networkx as nx
 from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
 from pathlib import Path
 from Bio.Seq import Seq
+matplotlib.use('Agg')
 
 
 class ReconcilerHandler(object):
@@ -215,6 +217,8 @@ class ReconcilerHandler(object):
                 v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
                 fragment_id=fragment_id,
                 target=(target_start, target_end),
+                corrected_target=(reference_coordinate.lower, reference_coordinate.upper),
+                query=(cds_start, cds_end),
                 evalue=evalue,
                 mode=mode,
                 color='black',
@@ -387,12 +391,28 @@ class ReconcilerHandler(object):
             for node_coordinate, (mode, degree, cluster_id) in event_coordinates_dictionary.items()
         ]
 
+    @staticmethod
+    def gene_non_reciprocal_fragments(
+            gene_graph: nx.MultiGraph,
+            events_list: list[tuple]
+    ):
+        event_reduced_fragments_list = list()
+        skip_pair = list()
+        for event in events_list:
+            _, _, node_start, node_end, *_, event_id = event
+            for adjacent_node, adjacent_edges in gene_graph[(node_start, node_end)].items():
+                pair = {(node_start, node_end), adjacent_node}
+                if pair not in skip_pair:
+                    event_reduced_fragments_list.append(adjacent_edges[0]['fragment_id'])
+                    skip_pair.append(pair)
+        return event_reduced_fragments_list
+
     def get_reconciled_graph_and_expansion_events_tuples(
             self,
             reference_coordinates_dictionary: dict,
             gene_id: str,
             gene_graph: nx.MultiGraph
-    ):
+    ) -> tuple[list[tuple], list]:
         mode_dictionary = self.build_mode_dictionary(
             reference_coordinates_dictionary=reference_coordinates_dictionary
         )
@@ -401,6 +421,7 @@ class ReconcilerHandler(object):
         # i.e., each event is described by a number of duplicated exons
         disconnected_components = list(nx.connected_components(gene_graph))
         expansion_events_list = []
+        expansion_non_reciprocal_fragments = []
         expansion_id_counter = 0
         for component in disconnected_components:
             # First: Assign event id to each component
@@ -413,15 +434,20 @@ class ReconcilerHandler(object):
             self.assign_cluster_ids_to_event_coordinates(
                 event_coordinates_dictionary=event_coordinates_dictionary
             )
-            expansion_events_list.extend(
-                self.build_events_list(
+            events_list = self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary,
                     expansion_id_counter=expansion_id_counter
                 )
+            expansion_events_list.extend(events_list)
+            expansion_non_reciprocal_fragments.extend(
+                self.gene_non_reciprocal_fragments(
+                    gene_graph=gene_graph,
+                    events_list=events_list
+                )
             )
             expansion_id_counter += 1
-        return gene_graph, expansion_events_list
+        return expansion_events_list, expansion_non_reciprocal_fragments
 
     @staticmethod
     def get_gene_events_dictionary(
