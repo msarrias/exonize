@@ -225,7 +225,7 @@ class SqliteHandler(object):
                 CREATE TABLE IF NOT EXISTS Matches_interdependence_counts AS
                     SELECT * FROM (
                         SELECT
-                            ROW_NUMBER() OVER (ORDER BY fld.gene_id, fld.expansion_id, fld.match_id) AS match_trans_id,
+                            ROW_NUMBER() OVER (ORDER BY fld.gene_id, e.expansion_id, fld.match_id) AS match_trans_id,
                             fld.match_id,
                             fld.gene_id,
                             e.expansion_id,
@@ -235,6 +235,7 @@ class SqliteHandler(object):
                             fld.cds_end,
                             fld.target_start,
                             fld.target_end,
+                            group_concat(fld.mode) as concat_mode,
                             SUM(fld.both) AS cum_both,
                             SUM(fld.query) AS cum_query,
                             SUM(fld.target) AS cum_target,
@@ -460,7 +461,7 @@ class SqliteHandler(object):
                 """ ALTER TABLE Matches_interdependence_counts ADD COLUMN mode VARCHAR(100);"""
             )
             cursor.executemany(
-                """ UPDATE Matches_interdependence_counts SET mode=? WHERE match_id=? """,
+                """ UPDATE Matches_interdependence_counts SET mode=? WHERE match_trans_id=? """,
                 list_tuples,
             )
 
@@ -733,7 +734,7 @@ class SqliteHandler(object):
                 cursor.execute(
                     """
                 SELECT
-                    match_id,
+                    match_trans_id,
                     concat_mode
                 FROM Matches_interdependence_counts;
                 """
