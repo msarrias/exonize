@@ -371,9 +371,6 @@ class ClassifierHandler(object):
             # ####### OBLIGATE PAIR #######
             if self.__query + self.__target == 2:
                 self.identify_obligate_pair(
-                    transcript_coordinate=transcript_dictionary['coordinate'],
-                    mrna_id=mrna_id,
-                    row_tuple=row_tuple
                 )
             # ####### NEITHER PAIR #######
             elif self.__query + self.__target == 0:
