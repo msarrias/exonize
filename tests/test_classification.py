@@ -4,7 +4,6 @@ import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
 from pathlib import Path
-
 gene_hierarchy_dictionary = {
     'gene_1': {
         'coordinate': P.open(0, 3000),
@@ -90,7 +89,7 @@ gene_hierarchy_dictionary = {
     }
 }
 
-representative_cds = sorted([
+representative_cds_gene_1 = sorted([
     P.open(1, 200), P.open(250, 350),
     P.open(400, 500), P.open(550, 600),
     P.open(680, 780), P.open(840, 900),
@@ -137,6 +136,17 @@ expansions = [
     ('gene_1', 'FULL', 1750, 1900, 1, 6),
     ('gene_1', 'INSERTION_EXCISION', 1210, 1360, 1, 6)
 ]
+
+non_reciprocal_matches_count_gene1 = [
+    ([(1, 200), (1200, 1400)], 'FLEXIBLE'),
+    ([(250, 350), (680, 780)], 'OPTIONAL_FLEXIBLE'),
+    ([(400, 500), (2300, 2400)], 'OBLIGATE'),
+    ([(550, 600), (950, 1000)], 'OPTIONAL_OBLIGATE'),
+    ([(840, 900), (2540, 2600)], 'EXCLUSIVE'),
+    ([(1080, 1120), (1420, 1460)], 'OPTIONAL_EXCLUSIVE'),
+    ([(1210, 1360), (1750, 1900)], 'OPTIONAL_FLEXIBLE')
+]
+
 matches = [
     # FULL - FLEXIBLE
     (1, 'gene_1', 'transcript_g1_1', 1, 200, 'cds1_g1_t1', 'FULL', 'cds9_g1_t1',
@@ -231,6 +241,17 @@ matches = [
      501, 1519, 1210, 1360, 1, 0, 0, 0, 1e-05)
 ]
 
+non_reciprocal_matches_pairs_gene1 = [
+    [(1, 200), (1200, 1400)],
+    [(400, 500), (2300, 2400)],
+    [(840, 900), (2540, 2600)],
+    [(550, 600), (950, 1000)],
+    [(250, 350), (680, 780)],
+    [(1080, 1120), (1420, 1460)],
+    [(1210, 1360), (1750, 1900)]
+]
+
+
 results_db_path = Path("mock_results.db")
 if results_db_path.exists():
     os.remove("mock_results.db")
@@ -292,9 +313,31 @@ def test_matches_transcript_classification():
         cursor = db.cursor()
         cursor.execute(
             """
-            SELECT * FROM Matches_interdependence_classification;
+            SELECT COUNT(*) FROM Matches_interdependence_classification;
             """
         )
-        records = set([i[1:] for i in cursor.fetchall()])
-        res_list = set([i[1:-1] for i in matches])
-        assert len(res_list - records) == 6 * 3  # 6 reciprocal hits * 3 transcripts
+        records = cursor.fetchone()[0]
+        n_transcripts = len(gene_hierarchy_dictionary['gene_1']['mRNAs'])
+        assert records == (len(non_reciprocal_matches_pairs_gene1) * n_transcripts)
+
+
+def check_non_reciprocal_matches():
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT
+             QueryExonStart,
+             QueryExonEnd,
+             TargetStart,
+             TargetEnd,
+             Class
+            FROM Matches_interdependence_counts;
+            """
+        )
+        records = sorted([
+            (sorted([(exon_start, exon_end), (target_start, target_end)],
+                    key=lambda x: x[0]), class_)
+            for exon_start, exon_end, target_start, target_end, class_ in cursor.fetchall()],
+            key=lambda x: x[0][0][0])
+        assert records == non_reciprocal_matches_count_gene1
