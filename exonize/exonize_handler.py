@@ -277,6 +277,7 @@ Exonize results database:   {self.results_database_path.name}
                 tuples_to_process=unprocessed_gene_ids_list,
                 process_function=self.blast_engine.find_coding_exon_duplicates
             )
+            self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_fragments()
             identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
                 matches_list=matches_list
@@ -284,7 +285,6 @@ Exonize results database:   {self.results_database_path.name}
             self.database_interface.insert_identity_and_dna_algns_columns(
                 list_tuples=identity_and_sequence_tuples
             )
-            self.database_interface.insert_percent_query_column_to_fragments()
         else:
             self.environment.logger.info(
                 'All genes have been processed. If you want to re-run the analysis, '
