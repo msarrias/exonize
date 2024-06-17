@@ -202,7 +202,6 @@ class SqliteHandler(object):
                     SELECT * FROM (
                         SELECT
                             ROW_NUMBER() OVER (ORDER BY fld.GeneID, e.ExpansionID, fld.MatchID) AS ID,
-                            fld.MatchID,
                             fld.GeneID,
                             e.ExpansionID,
                             g.GeneStart,
