@@ -30,7 +30,8 @@ class DataPreprocessor(object):
             cds_overlapping_threshold: float,
             query_overlapping_threshold: float,
             min_exon_length: int,
-            draw_event_multigraphs: bool = False
+            draw_event_multigraphs: bool,
+            csv: bool
     ):
         self.environment = logger_obj
         self.database_interface = database_interface
@@ -46,6 +47,7 @@ class DataPreprocessor(object):
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
         self.draw_event_multigraphs = draw_event_multigraphs
+        self.csv = csv
         self._DEBUG_MODE = debug_mode
 
         self.database_features = None
@@ -60,6 +62,8 @@ class DataPreprocessor(object):
         self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
         if self.draw_event_multigraphs:
             self.multigraphs_path = self.working_directory / 'multigraphs'
+        if self.csv:
+            self.csv_path = self.working_directory / "csvs"
 
     @staticmethod
     def dump_pkl_file(
@@ -529,11 +533,11 @@ class DataPreprocessor(object):
         if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
         if self.draw_event_multigraphs:
-            multigraph_directory = self.working_directory / 'multigraphs'
-            self.compress_directory(
-                source_dir=Path(multigraph_directory)
-            )
-            shutil.rmtree(multigraph_directory)
+            self.compress_directory(source_dir=self.multigraphs_path)
+            shutil.rmtree(self.multigraphs_path)
+        if self.csv:
+            self.compress_directory(source_dir=self.csv_path)
+            shutil.rmtree(self.csv_path)
 
     def prepare_data(self) -> None:
         """
@@ -546,6 +550,10 @@ class DataPreprocessor(object):
         if self._DEBUG_MODE:
             os.makedirs(self.working_directory / 'input', exist_ok=True)
             os.makedirs(self.working_directory / 'output', exist_ok=True)
+        if self.draw_event_multigraphs:
+            os.makedirs(self.multigraphs_path, exist_ok=True)
+        if self.csv:
+            os.makedirs(self.csv_path, exist_ok=True)
         self.create_parse_or_update_database()
         self.read_genome()
         if self.gene_hierarchy_path.exists():
