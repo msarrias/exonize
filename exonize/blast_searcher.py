@@ -749,7 +749,7 @@ class BLASTsearcher(object):
     def process_fragment(
             self,
             fragment: list
-    ) -> tuple[float, float, str, str, int]:
+    ) -> tuple:
         """
         process fragment recovers the query/target DNA sequences
         (since the tblastx alignment is done in amino acids)
@@ -788,6 +788,8 @@ class BLASTsearcher(object):
             )
 
         return (
+            query_dna_seq,
+            target_dna_seq,
             self.compute_identity(
                 sequence_i=query_dna_seq,
                 sequence_j=target_dna_seq
@@ -796,8 +798,6 @@ class BLASTsearcher(object):
                 sequence_i=query_aln_prot_seq,
                 sequence_j=target_aln_prot_seq
             ),
-            query_dna_seq,
-            target_dna_seq,
             fragment_id
         )
 
