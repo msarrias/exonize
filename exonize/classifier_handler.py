@@ -400,7 +400,7 @@ class ClassifierHandler(object):
                 if cum_both > 0:
                     if cum_both + cum_neither == transcript_count:
                         classification = 'OPTIONAL_OBLIGATE'
-                    if cum_both + cum_query + cum_target + cum_neither == transcript_count:
+                    elif cum_both + cum_query + cum_target + cum_neither == transcript_count:
                         classification = 'OPTIONAL_FLEXIBLE'
                 if cum_both == 0:
                     if cum_query + cum_target + cum_neither == transcript_count:
