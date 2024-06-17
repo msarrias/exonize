@@ -4,7 +4,6 @@ import os
 import sys
 from exonize.exonize_handler import Exonize
 from exonize import __version__
-# from exonize.profiling import get_run_performance_profile, PROFILE_PATH
 
 
 def exonize_ascii_art_logo() -> None:
@@ -77,7 +76,9 @@ def argument_parser():
     )
     parser.add_argument(
         '--csv',
-        metavar='csv-output-prefix',
+        # metavar='csv-output-prefix',
+        action='store_true',
+        default=False,
         help='File prefix for storing CSV file with identified exon duplicates and their classification.'
     )
     # Optional Arguments for Numerical Values and Thresholds
@@ -157,6 +158,7 @@ def main():
         genome_file_path=args.genome_file_path,
         output_prefix=args.output_prefix,
         draw_event_multigraphs=args.multigraphs,
+        csv=args.csv,
         enable_debug=args.debug,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
@@ -171,8 +173,6 @@ def main():
         output_directory_path=args.output_directory_path
     )
     exonize_obj.run_exonize_pipeline()
-    # if args.csv:
-    #     exonize_obj.output_csv(args.csv)
 
 
 if __name__ == '__main__':
