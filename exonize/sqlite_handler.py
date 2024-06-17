@@ -352,12 +352,12 @@ class SqliteHandler(object):
             """
             )
         cursor.execute("""CREATE INDEX IF NOT EXISTS Matches_full_length_idx ON Matches_full_length (FragmentID);""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetStart INT;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetEnd INT;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetStart INTEGER;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetEnd INTEGER;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedDNAIdentity REAL;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedProtIdentity REAL;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetFrame REAL;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryFrame REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetFrame INTEGER;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryFrame INTEGER;""")
         cursor.execute("""ALTER TABLE Matches_full_length DROP COLUMN TargetAlnProtSeq;""")
 
     def insert_corrected_target_start_end(
@@ -381,6 +381,7 @@ class SqliteHandler(object):
                 """,
                 list_tuples,
             )
+
 
     def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
         with sqlite3.connect(
@@ -637,9 +638,35 @@ class SqliteHandler(object):
             cursor = db.cursor()
             placeholders = ', '.join(['?'] * len(fragment_ids_list))
             query = f"""
-                    INSERT INTO Matches_full_length_non_reciprocal
-                    SELECT * FROM Matches_full_length
-                    WHERE FragmentID IN ({placeholders});
+            INSERT INTO Matches_full_length_non_reciprocal
+            SELECT
+                FragmentID,
+                GeneID,
+                GeneStart,
+                GeneEnd,
+                QueryExonFrame,
+                QueryFrame,
+                TargetFrame,
+                GeneStrand,
+                QueryStrand,
+                TargetStrand,
+                QueryExonStart,
+                QueryExonEnd,
+                QueryStart,
+                QueryEnd,
+                TargetStart + GeneStart AS TargetStart,
+                TargetEnd + GeneStart AS TargetEnd,
+                Evalue,
+                DNAIdentity,
+                ProtIdentity,
+                COALESCE(CorrectedTargetStart, TargetStart) + GeneStart AS CorrectedTargetStart,
+                COALESCE(CorrectedTargetEnd, TargetEnd) + GeneStart AS CorrectedTargetEnd,
+                COALESCE(CorrectedDNAIdentity, DNAIdentity) AS CorrectedDNAIdentity,
+                COALESCE(CorrectedProtIdentity, ProtIdentity) AS CorrectedProtIdentity,
+                COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
+                COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
+            FROM Matches_full_length
+            WHERE FragmentID IN ({placeholders});
                     """
             cursor.execute(query, fragment_ids_list)
 
@@ -761,31 +788,37 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             fragments_query = """
-            SELECT
-                mnr.GeneID,
+            SELECT 
+                n.GeneID,
                 e.MatchID,
-                g.GeneStart,
-                mnr.QueryExonStart,
-                mnr.QueryExonEnd,
-                (COALESCE(mnr.CorrectedTargetStart, mnr.TargetStart)) AS CorrectedTargetStart,
-                (COALESCE(mnr.CorrectedTargetEnd, mnr.TargetEnd)) AS CorrectedTargetEnd,
-                (COALESCE(mnr.CorrectedTargetStart, mnr.TargetStart) + g.GeneStart) AS AlignCorrectedTargetEnd,
-                (COALESCE(mnr.CorrectedTargetEnd, mnr.TargetEnd)+ g.GeneStart) AS AlginCorrectedTargetEnd,
+                n.QueryExonStart,
+                n.QueryExonEnd,
+                n.CorrectedTargetStart,
+                n.CorrectedTargetEnd,
                 e.Mode,
                 e.ExpansionID
-            FROM Matches_full_length_non_reciprocal  as mnr
-            INNER JOIN Genes AS g on g.GeneID=mnr.GeneID
+             FROM (
+                 SELECT
+                    mnr.GeneID,
+                    g.GeneStart,
+                    mnr.QueryExonStart,
+                    mnr.QueryExonEnd,
+                    mnr.CorrectedTargetStart,
+                    mnr.CorrectedTargetEnd
+                FROM Matches_full_length_non_reciprocal  as mnr
+                INNER JOIN Genes AS g on g.GeneID=mnr.GeneID
+                ) AS n
             INNER JOIN Expansions AS e
-                ON e.GeneID = mnr.GeneID
-                AND e.EventStart= CorrectedTargetStart
-                and e.EventEnd = CorrectedTargetEnd
-                WHERE Mode == "FULL" OR Mode == "INSERTION_EXCISION";
+            ON n.GeneID = e.GeneID
+            AND e.EventStart= n.CorrectedTargetStart
+            and e.EventEnd = n.CorrectedTargetEnd
+            WHERE (e.Mode == "FULL" OR e.Mode == "INSERTION_EXCISION");
             """
             cursor.execute(fragments_query)
             records = cursor.fetchall()
             for record in records:
-                (gene_id, match_id, _, cds_start, cds_end,
-                 _, _, corr_target_start, corr_target_end,
+                (gene_id, match_id, cds_start, cds_end,
+                 corr_target_start, corr_target_end,
                  mode, expansion_id) = record
                 expansions_gene_dictionary[gene_id][expansion_id].append(
                     (match_id, gene_id, cds_start, cds_end, corr_target_start, corr_target_end)
@@ -803,8 +836,8 @@ class SqliteHandler(object):
                 """
             SELECT
                 e.GeneID,
-                e.EventStart + g.GeneStart as ExonStart,
-                e.EventEnd + g.GeneStart as ExonEnd,
+                e.EventStart,
+                e.EventEnd,
                 e.ExpansionID
             FROM Expansions AS e
             INNER JOIN Genes AS g ON g.GeneID=e.GeneID
