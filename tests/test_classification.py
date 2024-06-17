@@ -240,6 +240,7 @@ exonize_obj = Exonize(
         genome_file_path=Path('mock_genome.fa'),
         output_prefix="mock_specie",
         draw_event_multigraphs=False,
+        csv=False,
         enable_debug=False,
         soft_force=False,
         evalue_threshold=0.01,
@@ -279,7 +280,7 @@ def test_expansion():
         cursor = db.cursor()
         cursor.execute(
             """
-            SELECT gene_id, mode, start, end, degree FROM Expansions
+            SELECT GeneID, Mode, EventStart, EventEnd, EventDegree FROM Expansions
             """
         )
         records = set(cursor.fetchall())
