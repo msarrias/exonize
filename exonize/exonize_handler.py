@@ -505,8 +505,8 @@ Exonize results database:   {self.results_database_path.name}
         self.events_classification()
         self.runtime_logger()
         self.environment.logger.info('Process completed successfully')
-        self.data_container.clear_working_directory()
         if self.csv:
             self.database_interface.export_all_tables_to_csv(
                 output_dir=self.data_container.csv_path
             )
+        self.data_container.clear_working_directory()
