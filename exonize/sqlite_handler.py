@@ -63,6 +63,16 @@ class SqliteHandler(object):
             )
             return cursor.fetchone()[0] == 0
 
+    def drop_table(
+            self,
+            table_name: str
+    ):
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(f"""DROP TABLE IF EXISTS {table_name};""")
+
     def clear_results_database(
             self
     ) -> None:
@@ -386,25 +396,26 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN DNAIdentity REAL;"""
-            )
-            cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN ProtIdentity REAL;"""
-            )
-            cursor.execute(
                 """ ALTER TABLE Matches ADD COLUMN QueryDNASeq VARCHAR;"""
             )
             cursor.execute(
                 """ ALTER TABLE Matches ADD COLUMN TargetDNASeq VARCHAR;"""
             )
+            cursor.execute(
+                """ ALTER TABLE Matches ADD COLUMN DNAIdentity REAL;"""
+            )
+            cursor.execute(
+                """ ALTER TABLE Matches ADD COLUMN ProtIdentity REAL;"""
+            )
+
             cursor.executemany(
                 """
             UPDATE Matches
             SET
-                DNAIdentity=?,
-                ProtIdentity=?,
                 QueryDNASeq=?,
-                TargetDNASeq=?
+                TargetDNASeq=?,
+                DNAIdentity=?,
+                ProtIdentity=?
             WHERE FragmentID=?
             """,
                 list_tuples,
@@ -599,16 +610,6 @@ class SqliteHandler(object):
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
-
-    def drop_table(
-            self,
-            table_name: str
-    ):
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(f"""DROP TABLE IF EXISTS {table_name};""")
 
     def create_non_reciprocal_fragments_table(self) -> None:
         with sqlite3.connect(
@@ -913,11 +914,8 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = [table[0] for table in cursor.fetchall() if "sqlite" not in table[0]]
-            # Iterate over the tables and export each to a CSV file
             for table in tables:
                 table_name = table
-                # Query the data from the table
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", db)
-                # Write the data to a CSV file
                 csv_file_path = output_dir / f"{table_name}.csv"
                 df.to_csv(csv_file_path, index=False)
