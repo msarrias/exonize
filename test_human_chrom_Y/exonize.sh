@@ -10,5 +10,6 @@ exonize $GFF_FILE_PATH \
         --output_prefix $SPECIE_ID \
         --min-exon-length $MIN_SEQ_LENGTH \
         --multigraphs \
-        --hard-force \
-        --output-directory-path $OUTPUT_DIRECTORY_PATH
+        --csv \
+        --cpus_number 5 \
+

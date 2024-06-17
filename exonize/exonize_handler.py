@@ -42,6 +42,7 @@ class Exonize(object):
             genome_file_path: Path,
             output_prefix: str,
             draw_event_multigraphs: bool,
+            csv: bool,
             enable_debug: bool,
             soft_force: bool,
             hard_force: bool,
@@ -59,7 +60,6 @@ class Exonize(object):
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.FORKS_NUMBER = cpus_number
-        self.draw_event_multigraphs = draw_event_multigraphs
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
@@ -71,6 +71,8 @@ class Exonize(object):
         self.min_exon_length = min_exon_length
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
+        self.draw_event_multigraphs = draw_event_multigraphs
+        self.csv = csv
         self.tic = datetime.now()
         self.full_matches_dictionary = {}
 
@@ -82,7 +84,6 @@ class Exonize(object):
         else:
             self.working_directory = Path(f'{self.output_prefix}_exonize')
         self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
-
         self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
         self.PROFILE_PATH = self.working_directory / 'cProfile_dump_stats.dmp'
 
@@ -90,7 +91,6 @@ class Exonize(object):
         self.environment = EnvironmentSetup(
             hard_force=self.HARD_FORCE,
             soft_force=self.SOFT_FORCE,
-            draw_event_multigraphs=self.draw_event_multigraphs,
             working_directory=self.working_directory,
             results_database_path=self.results_database_path,
         )
@@ -112,6 +112,7 @@ class Exonize(object):
             query_overlapping_threshold=self.query_overlapping_threshold,
             min_exon_length=self.min_exon_length,
             draw_event_multigraphs=self.draw_event_multigraphs,
+            csv=self.csv,
         )
 
         self.blast_engine = BLASTsearcher(
@@ -504,4 +505,8 @@ Exonize results database:   {self.results_database_path.name}
         self.events_classification()
         self.runtime_logger()
         self.environment.logger.info('Process completed successfully')
+        if self.csv:
+            self.database_interface.export_all_tables_to_csv(
+                output_dir=self.data_container.csv_path
+            )
         self.data_container.clear_working_directory()

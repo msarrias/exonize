@@ -19,6 +19,7 @@ data_container = DataPreprocessor(
     debug_mode=False,
     evalue_threshold=1e-5,
     draw_event_multigraphs=False,
+    csv=False,
 )
 
 data_container.genome_dictionary = {

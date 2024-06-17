@@ -378,12 +378,13 @@ class ReconcilerHandler(object):
             gene_id: str,
             event_coordinates_dictionary: dict,
             expansion_id_counter: int,
+            gene_start: int,
     ) -> list[tuple]:
         return [
             (gene_id,
              mode,
-             node_coordinate.lower,
-             node_coordinate.upper,
+             node_coordinate.lower + gene_start,
+             node_coordinate.upper + gene_start,
              degree,
              cluster_id,
              expansion_id_counter
@@ -394,14 +395,15 @@ class ReconcilerHandler(object):
     @staticmethod
     def gene_non_reciprocal_fragments(
             gene_graph: nx.MultiGraph,
-            events_list: list[tuple]
+            events_list: list[tuple],
+            gene_start: int
     ):
         event_reduced_fragments_list = list()
         skip_pair = list()
         for event in events_list:
             _, _, node_start, node_end, *_, event_id = event
-            for adjacent_node, adjacent_edges in gene_graph[(node_start, node_end)].items():
-                pair = {(node_start, node_end), adjacent_node}
+            for adjacent_node, adjacent_edges in gene_graph[(node_start - gene_start, node_end - gene_start)].items():
+                pair = {(node_start - gene_start, node_end - gene_start), adjacent_node}
                 if pair not in skip_pair:
                     event_reduced_fragments_list.append(adjacent_edges[0]['fragment_id'])
                     skip_pair.append(pair)
@@ -413,6 +415,8 @@ class ReconcilerHandler(object):
             gene_id: str,
             gene_graph: nx.MultiGraph
     ) -> tuple[list[tuple], list]:
+        gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+
         mode_dictionary = self.build_mode_dictionary(
             reference_coordinates_dictionary=reference_coordinates_dictionary
         )
@@ -428,7 +432,7 @@ class ReconcilerHandler(object):
             event_coordinates_dictionary = self.build_event_coordinates_dictionary(
                 component=component,
                 mode_dict=mode_dictionary,
-                gene_graph=gene_graph
+                gene_graph=gene_graph,
             )
             # Second : Assign cluster ids within events
             self.assign_cluster_ids_to_event_coordinates(
@@ -437,13 +441,15 @@ class ReconcilerHandler(object):
             events_list = self.build_events_list(
                     gene_id=gene_id,
                     event_coordinates_dictionary=event_coordinates_dictionary,
-                    expansion_id_counter=expansion_id_counter
+                    expansion_id_counter=expansion_id_counter,
+                    gene_start=gene_start
                 )
             expansion_events_list.extend(events_list)
             expansion_non_reciprocal_fragments.extend(
                 self.gene_non_reciprocal_fragments(
                     gene_graph=gene_graph,
-                    events_list=events_list
+                    events_list=events_list,
+                    gene_start=gene_start
                 )
             )
             expansion_id_counter += 1
