@@ -2,7 +2,6 @@
 # This module contains the SqliteHandler class, which is used to handle the
 # results database.
 # ------------------------------------------------------------------------
-import os
 import sqlite3
 import contextlib
 from pathlib import Path
@@ -381,7 +380,6 @@ class SqliteHandler(object):
                 """,
                 list_tuples,
             )
-
 
     def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
         with sqlite3.connect(
@@ -788,7 +786,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             fragments_query = """
-            SELECT 
+            SELECT
                 n.GeneID,
                 e.MatchID,
                 n.QueryExonStart,
