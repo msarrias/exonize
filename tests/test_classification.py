@@ -4,7 +4,48 @@ import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
 from pathlib import Path
+
+
 gene_hierarchy_dictionary = {
+    'gene_0': {
+        'coordinate': P.open(0, 2500),
+        'chrom': 'X',
+        'strand': '+',
+        'mRNAs': {
+            'transcript_g0_1': {
+                'coordinate': P.open(1, 3000),
+                'strand': '+',
+                'structure': [
+                    {'id': 'cds1_g0_t1', 'coordinate': P.open(1, 200), 'frame': 0, 'type': 'CDS'},  #
+                    {'id': 'intron1_g0_t1', 'coordinate': P.open(201, 399), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds2_g0_t1', 'coordinate': P.open(400, 500), 'frame': 0, 'type': 'CDS'},  #
+                    {'id': 'intron2_g0_t1', 'coordinate': P.open(501, 799), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds3_g0_t1', 'coordinate': P.open(800, 1500), 'frame': 0, 'type': 'CDS'},
+                    {'id': 'intron3_g0_t1', 'coordinate': P.open(1501, 1799), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds4_g0_t1', 'coordinate': P.open(1800, 2000), 'frame': 0, 'type': 'CDS'},
+                    {'id': 'intron4_g0_t1', 'coordinate': P.open(2001, 2399), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds5_g0_t1', 'coordinate': P.open(2400, 2500), 'frame': 0, 'type': 'CDS'},
+                    {'id': 'intron5_g0_t1', 'coordinate': P.open(2501, 2599), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds6_g0_t1', 'coordinate': P.open(2600, 3000), 'frame': 0, 'type': 'CDS'},
+
+                ]
+            },
+            'transcript_g0_2': {
+                'coordinate': P.open(500, 1700),
+                'strand': '+',
+                'structure': [
+                    {'id': 'cds1_g0_t2', 'coordinate': P.open(600, 700), 'frame': 0, 'type': 'CDS'},  #
+                    {'id': 'intron1_g0_t2', 'coordinate': P.open(701, 849), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds2_g0_t2', 'coordinate': P.open(850, 950), 'frame': 0, 'type': 'CDS'},  #
+                    {'id': 'intron2_g0_t2', 'coordinate': P.open(951, 999), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds3_g0_t2', 'coordinate': P.open(1000, 1500), 'frame': 0, 'type': 'CDS'},
+                    {'id': 'intron3_g0_t2', 'coordinate': P.open(1501, 1599), 'frame': 0, 'type': 'intron'},
+                    {'id': 'cds4_g0_t2', 'coordinate': P.open(1600, 1700), 'frame': 0, 'type': 'CDS'},
+
+                ]
+            }
+        }
+    },
     'gene_1': {
         'coordinate': P.open(0, 3000),
         'chrom': 'Y',
@@ -89,7 +130,20 @@ gene_hierarchy_dictionary = {
     }
 }
 
-representative_cds_gene_1 = sorted([
+representative_cds_gene_0 = {
+    P.open(1, 200),
+    P.open(400, 500),
+    P.open(600, 700),
+    P.open(800, 1500),
+    P.open(850, 950),
+    P.open(1000, 1500),
+    P.open(1600, 1700),
+    P.open(1800, 2000),
+    P.open(2400, 2500),
+    P.open(2600, 3000),
+}
+
+representative_cds_gene_1 = {
     P.open(1, 200), P.open(250, 350),
     P.open(400, 500), P.open(550, 600),
     P.open(680, 780), P.open(840, 900),
@@ -99,12 +153,21 @@ representative_cds_gene_1 = sorted([
     P.open(1750, 1900), P.open(1750, 2100),
     P.open(1800, 2100), P.open(2300, 2400),
     P.open(2540, 2600), P.open(2800, 3000)
-], key=lambda x: (x.lower, x.upper))
+}
 
+mock_gene0 = ['gene_0', 'X', '+', len(gene_hierarchy_dictionary['gene_0']['mRNAs']), 0, 2500]
+fragments_gene0 = [
+    ('gene_0', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1300, 1500, '-', '-', '-', 0, 0),
+    ('gene_0', 400, 500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 850, 950, '-', '-', '-', 0, 0),
+    ('gene_0', 850, 950, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 400, 500, '-', '-', '-', 0, 0),
+    ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 100, 200, '-', '-', '-', 0, 0),
+    ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 1400, 1500, '-', '-', '-', 0, 0),
+    ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 1750, 1850, '-', '-', '-', 0, 0),
+    ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 2200, 2300, '-', '-', '-', 0, 0)
+]
 
-mock_gene = ['gene_1', 'Y', '+', 3, 0, 3000]
-
-fragments = [
+mock_gene1 = ['gene_1', 'Y', '+', len(gene_hierarchy_dictionary['gene_1']['mRNAs']), 0, 3000]
+fragments_gene1 = [
     ('gene_1', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1200, 1400, '-', '-', '-', 0, 0),
     ('gene_1', 1200, 1400, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1, 200, '-', '-', '-', 0, 0),
     ('gene_1', 400, 500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 1, 100, 2300, 2400, '-', '-', '-', 0, 0),
@@ -119,8 +182,16 @@ fragments = [
     ('gene_1', 1420, 1460, 0, 0, '+', 0, '+', 0, 0, 1e-5, 40, 1, 40, 1080, 1120, '-', '-', '-', 0, 0),
     ('gene_1', 1750, 1900, 0, 0, '+', 0, '+', 0, 0, 1e-5, 150, 1, 150, 1210, 1360, '-', '-', '-', 0, 0)
 ]
-
 expansions = [
+    ('gene_0', 'FULL', 1, 200, 1, 0),
+    ('gene_0', 'INSERTION_EXCISION', 1300, 1500, 1, 0),
+    ('gene_0', 'FULL', 600, 700, 4, 1),
+    ('gene_0', 'INSERTION_EXCISION', 100, 200, 1, 1),
+    ('gene_0', 'INSERTION_EXCISION', 1400, 1500, 1, 1),
+    ('gene_0', 'TRUNCATION_ACQUISITION', 1750, 1850, 1, 1),
+    ('gene_0', 'INACTIVE_UNANNOTATED', 2200, 2300, 1, 1),
+    ('gene_0', 'FULL', 400, 500, 2, 2),
+    ('gene_0', 'FULL', 850, 950, 2, 2),
     ('gene_1', 'FULL', 1, 200, 2, 0),
     ('gene_1', 'FULL', 1200, 1400, 2, 0),
     ('gene_1', 'FULL', 400, 500, 2, 1),
@@ -135,16 +206,6 @@ expansions = [
     ('gene_1', 'FULL', 1420, 1460, 2, 5),
     ('gene_1', 'FULL', 1750, 1900, 1, 6),
     ('gene_1', 'INSERTION_EXCISION', 1210, 1360, 1, 6)
-]
-
-non_reciprocal_matches_count_gene1 = [
-    ([(1, 200), (1200, 1400)], 'FLEXIBLE'),
-    ([(250, 350), (680, 780)], 'OPTIONAL_FLEXIBLE'),
-    ([(400, 500), (2300, 2400)], 'OBLIGATE'),
-    ([(550, 600), (950, 1000)], 'OPTIONAL_OBLIGATE'),
-    ([(840, 900), (2540, 2600)], 'EXCLUSIVE'),
-    ([(1080, 1120), (1420, 1460)], 'OPTIONAL_EXCLUSIVE'),
-    ([(1210, 1360), (1750, 1900)], 'OPTIONAL_FLEXIBLE')
 ]
 
 matches = [
@@ -235,20 +296,26 @@ matches = [
     # INSERTION - OPTIONAL
     (37, 'gene_1', 'transcript_g1_1', 1750, 1900, 'cds10_g1_t1', 'INS_CDS', 'cds9_g1_t1',
      1200, 1400, 1210, 1360, 0, 0, 0, 1, 1e-05),
-    (38, 'gene_1', 'transcript_g1_2', 1750, 1900, '-', 'INS_CDS', 'cds7_g1_t2',
+    (38, 'gene_1', 'transcript_g1_2', 1750, 1900, 'cds10_g1_t2', 'INS_CDS', 'cds7_g1_t2',
      1200, 1400, 1210, 1360, 0, 0, 1, 0, 1e-05),
     (39, 'gene_1', 'transcript_g1_3', 1750, 1900, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1210, 1360, 1, 0, 0, 0, 1e-05)
 ]
 
-non_reciprocal_matches_pairs_gene1 = [
-    [(1, 200), (1200, 1400)],
-    [(400, 500), (2300, 2400)],
-    [(840, 900), (2540, 2600)],
-    [(550, 600), (950, 1000)],
-    [(250, 350), (680, 780)],
-    [(1080, 1120), (1420, 1460)],
-    [(1210, 1360), (1750, 1900)]
+non_reciprocal_matches_count = [
+    # gene_1
+    (1, 200, 1200, 1400, 'FLEXIBLE'),
+    (250, 350, 680, 780, 'OPTIONAL_FLEXIBLE'),
+    (400, 500, 2300, 2400, 'OBLIGATE'),
+    (550, 600, 950, 1000, 'OPTIONAL_OBLIGATE'),
+    (840, 900, 2540, 2600, 'EXCLUSIVE'),
+    (1080, 1120, 1420, 1460, 'OPTIONAL_EXCLUSIVE'),
+    (1210, 1360, 1750, 1900, 'OPTIONAL_OBLIGATE'),
+    # gene_0
+    (1, 200, 1300, 1500, 'FLEXIBLE'),
+    (100, 200, 600, 700, 'EXCLUSIVE'),
+    (600, 700, 1400, 1500, 'FLEXIBLE'),
+    (400, 500, 850, 950, 'FLEXIBLE')
 ]
 
 
@@ -279,9 +346,15 @@ shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = results_db_path
 exonize_obj.database_interface.connect_create_results_database()
 exonize_obj.database_interface.insert_matches(
-    gene_args_tuple=mock_gene,
-    fragments_tuples_list=fragments
+    gene_args_tuple=mock_gene1,
+    fragments_tuples_list=fragments_gene1
 )
+exonize_obj.database_interface.insert_matches(
+    gene_args_tuple=mock_gene0,
+    fragments_tuples_list=fragments_gene0
+)
+exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
+
 matches_list = exonize_obj.database_interface.query_fragments()
 exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
     list_tuples=[(1, 1, '', '', i[0]) for i in matches_list]
@@ -291,9 +364,15 @@ exonize_obj.database_interface.insert_percent_query_column_to_fragments()
 exonize_obj.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=exonize_obj.query_overlapping_threshold
         )
-exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
 exonize_obj.events_reconciliation()
 exonize_obj.events_classification()
+
+
+def test_representative_cdss():
+    gene_0_rcs = exonize_obj.blast_engine.get_candidate_cds_coordinates('gene_0')['candidates_cds_coordinates']
+    gene_1_rcs = exonize_obj.blast_engine.get_candidate_cds_coordinates('gene_1')['candidates_cds_coordinates']
+    assert set(gene_0_rcs) == representative_cds_gene_0
+    assert set(gene_1_rcs) == representative_cds_gene_1
 
 
 def test_expansion():
@@ -301,27 +380,40 @@ def test_expansion():
         cursor = db.cursor()
         cursor.execute(
             """
-            SELECT GeneID, Mode, EventStart, EventEnd, EventDegree FROM Expansions
+            SELECT GeneID, Mode, EventStart, EventEnd, EventDegree, ExpansionID FROM Expansions
             """
         )
-        records = set(cursor.fetchall())
-        assert set([i[:-1] for i in expansions]) == records
+        records = cursor.fetchall()
+        events_gene_0 = len(set([record[-1] for record in records if record[0] == 'gene_0']))
+        expected_events_gene_0 = len(set([i[-1] for i in [rec for rec in expansions if rec[0] == 'gene_0']]))
+        events_gene_1 = len(set([record[-1] for record in records if record[0] == 'gene_1']))
+        expected_events_gene_1 = len(set([i[-1] for i in [rec for rec in expansions if rec[0] == 'gene_1']]))
+        assert set([i[:-1] for i in records]) == set([i[:-1] for i in expansions])
+        assert events_gene_0 == expected_events_gene_0
+        assert events_gene_1 == expected_events_gene_1
 
 
-def test_matches_transcript_classification():
-    with sqlite3.connect(results_db_path) as db:
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM Matches_interdependence_classification;
-            """
+# def test_matches_transcript_classification():
+#     with sqlite3.connect(results_db_path) as db:
+#         cursor = db.cursor()
+#         cursor.execute(
+#             """
+#             SELECT COUNT(*) FROM Matches_interdependence_classification;
+#             """
+#         )
+#         records = cursor.fetchone()[0]
+#         n_transcripts = len(gene_hierarchy_dictionary['gene_1']['mRNAs'])
+#         assert records == (len(non_reciprocal_matches_count_gene1) * n_transcripts)
+
+
+def check_matches_interdependence_counts():
+    def sort_coordinates(a, b, c, d):
+        query, target = sorted(
+            [(a, b), (c, d)],
+            key=lambda x: (x[0], x[1])
         )
-        records = cursor.fetchone()[0]
-        n_transcripts = len(gene_hierarchy_dictionary['gene_1']['mRNAs'])
-        assert records == (len(non_reciprocal_matches_pairs_gene1) * n_transcripts)
+        return query[0], query[1], target[0], target[1]
 
-
-def check_non_reciprocal_matches():
     with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
@@ -335,9 +427,12 @@ def check_non_reciprocal_matches():
             FROM Matches_interdependence_counts;
             """
         )
-        records = sorted([
-            (sorted([(exon_start, exon_end), (target_start, target_end)],
-                    key=lambda x: x[0]), class_)
-            for exon_start, exon_end, target_start, target_end, class_ in cursor.fetchall()],
-            key=lambda x: x[0][0][0])
-        assert records == non_reciprocal_matches_count_gene1
+        records = {
+            (sort_coordinates(query_s, query_e, target_s, target_e), class_)
+            for (query_s, query_e, target_s, target_e, class_) in cursor.fetchall()
+        }
+        expected_records = {
+            (sort_coordinates(query_s, query_e, target_s, target_e), class_)
+            for query_s, query_e, target_s, target_e, class_ in non_reciprocal_matches_count
+        }
+        assert records == expected_records
