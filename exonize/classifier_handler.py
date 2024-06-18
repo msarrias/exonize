@@ -231,7 +231,7 @@ class ClassifierHandler(object):
         )
         if coordinate_dictionary:
             self.__target_type = "TRUNC"
-            self.__target_cds = None
+            self.__target_cds = "-"
             self.__annot_target_start = None
             self.__annot_target_end = None
 
