@@ -60,15 +60,21 @@ class ClassifierHandler(object):
         :param query_coordinate: The coordinate to search for.
         :return: The ID of the matching CDS or None if no match is found.
         """
-        for cds in transcript_dictionary["structure"]:
-            if cds["coordinate"] == query_coordinate and cds["type"] == "CDS":
+        transcript_cdss = [cds for cds in transcript_dictionary["structure"] if cds["type"] == "CDS"]
+        # First check for exact match
+        for cds in transcript_cdss:
+            if cds["coordinate"] == query_coordinate:
+                return cds["id"], cds["coordinate"], cds["frame"]
+        # If no exact match found, check for inclusion
+        for cds in transcript_cdss:
+            if cds["coordinate"].contains(query_coordinate):
                 return cds["id"], cds["coordinate"], cds["frame"]
         return None
 
     def identify_query(
-            self,
-            transcript_dictionary: dict,
-            cds_coordinate: P.Interval,
+                self,
+                transcript_dictionary: dict,
+                cds_coordinate: P.Interval,
     ) -> None:
         """
         identify_query is a function that identifies the tblastx
@@ -235,7 +241,7 @@ class ClassifierHandler(object):
             self.__annot_target_start = None
             self.__annot_target_end = None
 
-    def identify_obligate_pair(
+    def identify_both_pair(
             self,
     ) -> None:
         """
@@ -368,9 +374,9 @@ class ClassifierHandler(object):
                         row_tuple=row_tuple
                     )
             self.__target = self.__target_full + self.__target_insertion
-            # ####### OBLIGATE PAIR #######
+            # ####### BOTH PAIR #######
             if self.__query + self.__target == 2:
-                self.identify_obligate_pair(
+                self.identify_both_pair(
                 )
             # ####### NEITHER PAIR #######
             elif self.__query + self.__target == 0:
