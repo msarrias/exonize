@@ -612,52 +612,69 @@ class BLASTsearcher(object):
 
     def find_coding_exon_duplicates(
             self,
-            gene_id: str,
+            gene_id_list: list[str],
     ) -> None:
         """
         find_coding_exon_duplicates is a function that given a gene_id,
         performs a tblastx for each representative CDS (see get_candidate_cds_coordinates).
         If the tblastx search returns hits, they are stored in the "results" database,
         otherwise the gene is recorded as having no duplication event.
-        :param gene_id: gene identifier
+        :param gene_id_list: gene identifier
         """
-        blast_hits_dictionary = dict()
-        # time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-        chromosome, gene_coordinate = (
-            self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
-            self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
-        )
-        gene_dna_sequence = str(
-            Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
-        )
-        cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
-        no_dup = True
-        if cds_coordinates_dictionary:
-            for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
-                # note that we are not accounting for the frame at this stage, that will be part of
-                # the filtering step (since tblastx alignments account for 3 frames)
-                cds_dna_sequence = str(
-                    Seq(self.data_container.genome_dictionary[chromosome][
-                        cds_coordinate.lower:cds_coordinate.upper])
-                )
-                cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
-                tblastx_o = self.align_cds(
-                    gene_id=gene_id,
-                    query_sequence=cds_dna_sequence,
-                    hit_sequence=gene_dna_sequence,
-                    query_coordinate=cds_coordinate,
-                    cds_frame=cds_frame
-                )
-                if tblastx_o:
-                    blast_hits_dictionary[cds_coordinate] = tblastx_o
-            attempt = False
-            if blast_hits_dictionary:
-                no_dup = False
+        for gene_id in gene_id_list:
+            blast_hits_dictionary = dict()
+            # time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+            chromosome, gene_coordinate = (
+                self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
+                self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
+            )
+            gene_dna_sequence = str(
+                Seq(self.data_container.genome_dictionary[chromosome][gene_coordinate.lower:gene_coordinate.upper])
+            )
+            cds_coordinates_dictionary = self.get_candidate_cds_coordinates(gene_id=gene_id)
+            no_dup = True
+            if cds_coordinates_dictionary:
+                for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
+                    # note that we are not accounting for the frame at this stage, that will be part of
+                    # the filtering step (since tblastx alignments account for 3 frames)
+                    cds_dna_sequence = str(
+                        Seq(self.data_container.genome_dictionary[chromosome][
+                            cds_coordinate.lower:cds_coordinate.upper])
+                    )
+                    cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
+                    tblastx_o = self.align_cds(
+                        gene_id=gene_id,
+                        query_sequence=cds_dna_sequence,
+                        hit_sequence=gene_dna_sequence,
+                        query_coordinate=cds_coordinate,
+                        cds_frame=cds_frame
+                    )
+                    if tblastx_o:
+                        blast_hits_dictionary[cds_coordinate] = tblastx_o
+                attempt = False
+                if blast_hits_dictionary:
+                    no_dup = False
+                    while not attempt:
+                        try:
+                            self.populate_fragments_table(
+                                gene_id=gene_id,
+                                blast_results_dictionary=blast_hits_dictionary
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
+            if no_dup:
+                attempt = False
                 while not attempt:
                     try:
-                        self.populate_fragments_table(
-                            gene_id=gene_id,
-                            blast_results_dictionary=blast_hits_dictionary
+                        self.database_interface.insert_gene_ids_table(
+                            gene_args_tuple=self.get_gene_tuple(
+                                gene_id=gene_id
+                            )
                         )
                         attempt = True
                     except Exception as e:
@@ -666,22 +683,6 @@ class BLASTsearcher(object):
                         else:
                             self.environment.logger.exception(e)
                             sys.exit()
-        if no_dup:
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_gene_ids_table(
-                        gene_args_tuple=self.get_gene_tuple(
-                            gene_id=gene_id
-                        )
-                    )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
 
     def populate_fragments_table(
             self,
