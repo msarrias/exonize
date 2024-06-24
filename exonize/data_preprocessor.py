@@ -247,11 +247,13 @@ class DataPreprocessor(object):
             self.genome_dictionary = {}
             if self.genome_file_path.suffix == '.gz':
                 with gzip.open(self.genome_file_path, mode='rt') as genome_file:  # 'rt' for textmode
-                    for record in SeqIO.parse(genome_file, 'fasta'):
+                    parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                    for record in parsed_genome:
                         self.genome_dictionary[record.id] = str(record.seq)
             else:
                 with open(self.genome_file_path, mode='r') as genome_file:
-                    for record in SeqIO.parse(genome_file, 'fasta'):
+                    parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                    for record in parsed_genome:
                         self.genome_dictionary[record.id] = str(record.seq)
         except (ValueError, FileNotFoundError) as e:
             self.environment.logger.critical(
