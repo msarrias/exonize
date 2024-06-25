@@ -65,8 +65,11 @@ def test_build_reference_dictionary():
         (P.open(40, 90), 0.8),
         (P.open(200, 250), 0.7),
         (P.open(210, 250), 0.7),
+        (P.open(220, 250), 0.7),
         (P.open(220, 270), 0.6),
-        (P.open(400, 450), 0.5)
+        (P.open(400, 450), 0.4),
+        (P.open(402, 450), 0.5),
+        (P.open(420, 450), 0.5)
     }
     cds_candidates_dictionary = {
         'candidates_cds_coordinates': query_coordinates
@@ -82,7 +85,11 @@ def test_build_reference_dictionary():
             'mode': 'FULL'
         },
         P.open(210, 250): {
-            'reference': P.open(210, 250),
+            'reference': P.open(200, 250),
+            'mode': 'FULL'
+        },
+        P.open(220, 250): {
+            'reference': P.open(220, 250),
             'mode': 'INSERTION_EXCISION'
         },
         P.open(0, 50): {
@@ -100,11 +107,17 @@ def test_build_reference_dictionary():
         P.open(400, 450): {
             'reference': P.open(400, 450),
             'mode': 'INACTIVE_UNANNOTATED'
-        }  # Assuming no CDS overlap
+        },
+        P.open(402, 450): {
+            'reference': P.open(400, 450),
+            'mode': 'INACTIVE_UNANNOTATED'
+        },
+        P.open(420, 450): {
+            'reference': P.open(420, 450),
+            'mode': 'INACTIVE_UNANNOTATED'
+        }
+        # Assuming no CDS overlap
     }
-    print(counter_handler.build_reference_dictionary(
-        cds_candidates_dictionary=cds_candidates_dictionary,
-        clusters_list=overlapping_targets))
     assert counter_handler.build_reference_dictionary(
         cds_candidates_dictionary=cds_candidates_dictionary,
         clusters_list=overlapping_targets
