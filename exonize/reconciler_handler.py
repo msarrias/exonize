@@ -152,6 +152,27 @@ class ReconcilerHandler(object):
                     overlapping_coords[coordinate].append((other_coord, oeval))
         return dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
 
+    def get_insertion_reference_dictionary(
+            self,
+            cds_candidates_dictionary,
+            coordinates_list
+    ):
+        overlapping_coords = defaultdict(list)
+        insertion_reference_dict = {}
+        for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']:
+            for other_coord, oeval in coordinates_list:
+                if cds_coordinate.contains(other_coord):
+                    overlapping_coords[cds_coordinate].append((other_coord, oeval))
+        overlapping_coords = dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
+        for cds_coordinate, list_of_overlapping_coords in overlapping_coords.items():
+            reference_dict = self.get_non_coding_reference_dictionary(
+                overlapping_targets=list_of_overlapping_coords,
+                threshold=self.cds_overlapping_threshold
+            )
+            for target_coordinate, reference in reference_dict.items():
+                insertion_reference_dict[target_coordinate] = reference
+        return insertion_reference_dict
+
     def build_reference_dictionary(
             self,
             cds_candidates_dictionary: dict,
@@ -201,20 +222,35 @@ class ReconcilerHandler(object):
                                     'mode': ref_type
                                 }
                                 processed_ids.append(target_coord)
-                missing_targets = [target for target, _ in coding_coordinates if target not in reference_dictionary]
-                if missing_targets:
-                    for target_coordinate in missing_targets:
-                        contained_match_in_cds = [
-                            cds_coordinate
-                            for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']
-                            if cds_coordinate.contains(target_coordinate)
-                        ]
-                        if contained_match_in_cds:
-                            ref_type = 'INSERTION_EXCISION'
-                        else:
-                            ref_type = 'TRUNCATION_ACQUISITION'
-                        reference_dictionary[target_coordinate] = {
-                            'reference': target_coordinate,
+                insertion_targets = [
+                    (target, evalue) for target, evalue in coding_coordinates
+                    if (target not in reference_dictionary
+                        and any([cds_coordinate.contains(target)
+                                 for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']])
+                        )
+                ]
+                if insertion_targets:
+                    insertion_reference_dictionary = self.get_insertion_reference_dictionary(
+                        cds_candidates_dictionary=cds_candidates_dictionary,
+                        coordinates_list=insertion_targets
+                    )
+                    if insertion_reference_dictionary:
+                        ref_type = 'INSERTION_EXCISION'
+                        for target_coordinate, reference in insertion_reference_dictionary.items():
+                            reference_dictionary[target_coordinate[0]] = {
+                                'reference': reference[0],
+                                'mode': ref_type
+                            }
+                truncation_targets = [target for target in coding_coordinates if target[0] not in reference_dictionary]
+                if truncation_targets:
+                    reference_truncation_dictionary = self.get_non_coding_reference_dictionary(
+                        overlapping_targets=truncation_targets,
+                        threshold=self.cds_overlapping_threshold
+                    )
+                    ref_type = 'TRUNCATION_ACQUISITION'
+                    for target, reference in reference_truncation_dictionary.items():
+                        reference_dictionary[target[0]] = {
+                            'reference': reference[0],
                             'mode': ref_type
                         }
         return reference_dictionary
