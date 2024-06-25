@@ -62,11 +62,14 @@ def test_build_reference_dictionary():
     }
     target_coordinates = {
         (P.open(0, 50), 0.9),
+        (P.open(0, 48), 0.93),
         (P.open(40, 90), 0.8),
         (P.open(200, 250), 0.7),
         (P.open(210, 250), 0.7),
         (P.open(220, 250), 0.7),
         (P.open(220, 270), 0.6),
+        (P.open(215, 270), 0.7),
+        (P.open(219, 270), 0.8),
         (P.open(400, 450), 0.4),
         (P.open(402, 450), 0.5),
         (P.open(420, 450), 0.5)
@@ -96,11 +99,23 @@ def test_build_reference_dictionary():
             'reference': P.open(0, 50),
             'mode': 'INSERTION_EXCISION'
         },
+        P.open(0, 48): {
+            'reference': P.open(0, 50),
+            'mode': 'INSERTION_EXCISION'
+        },
         P.open(40, 90): {
             'reference': P.open(40, 90),
             'mode': 'INSERTION_EXCISION'
         },
         P.open(220, 270): {
+            'reference': P.open(220, 270),
+            'mode': 'TRUNCATION_ACQUISITION'
+        },
+        P.open(215, 270): {
+            'reference': P.open(220, 270),
+            'mode': 'TRUNCATION_ACQUISITION'
+        },
+        P.open(219, 270): {
             'reference': P.open(220, 270),
             'mode': 'TRUNCATION_ACQUISITION'
         },
