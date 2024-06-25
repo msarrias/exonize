@@ -237,6 +237,7 @@ class SqliteHandler(object):
     def create_filtered_full_length_events_view(
         self,
         query_overlap_threshold: float,
+        evalue_threshold: float,
     ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
@@ -272,6 +273,7 @@ class SqliteHandler(object):
                     FROM Matches AS f
                     JOIN Genes g ON g.GeneID = f.GeneID
                     WHERE f.AlnQuery >= {query_overlap_threshold}
+                    AND f.Evalue <= {evalue_threshold}
                     AND g.GeneStrand = f.TargetStrand
                     AND f.QueryExonFrame = f.QueryFrame
                     ),
