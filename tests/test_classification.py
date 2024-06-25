@@ -362,7 +362,8 @@ exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
 exonize_obj.database_interface.insert_percent_query_column_to_fragments()
 
 exonize_obj.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=exonize_obj.query_overlapping_threshold
+    query_overlap_threshold=exonize_obj.query_overlapping_threshold,
+    evalue_threshold=exonize_obj.evalue_threshold
         )
 exonize_obj.events_reconciliation()
 exonize_obj.events_classification()
