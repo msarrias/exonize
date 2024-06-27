@@ -117,7 +117,7 @@ class ReconcilerHandler(object):
     def get_non_coding_reference_dictionary(
             self,
             overlapping_targets,
-            threshold: float
+            threshold: float = 0.8
     ):
         sorted_inactive_hits = sorted(overlapping_targets,
                                       key=lambda x: (x[0].lower, x[0].upper, x[1]))
@@ -167,7 +167,6 @@ class ReconcilerHandler(object):
         for cds_coordinate, list_of_overlapping_coords in overlapping_coords.items():
             reference_dict = self.get_non_coding_reference_dictionary(
                 overlapping_targets=list_of_overlapping_coords,
-                threshold=self.cds_overlapping_threshold
             )
             for target_coordinate, reference in reference_dict.items():
                 insertion_reference_dict[target_coordinate] = reference
@@ -193,15 +192,15 @@ class ReconcilerHandler(object):
             ]
             if non_coding_coordinates:
                 non_coding_reference_dictionary = self.get_non_coding_reference_dictionary(
-                    overlapping_targets=non_coding_coordinates,
-                    threshold=self.cds_overlapping_threshold
+                    overlapping_targets=non_coding_coordinates
                 )
                 ref_type = 'INACTIVE_UNANNOTATED'
                 for target, reference in non_coding_reference_dictionary.items():
-                    reference_dictionary[target[0]] = {
-                            'reference': reference[0],
-                            'mode': ref_type
-                        }
+                    if target[0] not in reference_dictionary:
+                        reference_dictionary[target[0]] = {
+                                'reference': reference[0],
+                                'mode': ref_type
+                            }
             coding_coordinates = [
                 target for target in coordinates_cluster
                 if target not in non_coding_coordinates
@@ -217,11 +216,12 @@ class ReconcilerHandler(object):
                     for cds_coord, overlapping_coords in candidate_cds_reference.items():
                         for target_coord, _ in overlapping_coords:
                             if target_coord not in processed_ids:
-                                reference_dictionary[target_coord] = {
-                                    'reference': cds_coord,
-                                    'mode': ref_type
-                                }
-                                processed_ids.append(target_coord)
+                                if target_coord not in reference_dictionary:
+                                    reference_dictionary[target_coord] = {
+                                        'reference': cds_coord,
+                                        'mode': ref_type
+                                    }
+                                    processed_ids.append(target_coord)
                 insertion_targets = [
                     (target, evalue) for target, evalue in coding_coordinates
                     if (target not in reference_dictionary
@@ -237,22 +237,23 @@ class ReconcilerHandler(object):
                     if insertion_reference_dictionary:
                         ref_type = 'INSERTION_EXCISION'
                         for target_coordinate, reference in insertion_reference_dictionary.items():
-                            reference_dictionary[target_coordinate[0]] = {
-                                'reference': reference[0],
-                                'mode': ref_type
-                            }
+                            if target_coordinate[0] not in reference_dictionary:
+                                reference_dictionary[target_coordinate[0]] = {
+                                    'reference': reference[0],
+                                    'mode': ref_type
+                                }
                 truncation_targets = [target for target in coding_coordinates if target[0] not in reference_dictionary]
                 if truncation_targets:
                     reference_truncation_dictionary = self.get_non_coding_reference_dictionary(
-                        overlapping_targets=truncation_targets,
-                        threshold=self.cds_overlapping_threshold
+                        overlapping_targets=truncation_targets
                     )
                     ref_type = 'TRUNCATION_ACQUISITION'
                     for target, reference in reference_truncation_dictionary.items():
-                        reference_dictionary[target[0]] = {
-                            'reference': reference[0],
-                            'mode': ref_type
-                        }
+                        if target[0] not in reference_dictionary:
+                            reference_dictionary[target[0]] = {
+                                'reference': reference[0],
+                                'mode': ref_type
+                            }
         return reference_dictionary
 
     @staticmethod
