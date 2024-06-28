@@ -269,6 +269,7 @@ class SqliteHandler(object):
                         f.Evalue,
                         f.DNAIdentity,
                         f.ProtIdentity,
+                        f.QueryAlnProtSeq,
                         f.TargetAlnProtSeq
                     FROM Matches AS f
                     JOIN Genes g ON g.GeneID = f.GeneID
@@ -366,9 +367,10 @@ class SqliteHandler(object):
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetEnd INTEGER;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedDNAIdentity REAL;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedProtIdentity REAL;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryAlnProtSeq VARCHAR;""")
+        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetAlnProtSeq VARCHAR;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetFrame INTEGER;""")
         cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryFrame INTEGER;""")
-        cursor.execute("""ALTER TABLE Matches_full_length DROP COLUMN TargetAlnProtSeq;""")
 
     def insert_corrected_target_start_end(
             self,
@@ -385,6 +387,8 @@ class SqliteHandler(object):
                 CorrectedTargetEnd=?,
                 CorrectedDNAIdentity=?,
                 CorrectedProtIdentity=?,
+                CorrectedQueryAlnProtSeq=?,
+                CorrectedTargetAlnProtSeq=?,
                 CorrectedTargetFrame=?,
                 CorrectedQueryFrame=?
                 WHERE FragmentID=?
@@ -659,10 +663,14 @@ class SqliteHandler(object):
                 Evalue,
                 DNAIdentity,
                 ProtIdentity,
+                QueryAlnProtSeq,
+                TargetAlnProtSeq,
                 COALESCE(CorrectedTargetStart, TargetStart) + GeneStart AS CorrectedTargetStart,
                 COALESCE(CorrectedTargetEnd, TargetEnd) + GeneStart AS CorrectedTargetEnd,
                 COALESCE(CorrectedDNAIdentity, DNAIdentity) AS CorrectedDNAIdentity,
                 COALESCE(CorrectedProtIdentity, ProtIdentity) AS CorrectedProtIdentity,
+                COALESCE(CorrectedQueryAlnProtSeq, QueryAlnProtSeq) AS CorrectedQueryAlnProtSeq,
+                COALESCE(CorrectedTargetAlnProtSeq, TargetAlnProtSeq) AS CorrectedTargetAlnProtSeq,
                 COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
                 COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
             FROM Matches_full_length

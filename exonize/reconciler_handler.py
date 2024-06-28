@@ -606,9 +606,12 @@ class ReconcilerHandler(object):
                 sequence_i=alignment[0],
                 sequence_j=alignment[1]
             )
-            target_sequence_frames_translations.append((prot_identity, frame, target))
+            target_sequence_frames_translations.append((prot_identity, frame, target, alignment))
         # we want the frame that gives us the highest identity alignment
-        corrected_prot_perc_id, corrected_frame, target = max(target_sequence_frames_translations, key=lambda x: x[0])
+        (corrected_prot_perc_id,
+         corrected_frame,
+         target,
+         prot_alignment) = max(target_sequence_frames_translations, key=lambda x: x[0])
         alignment = self.blast_engine.perform_msa(
             query=query,
             target=target
@@ -617,7 +620,7 @@ class ReconcilerHandler(object):
             sequence_i=alignment[0],
             sequence_j=alignment[1]
         )
-        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame
+        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame, prot_alignment
 
     @staticmethod
     def adjust_coordinates_to_frame(
@@ -649,7 +652,8 @@ class ReconcilerHandler(object):
                 (corrected_dna_ident,
                  corrected_prot_ident,
                  corrected_target_frame,
-                 corrected_query_frame) = self.get_corrected_frames_and_identity(
+                 corrected_query_frame,
+                 corrected_protein_align) = self.get_corrected_frames_and_identity(
                     gene_id=gene_id,
                     cds_coordinate=P.open(cds_start, cds_end),
                     corrected_coordinate=corrected_coordinate,
@@ -660,6 +664,8 @@ class ReconcilerHandler(object):
                     corrected_coordinate.upper,
                     corrected_dna_ident,
                     corrected_prot_ident,
+                    corrected_protein_align[0],
+                    corrected_protein_align[1],
                     corrected_target_frame,
                     corrected_query_frame,
                     fragment_id))
