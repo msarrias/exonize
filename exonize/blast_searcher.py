@@ -15,7 +15,6 @@ from Bio import SeqIO, AlignIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
-from Bio.Align.Applications import MuscleCommandline
 
 
 class BLASTsearcher(object):
@@ -198,6 +197,24 @@ class BLASTsearcher(object):
             query_num_stop_codons=hsp.query.count('*'),
             target_num_stop_codons=hsp.sbjct.count('*'),
             match=hsp.match
+        )
+
+    @staticmethod
+    def execute_muscle(
+            seq_file_path: Path,
+            output_file_path: Path
+    ):
+        muscle_command = [
+            "muscle",
+            "-in",
+            seq_file_path,
+            "-out",
+            output_file_path
+    ]
+        subprocess.run(
+            muscle_command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
         )
 
     def execute_tblastx(
@@ -814,12 +831,10 @@ class BLASTsearcher(object):
                 out_file_path=input_file,
                 seq_dictionary={'query': query, 'target': target}
             )
-            muscle_cline = MuscleCommandline(
-                input=input_file,
-                out=output_file
+            self.execute_muscle(
+                seq_file_path=input_file,
+                output_file_path=output_file
             )
-            # Run the MUSCLE command line
-            _, _ = muscle_cline()
             # Read the alignment result from the output file
             alignment = AlignIO.read(output_file, "fasta")
             if alignment:
