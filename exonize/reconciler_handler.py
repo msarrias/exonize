@@ -583,35 +583,42 @@ class ReconcilerHandler(object):
         strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
         aligned_cds_coord = P.open(cds_coordinate.lower + gene_start, cds_coordinate.upper + gene_start)
         query_frame = int(cds_candidates_dictionary['cds_frame_dict'][aligned_cds_coord])
-        q_s, q_e = self.adjust_coordinates_to_frame(
-            coordinate=aligned_cds_coord,
-            frame=query_frame
-        )
-        query = Seq(self.data_container.genome_dictionary[chrom][q_s:q_e])
+        query = Seq(self.data_container.genome_dictionary[chrom][aligned_cds_coord.lower:aligned_cds_coord.upper])
         if strand == '-':
             query = query.reverse_complement()
+        adjusted_end = self.adjust_coordinates_to_frame(
+            end=len(query),
+            frame=query_frame
+        )
+        query = query[query_frame:adjusted_end]
+        trans_query = query.translate()
         for frame in [0, 1, 2]:
-            t_s, t_e = self.adjust_coordinates_to_frame(
-                coordinate=P.open(corrected_coordinate.lower + gene_start, corrected_coordinate.upper + gene_start),
-                frame=frame
-            )
-            target = Seq(self.data_container.genome_dictionary[chrom][t_s:t_e])
+            target_coordinate = P.open(corrected_coordinate.lower + gene_start, corrected_coordinate.upper + gene_start)
+            target = Seq(self.data_container.genome_dictionary[chrom][target_coordinate.lower:target_coordinate.upper])
             if strand == '-':
                 target = target.reverse_complement()
+            adjusted_end = self.adjust_coordinates_to_frame(
+                end=len(target),
+                frame=frame
+            )
+            target = target[frame:adjusted_end]
+            trans_target = target.translate()
+            n_stop_codons = str(trans_target).count('*')
             alignment = self.blast_engine.perform_msa(
-                query=query.translate(),
-                target=target.translate()
+                query=trans_query,
+                target=trans_target
             )
             prot_identity = self.blast_engine.compute_identity(
                 sequence_i=alignment[0],
                 sequence_j=alignment[1]
             )
-            target_sequence_frames_translations.append((prot_identity, frame, target, alignment))
+            target_sequence_frames_translations.append((prot_identity, frame, target, trans_target, n_stop_codons))
         # we want the frame that gives us the highest identity alignment
         (corrected_prot_perc_id,
          corrected_frame,
          target,
-         prot_alignment) = max(target_sequence_frames_translations, key=lambda x: x[0])
+         trans_target,
+         n_stop_codons) = max(target_sequence_frames_translations, key=lambda x: x[0])
         alignment = self.blast_engine.perform_msa(
             query=query,
             target=target
@@ -620,21 +627,19 @@ class ReconcilerHandler(object):
             sequence_i=alignment[0],
             sequence_j=alignment[1]
         )
-        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame, prot_alignment
+        return dna_identity, corrected_prot_perc_id, corrected_frame, query_frame, str(trans_query), str(trans_target)
 
     @staticmethod
     def adjust_coordinates_to_frame(
-            coordinate: P.Interval,
+            end: int,
             frame: int
     ):
-        start, end = coordinate.lower, coordinate.upper
-        adjusted_start = start + frame
-        length = end - adjusted_start
+        length = end - frame
         if length % 3 != 0:
             adjusted_end = end - (length % 3)
         else:
             adjusted_end = end
-        return adjusted_start, adjusted_end
+        return adjusted_end
 
     def get_matches_corrected_coordinates_and_identity(
             self,
@@ -653,7 +658,8 @@ class ReconcilerHandler(object):
                  corrected_prot_ident,
                  corrected_target_frame,
                  corrected_query_frame,
-                 corrected_protein_align) = self.get_corrected_frames_and_identity(
+                 query_amino_seq,
+                 corrected_target_seq) = self.get_corrected_frames_and_identity(
                     gene_id=gene_id,
                     cds_coordinate=P.open(cds_start, cds_end),
                     corrected_coordinate=corrected_coordinate,
@@ -664,8 +670,8 @@ class ReconcilerHandler(object):
                     corrected_coordinate.upper,
                     corrected_dna_ident,
                     corrected_prot_ident,
-                    corrected_protein_align[0],
-                    corrected_protein_align[1],
+                    query_amino_seq,
+                    corrected_target_seq,
                     corrected_target_frame,
                     corrected_query_frame,
                     fragment_id))
