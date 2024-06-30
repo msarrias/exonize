@@ -49,6 +49,21 @@ class SqliteHandler(object):
                 )
         return False
 
+    def add_column_to_table(
+        self,
+        table_name: str,
+        column_name: str,
+        column_type: str,
+    ) -> None:
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            if self.check_if_table_exists(table_name=table_name):
+                if self.check_if_column_in_table_exists(table_name=table_name, column_name=column_name):
+                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {column_name};")
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
+
     @staticmethod
     def check_if_empty_table(
         db_path: str,
@@ -363,14 +378,21 @@ class SqliteHandler(object):
             """
             )
         cursor.execute("""CREATE INDEX IF NOT EXISTS Matches_full_length_idx ON Matches_full_length (FragmentID);""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetStart INTEGER;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetEnd INTEGER;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedDNAIdentity REAL;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedProtIdentity REAL;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryAlnProtSeq VARCHAR;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetAlnProtSeq VARCHAR;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedTargetFrame INTEGER;""")
-        cursor.execute("""ALTER TABLE Matches_full_length ADD COLUMN CorrectedQueryFrame INTEGER;""")
+        columns_to_add = [
+            ("CorrectedTargetStart", "INTEGER"),
+            ("CorrectedTargetEnd", "INTEGER"),
+            ("CorrectedDNAIdentity", "REAL"),
+            ("CorrectedProtIdentity", "REAL"),
+            ("QueryProtSeq", "VARCHAR"),
+            ("CorrectedTargetProtSeq", "VARCHAR"),
+            ("CorrectedTargetFrame", "INTEGER"),
+            ("CorrectedQueryFrame", "INTEGER"),]
+        for column_name, column_type in columns_to_add:
+            self.add_column_to_table(
+                table_name="Matches_full_length",
+                column_name=column_name,
+                column_type=column_type,
+            )
 
     def insert_corrected_target_start_end(
             self,
@@ -387,8 +409,8 @@ class SqliteHandler(object):
                 CorrectedTargetEnd=?,
                 CorrectedDNAIdentity=?,
                 CorrectedProtIdentity=?,
-                CorrectedQueryAlnProtSeq=?,
-                CorrectedTargetAlnProtSeq=?,
+                QueryProtSeq=?,
+                CorrectedTargetProtSeq=?,
                 CorrectedTargetFrame=?,
                 CorrectedQueryFrame=?
                 WHERE FragmentID=?
@@ -669,8 +691,8 @@ class SqliteHandler(object):
                 COALESCE(CorrectedTargetEnd, TargetEnd) + GeneStart AS CorrectedTargetEnd,
                 COALESCE(CorrectedDNAIdentity, DNAIdentity) AS CorrectedDNAIdentity,
                 COALESCE(CorrectedProtIdentity, ProtIdentity) AS CorrectedProtIdentity,
-                COALESCE(CorrectedQueryAlnProtSeq, QueryAlnProtSeq) AS CorrectedQueryAlnProtSeq,
-                COALESCE(CorrectedTargetAlnProtSeq, TargetAlnProtSeq) AS CorrectedTargetAlnProtSeq,
+                COALESCE(QueryProtSeq, QueryAlnProtSeq) AS QueryProtSeq,
+                COALESCE(CorrectedTargetProtSeq, TargetAlnProtSeq) AS CorrectedTargetProtSeq,
                 COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
                 COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
             FROM Matches_full_length
