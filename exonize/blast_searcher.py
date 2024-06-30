@@ -210,7 +210,7 @@ class BLASTsearcher(object):
             seq_file_path,
             "-out",
             output_file_path
-    ]
+        ]
         subprocess.run(
             muscle_command,
             stdout=subprocess.DEVNULL,
