@@ -407,7 +407,7 @@ def test_expansion():
 #         assert records == (len(non_reciprocal_matches_count_gene1) * n_transcripts)
 
 
-def check_matches_interdependence_counts():
+def test_matches_interdependence_counts():
     def sort_coordinates(a, b, c, d):
         query, target = sorted(
             [(a, b), (c, d)],
