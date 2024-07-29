@@ -870,7 +870,6 @@ class SqliteHandler(object):
                 e.EventEnd,
                 e.ExpansionID
             FROM Expansions AS e
-            INNER JOIN Genes AS g ON g.GeneID=e.GeneID
             WHERE e.Mode="FULL"
             ORDER BY
                 e.GeneID, e.ExpansionID;
