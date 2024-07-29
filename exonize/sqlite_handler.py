@@ -809,7 +809,7 @@ class SqliteHandler(object):
             cursor.execute(matches_q)
             return cursor.fetchall()
 
-    def query_expansion_events(
+    def query_expansion_coding_events(
         self,
     ) -> defaultdict:
         expansions_gene_dictionary = defaultdict(lambda: defaultdict(list))

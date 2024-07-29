@@ -309,7 +309,7 @@ Exonize results database:   {self.results_database_path.name}
             self
     ) -> list[tuple]:
         # Classify matches based on the mode and interdependence
-        expansions_gene_dictionary = self.database_interface.query_expansion_events()
+        expansions_gene_dictionary = self.database_interface.query_expansion_coding_events()
         self.event_classifier.initialize_list_of_tuples()
         for gene_id, expansions_dict in expansions_gene_dictionary.items():
             for expansion_id, records in expansions_dict.items():
