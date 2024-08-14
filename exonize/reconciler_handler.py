@@ -481,7 +481,7 @@ class ReconcilerHandler(object):
             for adjacent_node, adjacent_edges in gene_graph[(node_start - gene_start, node_end - gene_start)].items():
                 pair = {(node_start - gene_start, node_end - gene_start), adjacent_node}
                 if pair not in skip_pair:
-                    event_reduced_fragments_list.append(adjacent_edges[0]['fragment_id'])
+                    event_reduced_fragments_list.append((adjacent_edges[0]['mode'], adjacent_edges[0]['fragment_id']))
                     skip_pair.append(pair)
         return event_reduced_fragments_list
 
@@ -618,7 +618,8 @@ class ReconcilerHandler(object):
          corrected_frame,
          target,
          trans_target,
-         n_stop_codons) = max(target_sequence_frames_translations, key=lambda x: x[0])
+         n_stop_codons
+         ) = max(target_sequence_frames_translations, key=lambda x: x[0])
         alignment = self.blast_engine.perform_msa(
             query=query,
             target=target
@@ -659,7 +660,8 @@ class ReconcilerHandler(object):
                  corrected_target_frame,
                  corrected_query_frame,
                  query_amino_seq,
-                 corrected_target_seq) = self.get_corrected_frames_and_identity(
+                 corrected_target_seq
+                 ) = self.get_corrected_frames_and_identity(
                     gene_id=gene_id,
                     cds_coordinate=P.open(cds_start, cds_end),
                     corrected_coordinate=corrected_coordinate,
@@ -681,11 +683,9 @@ class ReconcilerHandler(object):
             self,
             gene_id: str,
             tblastx_records_set: set[tuple],
+            cds_candidates_dictionary: dict
     ) -> tuple[set[P.Interval], dict]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
-        cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
-            gene_id=gene_id
-        )
         # center cds coordinates to gene start
         cds_candidates_dictionary['candidates_cds_coordinates'] = self.center_and_sort_cds_coordinates(
             cds_coordinates=cds_candidates_dictionary['candidates_cds_coordinates'],
