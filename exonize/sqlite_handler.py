@@ -5,8 +5,6 @@
 import sqlite3
 import contextlib
 from pathlib import Path
-from collections import defaultdict
-import portion as P
 import pandas as pd
 
 
@@ -151,7 +149,7 @@ class SqliteHandler(object):
                     GeneID VARCHAR(100),
                     Mode TEXT CHECK(Mode IN (
                                             'FULL',
-                                            'INSERTION_EXCISION', 
+                                            'INSERTION_EXCISION',
                                             'INACTIVE_UNANNOTATED',
                                             'TRUNCATION_ACQUISITION'
                      )),
@@ -183,7 +181,7 @@ class SqliteHandler(object):
                     Neither INTEGER NOT NULL,
                     Classification TEXT CHECK(Classification IN (
                                             'OBLIGATE',
-                                            'EXCLUSIVE', 
+                                            'EXCLUSIVE',
                                             'FLEXIBLE',
                                             'OPTIONAL_FLEXIBLE',
                                             'OPTIONAL_EXCLUSIVE',
@@ -521,7 +519,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute(
-                """ 
+                """
                 SELECT
                     GeneID,
                     Mode,
@@ -582,9 +580,9 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
-            SELECT 
-                sql 
-            FROM sqlite_master 
+            SELECT
+                sql
+            FROM sqlite_master
             WHERE type='table' AND name='Matches_full_length';
             """)
             schema = cursor.fetchone()[0]
@@ -650,7 +648,7 @@ class SqliteHandler(object):
             column_type="""
             Mode TEXT CHECK(Mode IN (
             'FULL',
-            'INSERTION_EXCISION', 
+            'INSERTION_EXCISION',
             'INACTIVE_UNANNOTATED',
             'TRUNCATION_ACQUISITION'
             ))
@@ -661,9 +659,9 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.executemany(
-                """ 
-                UPDATE Matches_full_length_non_reciprocal 
-                SET Mode=? WHERE FragmentID=? 
+                """
+                UPDATE Matches_full_length_non_reciprocal
+                SET Mode=? WHERE FragmentID=?
                 """,
                 list_tuples,
             )
@@ -696,7 +694,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             insert_full_length_event_table_param = """
-            UPDATE Matches_full_length_non_reciprocal 
+            UPDATE Matches_full_length_non_reciprocal
             SET
                 NumberTranscripts=?,
                 All_=?,
