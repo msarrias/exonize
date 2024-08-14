@@ -572,6 +572,7 @@ expected_expansions_classification = [
                ])),
     ('gene2', 4, 3, 3, 6, 0, 0, 3, 'OPTIONAL_OBLIGATE', ''),
 ]
+# there's missing a test for optional, where all > 0 and intersection is empty
 
 
 def test_expansion_transcript_iterdependence_classification():
