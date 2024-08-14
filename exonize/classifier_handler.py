@@ -161,11 +161,14 @@ class ClassifierHandler(object):
         elif classification_sums['neither'] > 0:
             if classification_sums['all'] == N - classification_sums['neither']:
                 category = 'OPTIONAL_OBLIGATE'
-            elif not intersection:
-                category = 'OPTIONAL_EXCLUSIVE'
-                exclusive_events = set(missing_events)
-            elif intersection:
+            elif 0 < classification_sums['all'] < N - classification_sums['neither']:
                 category = 'OPTIONAL_FLEXIBLE'
+            else:
+                if not intersection:
+                    category = 'OPTIONAL_EXCLUSIVE'
+                    exclusive_events = set(missing_events)
+                elif intersection:
+                    category = 'OPTIONAL_FLEXIBLE'
         elif not intersection:
             category = 'EXCLUSIVE'
             exclusive_events = set(missing_events)
