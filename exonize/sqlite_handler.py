@@ -64,20 +64,6 @@ class SqliteHandler(object):
                     cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {column_name};")
                 cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
 
-    @staticmethod
-    def check_if_empty_table(
-        db_path: str,
-        table_name: str,
-    ) -> bool:
-        with sqlite3.connect(db_path) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                f"""
-                SELECT COUNT(*) FROM {table_name}
-                """
-            )
-            return cursor.fetchone()[0] == 0
-
     def drop_table(
             self,
             table_name: str
@@ -160,46 +146,15 @@ class SqliteHandler(object):
             )
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS Matches_interdependence_classification (
-                    MatchID INTEGER NOT NULL,
-                    GeneID VARCHAR(100) NOT NULL,
-                    TranscriptID VARCHAR(100) NOT NULL,
-                    QueryExonStart INTEGER NOT NULL,
-                    QueryExonEnd INTEGER NOT NULL,
-                    QueryExonID VARCHAR(100) NOT NULL,
-                    Mode VARCHAR(100) NOT NULL,
-                    TargetID VARCHAR(100), /* TRUNCTATION envents will take NULL value */
-                    TargetIDStart INTEGER,
-                    TargetIDEnd INTEGER,
-                    TargetStart INTEGER NOT NULL,
-                    TargetEnd INTEGER NOT NULL,
-                    Neither BINARY(1) NOT NULL,
-                    Query BINARY(1) NOT NULL,
-                    Target BINARY(1) NOT NULL,
-                    Both BINARY(1) NOT NULL,
-                    FOREIGN KEY (MatchID) REFERENCES Expansions(MatchID),
-                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
-                    PRIMARY KEY (
-                        MatchID,
-                        TranscriptID,
-                        QueryExonStart,
-                        QueryExonEnd
-                        )
-                );
-                """
-            )
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS Matches_interdependence_classification_idx
-                ON Matches_interdependence_classification (MatchID, GeneID, TranscriptID);
-                """
-            )
-            cursor.execute(
-                """
                 CREATE TABLE IF NOT EXISTS Expansions (
                     MatchID INTEGER PRIMARY KEY AUTOINCREMENT,
                     GeneID VARCHAR(100),
-                    Mode VARCHAR(100),
+                    Mode TEXT CHECK(Mode IN (
+                                            'FULL',
+                                            'INSERTION_EXCISION', 
+                                            'INACTIVE_UNANNOTATED',
+                                            'TRUNCATION_ACQUISITION'
+                     )),
                     EventStart INTEGER NOT NULL,
                     EventEnd INTEGER NOT NULL,
                     EventDegree INTEGER NOT NULL,
@@ -215,37 +170,29 @@ class SqliteHandler(object):
                         );
                 """
             )
-
-    def create_matches_interdependence_counts_table(self) -> None:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS Matches_interdependence_counts AS
-                    SELECT * FROM (
-                        SELECT
-                            ROW_NUMBER() OVER (ORDER BY fld.GeneID, e.ExpansionID, fld.MatchID) AS ID,
-                            fld.GeneID,
-                            e.ExpansionID,
-                            g.GeneStart,
-                            g.TranscriptCount,
-                            fld.QueryExonStart,
-                            fld.QueryExonEnd,
-                            fld.TargetStart,
-                            fld.TargetEnd,
-                            group_concat(fld.Mode) as ConcatMode,
-                            SUM(fld.Both) AS Both,
-                            SUM(fld.Query) AS Query,
-                            SUM(fld.Target) AS Target,
-                            SUM(fld.Neither) AS Neither
-                        FROM Matches_interdependence_classification AS fld
-                        INNER JOIN Genes AS g ON g.GeneID = fld.GeneID
-                        INNER JOIN Expansions AS e ON e.GeneID = fld.GeneID AND e.MatchID = fld.MatchID
-                        GROUP BY fld.MatchID, fld.QueryExonStart, fld.QueryExonEnd
-                        ORDER BY fld.GeneID, e.ExpansionID
-                    );
+                CREATE TABLE IF NOT EXISTS Expansions_transcript_interdependence (
+                    GeneID VARCHAR(100),
+                    ExpansionID INTEGER NOT NULL,
+                    NumberTranscripts INTEGER NOT NULL,
+                    NumberCodingEvents INTEGER NOT NULL,
+                    All_ INTEGER NOT NULL,
+                    Present INTEGER NOT NULL,
+                    Absent INTEGER NOT NULL,
+                    Neither INTEGER NOT NULL,
+                    Classification TEXT CHECK(Classification IN (
+                                            'OBLIGATE',
+                                            'EXCLUSIVE', 
+                                            'FLEXIBLE',
+                                            'OPTIONAL_FLEXIBLE',
+                                            'OPTIONAL_EXCLUSIVE',
+                                            'OPTIONAL_OBLIGATE'
+                     )),
+                    ExclusiveEvents TEXT,
+                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                    PRIMARY KEY (ExpansionID, GeneID)
+                );
                 """
             )
 
@@ -419,23 +366,22 @@ class SqliteHandler(object):
             )
 
     def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
+        columns_to_add = [
+            ("DNAIdentity", "REAL"),
+            ("ProtIdentity", "REAL"),
+            ("QueryDNASeq", "VARCHAR"),
+            ("TargetDNASeq", "VARCHAR"),
+        ]
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN QueryDNASeq VARCHAR;"""
-            )
-            cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN TargetDNASeq VARCHAR;"""
-            )
-            cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN DNAIdentity REAL;"""
-            )
-            cursor.execute(
-                """ ALTER TABLE Matches ADD COLUMN ProtIdentity REAL;"""
-            )
-
+            for column_name, column_type in columns_to_add:
+                self.add_column_to_table(
+                    table_name="Matches",
+                    column_name=column_name,
+                    column_type=column_type,
+                )
             cursor.executemany(
                 """
             UPDATE Matches
@@ -459,41 +405,6 @@ class SqliteHandler(object):
                 UPDATE Genes
                 SET Duplication=1
                 WHERE GeneID=?
-                """,
-                list_tuples,
-            )
-
-    def insert_event_categ_matches_interdependence_counts(
-        self,
-        list_tuples: list,
-    ) -> None:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """ ALTER TABLE Matches_interdependence_counts ADD COLUMN Mode VARCHAR(100);"""
-            )
-            cursor.executemany(
-                """ UPDATE Matches_interdependence_counts SET Mode=? WHERE ID=? """,
-                list_tuples,
-            )
-
-    def insert_classification_column_to_matches_interdependence_counts_table(
-        self, list_tuples: list
-    ) -> None:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """ALTER TABLE Matches_interdependence_counts ADD COLUMN Class VARCHAR(100);"""
-            )
-            cursor.executemany(
-                """
-                UPDATE Matches_interdependence_counts
-                SET Class=?
-                WHERE ID=?
                 """,
                 list_tuples,
             )
@@ -610,15 +521,17 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute(
-                """ SELECT
-                GeneID,
-                Mode,
-                EventStart,
-                EventEnd,
-                EventDegree,
-                ClusterID,
-                ExpansionID
-                FROM Expansions;"""
+                """ 
+                SELECT
+                    GeneID,
+                    Mode,
+                    EventStart,
+                    EventEnd,
+                    EventDegree,
+                    ClusterID,
+                    ExpansionID
+                FROM Expansions;
+                """
             )
             records = cursor.fetchall()
             if records:
@@ -639,13 +552,40 @@ class SqliteHandler(object):
             """
             cursor.executemany(insert_gene_table_param, list_tuples)
 
+    def insert_expansions_interdependence_classification(
+            self,
+            list_tuples: list
+    ):
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.executemany("""
+            INSERT INTO Expansions_transcript_interdependence(
+                GeneID,
+                ExpansionID,
+                NumberTranscripts,
+                NumberCodingEvents,
+                All_,
+                Present,
+                Absent,
+                Neither,
+                Classification,
+                ExclusiveEvents
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ? ,?, ?, ?)
+            """, list_tuples)
+
     def create_non_reciprocal_fragments_table(self) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
-            SELECT sql FROM sqlite_master WHERE type='table' AND name='Matches_full_length';
+            SELECT 
+                sql 
+            FROM sqlite_master 
+            WHERE type='table' AND name='Matches_full_length';
             """)
             schema = cursor.fetchone()[0]
             new_table_schema = schema.replace(
@@ -700,78 +640,75 @@ class SqliteHandler(object):
                     """
             cursor.execute(query, fragment_ids_list)
 
-    def insert_matches_interdependence_classification(self, tuples_list: list) -> None:
+    def insert_mode_in_non_reciprocal_fragments_table(
+            self,
+            list_tuples: list
+    ) -> None:
+        self.add_column_to_table(
+            table_name="Matches_full_length_non_reciprocal",
+            column_name="Mode",
+            column_type="""
+            Mode TEXT CHECK(Mode IN (
+            'FULL',
+            'INSERTION_EXCISION', 
+            'INACTIVE_UNANNOTATED',
+            'TRUNCATION_ACQUISITION'
+            ))
+            """,
+        )
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.executemany(
+                """ 
+                UPDATE Matches_full_length_non_reciprocal 
+                SET Mode=? WHERE FragmentID=? 
+                """,
+                list_tuples,
+            )
+
+    def insert_matches_interdependence_classification(
+            self,
+            tuples_list: list
+    ) -> None:
+        column_names = [
+            'NumberTranscripts',
+            'All_', 'Present', 'Absent', 'Neither'
+        ]
+        for column_name in column_names:
+            self.add_column_to_table(
+                table_name="Matches_full_length_non_reciprocal",
+                column_name=column_name,
+                column_type="INTEGER",
+            )
+        self.add_column_to_table(
+            table_name="Matches_full_length_non_reciprocal",
+            column_name='Classification',
+            column_type="Classification TEXT "
+                        "CHECK(Classification IN "
+                        "('OBLIGATE','EXCLUSIVE','FLEXIBLE',"
+                        "'OPTIONAL_FLEXIBLE','OPTIONAL_EXCLUSIVE','OPTIONAL_OBLIGATE'))"
+        )
+
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
             insert_full_length_event_table_param = """
-            INSERT INTO Matches_interdependence_classification (
-                MatchID,
-                GeneID,
-                TranscriptID,
-                QueryExonStart,
-                QueryExonEnd,
-                QueryExonID,
-                Mode,
-                TargetID,
-                TargetIDStart,
-                TargetIDEnd,
-                TargetStart,
-                TargetEnd,
-                Neither,
-                Query,
-                Target,
-                Both
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            UPDATE Matches_full_length_non_reciprocal 
+            SET
+                NumberTranscripts=?,
+                All_=?,
+                Present=?,
+                Absent=?,
+                Neither=?,
+                Classification=?
+                WHERE FragmentID=?
             """
             cursor.executemany(insert_full_length_event_table_param, tuples_list)
 
-    def query_concat_categ_pairs(self) -> list:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            if self.check_if_column_in_table_exists(
-                table_name="Matches_interdependence_counts", column_name="ConcatMode"
-            ):
-                cursor = db.cursor()
-                cursor.execute(
-                    """
-                SELECT
-                    ID,
-                    ConcatMode
-                FROM Matches_interdependence_counts;
-                """
-                )
-                records = cursor.fetchall()
-                cursor.execute("""ALTER TABLE Matches_interdependence_counts DROP COLUMN ConcatMode;""")
-                return records
-
-    def query_interdependence_counts_matches(
-            self
-    ) -> list:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    ID,
-                    GeneID,
-                    TranscriptCount,
-                    Both,
-                    Query,
-                    Target,
-                    Neither
-                    FROM Matches_interdependence_counts
-                    ORDER BY GeneID
-                """
-            )
-            return cursor.fetchall()
-
-    def query_full_events(
+    def query_full_length_events(
             self,
             gene_id: str = None
     ) -> list:
@@ -809,82 +746,7 @@ class SqliteHandler(object):
             cursor.execute(matches_q)
             return cursor.fetchall()
 
-    def query_expansion_coding_events(
-        self,
-    ) -> defaultdict:
-        expansions_gene_dictionary = defaultdict(lambda: defaultdict(list))
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            fragments_query = """
-            SELECT
-                n.GeneID,
-                e.MatchID,
-                n.QueryExonStart,
-                n.QueryExonEnd,
-                n.CorrectedTargetStart,
-                n.CorrectedTargetEnd,
-                e.Mode,
-                e.ExpansionID
-             FROM (
-                 SELECT
-                    mnr.GeneID,
-                    g.GeneStart,
-                    mnr.QueryExonStart,
-                    mnr.QueryExonEnd,
-                    mnr.CorrectedTargetStart,
-                    mnr.CorrectedTargetEnd
-                FROM Matches_full_length_non_reciprocal  as mnr
-                INNER JOIN Genes AS g on g.GeneID=mnr.GeneID
-                ) AS n
-            INNER JOIN Expansions AS e
-            ON n.GeneID = e.GeneID
-            AND e.EventStart= n.CorrectedTargetStart
-            and e.EventEnd = n.CorrectedTargetEnd
-            WHERE (e.Mode == "FULL" OR e.Mode == "INSERTION_EXCISION");
-            """
-            cursor.execute(fragments_query)
-            records = cursor.fetchall()
-            for record in records:
-                (gene_id, match_id, cds_start, cds_end,
-                 corr_target_start, corr_target_end,
-                 mode, expansion_id) = record
-                expansions_gene_dictionary[gene_id][expansion_id].append(
-                    (match_id, gene_id, cds_start, cds_end, corr_target_start, corr_target_end)
-                )
-            return expansions_gene_dictionary
-
-    def query_full_expansion_events(
-            self,
-    ) -> defaultdict:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """
-            SELECT
-                e.GeneID,
-                e.EventStart,
-                e.EventEnd,
-                e.ExpansionID
-            FROM Expansions AS e
-            WHERE e.Mode="FULL"
-            ORDER BY
-                e.GeneID, e.ExpansionID;
-            """
-            )
-            records = cursor.fetchall()
-            expansion_events_dict = defaultdict(lambda: defaultdict(list))
-            for record in records:
-                gene_id, cds_start, cds_end, cluster_id, expansion_id = record
-                expansion_events_dict[gene_id][expansion_id].append(
-                    P.open(cds_start, cds_end)
-                )
-            return expansion_events_dict
-
-    def query_fragments(
+    def query_raw_matches(
         self,
     ) -> list:
         with sqlite3.connect(
@@ -911,6 +773,51 @@ class SqliteHandler(object):
                 f.TargetAlnProtSeq
             FROM Matches as f
             INNER JOIN Genes as g ON g.GeneID=f.GeneID
+            """
+            )
+            return cursor.fetchall()
+
+    def query_non_reciprocal_coding_matches(
+            self,
+    ):
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            SELECT
+                GeneID,
+                FragmentID,
+                QueryExonStart,
+                QueryExonEnd,
+                CorrectedTargetStart,
+                CorrectedTargetEnd
+            FROM Matches_full_length_non_reciprocal
+            WHERE Mode="FULL" OR Mode="INSERTION_EXCISION"
+            ORDER BY
+                GeneID, FragmentID;
+            """)
+            return cursor.fetchall()
+
+    def query_coding_expansion_events(
+            self,
+    ) -> list:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            SELECT
+                GeneID,
+                ExpansionID,
+                EventStart,
+                EventEnd
+            FROM Expansions
+            WHERE Mode="FULL" OR Mode="INSERTION_EXCISION"
+            ORDER BY
+                GeneID, ExpansionID;
             """
             )
             return cursor.fetchall()
