@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------
 import portion as P
 from typing import Union
+from collections import defaultdict
 
 
 class ClassifierHandler(object):
@@ -17,458 +18,198 @@ class ClassifierHandler(object):
         self.blast_engine = blast_engine
         self.database_interface = blast_engine.database_interface
         self.cds_overlapping_threshold = cds_overlapping_threshold
-
-        # Initialize other internal attributes
-        self.__neither, self.__query, self.__target = 0, 0, 0
-        self.__both, self.__target_full, self.__target_insertion = 0, 0, 0
-        self.__annot_target_start, self.__annot_target_end, self.__target_type = None, None, None
-        self.__query_cds, self.__target_cds = "-", "-"
-        self.__query_cds_frame, self.__target_cds_frame = " ", " "
-        self.__found = False
-        self.tuples_match_transcript_interdependence = list()
-
-    def initialize_variables(
-            self,
-    ) -> None:
-        """
-        initializes variables used in the classify_match_interdependence function
-        """
-        self.__neither, self.__query, self.__target = 0, 0, 0
-        self.__both, self.__target_full, self.__target_insertion = 0, 0, 0
-        self.__annot_target_start, self.__annot_target_end, self.__target_type = None, None, None
-        self.__query_cds, self.__target_cds = "-", "-"
-        self.__query_cds_frame, self.__target_cds_frame = " ", " "
-        self.__found = False
-
-    def initialize_list_of_tuples(
-            self,
-    ) -> None:
-        """
-        initializes the list of tuples used to store the identified events in the
-         classify_match_interdependence function
-        """
-        self.tuples_match_transcript_interdependence = list()
+        self.coding_event_modes = ['FULL', 'INSERTION_EXCISION']
 
     @staticmethod
-    def recover_cds(
+    def get_mrna_cds_annotations(
             transcript_dictionary: dict,
-            query_coordinate: P.Interval,
-    ) -> Union[tuple, None]:
-        """
-        Find the CDS id in the transcript dictionary that matches the given coordinate.
-        :param transcript_dictionary: Dictionary containing CDS information.
-        :param query_coordinate: The coordinate to search for.
-        :return: The ID of the matching CDS or None if no match is found.
-        """
-        transcript_cdss = [cds for cds in transcript_dictionary["structure"] if cds["type"] == "CDS"]
-        # First check for exact match
-        for cds in transcript_cdss:
-            if cds["coordinate"] == query_coordinate:
-                return cds["id"], cds["coordinate"], cds["frame"]
-        # If no exact match found, check for inclusion
-        for cds in transcript_cdss:
-            if cds["coordinate"].contains(query_coordinate):
-                return cds["id"], cds["coordinate"], cds["frame"]
-        return None
-
-    def identify_query(
-                self,
-                transcript_dictionary: dict,
-                cds_coordinate: P.Interval,
-    ) -> None:
-        """
-        identify_query is a function that identifies the tblastx
-        query CDS in the gene transcript.
-        A transcript cannot have overlapping CDSs. If the query CDS overlaps
-        with more than one CDS, the program exits.
-        """
-        query_cds = self.recover_cds(
-            transcript_dictionary=transcript_dictionary,
-            query_coordinate=cds_coordinate
-        )
-        # if the cds belongs to the transcript
-        if query_cds:
-            self.__query_cds, _, self.__query_cds_frame = query_cds
-            self.__query = 1
-            self.__target_type = 'QUERY_ONLY'
-
-    def target_out_of_mrna(
-            self,
-            transcript_coordinate: P.Interval,
-            mrna_id: str,
-            row_tuple: tuple,
-    ) -> bool:
-        """
-        target_out_of_mrna is a function that identifies tblastx hits
-        that are outside the mRNA transcript.
-        """
-        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
-        target_coordinate = P.open(target_start, target_end)
-        if (target_coordinate.upper < transcript_coordinate.lower
-                or transcript_coordinate.upper < target_coordinate.lower):
-            if (self.__query + self.__target) == 0:
-                self.__neither = 1
-            self.tuples_match_transcript_interdependence.append((
-                match_id, gene_id, mrna_id,
-                cds_start, cds_end, self.__query_cds,
-                "OUT_OF_MRNA",
-                self.__target_cds, self.__annot_target_start,
-                self.__annot_target_end,
-                target_start, target_end,
-                self.__neither, self.__query, self.__target, self.__both
-            ))
-            return True
-        return False
-
-    def find_overlapping_annotation(
-            self,
-            transcript_dictionary: dict,
-            cds_coordinate: P.Interval,
-    ) -> Union[tuple, None]:
-        """
-        find_overlapping_annotation is a function that given a transcript dictionary
-        and a CDS interval, returns a list of tuples with the following structure:
-        (CDS_id, CDS_coord, CDS_frame) for all CDSs that overlap with the query CDS
-        interval.
-        Note:
-        - The set of representative CDS only contains information about
-        the coordinates of the CDSs, not their IDs.Hence,
-        if we find hits for a CDS, we need to identify the CDS in the gene transcript.
-        Recall that not all CDS are part of all transcripts (e.g. alternative splicing).
-        - Following the classification criteria described in
-        'get_candidate_cds_coordinates', we identify the query CDS described in
-        case a (get_candidate_cds_coordinates), i.e, when they are considerd to overlap.
-        """
-        overlaps = [
-            (
-                self.blast_engine.get_average_overlap_percentage(
-                    intv_i=annotation['coordinate'],
-                    intv_j=cds_coordinate
-                ),
-                (annotation['id'], annotation['coordinate'], int(annotation['frame']))
-            )
+    ):
+        return [
+            annotation['coordinate']
             for annotation in transcript_dictionary['structure']
             if annotation['type'] == 'CDS'
-            and self.blast_engine.min_perc_overlap(
-                intv_i=annotation['coordinate'],
-                intv_j=cds_coordinate
-            ) > self.cds_overlapping_threshold
         ]
-        if not overlaps:
-            return None
-        # Find the tuple with the maximum average overlap
-        _, best_matching_cds = max(overlaps, key=lambda x: x[0])
 
-        return best_matching_cds
+    @staticmethod
+    def get_coding_events_in_mrna(
+            mrna_cds_coordinates_list: list,
+            events_coordinates_list: list
 
-    def identify_full_target(
-            self,
-            transcript_dictionary: dict[dict],
-            target_coordinate: P.Interval,
-    ) -> None:
-        """
-        identify_full_target is a function that identifies tblastx
-        hits that are full-length duplications as described
-        in self.get_candidate_query_cds
-        """
-        target_only = self.find_overlapping_annotation(
-            transcript_dictionary=transcript_dictionary,
-            cds_coordinate=target_coordinate
-        )
-        if target_only:
-            self.__target_cds, target_cds_coordinate, self.__target_cds_frame = target_only
-            self.__target_full = 1
-            self.__found = True
-            self.__target_type = "FULL"
-            self.__annot_target_start = target_cds_coordinate.lower
-            self.__annot_target_end = target_cds_coordinate.upper
-
-    def identify_insertion_target(
-            self,
-            transcript_dictionary: dict,
-            target_coordinate: P.Interval
-    ) -> None:
-        """
-        Identifies tblastx hits that are insertion duplications these can be:
-        - INS_CDS: if the insertion is in a CDS
-        - INS_UTR: if the insertion is in an untranslated region
-        - DEACTIVATED: if the insertion is in an intron
-        """
-        overlapping_annotations = [
-            (annotation['id'], annotation['coordinate'], annotation['type'])
-            for annotation in transcript_dictionary['structure']
-            if annotation['coordinate'].contains(target_coordinate)
-        ]
-        # There will only be one overlapping annotation
-        # since the feature annotations that we are interested in
-        # do not overlap in the same transcript
-        # Determine the type of the hit based on the filtered annotations
-        if overlapping_annotations:
-            self.__target_cds, target_cds_coordinate, annot_type = overlapping_annotations[0]
-            self.__found = True
-            self.__annot_target_start = target_cds_coordinate.lower
-            self.__annot_target_end = target_cds_coordinate.upper
-
-            if annot_type == 'CDS':
-                self.__target_insertion = 1
-                self.__target_type = "INS_CDS"
-            elif annot_type == 'UTR':
-                self.__target_type = "INS_UTR"
-            else:  # assuming the only other type is 'intron'
-                self.__target_type = "DEACTIVATED"
-
-    def identify_truncation_target(
-            self,
-            transcript_dictionary: dict[str],
-            row_tuple: tuple
-    ) -> None:
-        """
-        Identifies tblastx hits that are truncation duplications.
-        These are hits that span across more than one annotation
-        in the transcript architecture. We record a line per annotation
-        that is truncated.
-        """
-        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
-        target_coordinate = P.open(target_start, target_end)
-        coordinate_dictionary = self.get_interval_dictionary(
-            transcript_dictionary=transcript_dictionary['structure'],
-            target_coordinate=target_coordinate,
-            transcript_coordinate=transcript_dictionary['coordinate']
-        )
-        if coordinate_dictionary:
-            self.__target_type = "TRUNC"
-            self.__target_cds = "-"
-            self.__annot_target_start = None
-            self.__annot_target_end = None
-
-    def identify_both_pair(
-            self,
-    ) -> None:
-        """
-        Identifies tblastx hits that are obligate pairs.
-        These are hits where the query and target show as CDSs
-        in the transcript in question.
-        """
-        self.__both = 1
-        self.__query, self.__target = 0, 0
-
-    def identify_neither_pair(self) -> None:
-        """
-        Identifies tblastx hits that are neither pairs.
-        These are hits where the query and target do not show as CDSs
-        in the transcript in question.
-        """
-        self.__neither = 1
-        self.__target_type = 'NEITHER'
-
-    def insert_match_transcript_interdependence(
-            self,
-            mrna_id: str,
-            row_tuple: tuple
     ):
-        """
-        insert_match_transcript_interdependence is a function that appends
-         the "row" event to the list of tuples.
-        """
+        return [
+            event_coord
+            for event_coord in events_coordinates_list
+            if (event_coord in mrna_cds_coordinates_list or
+                any(cds_coord.contains(event_coord) for cds_coord in mrna_cds_coordinates_list))
+        ]
 
-        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
-        self.tuples_match_transcript_interdependence.append((
-            match_id, gene_id, mrna_id,
-            cds_start, cds_end, self.__query_cds,
-            self.__target_type, self.__target_cds, self.__annot_target_start,
-            self.__annot_target_end,
-            target_start, target_end, self.__neither, self.__query,
-            self.__target, self.__both
-        ))
+    @staticmethod
+    def get_missing_coordinates(
+            coding_events_coordinates_list: list,
+            coding_events_in_mrna_list: list,
+    ):
+        missing_coordinates = tuple(
+            coding_event
+            for coding_event in coding_events_coordinates_list
+            if coding_event not in coding_events_in_mrna_list
+        )
+        if len(missing_coordinates) == 1:
+            return missing_coordinates[0]
+        return missing_coordinates if missing_coordinates else ''
 
-    def classify_expansion_transcript_interdependence(
+    @staticmethod
+    def intersect_tuples(tuples):
+        if not tuples:
+            return ()
+        intersected = set(tuples[0])
+        for t in tuples[1:]:
+            intersected.intersection_update(t)
+        return tuple(intersected) if intersected else ()
+
+    @staticmethod
+    def get_expansions_dictionary(
+            expansion_events: list
+    ):
+        expansion_events_dict = defaultdict(lambda: defaultdict(lambda: list()))
+        for record in expansion_events:
+            gene_id, expansion_id, event_start, event_end = record
+            expansion_events_dict[gene_id][expansion_id].append(
+                P.open(event_start, event_end)
+            )
+        return expansion_events_dict
+
+    def get_coding_events_transcript_counts(
             self,
             gene_id: str,
-            expansion_id: str,
-            coding_coordinates_list: list[P.Interval],
-    ):
-        records_list = list()
-        transcripts_dict = self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']
-        for mrna_id, transcript_dictionary \
-                in transcripts_dict.items():
-            counter = 0
-            missing_cds = ''
-            for coding_sequence_coordinate in coding_coordinates_list:
-                if self.recover_cds(
-                    transcript_dictionary=transcript_dictionary,
-                    query_coordinate=coding_sequence_coordinate
-                ):
-                    counter += 1
-                else:
-                    missing_cds += f'{coding_sequence_coordinate}_'
-
-            records_list.append(
-                (gene_id, expansion_id,
-                 len(transcripts_dict), mrna_id, counter,
-                 len(coding_coordinates_list), missing_cds[:-1] if missing_cds else '')
-            )
-        return records_list
-
-    def classify_match_interdependence(
-            self,
-            row_tuple: tuple,
-    ) -> None:
-        """
-        classify_match_interdependence is a function that identifies full-length
-        duplications following our classification model.
-        The function iterates over all representative tblastx hits and for each transcript
-        associated with the gene harboring the event it identifies the following events:
-        - I. Full exon duplication: the match fully (following our coverage criteria)
-        overlaps with a CDS annotation.
-        - II. Insertion: the match is found within a larger CDS.
-        - III. Deactivation or unnanotated: the match is found in an intron or UTR.
-        - IV. Trunctation: the match spans more than one annotation (e.g., CDS, intron, UTR).
-        The classify_match_interdependence function also looks for:
-         - I. Obligate events: defined as events where the query CDS and the target CDS are
-          included within the same transcript.
-        - II. Neither events: defined as events where the query CDS is not found in the
-         transcript and the target figures a trunctation or deactivation.
-        The identified events are stored in the results database (self.results_database) in the tables:
-         - ObligatoryEvents: identifies both, query and target CDSs. A single record is stored per event.
-         - TruncationEvents: identifies all covered annotations. The number of records per event
-          will correspond to the number of annotations covered by the event.
-         - FullLengthDuplications tables: identifies full-length duplications.
-          The number of records per event will correspond to the number of transcripts associated
-          with the gene harboring the event.
-        """
-        (match_id, gene_id, cds_start, cds_end, target_start, target_end) = row_tuple
-        cds_coordinate = P.open(cds_start, cds_end)
-        target_coordinate = P.open(target_start, target_end)
-        for mrna_id, transcript_dictionary \
-                in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items():
-            # we want to classify each transcript independently
-            self.initialize_variables()
-            transcript_coordinate = transcript_dictionary['coordinate']
-            # ####### QUERY ONLY - FULL LENGTH #######
-            self.identify_query(
-                transcript_dictionary=transcript_dictionary,
-                cds_coordinate=cds_coordinate
-            )
-            # ###### CHECK: TARGET REGION NOT IN mRNA #######
-            if self.target_out_of_mrna(
-                    transcript_coordinate=transcript_coordinate,
-                    mrna_id=mrna_id,
-                    row_tuple=row_tuple
-            ):
-                continue
-            # ####### TARGET ONLY - FULL LENGTH #######
-            self.identify_full_target(
-                transcript_dictionary=transcript_dictionary,
-                target_coordinate=target_coordinate
-            )
-            if self.__target_full == 0:
-                # ####### INSERTION #######
-                self.identify_insertion_target(
-                    transcript_dictionary=transcript_dictionary,
-                    target_coordinate=target_coordinate
-                )
-                if not self.__found:
-                    # ####### TRUNCATION #######
-                    self.identify_truncation_target(
-                        transcript_dictionary=transcript_dictionary,
-                        row_tuple=row_tuple
-                    )
-            self.__target = self.__target_full + self.__target_insertion
-            # ####### BOTH PAIR #######
-            if self.__query + self.__target == 2:
-                self.identify_both_pair(
-                )
-            # ####### NEITHER PAIR #######
-            elif self.__query + self.__target == 0:
-                self.identify_neither_pair()
-            self.insert_match_transcript_interdependence(
-                mrna_id=mrna_id,
-                row_tuple=row_tuple
-            )
-
-    @staticmethod
-    def classify_transcript_interdependence_counts(
-            records_list: list[tuple]
+            coding_events_coordinates_list: list,
     ) -> list:
-        new_records = []
-        for record in records_list:
-            classification = ''
-            (record_id, gene_id, transcript_count,
-             cum_both, cum_query, cum_target, cum_neither) = record
-            if cum_both == transcript_count:
-                classification = 'OBLIGATE'
-            elif cum_query + cum_target == transcript_count:
-                classification = 'EXCLUSIVE'
-            elif cum_neither == 0:
-                if cum_both > 0:
-                    classification = 'FLEXIBLE'
-            elif cum_neither > 0:
-                if cum_both > 0:
-                    if cum_both + cum_neither == transcript_count:
-                        classification = 'OPTIONAL_OBLIGATE'
-                    elif cum_both + cum_query + cum_target + cum_neither == transcript_count:
-                        classification = 'OPTIONAL_FLEXIBLE'
-                if cum_both == 0:
-                    if cum_query + cum_target + cum_neither == transcript_count:
-                        classification = 'OPTIONAL_EXCLUSIVE'
-            new_records.append((classification, record_id))
-        return new_records
-
-    @staticmethod
-    def get_interval_dictionary(
-            transcript_dictionary: dict,
-            target_coordinate: P.Interval,
-            transcript_coordinate: P.Interval,
-    ) -> dict:
-
-        def sort_key_intervals_dictionary(
-                intv_dict: dict
-        ) -> dict:
-            sorted_intervals = sorted(
-                list(intv_dict.keys()),
-                key=lambda item: (item.lower, item.upper)
+        transcript_counts_list = []
+        n_events = len(coding_events_coordinates_list)
+        mrnas_dictionary = self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs']
+        for mrna_transcript, trans_dict in mrnas_dictionary.items():
+            mrna_cds_coords_list = self.get_mrna_cds_annotations(
+                transcript_dictionary=trans_dict
             )
-            return {coord: intv_dict[coord] for coord in sorted_intervals}
-
-        utr_features = ['five_prime_UTR', 'three_prime_UTR']
-        coordinates_dictionary = {}
-        out_of_utr_coordinate = None
-        if target_coordinate.lower < transcript_coordinate.lower:
-            out_of_utr_coordinate = P.open(target_coordinate.lower, transcript_coordinate.lower)
-        elif transcript_coordinate.upper < target_coordinate.upper:
-            out_of_utr_coordinate = P.open(transcript_coordinate.upper, target_coordinate.upper)
-        if out_of_utr_coordinate:
-            coordinates_dictionary[out_of_utr_coordinate] = dict(
-                id='out_of_UTR',
-                type='out_of_UTR',
-                coordinate=out_of_utr_coordinate
+            coding_events_in_mrna_list = self.get_coding_events_in_mrna(
+                mrna_cds_coordinates_list=mrna_cds_coords_list,
+                events_coordinates_list=coding_events_coordinates_list
             )
-        for annotation in transcript_dictionary:
-            if (annotation['coordinate'].overlaps(target_coordinate)
-                    and not annotation['coordinate'].contains(target_coordinate)):
-                feature_coordinate = annotation['coordinate']
-                annotation_dictionary = dict(
-                    id=annotation['id'],
-                    type=annotation['type'],
-                    coordinate=annotation['coordinate']
+            n_coding_events_in_transcript = len(coding_events_in_mrna_list)
+            # All
+            if n_coding_events_in_transcript == n_events:
+                transcript_counts_list.append(
+                    (n_events, 0, 0, 0, '')
                 )
-                intersection_coordinate = feature_coordinate & target_coordinate
-                if intersection_coordinate not in coordinates_dictionary:
-                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
-                elif coordinates_dictionary[intersection_coordinate]['type'] in utr_features:
-                    continue
-                elif (coordinates_dictionary[intersection_coordinate]['type'] == 'CDS'
-                      and annotation['type'] == 'exon'):
-                    continue
-                elif (coordinates_dictionary[intersection_coordinate]['type'] == 'intron'
-                      and annotation['type'] in utr_features):
-                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
-                elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
-                      and annotation['type'] in utr_features):
-                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
-                elif (coordinates_dictionary[intersection_coordinate]['type'] == 'exon'
-                      and annotation['type'] == 'CDS'):
-                    coordinates_dictionary[intersection_coordinate] = annotation_dictionary
-                else:
-                    print('check here')
-        return sort_key_intervals_dictionary(coordinates_dictionary)
+            # Neither
+            elif n_coding_events_in_transcript == 0:
+                transcript_counts_list.append(
+                    (0, 0, 0, n_events, '')
+                )
+            # Rest
+            else:
+                missing_coordinates = self.get_missing_coordinates(
+                    coding_events_coordinates_list=coding_events_coordinates_list,
+                    coding_events_in_mrna_list=coding_events_in_mrna_list
+                )
+                n_missing_events = len(missing_coordinates)
+                k = n_events - n_missing_events
+                transcript_counts_list.append(
+                    (0, k, n_missing_events, 0, missing_coordinates if missing_coordinates else '')
+                )
+        return transcript_counts_list
+
+    def interdependence_classification(
+            self,
+            gene_id: str,
+            id_: int,
+            transcript_counts_list: list,
+            n_coding_events: int
+    ) -> tuple:
+        n_mrnas = len(transcript_counts_list)
+        classification_sums = {
+            category: sum(mrna_count[i] for mrna_count in transcript_counts_list)
+            for i, category in enumerate(['all', 'present', 'abscent', 'neither'])
+        }
+        intersection = None
+        missing_events = [
+            missing_coordinates
+            for *_, missing_coordinates in transcript_counts_list
+            if missing_coordinates
+        ]
+        if missing_events:
+            intersection = self.intersect_tuples(
+                tuples=missing_events
+            )
+        temp = (
+            gene_id,
+            id_,
+            n_mrnas,
+            n_coding_events,
+            classification_sums['all'],
+            classification_sums['present'],
+            classification_sums['abscent'],
+            classification_sums['neither']
+        )
+        category = ''
+        exclusive_events = None
+        N = n_mrnas * n_coding_events
+        if classification_sums['all'] == N:
+            category = 'OBLIGATE'
+        elif classification_sums['neither'] == N:
+            category = 'NEITHER'
+        elif classification_sums['neither'] == 0 and 0 < classification_sums['all'] < N:
+            category = 'FLEXIBLE'
+        elif classification_sums['neither'] > 0:
+            if classification_sums['all'] == N - classification_sums['neither']:
+                category = 'OPTIONAL_OBLIGATE'
+            elif not intersection:
+                category = 'OPTIONAL_EXCLUSIVE'
+                exclusive_events = set(missing_events)
+            elif intersection:
+                category = 'OPTIONAL_FLEXIBLE'
+        elif not intersection:
+            category = 'EXCLUSIVE'
+            exclusive_events = set(missing_events)
+        return *temp, category, '_'.join([str(i) for i in exclusive_events]) if exclusive_events else ''
+
+    def classify_expansion_interdependence(
+            self,
+            expansions_dictionary: dict
+    ):
+        expansions_classification_tuples = []
+        for gene_id, gene_dict in expansions_dictionary.items():
+            for expansion_id, expansion_coding_events_coordinates in gene_dict.items():
+                n_events = len(expansion_coding_events_coordinates)
+                if n_events - 1 > 0:
+                    transcript_counts_list = self.get_coding_events_transcript_counts(
+                        gene_id=gene_id,
+                        coding_events_coordinates_list=expansion_coding_events_coordinates
+                        )
+                    classified_expansion = self.interdependence_classification(
+                        gene_id=gene_id,
+                        id_=expansion_id,
+                        transcript_counts_list=transcript_counts_list,
+                        n_coding_events=n_events
+                    )
+                    expansions_classification_tuples.append(classified_expansion)
+        return expansions_classification_tuples
+
+    def classify_coding_match_interdependence(
+            self,
+            gene_id: str,
+            match_id: int,
+            query_coordinates: P.Interval,
+            target_coordinates: P.Interval,
+    ) -> tuple:
+        match_coding_events_coordinates = [query_coordinates, target_coordinates]
+        transcript_counts_list = self.get_coding_events_transcript_counts(
+            gene_id=gene_id,
+            coding_events_coordinates_list=match_coding_events_coordinates
+        )
+        classified_match = self.interdependence_classification(
+            gene_id=gene_id,
+            id_=match_id,
+            transcript_counts_list=transcript_counts_list,
+            n_coding_events=len(match_coding_events_coordinates)
+        )
+        return classified_match
