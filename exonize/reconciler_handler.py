@@ -116,7 +116,7 @@ class ReconcilerHandler(object):
                  all([
                      round(self.blast_engine.min_perc_overlap(
                          intv_i=target_coordinate,
-                         intv_j=other_coordinate), 1) >= threshold
+                         intv_j=other_coordinate), 1) > threshold
                      for target_coordinate, evalue in new_cluster]))):
                 new_cluster.append((other_coordinate, other_evalue))
                 processed_intervals.add(other_coordinate)
