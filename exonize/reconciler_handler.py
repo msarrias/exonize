@@ -130,19 +130,6 @@ class ReconcilerHandler(object):
                 threshold=threshold
             )
 
-    @staticmethod
-    def fetch_non_coding_coordinates(
-            target_coordinates_set: set,
-            cds_coordinates_set: set,
-
-    ):
-        return [
-            (target_coordinate, evalue)
-            for target_coordinate, evalue in target_coordinates_set
-            if all(not target_coordinate.overlaps(cds_coordinate)
-                   for cds_coordinate in cds_coordinates_set)
-        ]
-
     def get_coding_reference_dictionary(
             self,
             cds_coordinates_set: set,
@@ -173,37 +160,39 @@ class ReconcilerHandler(object):
             )
         return dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
 
+    def process_insertion_overlaps(
+            self,
+            source_set: set,
+            target_set: set,
+    ):
+        for coordinate in source_set:
+            for other_coord, oeval in target_set:
+                if coordinate.contains(other_coord):
+                    overlapping_coords[coordinate].append((other_coord, oeval))
+                    processed_target.add((other_coord, oeval))
+                elif self.blast_engine.get_overlap_percentage(
+                        intv_i=coordinate,
+                        intv_j=other_coord
+                ) >= self.cds_overlapping_threshold:
+                    overlapping_coords[coordinate].append((other_coord, oeval))
+                    processed_target.add((other_coord, oeval))
+
     def get_insertion_reference_dictionary(
             self,
             cds_candidates_set: set,
             auxiliary_cds_set: set,
             coding_coordinates_set: set
     ):
-        def process_insertion_overlaps(
-                source_set: set,
-                target_set: set,
-        ):
-            for coordinate in source_set:
-                for other_coord, oeval in target_set:
-                    if coordinate.contains(other_coord):
-                        overlapping_coords[coordinate].append((other_coord, oeval))
-                        processed_target.add((other_coord, oeval))
-                    elif self.blast_engine.get_overlap_percentage(
-                            intv_i=coordinate,
-                            intv_j=other_coord
-                    ) >= self.cds_overlapping_threshold:
-                        overlapping_coords[coordinate].append((other_coord, oeval))
-                        processed_target.add((other_coord, oeval))
         overlapping_coords = defaultdict(list)
         insertion_reference_dict = {}
         processed_target = set()
-        process_insertion_overlaps(
+        self.process_insertion_overlaps(
             source_set=cds_candidates_set,
             target_set=coding_coordinates_set
         )
         orphan_coord = set(coord for coord in coding_coordinates_set if coord not in processed_target)
         if orphan_coord:
-            process_insertion_overlaps(
+            self.process_insertion_overlaps(
                 source_set=auxiliary_cds_set,
                 target_set=orphan_coord
             )
@@ -229,86 +218,100 @@ class ReconcilerHandler(object):
                         insertion_reference_dict[target_coordinate] = reference
         return insertion_reference_dict
 
-    def build_targets_reference_dictionary(
+    @staticmethod
+    def fetch_non_coding_coordinates(
+            target_coordinates_set: set,
+            cds_coordinates_set: set,
+
+    ):
+        return [
+            (target_coordinate, evalue)
+            for target_coordinate, evalue in target_coordinates_set
+            if all(not target_coordinate.overlaps(cds_coordinate)
+                   for cds_coordinate in cds_coordinates_set)
+        ]
+
+    def get_matches_reference_mode_dictionary(
             self,
-            cds_candidates_dictionary: dict,
-            clusters_list: list[list]
-    ) -> dict:
-        # this dictionary should be for finding CDS reference and intron reference.
-        # This should be applied to the clusters.
+            gene_id: str,
+            clusters_list,
+            cds_candidates_set: set,
+    ):
+        gene_cds_set = self.fetch_gene_cdss_set(
+            gene_id=gene_id
+        )
+        auxiliary_candidates_cds_set = gene_cds_set - cds_candidates_set
         reference_dictionary = dict()
         for coordinates_cluster in clusters_list:
-            # First: let's look for targets with a high two-ways overlap percentace with a CDS
-            non_coding_coordinates = [
-                (target_coordinate, evalue)
-                for target_coordinate, evalue in coordinates_cluster
-                if all(
-                    not target_coordinate.overlaps(cds_coordinate)
-                    for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']
-                )
-            ]
-            if non_coding_coordinates:
-                non_coding_reference_dictionary = self.get_non_coding_reference_dictionary(
-                    overlapping_targets=non_coding_coordinates
-                )
-                ref_type = 'INACTIVE_UNANNOTATED'
-                for target, reference in non_coding_reference_dictionary.items():
-                    if target[0] not in reference_dictionary:
-                        reference_dictionary[target[0]] = {
-                                'reference': reference[0],
-                                'mode': ref_type
-                            }
-            coding_coordinates = [
-                target for target in coordinates_cluster
+            non_coding_coordinates = self.fetch_non_coding_coordinates(
+                target_coordinates_set=coordinates_cluster,
+                cds_coordinates_set=set(cds_candidates_set).union(set(auxiliary_candidates_cds_set))
+            )
+            coding_coordinates = set(
+                target
+                for target in coordinates_cluster
                 if target not in non_coding_coordinates
-            ]
+            )
+            # INACTIVE
+            if non_coding_coordinates:
+                reference = min(non_coding_coordinates, key=lambda x: x[1])[0]
+                ref_type = 'INACTIVE_UNANNOTATED'
+                for non_coding_event, evalue, in non_coding_coordinates:
+                    if non_coding_event not in reference_dictionary:
+                        reference_dictionary[non_coding_event] = {
+                            'reference': reference,
+                            'mode': ref_type
+                        }
+            # FULL
             if coding_coordinates:
                 candidate_cds_reference = self.get_coding_reference_dictionary(
-                    cds_candidates_dictionary=cds_candidates_dictionary,
-                    coding_coordinates=coding_coordinates
+                    cds_coordinates_set=cds_candidates_set,
+                    auxiliary_cds_set=auxiliary_candidates_cds_set,
+                    coding_coordinates_set=coding_coordinates
                 )
                 if candidate_cds_reference:
-                    processed_ids = []
                     ref_type = 'FULL'
                     for cds_coord, overlapping_coords in candidate_cds_reference.items():
                         for target_coord, _ in overlapping_coords:
-                            if target_coord not in processed_ids:
-                                if target_coord not in reference_dictionary:
-                                    reference_dictionary[target_coord] = {
-                                        'reference': cds_coord,
-                                        'mode': ref_type
-                                    }
-                                    processed_ids.append(target_coord)
-                insertion_targets = [
-                    (target, evalue) for target, evalue in coding_coordinates
-                    if (target not in reference_dictionary
-                        and any([cds_coordinate.contains(target)
-                                 for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']])
-                        )
-                ]
-                if insertion_targets:
+                            if target_coord not in reference_dictionary:
+                                reference_dictionary[target_coord] = {
+                                    'reference': cds_coord,
+                                    'mode': ref_type
+                                }
+                # INSERTION
+                insertion_candidate_coding_coordinates = set(
+                    (target_coord, eval_)
+                    for (target_coord, eval_) in coding_coordinates
+                    if target_coord not in reference_dictionary
+                )
+                if insertion_candidate_coding_coordinates:
                     insertion_reference_dictionary = self.get_insertion_reference_dictionary(
-                        cds_candidates_dictionary=cds_candidates_dictionary,
-                        coordinates_list=insertion_targets
+                        cds_candidates_set=cds_candidates_set,
+                        auxiliary_cds_set=auxiliary_candidates_cds_set,
+                        coding_coordinates_set=insertion_candidate_coding_coordinates
                     )
                     if insertion_reference_dictionary:
                         ref_type = 'INSERTION_EXCISION'
                         for target_coordinate, reference in insertion_reference_dictionary.items():
-                            if target_coordinate[0] not in reference_dictionary:
-                                reference_dictionary[target_coordinate[0]] = {
-                                    'reference': reference[0],
+                            tar_coordinate, _ = target_coordinate
+                            reference_coordinate = reference
+                            if tar_coordinate not in reference_dictionary:
+                                reference_dictionary[tar_coordinate] = {
+                                    'reference': reference_coordinate,
                                     'mode': ref_type
                                 }
-                truncation_targets = [target for target in coding_coordinates if target[0] not in reference_dictionary]
-                if truncation_targets:
-                    reference_truncation_dictionary = self.get_non_coding_reference_dictionary(
-                        overlapping_targets=truncation_targets
-                    )
+                truncation_candidate_coordinates = set(
+                    (target, eval_)
+                    for target, eval_ in coding_coordinates
+                    if target not in reference_dictionary
+                )
+                if truncation_candidate_coordinates:
+                    reference = min(truncation_candidate_coordinates, key=lambda x: x[1])[0]
                     ref_type = 'TRUNCATION_ACQUISITION'
-                    for target, reference in reference_truncation_dictionary.items():
-                        if target[0] not in reference_dictionary:
-                            reference_dictionary[target[0]] = {
-                                'reference': reference[0],
+                    for target, eval_ in truncation_candidate_coordinates:
+                        if target not in reference_dictionary:
+                            reference_dictionary[target] = {
+                                'reference': reference,
                                 'mode': ref_type
                             }
         return reference_dictionary
@@ -650,8 +653,9 @@ class ReconcilerHandler(object):
         query = query[query_frame:adjusted_end]
         trans_query = query.translate()
         for frame in [0, 1, 2]:
-            target_coordinate = P.open(corrected_coordinate.lower + gene_start, corrected_coordinate.upper + gene_start)
-            target = Seq(self.data_container.genome_dictionary[chrom][target_coordinate.lower:target_coordinate.upper])
+            target_coord = P.open(corrected_coordinate.lower + gene_start,
+                                  corrected_coordinate.upper + gene_start)
+            target = Seq(self.data_container.genome_dictionary[chrom][target_coord.lower:target_coord.upper])
             if strand == '-':
                 target = target.reverse_complement()
             adjusted_end = self.adjust_coordinates_to_frame(
@@ -669,7 +673,9 @@ class ReconcilerHandler(object):
                 sequence_i=alignment[0],
                 sequence_j=alignment[1]
             )
-            target_sequence_frames_translations.append((prot_identity, frame, target, trans_target, n_stop_codons))
+            target_sequence_frames_translations.append(
+                (prot_identity, frame, target, trans_target, n_stop_codons)
+            )
         # we want the frame that gives us the highest identity alignment
         (corrected_prot_perc_id,
          corrected_frame,
@@ -736,6 +742,16 @@ class ReconcilerHandler(object):
                     fragment_id))
         return corrected_coordinates_list
 
+    def fetch_gene_cdss_set(
+            self,
+            gene_id: str
+    ):
+        return set(
+            i['coordinate']
+            for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
+            for i in struct['structure'] if i['type'] == 'CDS'
+        )
+
     def align_target_coordinates(
             self,
             gene_id: str,
@@ -744,7 +760,7 @@ class ReconcilerHandler(object):
     ) -> tuple[set[P.Interval], dict]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
         # center cds coordinates to gene start
-        cds_candidates_dictionary['candidates_cds_coordinates'] = self.center_and_sort_cds_coordinates(
+        cds_candidates_coordinates_set = self.center_and_sort_cds_coordinates(
             cds_coordinates=cds_candidates_dictionary['candidates_cds_coordinates'],
             gene_start=gene_start
         )
@@ -755,8 +771,10 @@ class ReconcilerHandler(object):
             target_coordinates_set=target_coordinates,
             threshold=self.cds_overlapping_threshold
         )
-        targets_reference_coordinates_dictionary = self.build_targets_reference_dictionary(
-            cds_candidates_dictionary=cds_candidates_dictionary,
+
+        targets_reference_coordinates_dictionary = self.get_matches_reference_mode_dictionary(
+            gene_id=gene_id,
+            cds_candidates_dictionary=cds_candidates_coordinates_set,
             clusters_list=overlapping_targets
         )
         return query_coordinates, targets_reference_coordinates_dictionary
