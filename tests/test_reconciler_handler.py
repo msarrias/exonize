@@ -133,7 +133,8 @@ def test_build_reference_dictionary():
         }
         # Assuming no CDS overlap
     }
-    assert counter_handler.build_reference_dictionary(
-        cds_candidates_dictionary=cds_candidates_dictionary,
-        clusters_list=overlapping_targets
+    assert counter_handler.get_matches_reference_mode_dictionary(
+        cds_candidates_set=set(cds_candidates_dictionary['candidates_cds_coordinates']),
+        clusters_list=overlapping_targets,
+        gene_cds_set=set()
     ) == expected_output
