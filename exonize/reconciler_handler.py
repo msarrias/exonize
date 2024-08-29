@@ -764,6 +764,7 @@ class ReconcilerHandler(object):
             i['coordinate']
             for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
             for i in struct['structure'] if i['type'] == 'CDS'
+            if i['coordinate'].lower - i['coordinate'].upper >= self.data_container.min_cds_length
         )
 
     def align_target_coordinates(
