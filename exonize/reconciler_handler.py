@@ -130,39 +130,103 @@ class ReconcilerHandler(object):
                 threshold=threshold
             )
 
+    @staticmethod
+    def fetch_non_coding_coordinates(
+            target_coordinates_set: set,
+            cds_coordinates_set: set,
+
+    ):
+        return [
+            (target_coordinate, evalue)
+            for target_coordinate, evalue in target_coordinates_set
+            if all(not target_coordinate.overlaps(cds_coordinate)
+                   for cds_coordinate in cds_coordinates_set)
+        ]
+
     def get_coding_reference_dictionary(
             self,
-            cds_candidates_dictionary,
-            coding_coordinates
+            cds_coordinates_set: set,
+            coding_coordinates_set: set,
+            auxiliary_cds_set: set
     ):
+        def process_overlap(
+                source_set: set,
+                target_set: set
+        ):
+            for coordinate in source_set:
+                for other_coord, oeval in target_set:
+                    overlap_perc = self.blast_engine.min_perc_overlap(coordinate, other_coord)
+                    if overlap_perc >= self.cds_overlapping_threshold:
+                        overlapping_coords[coordinate].append((other_coord, oeval))
+                        processed_target.add((other_coord, oeval))
         overlapping_coords = defaultdict(list)
-        for coordinate in cds_candidates_dictionary['candidates_cds_coordinates']:
-            for other_coord, oeval in coding_coordinates:
-                if self.blast_engine.min_perc_overlap(
-                        intv_i=coordinate,
-                        intv_j=other_coord
-                ) >= self.cds_overlapping_threshold:
-                    overlapping_coords[coordinate].append((other_coord, oeval))
+        processed_target = set()
+        process_overlap(
+            source_set=cds_coordinates_set,
+            target_set=coding_coordinates_set
+        )
+        orphan_coord = set(coord for coord in coding_coordinates_set if coord not in processed_target)
+        if orphan_coord:
+            process_overlap(
+                source_set=auxiliary_cds_set,
+                target_set=orphan_coord
+            )
         return dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
 
     def get_insertion_reference_dictionary(
             self,
-            cds_candidates_dictionary,
-            coordinates_list
+            cds_candidates_set: set,
+            auxiliary_cds_set: set,
+            coding_coordinates_set: set
     ):
+        def process_insertion_overlaps(
+                source_set: set,
+                target_set: set,
+        ):
+            for coordinate in source_set:
+                for other_coord, oeval in target_set:
+                    if coordinate.contains(other_coord):
+                        overlapping_coords[coordinate].append((other_coord, oeval))
+                        processed_target.add((other_coord, oeval))
+                    elif self.blast_engine.get_overlap_percentage(
+                            intv_i=coordinate,
+                            intv_j=other_coord
+                    ) >= self.cds_overlapping_threshold:
+                        overlapping_coords[coordinate].append((other_coord, oeval))
+                        processed_target.add((other_coord, oeval))
         overlapping_coords = defaultdict(list)
         insertion_reference_dict = {}
-        for cds_coordinate in cds_candidates_dictionary['candidates_cds_coordinates']:
-            for other_coord, oeval in coordinates_list:
-                if cds_coordinate.contains(other_coord):
-                    overlapping_coords[cds_coordinate].append((other_coord, oeval))
+        processed_target = set()
+        process_insertion_overlaps(
+            source_set=cds_candidates_set,
+            target_set=coding_coordinates_set
+        )
+        orphan_coord = set(coord for coord in coding_coordinates_set if coord not in processed_target)
+        if orphan_coord:
+            process_insertion_overlaps(
+                source_set=auxiliary_cds_set,
+                target_set=orphan_coord
+            )
         overlapping_coords = dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
         for cds_coordinate, list_of_overlapping_coords in overlapping_coords.items():
-            reference_dict = self.get_non_coding_reference_dictionary(
-                overlapping_targets=list_of_overlapping_coords,
-            )
-            for target_coordinate, reference in reference_dict.items():
-                insertion_reference_dict[target_coordinate] = reference
+            if len(list_of_overlapping_coords) == 1:
+                target_coordinate = list_of_overlapping_coords[0]
+                if target_coordinate not in insertion_reference_dict:
+                    target_coord, _ = target_coordinate
+                    if not cds_coordinate.contains(target_coord):
+                        # this is a truncation
+                        reference = P.open(
+                            max(target_coord.lower, cds_coordinate.lower),
+                            min(target_coord.upper, cds_coordinate.upper)
+                        )
+                        insertion_reference_dict[target_coordinate] = reference
+                    else:
+                        insertion_reference_dict[target_coordinate] = target_coordinate[0]
+            else:
+                reference = min(list_of_overlapping_coords, key=lambda x: x[1])[0]
+                for target_coordinate in list_of_overlapping_coords:
+                    if target_coordinate not in insertion_reference_dict:
+                        insertion_reference_dict[target_coordinate] = reference
         return insertion_reference_dict
 
     def build_targets_reference_dictionary(
