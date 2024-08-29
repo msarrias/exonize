@@ -51,7 +51,7 @@ def test_get_overlapping_clusters():
     ) == expected_clusters_1
     assert counter_handler.get_overlapping_clusters(
         target_coordinates_set=target_coordinates_set_2,
-        threshold=0.
+        threshold=0
     ) == expected_clusters_2
 
 
