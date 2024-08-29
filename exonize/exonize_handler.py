@@ -333,7 +333,7 @@ Exonize results database:   {self.results_database_path.name}
             gene_id=gene_id
         )
         (query_coordinates,
-         reference_coordinates_dictionary
+         targets_reference_coordinates_dictionary
          ) = self.event_reconciler.align_target_coordinates(
             gene_id=gene_id,
             tblastx_records_set=tblastx_records_set,
@@ -342,7 +342,7 @@ Exonize results database:   {self.results_database_path.name}
         corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
             gene_id=gene_id,
             tblastx_records_set=tblastx_records_set,
-            reference_coordinates_dictionary=reference_coordinates_dictionary,
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
             cds_candidates_dictionary=cds_candidates_dictionary
         )
         self.database_interface.insert_corrected_target_start_end(
@@ -351,7 +351,7 @@ Exonize results database:   {self.results_database_path.name}
         gene_graph = self.event_reconciler.create_events_multigraph(
             tblastx_records_set=tblastx_records_set,
             query_coordinates_set=query_coordinates,
-            reference_coordinates_dictionary=reference_coordinates_dictionary
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
         if self.draw_event_multigraphs:
             self.event_reconciler.draw_event_multigraph(
@@ -361,7 +361,7 @@ Exonize results database:   {self.results_database_path.name}
         (gene_events_list,
          non_reciprocal_fragment_ids_list
          ) = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
-            reference_coordinates_dictionary=reference_coordinates_dictionary,
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
             gene_id=gene_id,
             gene_graph=gene_graph
         )
