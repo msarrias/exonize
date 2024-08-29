@@ -130,33 +130,42 @@ class ReconcilerHandler(object):
                 threshold=threshold
             )
 
+    def process_full_overlap(
+            self,
+            source_set: set,
+            target_set: set,
+            overlapping_coords: dict,
+            processed_target: set
+    ):
+        for coordinate in source_set:
+            for other_coord, oeval in target_set:
+                overlap_perc = self.blast_engine.min_perc_overlap(coordinate, other_coord)
+                if overlap_perc >= self.cds_overlapping_threshold:
+                    overlapping_coords[coordinate].append((other_coord, oeval))
+                    processed_target.add((other_coord, oeval))
+        return overlapping_coords, processed_target
+
     def get_coding_reference_dictionary(
             self,
             cds_coordinates_set: set,
             coding_coordinates_set: set,
             auxiliary_cds_set: set
     ):
-        def process_overlap(
-                source_set: set,
-                target_set: set
-        ):
-            for coordinate in source_set:
-                for other_coord, oeval in target_set:
-                    overlap_perc = self.blast_engine.min_perc_overlap(coordinate, other_coord)
-                    if overlap_perc >= self.cds_overlapping_threshold:
-                        overlapping_coords[coordinate].append((other_coord, oeval))
-                        processed_target.add((other_coord, oeval))
         overlapping_coords = defaultdict(list)
         processed_target = set()
-        process_overlap(
+        overlapping_coords, processed_target = self.process_full_overlap(
             source_set=cds_coordinates_set,
-            target_set=coding_coordinates_set
+            target_set=coding_coordinates_set,
+            overlapping_coords=overlapping_coords,
+            processed_target=processed_target
         )
         orphan_coord = set(coord for coord in coding_coordinates_set if coord not in processed_target)
         if orphan_coord:
-            process_overlap(
+            overlapping_coords, processed_target = self.process_full_overlap(
                 source_set=auxiliary_cds_set,
-                target_set=orphan_coord
+                target_set=orphan_coord,
+                overlapping_coords=overlapping_coords,
+                processed_target=processed_target
             )
         return dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
 
@@ -164,6 +173,9 @@ class ReconcilerHandler(object):
             self,
             source_set: set,
             target_set: set,
+            overlapping_coords: dict,
+            processed_target: set
+
     ):
         for coordinate in source_set:
             for other_coord, oeval in target_set:
@@ -176,6 +188,7 @@ class ReconcilerHandler(object):
                 ) >= self.cds_overlapping_threshold:
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
+        return overlapping_coords, processed_target
 
     def get_insertion_reference_dictionary(
             self,
@@ -186,15 +199,19 @@ class ReconcilerHandler(object):
         overlapping_coords = defaultdict(list)
         insertion_reference_dict = {}
         processed_target = set()
-        self.process_insertion_overlaps(
+        overlapping_coords, processed_target = self.process_insertion_overlaps(
             source_set=cds_candidates_set,
-            target_set=coding_coordinates_set
+            target_set=coding_coordinates_set,
+            overlapping_coords=overlapping_coords,
+            processed_target=processed_target
         )
         orphan_coord = set(coord for coord in coding_coordinates_set if coord not in processed_target)
         if orphan_coord:
-            self.process_insertion_overlaps(
+            overlapping_coords, processed_target = self.process_insertion_overlaps(
                 source_set=auxiliary_cds_set,
-                target_set=orphan_coord
+                target_set=orphan_coord,
+                overlapping_coords=overlapping_coords,
+                processed_target=processed_target
             )
         overlapping_coords = dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
         for cds_coordinate, list_of_overlapping_coords in overlapping_coords.items():
@@ -220,31 +237,28 @@ class ReconcilerHandler(object):
 
     @staticmethod
     def fetch_non_coding_coordinates(
-            target_coordinates_set: set,
+            target_coordinates_list: list,
             cds_coordinates_set: set,
 
     ):
         return [
             (target_coordinate, evalue)
-            for target_coordinate, evalue in target_coordinates_set
+            for target_coordinate, evalue in target_coordinates_list
             if all(not target_coordinate.overlaps(cds_coordinate)
                    for cds_coordinate in cds_coordinates_set)
         ]
 
     def get_matches_reference_mode_dictionary(
             self,
-            gene_id: str,
-            clusters_list,
+            clusters_list: list[list[tuple]],
             cds_candidates_set: set,
+            gene_cds_set: set,
     ):
-        gene_cds_set = self.fetch_gene_cdss_set(
-            gene_id=gene_id
-        )
         auxiliary_candidates_cds_set = gene_cds_set - cds_candidates_set
         reference_dictionary = dict()
         for coordinates_cluster in clusters_list:
             non_coding_coordinates = self.fetch_non_coding_coordinates(
-                target_coordinates_set=coordinates_cluster,
+                target_coordinates_list=coordinates_cluster,
                 cds_coordinates_set=set(cds_candidates_set).union(set(auxiliary_candidates_cds_set))
             )
             coding_coordinates = set(
@@ -760,7 +774,7 @@ class ReconcilerHandler(object):
     ) -> tuple[set[P.Interval], dict]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
         # center cds coordinates to gene start
-        cds_candidates_coordinates_set = self.center_and_sort_cds_coordinates(
+        cds_candidates_coordinates = self.center_and_sort_cds_coordinates(
             cds_coordinates=cds_candidates_dictionary['candidates_cds_coordinates'],
             gene_start=gene_start
         )
@@ -771,10 +785,12 @@ class ReconcilerHandler(object):
             target_coordinates_set=target_coordinates,
             threshold=self.cds_overlapping_threshold
         )
-
+        gene_cds_set = self.fetch_gene_cdss_set(
+            gene_id=gene_id
+        )
         targets_reference_coordinates_dictionary = self.get_matches_reference_mode_dictionary(
-            gene_id=gene_id,
-            cds_candidates_dictionary=cds_candidates_coordinates_set,
-            clusters_list=overlapping_targets
+            clusters_list=overlapping_targets,
+            cds_candidates_set=set(cds_candidates_coordinates),
+            gene_cds_set=gene_cds_set
         )
         return query_coordinates, targets_reference_coordinates_dictionary
