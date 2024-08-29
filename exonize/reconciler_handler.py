@@ -70,7 +70,8 @@ class ReconcilerHandler(object):
             if all(
                 [self.blast_engine.min_perc_overlap(
                     intv_i=cds_coordinate,
-                    intv_j=target_coordinate) > self.cds_overlapping_threshold
+                    intv_j=target_coordinate
+                ) > self.cds_overlapping_threshold
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -86,59 +87,48 @@ class ReconcilerHandler(object):
             target_coordinates_set: set[tuple[P.Interval, float]],
             threshold: float,
     ) -> list[list[tuple]]:
-        """
-        Get overlapping clusters of target coordinates.
-        """
         processed_intervals = set()
         overlapping_clusters = []
-
-        # Sort the coordinates by their lower bound for efficient processing
         sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
         for target_coordinate, evalue in sorted_coordinates:
             if target_coordinate not in processed_intervals:
-                # Create a cluster for the current coordinate
-                cluster = [(target_coordinate, evalue)]
-                # Find overlapping coordinates and add to the cluster
-                for other_coordinate, other_evalue in sorted_coordinates:
-                    if (
-                            target_coordinate != other_coordinate and
-                            (self.blast_engine.min_perc_overlap(
-                                intv_i=target_coordinate,
-                                intv_j=other_coordinate) > threshold
-                             or target_coordinate.contains(other_coordinate))
-                    ):
-                        cluster.append((other_coordinate, other_evalue))
-                        processed_intervals.add(other_coordinate)
-                overlapping_clusters.append(cluster)
                 processed_intervals.add(target_coordinate)
+                processed_intervals, cluster = self.find_interval_clusters(
+                    sorted_coordinates=sorted_coordinates,
+                    processed_intervals=processed_intervals,
+                    cluster=[(target_coordinate, evalue)],
+                    threshold=threshold
+                )
+                overlapping_clusters.append(cluster)
         overlapping_clusters.sort(key=len, reverse=True)
         return overlapping_clusters
 
-    def get_non_coding_reference_dictionary(
+    def find_interval_clusters(
             self,
-            overlapping_targets,
-            threshold: float = 0.8
+            sorted_coordinates: list,
+            processed_intervals: set,
+            cluster: list[tuple],
+            threshold: float
     ):
-        sorted_inactive_hits = sorted(overlapping_targets,
-                                      key=lambda x: (x[0].lower, x[0].upper, x[1]))
-        reference_dict = {}
-        overlapping_coords = {
-            (coordinate, evalue): [(other_coord, oeval) for other_coord, oeval in sorted_inactive_hits
-                                   if (other_coord != coordinate
-                                       and self.blast_engine.min_perc_overlap(coordinate, other_coord) > threshold)]
-            for (coordinate, evalue) in sorted_inactive_hits
-        }
-        overlapping_coords = dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
-        for coordinate, overlapping_coords in overlapping_coords.items():
-            if coordinate not in reference_dict:
-                if not overlapping_coords:
-                    reference_dict[coordinate] = coordinate
-                else:
-                    reference = min([coordinate, *overlapping_coords], key=lambda x: x[-1])
-                    reference_dict[coordinate] = reference
-                    for other_coordinate in overlapping_coords:
-                        reference_dict[other_coordinate] = reference
-        return reference_dict
+        new_cluster = list(cluster)
+        for other_coordinate, other_evalue in sorted_coordinates:
+            if ((other_coordinate not in processed_intervals and
+                 all([
+                     round(self.blast_engine.min_perc_overlap(
+                         intv_i=target_coordinate,
+                         intv_j=other_coordinate), 1) >= threshold
+                     for target_coordinate, evalue in new_cluster]))):
+                new_cluster.append((other_coordinate, other_evalue))
+                processed_intervals.add(other_coordinate)
+        if new_cluster == cluster:
+            return processed_intervals, new_cluster
+        else:
+            return self.find_interval_clusters(
+                sorted_coordinates=sorted_coordinates,
+                processed_intervals=processed_intervals,
+                cluster=new_cluster,
+                threshold=threshold
+            )
 
     def get_coding_reference_dictionary(
             self,
@@ -148,7 +138,10 @@ class ReconcilerHandler(object):
         overlapping_coords = defaultdict(list)
         for coordinate in cds_candidates_dictionary['candidates_cds_coordinates']:
             for other_coord, oeval in coding_coordinates:
-                if self.blast_engine.min_perc_overlap(coordinate, other_coord) >= self.cds_overlapping_threshold:
+                if self.blast_engine.min_perc_overlap(
+                        intv_i=coordinate,
+                        intv_j=other_coord
+                ) >= self.cds_overlapping_threshold:
                     overlapping_coords[coordinate].append((other_coord, oeval))
         return dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
 
@@ -172,7 +165,7 @@ class ReconcilerHandler(object):
                 insertion_reference_dict[target_coordinate] = reference
         return insertion_reference_dict
 
-    def build_reference_dictionary(
+    def build_targets_reference_dictionary(
             self,
             cds_candidates_dictionary: dict,
             clusters_list: list[list]
@@ -258,14 +251,14 @@ class ReconcilerHandler(object):
 
     @staticmethod
     def create_events_multigraph(
-            reference_coordinates_dictionary: dict,
+            targets_reference_coordinates_dictionary: dict,
             query_coordinates_set: set,
             tblastx_records_set: set,
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
             (reference['reference'], reference['mode'])
-            for reference in reference_coordinates_dictionary.values()
+            for reference in targets_reference_coordinates_dictionary.values()
         ])
 
         set_of_nodes = set([
@@ -286,8 +279,8 @@ class ReconcilerHandler(object):
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
-            reference_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
-            mode = reference_coordinates_dictionary[target_coordinate]['mode']
+            reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
+            mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
             gene_graph.add_edge(
                 u_for_edge=(cds_start, cds_end),
                 v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
@@ -385,11 +378,11 @@ class ReconcilerHandler(object):
 
     @staticmethod
     def build_mode_dictionary(
-            reference_coordinates_dictionary: dict
+            targets_reference_coordinates_dictionary: dict
     ) -> dict:
         return {
             reference_coordinate['reference']: reference_coordinate['mode']
-            for reference_coordinate in reference_coordinates_dictionary.values()
+            for reference_coordinate in targets_reference_coordinates_dictionary.values()
         }
 
     @staticmethod
@@ -487,14 +480,14 @@ class ReconcilerHandler(object):
 
     def get_reconciled_graph_and_expansion_events_tuples(
             self,
-            reference_coordinates_dictionary: dict,
+            targets_reference_coordinates_dictionary: dict,
             gene_id: str,
             gene_graph: nx.MultiGraph
     ) -> tuple[list[tuple], list]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
 
         mode_dictionary = self.build_mode_dictionary(
-            reference_coordinates_dictionary=reference_coordinates_dictionary
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
         # each disconnected component will represent a duplication event within a gene
         # and the number of nodes in the component is the number of duplicated exons
@@ -554,11 +547,11 @@ class ReconcilerHandler(object):
             query_coordinates.add(P.open(cds_start, cds_end))
             if target_coordinate not in min_e_values or evalue < min_e_values[target_coordinate]:
                 min_e_values[target_coordinate] = evalue
-        target_coordinates = set([
+        target_coordinates_set = set([
             (target_coordinate, min_evalue)
             for target_coordinate, min_evalue in min_e_values.items()
         ])
-        return query_coordinates, target_coordinates
+        return query_coordinates, target_coordinates_set
 
     @staticmethod
     def center_and_sort_cds_coordinates(
@@ -646,14 +639,14 @@ class ReconcilerHandler(object):
             self,
             gene_id: str,
             tblastx_records_set: set[tuple],
-            reference_coordinates_dictionary: dict,
+            targets_reference_coordinates_dictionary: dict,
             cds_candidates_dictionary: dict
     ) -> list[tuple]:
         corrected_coordinates_list = []
         for record in tblastx_records_set:
             fragment_id, _, cds_start, cds_end, target_start, target_end, _ = record
             target_coordinate = P.open(target_start, target_end)
-            corrected_coordinate = reference_coordinates_dictionary[target_coordinate]['reference']
+            corrected_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             if target_coordinate != corrected_coordinate:
                 (corrected_dna_ident,
                  corrected_prot_ident,
@@ -698,8 +691,8 @@ class ReconcilerHandler(object):
             target_coordinates_set=target_coordinates,
             threshold=self.cds_overlapping_threshold
         )
-        reference_coordinates_dictionary = self.build_reference_dictionary(
+        targets_reference_coordinates_dictionary = self.build_targets_reference_dictionary(
             cds_candidates_dictionary=cds_candidates_dictionary,
             clusters_list=overlapping_targets
         )
-        return query_coordinates, reference_coordinates_dictionary
+        return query_coordinates, targets_reference_coordinates_dictionary
