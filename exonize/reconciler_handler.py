@@ -112,12 +112,15 @@ class ReconcilerHandler(object):
     ):
         new_cluster = list(cluster)
         for other_coordinate, other_evalue in sorted_coordinates:
-            if ((other_coordinate not in processed_intervals and
-                 all([
-                     round(self.blast_engine.min_perc_overlap(
-                         intv_i=target_coordinate,
-                         intv_j=other_coordinate), 1) >= threshold
-                     for target_coordinate, evalue in new_cluster]))):
+            if (other_coordinate not in processed_intervals and all(
+                round(self.blast_engine.min_perc_overlap(
+                    intv_i=target_coordinate,
+                    intv_j=other_coordinate), 1) >= threshold if threshold > 0 else
+                round(self.blast_engine.min_perc_overlap(
+                    intv_i=target_coordinate,
+                    intv_j=other_coordinate), 1) > threshold
+                for target_coordinate, evalue in new_cluster
+            )):
                 new_cluster.append((other_coordinate, other_evalue))
                 processed_intervals.add(other_coordinate)
         if new_cluster == cluster:
