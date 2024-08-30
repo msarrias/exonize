@@ -339,7 +339,7 @@ exonize_obj = Exonize(
         cpus_number=1,
         timeout_database=60,
         hard_force=False,
-        cds_overlapping_threshold=0.9,
+        cds_overlapping_threshold=0.91,
         query_overlapping_threshold=0.9,
         output_directory_path=Path("."),
     )
