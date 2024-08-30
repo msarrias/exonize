@@ -101,6 +101,30 @@ class DataPreprocessor(object):
         )
 
     @staticmethod
+    def min_perc_overlap(
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+    ) -> float:
+        def get_interval_length(
+                interval: P.Interval,
+        ):
+            return sum(intv.upper - intv.lower for intv in interval)
+
+        """
+        Given two intervals, the function returns the percentage of the overlapping
+        region relative to the longest interval. The percentage overlap of the shortest
+        interval will always be greater or equal than that of the longest interval.
+        :param intv_i:
+        :param intv_j:
+        :return:
+        """
+        if intv_i.overlaps(intv_j):
+            intersection_span = get_interval_length(intv_i.intersection(intv_j))
+            longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
+            return round(intersection_span / longest_length, 3)
+        return 0.0
+
+    @staticmethod
     def reverse_sequence_bool(gene_strand: str):
         """
         reverse_sequence_bool checks if the gene is in the negative
@@ -266,128 +290,6 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
-    def construct_mrna_sequence(
-            self,
-            chromosome: str,
-            gene_strand: str,
-            cds_coordinates_list: list[dict],
-    ) -> str:
-        """
-        construct_mrna_sequence is a function that constructs the mRNA sequence
-        based on genomic coordinates of the CDSs and the strand of the gene.
-        """
-        mrna_sequence = ''
-        for cds_coordinate in cds_coordinates_list:
-            start = cds_coordinate['coordinate'].lower
-            end = cds_coordinate['coordinate'].upper
-            cds_sequence = self.genome_dictionary[chromosome][start:end]
-            if gene_strand == '-':
-                cds_sequence = str(Seq(cds_sequence).reverse_complement())
-            mrna_sequence += cds_sequence
-        return mrna_sequence
-
-    @staticmethod
-    def trim_sequence_to_codon_length(
-            sequence: str,
-            is_final_cds: bool,
-            gene_id: str,
-            transcript_id: str
-    ) -> str:
-        """
-        Trim the sequence to ensure its length is a multiple of 3.
-        If it's not the final CDS and an overhang is present, an exception is raised.
-
-        :param sequence: The DNA sequence to be checked.
-        :param is_final_cds: Boolean indicating if this is the final CDS in the sequence.
-        :param gene_id: The gene ID.
-        :param transcript_id: The transcript ID.
-        :return: Trimmed sequence or the original sequence if no trimming is needed.
-        """
-        overhang = len(sequence) % 3
-        if overhang and is_final_cds:
-            return sequence[:-overhang]
-        elif overhang:
-            raise ValueError(
-                f' {gene_id}, {transcript_id}, non-final CDS has an overhang:'
-                f' {len(sequence)} is not divisible by 3'
-            )
-        return sequence
-
-    def construct_peptide_sequences(
-            self,
-            gene_id: str,
-            transcript_id: str,
-            mrna_sequence: str,
-            cds_coordinates_list: list[dict],
-    ) -> tuple[str, list[tuple]]:
-        """
-        Construct a protein sequence from transcriptomic coordinates and collect
-        corresponding CDSs in both DNA and protein formats.
-        Given the transcriptomic coordinates and considering the reading frames
-        specified in a GFF file, this function constructs a protein sequence while
-        managing the intricacies of exon stitching and reading frame maintenance across
-        possibly intron-interrupted CDS regions. In the context of a GFF file, feature
-        coordinates are generally relative to the genomic sequence, which implies that
-        reading frames may be disrupted by introns.
-        ----------------
-        Example:
-            Consider the following genomic coordinates of CDSs and their reading frames:
-            cds1: (0,127)      reading frame: 0
-            cds2: (4545,4682)  reading frame: 2
-            cds3: (6460,6589)  reading frame: 0
-            cds4: (7311,7442)  reading frame: 0
-
-            When translated to transcriptomic coordinates (while still referring to
-            genomic positions), considering reading frames, the coordinates become:
-            cds1: (0, 127), (4545, 4547)
-            cds2: (4547, 4682)
-            cds3: (6460, 6589)
-            cds4: (7311, 7442)
-        ----------------
-        Note:
-            - The first two nucleotides of cds2 complete the last codon of cds1, and thus,
-             it is in line with the specified reading frame of 2 for cds2.
-            - It is not uncommon that the length of the last CDS is not a multiple of 3.
-             This is because the reading frames of different CDSs across transcripts are
-             not necessarily aligned. So that the extra nucleotides are necesary for satisfying
-             completition of all transcripts.
-        """
-        mrna_peptide_sequence = ''
-        start_coord = 0
-        n_coords = len(cds_coordinates_list) - 1
-        cds_list_tuples = list()
-
-        for coord_idx, cds_dictionary in enumerate(cds_coordinates_list):
-            frame_cds = int(cds_dictionary['frame'])
-            start = cds_dictionary['coordinate'].lower
-            end = cds_dictionary['coordinate'].upper
-            len_coord = end - start
-            frame_next_cds = 0
-            end_coord = len_coord + start_coord
-            if coord_idx != n_coords:
-                frame_next_cds = int(cds_coordinates_list[coord_idx + 1]['frame'])
-            cds_dna_sequence = self.trim_sequence_to_codon_length(
-                sequence=mrna_sequence[start_coord + frame_cds: end_coord + frame_next_cds],
-                is_final_cds=coord_idx == n_coords,
-                gene_id=gene_id,
-                transcript_id=transcript_id
-            )
-            cds_peptide_sequence = str(Seq(cds_dna_sequence).translate())
-            mrna_peptide_sequence += cds_peptide_sequence
-            start_coord = end_coord
-            frame_cds = frame_next_cds
-            cds_list_tuples.append(
-                (gene_id,
-                 transcript_id,
-                 coord_idx,
-                 cds_dictionary['id'],
-                 frame_cds,
-                 start, end,
-                 cds_dna_sequence,
-                 cds_peptide_sequence)
-            )
-        return mrna_peptide_sequence, cds_list_tuples
-
     def create_gene_hierarchy_dictionary(self) -> None:
         """
         Constructs a nested dictionary to represent the hierarchical structure
@@ -482,44 +384,79 @@ class DataPreprocessor(object):
                     )
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
-    def populate_proteins_table(
+    def fetch_gene_cdss_set(
             self,
-    ) -> None:
-        for gene_id, gene_dictionary in self.gene_hierarchy_dictionary.items():
-            gene_coordinate = gene_dictionary['coordinate']
-            chrom, strand = gene_dictionary['chrom'], gene_dictionary['strand']
-            gene_tuples_list_peptide_transcripts = []
-            for mrna_id, mrna_dictionary in gene_dictionary['mRNAs'].items():
-                mrna_coordinate = mrna_dictionary['coordinate']
-                cds_annotations_list = [
-                    cds_annotation for cds_annotation in mrna_dictionary['structure']
-                    if cds_annotation['type'] == 'CDS'
-                ]
-                mrna_dna_sequence = self.construct_mrna_sequence(
-                    chromosome=chrom,
-                    gene_strand=strand,
-                    cds_coordinates_list=cds_annotations_list,
+            gene_id: str
+    ):
+        return list(
+            set(
+                (coordinate, annotation_structure['frame'])
+                for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
+                for annotation_structure in mrna_annotation['structure']
+                for coordinate in (annotation_structure['coordinate'],)
+                if (annotation_structure['type'] == 'CDS'
+                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
+            )
+        )
+
+    @staticmethod
+    def flatten_clusters_representative_exons(
+            cluster_list: list
+    ):
+        return [
+            cluster[0][0] if len(cluster) == 1 else min(cluster, key=lambda x: x[0].upper - x[0].lower)[0]
+            for cluster in cluster_list
+        ]
+
+    def get_overlapping_clusters(
+            self,
+            target_coordinates_set: set[tuple[P.Interval, Any]],
+            threshold: float,
+    ) -> list[list[tuple]]:
+        processed_intervals = set()
+        overlapping_clusters = []
+        sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
+        for target_coordinate, evalue in sorted_coordinates:
+            if target_coordinate not in processed_intervals:
+                processed_intervals.add(target_coordinate)
+                processed_intervals, cluster = self.find_interval_clusters(
+                    sorted_coordinates=sorted_coordinates,
+                    processed_intervals=processed_intervals,
+                    cluster=[(target_coordinate, evalue)],
+                    threshold=threshold
                 )
-                peptide_sequence, cds_list_tuples = self.construct_peptide_sequences(
-                    gene_id=gene_id,
-                    transcript_id=mrna_id,
-                    mrna_sequence=mrna_dna_sequence,
-                    cds_coordinates_list=cds_annotations_list,
-                )
-                self.database_interface.insert_into_cdss_table(
-                    database_path=self.protein_database_path,
-                    gene_args_tuple_list=cds_list_tuples
-                )
-                gene_tuples_list_peptide_transcripts.append(
-                    (gene_id, chrom, strand,
-                     gene_coordinate.lower, gene_coordinate.upper,
-                     mrna_id,
-                     mrna_coordinate.lower, mrna_coordinate.upper,
-                     peptide_sequence)
-                )
-            self.database_interface.insert_into_proteins_table(
-                database_path=self.protein_database_path,
-                gene_args_list_tuple=gene_tuples_list_peptide_transcripts
+                overlapping_clusters.append(cluster)
+        overlapping_clusters.sort(key=len, reverse=True)
+        return overlapping_clusters
+
+    def find_interval_clusters(
+            self,
+            sorted_coordinates: list,
+            processed_intervals: set,
+            cluster: list[tuple],
+            threshold: float
+    ):
+        new_cluster = list(cluster)
+        for other_coordinate, other_evalue in sorted_coordinates:
+            if (other_coordinate not in processed_intervals and all(
+                    round(self.min_perc_overlap(
+                        intv_i=target_coordinate,
+                        intv_j=other_coordinate), 1) >= threshold if threshold > 0 else
+                    round(self.min_perc_overlap(
+                        intv_i=target_coordinate,
+                        intv_j=other_coordinate), 1) > threshold
+                    for target_coordinate, evalue in new_cluster
+            )):
+                new_cluster.append((other_coordinate, other_evalue))
+                processed_intervals.add(other_coordinate)
+        if new_cluster == cluster:
+            return processed_intervals, new_cluster
+        else:
+            return self.find_interval_clusters(
+                sorted_coordinates=sorted_coordinates,
+                processed_intervals=processed_intervals,
+                cluster=new_cluster,
+                threshold=threshold
             )
 
     @staticmethod
