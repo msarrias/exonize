@@ -6,7 +6,6 @@ import subprocess
 import sys
 import shutil
 from Bio import SeqIO
-from Bio.Seq import Seq
 import portion as P
 from pathlib import Path
 import tarfile
@@ -410,7 +409,7 @@ class DataPreprocessor(object):
 
     def get_overlapping_clusters(
             self,
-            target_coordinates_set: set[tuple[P.Interval, Any]],
+            target_coordinates_set: set[tuple],
             threshold: float,
     ) -> list[list[tuple]]:
         processed_intervals = set()
