@@ -1,4 +1,4 @@
-gffutils==0.12
+gffutils==0.13
 portion==2.4.0
 biopython==1.81
 networkx==3.2.1
