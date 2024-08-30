@@ -10,7 +10,6 @@ import tempfile
 from pathlib import Path
 import time
 import portion as P
-from typing import Union
 from Bio import SeqIO, AlignIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
