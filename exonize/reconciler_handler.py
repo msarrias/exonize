@@ -55,20 +55,9 @@ class ReconcilerHandler(object):
         # percentage between the CDS and the overlapping targets and take the
         # CDS with the highest average.
         cand_reference_list = [
-            (cds_coordinate,
-             self.compute_average(
-                 a_list=[
-                     self.blast_engine.get_average_overlap_percentage(
-                         intv_i=cds_coordinate,
-                         intv_j=target_coordinate
-                     )
-                     for target_coordinate, _ in overlapping_coordinates_list]
-             )
-             ) for cds_coordinate in cds_coordinates_list
-            # the two-way overlapping percentage should be higher than the threshold
-            # maybe this is a too strict condition, consider using the average instead
+            cds_coordinate for cds_coordinate in cds_coordinates_list
             if all(
-                [self.blast_engine.min_perc_overlap(
+                [self.data_container.min_perc_overlap(
                     intv_i=cds_coordinate,
                     intv_j=target_coordinate
                 ) > self.cds_overlapping_threshold
@@ -78,60 +67,9 @@ class ReconcilerHandler(object):
         if cand_reference_list:
             # Since we are considering all CDSs across all transcripts,
             # we might end up with more than one CDS candidate.
-            candidate_reference, _ = max(cand_reference_list, key=lambda x: x[1])
+            candidate_reference, _ = max(cand_reference_list, key=lambda x: x[0].upper - x[0].lower)
             return candidate_reference
         return P.open(0, 0)
-
-    def get_overlapping_clusters(
-            self,
-            target_coordinates_set: set[tuple[P.Interval, float]],
-            threshold: float,
-    ) -> list[list[tuple]]:
-        processed_intervals = set()
-        overlapping_clusters = []
-        sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
-        for target_coordinate, evalue in sorted_coordinates:
-            if target_coordinate not in processed_intervals:
-                processed_intervals.add(target_coordinate)
-                processed_intervals, cluster = self.find_interval_clusters(
-                    sorted_coordinates=sorted_coordinates,
-                    processed_intervals=processed_intervals,
-                    cluster=[(target_coordinate, evalue)],
-                    threshold=threshold
-                )
-                overlapping_clusters.append(cluster)
-        overlapping_clusters.sort(key=len, reverse=True)
-        return overlapping_clusters
-
-    def find_interval_clusters(
-            self,
-            sorted_coordinates: list,
-            processed_intervals: set,
-            cluster: list[tuple],
-            threshold: float
-    ):
-        new_cluster = list(cluster)
-        for other_coordinate, other_evalue in sorted_coordinates:
-            if (other_coordinate not in processed_intervals and all(
-                round(self.blast_engine.min_perc_overlap(
-                    intv_i=target_coordinate,
-                    intv_j=other_coordinate), 1) >= threshold if threshold > 0 else
-                round(self.blast_engine.min_perc_overlap(
-                    intv_i=target_coordinate,
-                    intv_j=other_coordinate), 1) > threshold
-                for target_coordinate, evalue in new_cluster
-            )):
-                new_cluster.append((other_coordinate, other_evalue))
-                processed_intervals.add(other_coordinate)
-        if new_cluster == cluster:
-            return processed_intervals, new_cluster
-        else:
-            return self.find_interval_clusters(
-                sorted_coordinates=sorted_coordinates,
-                processed_intervals=processed_intervals,
-                cluster=new_cluster,
-                threshold=threshold
-            )
 
     def process_full_overlap(
             self,
@@ -142,7 +80,7 @@ class ReconcilerHandler(object):
     ):
         for coordinate in source_set:
             for other_coord, oeval in target_set:
-                overlap_perc = self.blast_engine.min_perc_overlap(coordinate, other_coord)
+                overlap_perc = self.data_container.min_perc_overlap(coordinate, other_coord)
                 if overlap_perc >= self.cds_overlapping_threshold:
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
@@ -495,7 +433,7 @@ class ReconcilerHandler(object):
         # get clusters of overlapping nodes
         node_coordinates_clusters = [
             [node_coordinate for node_coordinate, _ in cluster]
-            for cluster in self.get_overlapping_clusters(
+            for cluster in self.data_container.get_overlapping_clusters(
                 target_coordinates_set=node_coordinates_set,
                 threshold=0  # we want to get all overlaps regardless of the percentage
             )
@@ -785,7 +723,7 @@ class ReconcilerHandler(object):
         query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
             tblastx_records_set=tblastx_records_set
         )
-        overlapping_targets = self.get_overlapping_clusters(
+        overlapping_targets = self.data_container.get_overlapping_clusters(
             target_coordinates_set=target_coordinates,
             threshold=self.cds_overlapping_threshold
         )
