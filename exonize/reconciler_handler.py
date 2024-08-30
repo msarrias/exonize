@@ -127,7 +127,11 @@ class ReconcilerHandler(object):
                         intv_i=coordinate,
                         intv_j=other_coord
                 ) >= self.cds_overlapping_threshold:
-                    overlapping_coords[coordinate].append((other_coord, oeval))
+                    reference = P.open(
+                        max(other_coord.lower, coordinate.lower),
+                        min(other_coord.upper, coordinate.upper)
+                    )
+                    overlapping_coords[coordinate].append((other_coord, reference, oeval))
                     processed_target.add((other_coord, oeval))
         return overlapping_coords, processed_target
 
@@ -156,24 +160,17 @@ class ReconcilerHandler(object):
             )
         overlapping_coords = dict(sorted(overlapping_coords.items(), key=lambda k: len(k[1]), reverse=True))
         for cds_coordinate, list_of_overlapping_coords in overlapping_coords.items():
-            if len(list_of_overlapping_coords) == 1:
-                target_coordinate = list_of_overlapping_coords[0]
-                if target_coordinate not in insertion_reference_dict:
-                    target_coord, _ = target_coordinate
-                    if not cds_coordinate.contains(target_coord):
-                        # this is a truncation
-                        reference = P.open(
-                            max(target_coord.lower, cds_coordinate.lower),
-                            min(target_coord.upper, cds_coordinate.upper)
-                        )
-                        insertion_reference_dict[target_coordinate] = reference
-                    else:
-                        insertion_reference_dict[target_coordinate] = target_coordinate[0]
+            reference = min(list_of_overlapping_coords, key=lambda x: x[-1])
+            if len(reference) == 3:
+                _, reference, _ = reference
             else:
-                reference = min(list_of_overlapping_coords, key=lambda x: x[1])[0]
-                for target_coordinate in list_of_overlapping_coords:
-                    if target_coordinate not in insertion_reference_dict:
-                        insertion_reference_dict[target_coordinate] = reference
+                reference, _ = reference
+            for target_coordinate in list_of_overlapping_coords:
+                if len(target_coordinate) == 3:
+                    target_coordinate, _, oeval = target_coordinate
+                    target_coordinate = (target_coordinate, oeval)
+                if target_coordinate not in insertion_reference_dict:
+                    insertion_reference_dict[target_coordinate] = reference
         return insertion_reference_dict
 
     @staticmethod
@@ -679,12 +676,20 @@ class ReconcilerHandler(object):
                  corrected_query_frame,
                  query_amino_seq,
                  corrected_target_seq
-                 ) = self.get_corrected_frames_and_identity(
-                    gene_id=gene_id,
-                    cds_coordinate=P.open(cds_start, cds_end),
-                    corrected_coordinate=corrected_coordinate,
-                    cds_candidates_dictionary=cds_candidates_dictionary
-                )
+                 ) = (0, 0, 0, 0, '', '')
+
+                # (corrected_dna_ident,
+                #  corrected_prot_ident,
+                #  corrected_target_frame,
+                #  corrected_query_frame,
+                #  query_amino_seq,
+                #  corrected_target_seq
+                #  ) = self.get_corrected_frames_and_identity(
+                #     gene_id=gene_id,
+                #     cds_coordinate=P.open(cds_start, cds_end),
+                #     corrected_coordinate=corrected_coordinate,
+                #     cds_candidates_dictionary=cds_candidates_dictionary
+                # )
                 corrected_coordinates_list.append((
                     corrected_coordinate.lower,
                     corrected_coordinate.upper,
