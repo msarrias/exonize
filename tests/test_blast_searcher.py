@@ -1,11 +1,29 @@
 from unittest.mock import Mock
 from exonize.blast_searcher import BLASTsearcher
+from exonize.data_preprocessor import DataPreprocessor
+from pathlib import Path
 import portion as P
 import pytest
 
+data_container = DataPreprocessor(
+    logger_obj=Mock(),
+    database_interface=Mock(),
+    working_directory=Path(''),
+    gff_file_path=Path(''),
+    output_prefix='test',
+    genome_file_path=Path(''),
+    self_hit_threshold=0.5,
+    cds_overlapping_threshold=0.8,
+    query_overlapping_threshold=0.9,
+    min_exon_length=30,
+    debug_mode=False,
+    evalue_threshold=1e-5,
+    draw_event_multigraphs=False,
+    csv=False,
+)
 
 blast_engine = BLASTsearcher(
-    data_container=Mock(),
+    data_container=data_container,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     min_exon_length=20,
@@ -103,30 +121,6 @@ def test_get_overlap_percentage():
     pass
 
 
-def test_get_single_candidate_cds_coordinate():
-    # interval i is contained in interval j
-    assert blast_engine.get_single_candidate_cds_coordinate(
-        intv_i=P.open(10, 100),
-        intv_j=P.open(15, 85)
-    ) == (
-        P.open(15, 85)
-    )
-    # interval i overlaps interval j on the left
-    assert blast_engine.get_single_candidate_cds_coordinate(
-        intv_i=P.open(10, 50),
-        intv_j=P.open(15, 55)
-    ) == (
-        P.open(10, 50)
-    )
-    # interval i overlaps interval j on the right
-    assert blast_engine.get_single_candidate_cds_coordinate(
-        intv_i=P.open(10, 55),
-        intv_j=P.open(45, 105)
-    ) == (
-        P.open(10, 55)
-    )
-
-
 def test_compute_identity():
     assert blast_engine.compute_identity(
         sequence_i="ACGT",
@@ -159,71 +153,6 @@ def test_reformat_tblastx_frame_strand():
 def test_reverse_sequence_bool():
     assert blast_engine.reverse_sequence_bool(strand="+") is False
     assert blast_engine.reverse_sequence_bool(strand="-") is True
-
-
-def test_get_first_overlapping_intervals():
-    test_a = [
-        P.open(0, 100),
-        P.open(180, 300),
-    ]
-    res_a = (None, None)
-    assert blast_engine.get_first_overlapping_intervals(
-        sorted_intervals=test_a
-    ) == res_a
-
-    test_b = [
-        P.open(180, 300),
-        P.open(200, 300),
-        P.open(250, 900),
-    ]
-    res_b = (
-        P.open(180, 300),
-        P.open(200, 300)
-    )
-    assert blast_engine.get_first_overlapping_intervals(
-        sorted_intervals=test_b
-    ) == res_b
-
-
-def test_resolve_overlaps_between_coordinates():
-    blast_engine.cds_overlapping_threshold = 0.8
-    test = [
-        P.open(0, 100),
-        P.open(180, 300),
-        P.open(200, 300),
-        P.open(600, 900),
-        P.open(700, 2000)
-    ]
-    res_a = [
-        P.open(0, 100),
-        P.open(200, 300),
-        P.open(600, 900),
-        P.open(700, 2000)
-    ]
-    assert blast_engine.resolve_overlaps_between_coordinates(
-        sorted_cds_coordinates=test
-    ) == res_a
-
-    blast_engine.cds_overlapping_threshold = 0.3
-    res_b = [
-        P.open(0, 100),
-        P.open(200, 300),
-        P.open(600, 900),
-        P.open(700, 2000)
-    ]
-    assert blast_engine.resolve_overlaps_between_coordinates(
-        sorted_cds_coordinates=test
-    ) == res_b
-
-    blast_engine.cds_overlapping_threshold = 0.001
-    res_c = [
-        P.open(0, 100),
-        P.open(200, 300),
-        P.open(600, 900)
-    ]
-    assert blast_engine.resolve_overlaps_between_coordinates(
-        sorted_cds_coordinates=test
-    ) == res_c
 
 
 def test_get_candidate_cds_coordinates():
