@@ -74,71 +74,6 @@ class BLASTsearcher(object):
         return 0
 
     @staticmethod
-    def min_perc_overlap(
-            intv_i: P.Interval,
-            intv_j: P.Interval,
-    ) -> float:
-        def get_interval_length(
-                interval: P.Interval,
-        ):
-            return sum(intv.upper - intv.lower for intv in interval)
-        """
-        Given two intervals, the function returns the percentage of the overlapping
-        region relative to the longest interval. The percentage overlap of the shortest
-        interval will always be greater or equal than that of the longest interval.
-        :param intv_i:
-        :param intv_j:
-        :return:
-        """
-        if intv_i.overlaps(intv_j):
-            intersection_span = get_interval_length(intv_i.intersection(intv_j))
-            longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
-            return round(intersection_span / longest_length, 3)
-        return 0.0
-
-    def get_average_overlap_percentage(
-            self,
-            intv_i: P.Interval,
-            intv_j: P.Interval
-    ) -> float:
-        return sum([
-            self.get_overlap_percentage(
-                intv_i=intv_i,
-                intv_j=intv_j
-            ),
-            self.get_overlap_percentage(
-                intv_i=intv_j,
-                intv_j=intv_i)
-        ]) / 2
-
-    def get_single_candidate_cds_coordinate(
-            self,
-            intv_i: P.Interval,
-            intv_j: P.Interval,
-    ) -> P.Interval:
-        """
-        Given two sorted intervals this function returns the interval with
-        the largerst percentage of overlap.
-        Assumption: intv_i =/= intv_j and they are sorted such that
-        intv_i.lower < intv_j.lower.
-        param intv_i: the first interval
-        param intv_j: the second interval
-        Returns: P.interval
-        """
-        if (
-                self.get_overlap_percentage(
-                    intv_i=intv_i,
-                    intv_j=intv_j
-                ) >
-                self.get_overlap_percentage(
-                    intv_i=intv_j,
-                    intv_j=intv_i
-                )
-        ):
-            return intv_j
-        return intv_i
-
-    @staticmethod
     def compute_identity(
             sequence_i: str,
             sequence_j: str
@@ -298,7 +233,7 @@ class BLASTsearcher(object):
                     (hsp_record.sbjct_start - 1) + hit_coord.lower,
                     hsp_record.sbjct_end + hit_coord.lower
                 )
-                if self.min_perc_overlap(
+                if self.data_container.min_perc_overlap(
                         intv_i=q_coord,
                         intv_j=blast_target_coord
                 ) <= self.self_hit_threshold:
@@ -408,63 +343,6 @@ class BLASTsearcher(object):
                     sys.exit()
             return tblastx_output_dictionary
 
-    def get_first_overlapping_intervals(
-            self,
-            sorted_intervals: list[P.Interval],
-    ) -> Union[tuple[P.Interval, P.Interval], tuple[None, None]]:
-        """
-        Given a list of intervals, get_first_overlapping_intervals returns
-        the first consecutive interval tuples with overlapping pairs.
-        :param sorted_intervals: list of intervals
-        :return: pair of overlapping intervals
-        """
-        first_overlap_index = 0
-        while first_overlap_index < len(sorted_intervals) - 1:
-            current_interval = sorted_intervals[first_overlap_index]
-            next_interval = sorted_intervals[first_overlap_index + 1]
-            if self.min_perc_overlap(
-                    intv_i=current_interval,
-                    intv_j=next_interval
-            ) >= self.cds_overlapping_threshold:
-                return current_interval, next_interval
-            first_overlap_index += 1
-        return None, None
-
-    def resolve_overlaps_between_coordinates(
-            self,
-            sorted_cds_coordinates: list[P.Interval],
-    ) -> list[P.Interval]:
-        """
-        resolve_overlaps_between_coordinates is a recursive function that given
-        a list of coordinates, resolves overlaps between them.
-        :param sorted_cds_coordinates: list of unique and sorted coordinates.
-        :return: list of coordinates without "overlaps"
-        """
-        new_list = list()
-        # We only process the first pair of overlapping intervals since
-        # the resolved overlap could also overlap with the next interval in the list.
-        intv_i, intv_j = self.get_first_overlapping_intervals(
-            sorted_intervals=sorted_cds_coordinates
-        )
-        if all((intv_i, intv_j)):
-            candidate = self.get_single_candidate_cds_coordinate(
-                intv_i=intv_i,
-                intv_j=intv_j
-            )
-            # Note: new_list is populated through enumeration
-            # of 'sorted_cds_coordinates', so it will also be sorted
-            # according to the same criteria used for 'sorted_cds_coordinates'.
-            for idx, cds_coordinate in enumerate(sorted_cds_coordinates):
-                if cds_coordinate != intv_i:
-                    new_list.append(cds_coordinate)
-                else:
-                    new_list.append(candidate)
-                    new_list.extend(sorted_cds_coordinates[idx + 2:])
-                    return self.resolve_overlaps_between_coordinates(
-                        sorted_cds_coordinates=new_list
-                    )
-        return sorted_cds_coordinates
-
     def get_candidate_cds_coordinates(
             self,
             gene_id: str,
@@ -492,33 +370,32 @@ class BLASTsearcher(object):
         # we are interested in the frames to account for the unlikely event
         # that two CDS with same coordinates in different transcripts
         # have different frames
-        cds_coordinates_and_frames: list[tuple[P.Interval, str]] = list(
-            set(
-                (coordinate, annotation_structure['frame'])
-                for mrna_annotation in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
-                for annotation_structure in mrna_annotation['structure']
-                for coordinate in (annotation_structure['coordinate'],)
-                if (annotation_structure['type'] == 'CDS'
-                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
-            )
+        cds_coordinates_and_frames = self.data_container.fetch_gene_cdss_set(
+            gene_id=gene_id
         )
         if cds_coordinates_and_frames:
-            representative_cds_frame_dictionary = dict()
-            for cds_coordinate, frame in cds_coordinates_and_frames:
-                if cds_coordinate in representative_cds_frame_dictionary:
-                    representative_cds_frame_dictionary[cds_coordinate] += f'_{str(frame)}'
-                else:
-                    representative_cds_frame_dictionary[cds_coordinate] = str(frame)
-            sorted_cds_coordinates_list: list[P.Interval] = sorted(
-                [coordinate for coordinate, _ in cds_coordinates_and_frames],
-                key=lambda coordinate: (coordinate.lower, coordinate.upper),
-            )
-            return dict(
-                candidates_cds_coordinates=self.resolve_overlaps_between_coordinates(
-                    sorted_cds_coordinates=sorted_cds_coordinates_list
+            clusters = self.data_container.get_overlapping_clusters(
+                target_coordinates_set=set(
+                    (coordinate, None)
+                    for coordinate, frame in cds_coordinates_and_frames
                 ),
-                cds_frame_dict=representative_cds_frame_dictionary,
+                threshold=self.cds_overlapping_threshold
             )
+            if clusters:
+                representative_cdss = self.data_container.flatten_clusters_representative_exons(
+                    cluster_list=clusters,
+                )
+                representative_cds_frame_dictionary = dict()
+                for cds_coordinate, frame in cds_coordinates_and_frames:
+                    if cds_coordinate in representative_cdss:
+                        if cds_coordinate in representative_cds_frame_dictionary:
+                            representative_cds_frame_dictionary[cds_coordinate] += f'_{str(frame)}'
+                        else:
+                            representative_cds_frame_dictionary[cds_coordinate] = str(frame)
+                return dict(
+                    candidates_cds_coordinates=representative_cdss,
+                    cds_frame_dict=representative_cds_frame_dictionary
+                )
         return dict()
 
     def align_cds(
