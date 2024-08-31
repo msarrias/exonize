@@ -1,7 +1,5 @@
 from exonize.data_preprocessor import DataPreprocessor
 from unittest.mock import Mock
-import pytest
-from Bio.Seq import Seq
 import portion as P
 from pathlib import Path
 
@@ -59,7 +57,7 @@ def test_resolve_overlaps_between_coordinates():
     )
 
     assert set(data_container.flatten_clusters_representative_exons(
-            cluster_list=clusters))  == set(res_b)
+            cluster_list=clusters)) == set(res_b)
 
     cds_overlapping_threshold = 0.001
     res_c = [
@@ -73,7 +71,7 @@ def test_resolve_overlaps_between_coordinates():
     )
 
     assert set(data_container.flatten_clusters_representative_exons(
-            cluster_list=clusters))  == set(res_c)
+            cluster_list=clusters)) == set(res_c)
 
 
 def test_get_overlapping_clusters():
