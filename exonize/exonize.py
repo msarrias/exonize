@@ -99,9 +99,9 @@ def argument_parser():
     parser.add_argument(
         '-et',
         '--evalue-threshold',
-        default=1e-2,
+        default=1e-3,
         type=float,
-        help='E-value threshold. Default is 1e-2.'
+        help='E-value threshold. Default is 1e-3.'
     )
     parser.add_argument(
         '-ht',
