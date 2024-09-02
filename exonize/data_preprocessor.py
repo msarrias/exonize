@@ -76,7 +76,9 @@ class DataPreprocessor(object):
             pickle.dump(records_dictionary, handle)
 
     @staticmethod
-    def read_pkl_file(file_path: Path) -> dict:
+    def read_pkl_file(
+            file_path: Path
+    ) -> dict:
         """
         read_pkl_file is a function that reads a pickle file and returns
          the object stored in it.
@@ -86,7 +88,10 @@ class DataPreprocessor(object):
         return read_file
 
     @staticmethod
-    def sort_list_intervals_dict(list_dictionaries: list, reverse=False) -> list:
+    def sort_list_intervals_dict(
+            list_dictionaries: list,
+            reverse=False
+    ) -> list:
         """
         sort_list_intervals_dict is a function that sorts a list
         of dictionaries based on the coordinates of the intervals
@@ -124,7 +129,9 @@ class DataPreprocessor(object):
         return 0.0
 
     @staticmethod
-    def reverse_sequence_bool(gene_strand: str):
+    def reverse_sequence_bool(
+            gene_strand: str,
+    ) -> bool:
         """
         reverse_sequence_bool checks if the gene is in the negative
         strand and returns True if it is.
@@ -132,7 +139,9 @@ class DataPreprocessor(object):
         """
         return gene_strand == '-'
 
-    def convert_gtf_to_gff(self,) -> None:
+    def convert_gtf_to_gff(
+            self,
+    ) -> None:
         """
         Convert a GTF file to GFF format using gffread. Flags description:
         -'O': This flag is used to enable the output of the file in GFF3 format.
@@ -141,7 +150,9 @@ class DataPreprocessor(object):
         gffread_command = ["gffread", self.old_filename, "-O", "-o", self.gff_file_path]
         subprocess.call(gffread_command)
 
-    def create_genome_database(self,) -> None:
+    def create_genome_database(
+            self,
+    ) -> None:
         """
         create_genome_database is a function that creates a gffutils
         database from a GFF3 file.
@@ -180,7 +191,9 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
-    def search_create_intron_annotations(self,) -> None:
+    def search_create_intron_annotations(
+            self,
+    ) -> None:
         """
         search_create_intron_annotations is a function that verifies
         that the gffutils database contains intron annotations, if not,
@@ -206,7 +219,9 @@ class DataPreprocessor(object):
                 )
                 sys.exit()
 
-    def create_parse_or_update_database(self,) -> None:
+    def create_parse_or_update_database(
+            self,
+    ) -> None:
         """
         create_parse_or_update_database is a function that in the
         absence of a database it:
@@ -237,7 +252,9 @@ class DataPreprocessor(object):
             self.database_features = list(self.genome_database.featuretypes())
             self.search_create_intron_annotations()
 
-    def load_genome_database(self,) -> None:
+    def load_genome_database(
+            self,
+    ) -> None:
         """
         load_genome_database is a function that loads a gffutils database.
         - dbfn: path to the database file
@@ -289,7 +306,9 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
-    def create_gene_hierarchy_dictionary(self) -> None:
+    def create_gene_hierarchy_dictionary(
+            self,
+    ) -> None:
         """
         Constructs a nested dictionary to represent the hierarchical structure
         and attributes of genes and their related mRNA transcripts based on genomic
@@ -386,7 +405,7 @@ class DataPreprocessor(object):
     def fetch_gene_cdss_set(
             self,
             gene_id: str
-    ):
+    ) -> list[tuple]:
         return list(
             set(
                 (coordinate, annotation_structure['frame'])
@@ -401,7 +420,7 @@ class DataPreprocessor(object):
     @staticmethod
     def flatten_clusters_representative_exons(
             cluster_list: list
-    ):
+    ) -> list:
         return [
             cluster[0][0] if len(cluster) == 1 else min(cluster, key=lambda x: x[0].upper - x[0].lower)[0]
             for cluster in cluster_list
@@ -434,7 +453,7 @@ class DataPreprocessor(object):
             processed_intervals: set,
             cluster: list[tuple],
             threshold: float
-    ):
+    ) -> tuple:
         new_cluster = list(cluster)
         for other_coordinate, other_evalue in sorted_coordinates:
             if (other_coordinate not in processed_intervals and all(
@@ -461,13 +480,15 @@ class DataPreprocessor(object):
     @staticmethod
     def compress_directory(
             source_dir: Path
-    ):
+    ) -> None:
         output_filename = source_dir.with_suffix('.tar.gz')
         with tarfile.open(output_filename, "w:gz") as tar:
             base_dir = source_dir.name
             tar.add(source_dir, arcname=base_dir)
 
-    def clear_working_directory(self):
+    def clear_working_directory(
+            self,
+    ) -> None:
         if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
         if self.draw_event_multigraphs:
@@ -477,7 +498,9 @@ class DataPreprocessor(object):
             self.compress_directory(source_dir=self.csv_path)
             shutil.rmtree(self.csv_path)
 
-    def prepare_data(self) -> None:
+    def prepare_data(
+            self,
+    ) -> None:
         """
         prepare_data is a wrapper function that:
         (i)   creates the database with the genomic annotations (if it does not exist)
