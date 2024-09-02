@@ -314,8 +314,27 @@ class ReconcilerHandler(object):
             )
         return gene_graph
 
-    @staticmethod
+    def fetch_overlapping_edges(
+            self,
+            gene_graph: nx.MultiGraph
+    ):
+        overlapping_clusters = self.data_container.get_overlapping_clusters(
+            set([(P.open(i[0], i[1]), None) for i in gene_graph.nodes]), 0)
+        overlapping_clusters = [
+            [coordinate for coordinate, _ in cluster]
+            for cluster in overlapping_clusters
+            if len(cluster) > 1
+        ]
+        pairs_list = [
+            [(I, J)
+             for indx_i, I in enumerate(cluster)
+             for J in cluster[indx_i + 1:]]
+            for cluster in overlapping_clusters
+        ]
+        return pairs_list
+
     def draw_event_multigraph(
+            self,
             gene_graph: nx.MultiGraph,
             figure_path: Path,
     ):
@@ -378,6 +397,7 @@ class ReconcilerHandler(object):
                 facecolor="white"
             )
         )
+        # overlapping_edges:
         # Draw edges with different styles and colors
         for edge in gene_graph.edges(data=True):
             source, target, attributes = edge
@@ -392,6 +412,22 @@ class ReconcilerHandler(object):
                 style=edge_style,
                 width=edge_width
             )
+
+        overlapping_edges = self.fetch_overlapping_edges(
+            gene_graph=gene_graph
+        )
+        for cluster in overlapping_edges:
+            for pair in cluster:
+                query, targ = pair
+                nx.draw_networkx_edges(
+                    gene_graph,
+                    component_position,
+                    edgelist=[((query.lower, query.upper),
+                               (targ.lower, targ.upper))],
+                    edge_color='red',
+                    style='dotted',
+                    width=2
+                )
         plt.savefig(figure_path)
         plt.close()
 
