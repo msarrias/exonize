@@ -201,7 +201,7 @@ Exonize results database:   {self.results_database_path.name}
             )
 
             self.environment.logger.info(
-                'Exonizing: this may take a while ...'
+                'Exonizing: this may take a while...'
             )
             for balanced_batch in self.even_batches(
                     data=unprocessed_gene_ids_list,
@@ -332,6 +332,7 @@ Exonize results database:   {self.results_database_path.name}
         cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
             gene_id=gene_id
         )
+
         (query_coordinates,
          targets_reference_coordinates_dictionary
          ) = self.event_reconciler.align_target_coordinates(
