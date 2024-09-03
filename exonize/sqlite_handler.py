@@ -363,7 +363,10 @@ class SqliteHandler(object):
                 list_tuples,
             )
 
-    def insert_identity_and_dna_algns_columns(self, list_tuples: list) -> None:
+    def insert_identity_and_dna_algns_columns(
+            self,
+            list_tuples: list
+    ) -> None:
         columns_to_add = [
             ("DNAIdentity", "REAL"),
             ("ProtIdentity", "REAL"),
@@ -393,7 +396,10 @@ class SqliteHandler(object):
                 list_tuples,
             )
 
-    def update_has_duplicate_genes_table(self, list_tuples: list) -> None:
+    def update_has_duplicate_genes_table(
+            self,
+            list_tuples: list
+    ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -407,7 +413,9 @@ class SqliteHandler(object):
                 list_tuples,
             )
 
-    def insert_percent_query_column_to_fragments(self) -> None:
+    def insert_percent_query_column_to_fragments(
+            self,
+    ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -443,7 +451,10 @@ class SqliteHandler(object):
                 """
                 )
 
-    def insert_gene_ids_table(self, gene_args_tuple: tuple) -> None:
+    def insert_gene_ids_table(
+            self,
+            gene_args_tuple: tuple,
+    ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -513,7 +524,10 @@ class SqliteHandler(object):
                         insert_matches_table_param, fragments_tuples_list
                     )
 
-    def insert_expansion_table(self, list_tuples: list) -> None:
+    def insert_expansion_table(
+            self,
+            list_tuples: list,
+    ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -574,7 +588,9 @@ class SqliteHandler(object):
             VALUES (?, ?, ?, ?, ?, ?, ? ,?, ?, ?)
             """, list_tuples)
 
-    def create_non_reciprocal_fragments_table(self) -> None:
+    def create_non_reciprocal_fragments_table(
+            self,
+    ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -777,7 +793,7 @@ class SqliteHandler(object):
 
     def query_non_reciprocal_coding_matches(
             self,
-    ):
+    ) -> list:
         with sqlite3.connect(
                 self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -843,7 +859,7 @@ class SqliteHandler(object):
     def export_all_tables_to_csv(
             self,
             output_dir: Path
-    ):
+    ) -> None:
         with sqlite3.connect(
                 self.results_database_path, timeout=self.timeout_database
         ) as db:

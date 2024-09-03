@@ -284,7 +284,6 @@ Exonize results database:   {self.results_database_path.name}
             )
             self.database_interface.clear_results_database()
             self.database_interface.connect_create_results_database()
-            # self.database_interface.create_matches_interdependence_expansions_counts_table()
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_overlapping_threshold,
             evalue_threshold=self.evalue_threshold,
@@ -314,7 +313,12 @@ Exonize results database:   {self.results_database_path.name}
         # Classify matches based on the mode and interdependence
         match_interdependence_tuples = []
         for match in non_reciprocal_coding_matches_list:
-            gene_id, match_id, query_start, query_end, corrected_target_start, corrected_target_end = match
+            (gene_id,
+             match_id,
+             query_start,
+             query_end,
+             corrected_target_start,
+             corrected_target_end) = match
             match_interdependence_classification = self.event_classifier.classify_coding_match_interdependence(
                 gene_id=gene_id,
                 match_id=match_id,
@@ -332,7 +336,6 @@ Exonize results database:   {self.results_database_path.name}
         cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
             gene_id=gene_id
         )
-
         (query_coordinates,
          targets_reference_coordinates_dictionary
          ) = self.event_reconciler.align_target_coordinates(
@@ -424,7 +427,9 @@ Exonize results database:   {self.results_database_path.name}
             list_tuples=expansion_interdependence_tuples
             )
 
-    def runtime_logger(self):
+    def runtime_logger(
+            self,
+    ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         runtime_hours = round((datetime.now() - self.tic).total_seconds() / 3600, 2)
         if runtime_hours < 1:
@@ -455,7 +460,9 @@ Exonize results database:   {self.results_database_path.name}
             batch_end_index = min((batch_number + 1) * even_batch_size, len(data))
             yield data[batch_start_index:batch_end_index]
 
-    def run_exonize_pipeline(self) -> None:
+    def run_exonize_pipeline(
+            self,
+    ) -> None:
         """
         run_exonize_pipeline iterates over all genes in the gene_hierarchy_dictionary
         attribute and performs a tblastx search for each representative
