@@ -149,9 +149,10 @@ class SqliteHandler(object):
                     GeneID VARCHAR(100),
                     Mode TEXT CHECK(Mode IN (
                                             'FULL',
-                                            'INSERTION_EXCISION',
-                                            'INACTIVE_UNANNOTATED',
-                                            'TRUNCATION_ACQUISITION'
+                                            'INSERTION',
+                                            'EXCISION',
+                                            'CANDIDATE',
+                                            'TRUNCATION'
                      )),
                     EventStart INTEGER NOT NULL,
                     EventEnd INTEGER NOT NULL,
@@ -664,9 +665,10 @@ class SqliteHandler(object):
             column_type="""
             Mode TEXT CHECK(Mode IN (
             'FULL',
-            'INSERTION_EXCISION',
-            'INACTIVE_UNANNOTATED',
-            'TRUNCATION_ACQUISITION'
+            'INSERTION',
+            'EXCISION',
+            'CANDIDATE',
+            'TRUNCATION'
             ))
             """,
         )
@@ -808,7 +810,7 @@ class SqliteHandler(object):
                 CorrectedTargetStart,
                 CorrectedTargetEnd
             FROM Matches_full_length_non_reciprocal
-            WHERE Mode="FULL" OR Mode="INSERTION_EXCISION"
+            WHERE Mode="FULL" OR Mode="INSERTION"
             ORDER BY
                 GeneID, FragmentID;
             """)
@@ -829,7 +831,7 @@ class SqliteHandler(object):
                 EventStart,
                 EventEnd
             FROM Expansions
-            WHERE Mode="FULL" OR Mode="INSERTION_EXCISION"
+            WHERE Mode="FULL" OR Mode="INSERTION"
             ORDER BY
                 GeneID, ExpansionID;
             """
