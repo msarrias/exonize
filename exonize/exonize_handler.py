@@ -203,6 +203,14 @@ Exonize results database:   {self.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
+            pr = cProfile.Profile()
+            pr.enable()
+            gc.collect()
+            gc.freeze()
+            # transactions_pks: set[int]
+            status: int
+            code: int
+            forks: int = 0
             for balanced_batch in self.even_batches(
                     data=unprocessed_gene_ids_list,
                     number_of_batches=self.FORKS_NUMBER,
@@ -220,19 +228,14 @@ Exonize results database:   {self.results_database_path.name}
                 # # Benchmark without any parallel computation:
                 # pr = cProfile.Profile()
                 # pr.enable()
-                # for gene_id in unprocessed_gene_ids_list:
-                #     self.blast_engine.find_coding_exon_duplicates(gene_id)
+                # gc.collect()
+                # gc.freeze()
+                # # for gene_id in balanced_batch:
+                # self.blast_engine.find_coding_exon_duplicates(list(balanced_batch))
+                # gc.unfreeze()
                 # pr.disable()
                 # get_run_performance_profile(self.PROFILE_PATH, pr)
-                # Benchmark with parallel computation using os.fork:
-                pr = cProfile.Profile()
-                pr.enable()
-                gc.collect()
-                gc.freeze()
-                # transactions_pks: set[int]
-                status: int
-                code: int
-                forks: int = 0
+                # # Benchmark with parallel computation using os.fork:
                 if os.fork():
                     forks += 1
                     if forks >= self.FORKS_NUMBER:
@@ -248,7 +251,6 @@ Exonize results database:   {self.results_database_path.name}
                             gene_id_list=list(balanced_batch)
                         )
                     except Exception as exception:
-                        print(exception)
                         self.environment.logger.exception(
                             str(exception)
                         )
@@ -260,15 +262,15 @@ Exonize results database:   {self.results_database_path.name}
                         # We do not want that, so we gracefully exit the process when it is done.
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
                 # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
-                while forks > 0:
-                    _, status = os.wait()
-                    code = os.waitstatus_to_exitcode(status)
-                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-                    assert code != os.EX_SOFTWARE
-                    forks -= 1
-                    gc.unfreeze()
-                    pr.disable()
-                    get_run_performance_profile(self.PROFILE_PATH, pr)
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
+                gc.unfreeze()
+                pr.disable()
+                get_run_performance_profile(self.PROFILE_PATH, pr)
             self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_raw_matches()
             identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
@@ -432,8 +434,6 @@ Exonize results database:   {self.results_database_path.name}
     ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         runtime_hours = round((datetime.now() - self.tic).total_seconds() / 3600, 2)
-        if runtime_hours < 1:
-            runtime_hours = ' < 1'
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)
             f.write(
