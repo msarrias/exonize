@@ -76,43 +76,43 @@ def test_build_reference_dictionary():
         },
         P.open(220, 250): {
             'reference': P.open(220, 250),
-            'mode': 'INSERTION_EXCISION'
+            'mode': 'INSERTION'
         },
         P.open(0, 50): {
             'reference': P.open(0, 50),
-            'mode': 'INSERTION_EXCISION'
+            'mode': 'INSERTION'
         },
         P.open(0, 48): {
             'reference': P.open(0, 50),
-            'mode': 'INSERTION_EXCISION'
+            'mode': 'INSERTION'
         },
         P.open(40, 90): {
             'reference': P.open(40, 90),
-            'mode': 'INSERTION_EXCISION'
+            'mode': 'INSERTION'
         },
         P.open(220, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION_ACQUISITION'
+            'mode': 'TRUNCATION'
         },
         P.open(215, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION_ACQUISITION'
+            'mode': 'TRUNCATION'
         },
         P.open(219, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION_ACQUISITION'
+            'mode': 'TRUNCATION'
         },
         P.open(400, 450): {
             'reference': P.open(400, 450),
-            'mode': 'INACTIVE_UNANNOTATED'
+            'mode': 'CANDIDATE'
         },
         P.open(402, 450): {
             'reference': P.open(400, 450),
-            'mode': 'INACTIVE_UNANNOTATED'
+            'mode': 'CANDIDATE'
         },
         P.open(420, 450): {
             'reference': P.open(420, 450),
-            'mode': 'INACTIVE_UNANNOTATED'
+            'mode': 'CANDIDATE'
         }
         # Assuming no CDS overlap
     }

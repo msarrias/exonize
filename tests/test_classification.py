@@ -185,12 +185,12 @@ fragments_gene1 = [
 ]
 expansions = [
     ('gene_0', 'FULL', 1, 200, 1, 0),
-    ('gene_0', 'INSERTION_EXCISION', 1300, 1500, 1, 0),
+    ('gene_0', 'INSERTION', 1300, 1500, 1, 0),
     ('gene_0', 'FULL', 600, 700, 4, 1),
-    ('gene_0', 'INSERTION_EXCISION', 100, 200, 1, 1),
-    ('gene_0', 'INSERTION_EXCISION', 1400, 1500, 1, 1),
-    ('gene_0', 'TRUNCATION_ACQUISITION', 1750, 1850, 1, 1),
-    ('gene_0', 'INACTIVE_UNANNOTATED', 2200, 2300, 1, 1),
+    ('gene_0', 'INSERTION', 100, 200, 1, 1),
+    ('gene_0', 'INSERTION', 1400, 1500, 1, 1),
+    ('gene_0', 'TRUNCATION', 1750, 1850, 1, 1),
+    ('gene_0', 'CANDIDATE', 2200, 2300, 1, 1),
     ('gene_0', 'FULL', 400, 500, 2, 2),
     ('gene_0', 'FULL', 850, 950, 2, 2),
     ('gene_1', 'FULL', 1, 200, 2, 0),
@@ -206,7 +206,7 @@ expansions = [
     ('gene_1', 'FULL', 1080, 1120, 2, 5),
     ('gene_1', 'FULL', 1420, 1460, 2, 5),
     ('gene_1', 'FULL', 1750, 1900, 1, 6),
-    ('gene_1', 'INSERTION_EXCISION', 1210, 1360, 1, 6)
+    ('gene_1', 'INSERTION', 1210, 1360, 1, 6)
 ]
 
 matches = [
@@ -414,7 +414,7 @@ def test_matches_interdependence_counts():
              TargetEnd,
              Classification
             FROM Matches_full_length_non_reciprocal
-            WHERE Mode="FULL" or Mode="INSERTION_EXCISION";
+            WHERE Mode="FULL" or Mode="INSERTION";
             """
         )
         records = {
@@ -508,19 +508,19 @@ gene_hierarchy_dictionary_expansions_test = {'gene1': {
 test_events = [
     # FLEXIBLE
     (1, 'gene1', "FULL", 0, 100, 2, None, 0),
-    (2, 'gene1', "INSERTION_EXCISION", 300, 400, 1, None, 0),
-    (3, 'gene1', "INACTIVE_UNANNOTATED", 700, 800, 1, None, 0),
+    (2, 'gene1', "INSERTION", 300, 400, 1, None, 0),
+    (3, 'gene1', "CANDIDATE", 700, 800, 1, None, 0),
 
     # FLEXIBLE
     (4, 'gene1', "FULL", 0, 100, 3, None, 1),
     (5, 'gene1', "FULL", 150, 250, 3, None, 1),
-    (6, 'gene1', "INSERTION_EXCISION", 300, 400, 2, None, 1),
-    (7, 'gene1', "INACTIVE_UNANNOTATED", 700, 800, 2, None, 1),
+    (6, 'gene1', "INSERTION", 300, 400, 2, None, 1),
+    (7, 'gene1', "CANDIDATE", 700, 800, 2, None, 1),
 
     # OBLIGATE
     (8, 'gene1', "FULL", 600, 700, 2, None, 2),
     (9, 'gene1', "FULL", 900, 1000, 2, None, 2),
-    (10, 'gene1', "INSERTION_EXCISION", 1100, 1200, 2, None, 2),
+    (10, 'gene1', "INSERTION", 1100, 1200, 2, None, 2),
 
     # EXCLUSIVE
     (11, 'gene2', "FULL", 0, 100, 2, None, 0),
@@ -549,7 +549,7 @@ test_events = [
 
     # NON-CODING
     (26, 'gene1', "FULL", 300, 500, 1, None, 3),
-    (27, 'gene1', "INACTIVE_UNANNOTATED", 1000, 1200, 1, None, 3),
+    (27, 'gene1', "CANDIDATE", 1000, 1200, 1, None, 3),
 
 ]
 
@@ -580,7 +580,7 @@ def test_expansion_transcript_iterdependence_classification():
     expansions_dict = defaultdict(lambda: defaultdict(lambda: list()))
     for event in test_events:
         matchid, geneid, mode, start, end, degree, clusterid, expansionid = event
-        if mode in ['FULL', 'INSERTION_EXCISION']:
+        if mode in ['FULL', 'INSERTION']:
             expansions_dict[geneid][expansionid].append(P.open(start, end))
     expansion_interdependence_tuples = exonize_obj.event_classifier.classify_expansion_interdependence(
         expansions_dictionary=expansions_dict
