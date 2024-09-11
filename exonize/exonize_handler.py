@@ -113,6 +113,7 @@ class Exonize(object):
             gene_annot_feature=self.gene_annot_feature,
             cds_annot_feature=self.cds_annot_feature,
             transcript_annot_feature=self.transcript_annot_feature,
+            min_exon_length=self.min_exon_length,
             logger_obj=self.environment,
             database_interface=self.database_interface,
             working_directory=self.working_directory,
@@ -120,7 +121,6 @@ class Exonize(object):
             output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
             debug_mode=self._DEBUG_MODE,
-            min_exon_length=self.min_exon_length,
             csv=self.csv,
         )
 
