@@ -365,6 +365,7 @@ class DataPreprocessor(object):
                     coordinate=gene_coordinate,
                     chrom=gene.chrom,
                     strand=gene.strand,
+                    attributes=dict(gene.attributes),
                     mRNAs=dict()
                 )
                 for mrna_annot in mrna_transcripts:
