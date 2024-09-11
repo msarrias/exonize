@@ -93,14 +93,14 @@ def argument_parser():
         help='tblastx query coverage threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-et',
+        '-ect',
         '--exon-clustering-overlap-threshold',
         default=0.9,
         type=float,
         help='Exon clustering overlap threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-tt',
+        '-tct',
         '--targets-clustering-overlap-threshold',
         default=0.9,
         type=float,
