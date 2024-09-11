@@ -143,19 +143,20 @@ class Exonize(object):
         self.exonize_pipeline_settings = f"""
 Exonize - settings
 --------------------------------
-Date:                        {date.today()}
-python version:              {sys.version}
-cpu count:                   {self.FORKS_NUMBER}
+Date:                         {date.today()}
+python version:               {sys.version}
+cpu count:                    {self.FORKS_NUMBER}
 --------------------------------
-Indentifier:                 {self.output_prefix}
-GFF file:                    {gff_file_path}
-Genome file:                 {genome_file_path}
+Indentifier:                  {self.output_prefix}
+GFF file:                     {gff_file_path}
+Genome file:                  {genome_file_path}
 --------------------------------
-tblastx e-value threshold:   {evalue_threshold}
-CDS overlapping threshold:   {cds_overlapping_threshold}
-Query overlapping threshold: {query_overlapping_threshold}
-Self-hit threshold:          {self_hit_threshold}
-Min exon length (bps):       {min_exon_length}
+tblastx e-value threshold:    {evalue_threshold}
+Query coverage threshold:     {query_coverage_threshold}
+Exon clustering threshold:    {exon_clustering_overlap_threshold}
+Targets clustering threshold: {targets_clustering_overlap_threshold}
+Self-hit threshold:           {self_hit_threshold}
+Min exon length (bps):        {min_exon_length}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
@@ -438,8 +439,8 @@ Exonize results database:   {self.results_database_path.name}
         with open(self.log_file_name, 'w') as f:
             f.write(self.exonize_pipeline_settings)
             f.write(
-                f'\nRuntime (hours):             {runtime_hours}'
-                f'\nNumber of processed genes:   {len(gene_ids_list)}'
+                f'\nRuntime (hours):              {runtime_hours}'
+                f'\nNumber of processed genes:    {len(gene_ids_list)}'
             )
 
     @staticmethod
