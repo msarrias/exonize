@@ -13,10 +13,13 @@ import tarfile
 
 class DataPreprocessor(object):
     utr_features = ['five_prime_UTR', 'three_prime_UTR']
-    features_of_interest = ['CDS', 'exon', 'intron'] + utr_features
+    features_of_interest = [self.cds_annot_feature, 'exon', 'intron'] + utr_features
 
     def __init__(
             self,
+            gene_annot_feature: str,
+            cds_annot_feature: str,
+            transcript_annot_feature: str,
             logger_obj: object,
             database_interface: object,
             working_directory: Path,
@@ -24,28 +27,19 @@ class DataPreprocessor(object):
             output_prefix: str,
             genome_file_path: Path,
             debug_mode: bool,
-            evalue_threshold: float,
-            self_hit_threshold: float,
-            cds_overlapping_threshold: float,
-            query_overlapping_threshold: float,
-            min_exon_length: int,
-            draw_event_multigraphs: bool,
             csv: bool
     ):
+        self.gene_annot_feature = gene_annot_feature
+        self.cds_annot_feature = cds_annot_feature
+        self.transcript_annot_feature = transcript_annot_feature
         self.environment = logger_obj
         self.database_interface = database_interface
         self.working_directory = working_directory
         self.gff_file_path = gff_file_path
         self.output_prefix = output_prefix
         self.genome_file_path = genome_file_path
-        self.evalue_threshold = evalue_threshold
-        self.self_hit_threshold = self_hit_threshold
-        self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.query_overlapping_threshold = query_overlapping_threshold
-        self.min_exon_length = min_exon_length
         self.timeout_database = database_interface.timeout_database
         self.results_database = database_interface.results_database_path
-        self.draw_event_multigraphs = draw_event_multigraphs
         self.csv = csv
         self._DEBUG_MODE = debug_mode
 
@@ -59,8 +53,6 @@ class DataPreprocessor(object):
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
         self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
         self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
-        if self.draw_event_multigraphs:
-            self.multigraphs_path = self.working_directory / 'multigraphs'
         if self.csv:
             self.csv_path = self.working_directory / "csvs"
 
@@ -350,12 +342,12 @@ class DataPreprocessor(object):
         self.environment.logger.info(
             "Fetching gene-hierarchy data from genome annotations"
         )
-        for gene in self.genome_database.features_of_type('gene'):
+        for gene in self.genome_database.features_of_type(self.gene_annot_feature):
             mrna_transcripts = [
                 mrna_transcript for mrna_transcript
                 in self.genome_database.children(
                     gene.id,
-                    featuretype='mRNA',
+                    featuretype=self.transcript_annot_feature,
                     order_by='start'
                 )
             ]
@@ -413,7 +405,7 @@ class DataPreprocessor(object):
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation_structure in mrna_annotation['structure']
                 for coordinate in (annotation_structure['coordinate'],)
-                if (annotation_structure['type'] == 'CDS'
+                if (annotation_structure['type'] == self.cds_annot_feature
                     and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
             )
         )
@@ -492,9 +484,6 @@ class DataPreprocessor(object):
     ) -> None:
         if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
             os.remove(self.genome_database_path)
-        if self.draw_event_multigraphs:
-            self.compress_directory(source_dir=self.multigraphs_path)
-            shutil.rmtree(self.multigraphs_path)
         if self.csv:
             self.compress_directory(source_dir=self.csv_path)
             shutil.rmtree(self.csv_path)
@@ -512,8 +501,6 @@ class DataPreprocessor(object):
         if self._DEBUG_MODE:
             os.makedirs(self.working_directory / 'input', exist_ok=True)
             os.makedirs(self.working_directory / 'output', exist_ok=True)
-        if self.draw_event_multigraphs:
-            os.makedirs(self.multigraphs_path, exist_ok=True)
         if self.csv:
             os.makedirs(self.csv_path, exist_ok=True)
         self.create_parse_or_update_database()
