@@ -45,6 +45,68 @@ def argument_parser():
         type=Path,
         help='Path to genome file.'
     )
+    # Optional Arguments for GFF annotations
+    parser.add_argument(
+        '-gfeat',
+        '--gene-annot-feature',
+        default='gene',
+        help='Gene feature in annotation. Default is gene.'
+    )
+    parser.add_argument(
+        '-cdsfeat',
+        '--cds-annot-feature',
+        default='CDS',
+        help='CDS feature in annotation. Default is CDS.'
+    )
+    parser.add_argument(
+        '-transfeat',
+        '--transcript-annot-feature',
+        default='transcript',
+        help='Transcript feature in annotation. Default is transcript.'
+    )
+    parser.add_argument(
+        '-el',
+        '--min-exon-length',
+        default=30,
+        type=int,
+        help='Minimum exon length. Default is 30.'
+    )
+    parser.add_argument(
+        '-et',
+        '--evalue-threshold',
+        default=1e-3,
+        type=float,
+        help='E-value threshold. Default is 1e-3.'
+    )
+    parser.add_argument(
+        '-ht',
+        '--self-hit-threshold',
+        default=0.5,
+        type=float,
+        help='Self-hit threshold. Default is 0.5.'
+    )
+    parser.add_argument(
+        '-qt',
+        '--query-coverage-threshold',
+        default=0.9,
+        type=float,
+        help='tblastx query coverage threshold. Default is 0.9.'
+    )
+    parser.add_argument(
+        '-et',
+        '--exon-clustering-overlap-threshold',
+        default=0.9,
+        type=float,
+        help='Exon clustering overlap threshold. Default is 0.9.'
+    )
+    parser.add_argument(
+        '-tt',
+        '--targets-clustering-overlap-threshold',
+        default=0.9,
+        type=float,
+        help='Target coordinates clustering overlap threshold. Default is 0.9.'
+    )
+
     # Optional Arguments for Flags
     parser.add_argument(
         '--output_prefix',
@@ -69,12 +131,6 @@ def argument_parser():
         help='If set, all internal files will be overwritten if they already exist.'
     )
     parser.add_argument(
-        '--multigraphs',
-        action='store_true',
-        default=False,
-        help='Generate expansion graphs figures. Default is False.'
-    )
-    parser.add_argument(
         '--csv',
         # metavar='csv-output-prefix',
         action='store_true',
@@ -88,41 +144,6 @@ def argument_parser():
         default=5,
         type=int,
         help='Max seconds to sleep. Default is 5.'
-    )
-    parser.add_argument(
-        '-el',
-        '--min-exon-length',
-        default=30,
-        type=int,
-        help='Minimum exon length. Default is 30.'
-    )
-    parser.add_argument(
-        '-et',
-        '--evalue-threshold',
-        default=1e-3,
-        type=float,
-        help='E-value threshold. Default is 1e-3.'
-    )
-    parser.add_argument(
-        '-ht',
-        '--self-hit-threshold',
-        default=0.5,
-        type=float,
-        help='Self-hit threshold. Default is 0.5.'
-    )
-    parser.add_argument(
-        '-ot',
-        '--cds-overlapping-threshold',
-        default=0.9,
-        type=float,
-        help='CDS overlapping threshold. Default is 0.9.'
-    )
-    parser.add_argument(
-        '-qt',
-        '--query-overlapping-threshold',
-        default=0.9,
-        type=float,
-        help='tblastx query overlapping threshold. Default is 0.9.'
     )
     parser.add_argument(
         '--cpus_number',
@@ -156,18 +177,21 @@ def main():
     exonize_obj = Exonize(
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
+        gene_annot_feature=args.gene_annot_feature,
+        cds_annot_feature=args.cds_annot_feature,
+        transcript_annot_feature=args.transcript_annot_feature,
+        min_exon_length=args.min_exon_length,
+        evalue_threshold=args.evalue_threshold,
+        self_hit_threshold=args.self_hit_threshold,
+        query_coverage_threshold=args.query_coverage_threshold,
+        exon_clustering_overlap_threshold=args.exon_clustering_overlap_threshold,
+        targets_clustering_overlap_threshold=args.targets_clustering_overlap_threshold,
         output_prefix=args.output_prefix,
-        draw_event_multigraphs=args.multigraphs,
         csv=args.csv,
         enable_debug=args.debug,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
-        evalue_threshold=args.evalue_threshold,
         sleep_max_seconds=args.sleep_max_seconds,
-        min_exon_length=args.min_exon_length,
-        cds_overlapping_threshold=args.cds_overlapping_threshold,
-        query_overlapping_threshold=args.query_overlapping_threshold,
-        self_hit_threshold=args.self_hit_threshold,
         cpus_number=args.cpus_number,
         timeout_database=args.timeout_database,
         output_directory_path=args.output_directory_path
