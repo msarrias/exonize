@@ -41,18 +41,21 @@ class Exonize(object):
             self,
             gff_file_path: Path,
             genome_file_path: Path,
+            gene_annot_feature: str,
+            cds_annot_feature: str,
+            transcript_annot_feature: str,
+            min_exon_length: int,
+            evalue_threshold: float,
+            self_hit_threshold: float,
+            query_coverage_threshold: float,
+            exon_clustering_overlap_threshold: float,
+            targets_clustering_overlap_threshold: float,
             output_prefix: str,
-            draw_event_multigraphs: bool,
             csv: bool,
             enable_debug: bool,
             soft_force: bool,
             hard_force: bool,
-            evalue_threshold: float,
             sleep_max_seconds: int,
-            min_exon_length: int,
-            cds_overlapping_threshold: float,
-            query_overlapping_threshold: float,
-            self_hit_threshold: float,
             cpus_number: int,
             timeout_database: int,
             output_directory_path: Path
@@ -64,15 +67,21 @@ class Exonize(object):
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
-        self.output_prefix = output_prefix
+        # GFF features
+        self.gene_annot_feature = gene_annot_feature
+        self.cds_annot_feature = cds_annot_feature
+        self.transcript_annot_feature = transcript_annot_feature
+        # Search criteria parameters
         self.evalue_threshold = evalue_threshold
-        self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.query_overlapping_threshold = query_overlapping_threshold
-        self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
+        self.self_hit_threshold = self_hit_threshold
+        self.query_coverage_threshold = query_coverage_threshold
+        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
+        self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
+        # other
+        self.output_prefix = output_prefix
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
-        self.draw_event_multigraphs = draw_event_multigraphs
         self.csv = csv
         self.tic = datetime.now()
         self.full_matches_dictionary = {}
@@ -101,6 +110,9 @@ class Exonize(object):
             timeout_database=self.timeout_database,
         )
         self.data_container = DataPreprocessor(
+            gene_annot_feature=self.gene_annot_feature,
+            cds_annot_feature=self.cds_annot_feature,
+            transcript_annot_feature=self.transcript_annot_feature,
             logger_obj=self.environment,
             database_interface=self.database_interface,
             working_directory=self.working_directory,
@@ -108,12 +120,7 @@ class Exonize(object):
             output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
             debug_mode=self._DEBUG_MODE,
-            evalue_threshold=evalue_threshold,
-            self_hit_threshold=self.self_hit_threshold,
-            cds_overlapping_threshold=self.cds_overlapping_threshold,
-            query_overlapping_threshold=self.query_overlapping_threshold,
             min_exon_length=self.min_exon_length,
-            draw_event_multigraphs=self.draw_event_multigraphs,
             csv=self.csv,
         )
 
@@ -122,17 +129,16 @@ class Exonize(object):
             sleep_max_seconds=self.sleep_max_seconds,
             self_hit_threshold=self.self_hit_threshold,
             min_exon_length=self.min_exon_length,
-            cds_overlapping_threshold=self.cds_overlapping_threshold,
-            evalue_threshold=self.evalue_threshold,
+            exon_clustering_overlap_threshold=self.exon_clustering_overlap_threshold,
             debug_mode=self._DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
-            blast_engine=self.blast_engine,
-            cds_overlapping_threshold=self.cds_overlapping_threshold,
+            blast_engine=self.blast_engine
         )
         self.event_reconciler = ReconcilerHandler(
             blast_engine=self.blast_engine,
-            cds_overlapping_threshold=self.cds_overlapping_threshold,
+            targets_clustering_overlap_threshold=self.targets_clustering_overlap_threshold,
+            query_coverage_threshold=self.query_coverage_threshold,
         )
         self.exonize_pipeline_settings = f"""
 Exonize - settings
@@ -359,11 +365,6 @@ Exonize results database:   {self.results_database_path.name}
             query_coordinates_set=query_coordinates,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
-        if self.draw_event_multigraphs:
-            self.event_reconciler.draw_event_multigraph(
-                gene_graph=gene_graph,
-                figure_path=self.data_container.multigraphs_path / f'{gene_id}.png'
-            )
         (gene_events_list,
          non_reciprocal_fragment_ids_list
          ) = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
