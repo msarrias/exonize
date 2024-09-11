@@ -9,20 +9,23 @@ import portion as P
 import matplotlib.pyplot as plt
 from pathlib import Path
 from Bio.Seq import Seq
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
+# ------------------------------------------------------------------------
 
 
 class ReconcilerHandler(object):
     def __init__(
             self,
             blast_engine: object,
-            cds_overlapping_threshold: float,
+            targets_clustering_overlap_threshold: float,
+            query_coverage_threshold: float,
     ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
         self.database_interface = blast_engine.database_interface
         self.blast_engine = blast_engine
-        self.cds_overlapping_threshold = cds_overlapping_threshold
+        self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
+        self.query_coverage_threshold = query_coverage_threshold
 
     @staticmethod
     def compute_average(
@@ -50,17 +53,13 @@ class ReconcilerHandler(object):
         :param overlapping_coordinates_list: list of overlapping target coordinates
 
         """
-        # We want to find the CDS that overlaps with the overlapping targets by
-        # the highest percentage. We will compute the average of the two-way overlapping
-        # percentage between the CDS and the overlapping targets and take the
-        # CDS with the highest average.
         cand_reference_list = [
             cds_coordinate for cds_coordinate in cds_coordinates_list
             if all(
                 [self.data_container.min_perc_overlap(
                     intv_i=cds_coordinate,
                     intv_j=target_coordinate
-                ) > self.cds_overlapping_threshold
+                ) > self.query_coverage_threshold
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -81,7 +80,7 @@ class ReconcilerHandler(object):
         for coordinate in source_set:
             for other_coord, oeval in target_set:
                 overlap_perc = self.data_container.min_perc_overlap(coordinate, other_coord)
-                if overlap_perc >= self.cds_overlapping_threshold:
+                if overlap_perc >= self.query_coverage_threshold:
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
         return overlapping_coords, processed_target
@@ -126,7 +125,7 @@ class ReconcilerHandler(object):
                 elif self.blast_engine.get_overlap_percentage(
                         intv_i=coordinate,
                         intv_j=other_coord
-                ) >= self.cds_overlapping_threshold:
+                ) >= self.query_coverage_threshold:
                     reference = P.open(
                         max(other_coord.lower, coordinate.lower),
                         min(other_coord.upper, coordinate.upper)
@@ -148,7 +147,7 @@ class ReconcilerHandler(object):
                     intv_i=truncation_coord,
                     intv_j=cds_coord
                 )
-                if overlap_percentage >= self.cds_overlapping_threshold:
+                if overlap_percentage >= self.query_coverage_threshold:
                     overlapping_coords[(truncation_coord, teval)].append(cds_coord)
         if overlapping_coords:
             reference_coord, _ = max(overlapping_coords, key=lambda x: len(overlapping_coords[x]))
@@ -807,7 +806,7 @@ class ReconcilerHandler(object):
         )
         overlapping_targets = self.data_container.get_overlapping_clusters(
             target_coordinates_set=target_coordinates,
-            threshold=self.cds_overlapping_threshold
+            threshold=self.targets_clustering_overlap_threshold
         )
         gene_cds_set = self.fetch_gene_cdss_set(
             gene_id=gene_id
