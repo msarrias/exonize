@@ -23,8 +23,7 @@ class BLASTsearcher(object):
             sleep_max_seconds: int,
             self_hit_threshold: float,
             min_exon_length: int,
-            cds_overlapping_threshold: float,
-            evalue_threshold: float,
+            exon_clustering_overlap_threshold: float,
             debug_mode: bool,
     ):
         self.data_container = data_container
@@ -33,8 +32,7 @@ class BLASTsearcher(object):
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
-        self.cds_overlapping_threshold = cds_overlapping_threshold
-        self.evalue_threshold = evalue_threshold
+        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self._DEBUG_MODE = debug_mode
 
     @staticmethod
@@ -370,11 +368,8 @@ class BLASTsearcher(object):
         )
         if cds_coordinates_and_frames:
             clusters = self.data_container.get_overlapping_clusters(
-                target_coordinates_set=set(
-                    (coordinate, None)
-                    for coordinate, frame in cds_coordinates_and_frames
-                ),
-                threshold=self.cds_overlapping_threshold
+                target_coordinates_set=set((coordinate, None) for coordinate, frame in cds_coordinates_and_frames),
+                threshold=self.exon_clustering_overlap_threshold
             )
             if clusters:
                 representative_cdss = self.data_container.flatten_clusters_representative_exons(
