@@ -288,8 +288,12 @@ Exonize results database:   {self.results_database_path.name}
             )
         else:
             self.environment.logger.info(
-                'All genes have been processed. If you want to re-run the analysis, '
+                'All genes have been processed.'
+                'If you want to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
+            )
+            self.environment.logger.info(
+                'Starting reconciliation and classification...'
             )
             self.database_interface.clear_results_database()
             self.database_interface.connect_create_results_database()
