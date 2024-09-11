@@ -294,7 +294,7 @@ Exonize results database:   {self.results_database_path.name}
             self.database_interface.clear_results_database()
             self.database_interface.connect_create_results_database()
         self.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=self.query_overlapping_threshold,
+            query_overlap_threshold=self.query_coverage_threshold,
             evalue_threshold=self.evalue_threshold,
         )
 
