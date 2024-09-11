@@ -325,23 +325,26 @@ if results_db_path.exists():
     os.remove("mock_results.db")
 
 exonize_obj = Exonize(
-        gff_file_path=Path('mock_gff.gff3'),
-        genome_file_path=Path('mock_genome.fa'),
-        output_prefix="mock_specie",
-        draw_event_multigraphs=False,
-        csv=False,
-        enable_debug=False,
-        soft_force=False,
-        evalue_threshold=0.01,
-        sleep_max_seconds=0,
-        min_exon_length=30,
-        self_hit_threshold=0.5,
-        cpus_number=1,
-        timeout_database=60,
-        hard_force=False,
-        cds_overlapping_threshold=0.91,
-        query_overlapping_threshold=0.9,
-        output_directory_path=Path("."),
+    gff_file_path=Path('mock_gff.gff3'),
+    genome_file_path=Path('mock_genome.fa'),
+    gene_annot_feature='gene',
+    cds_annot_feature='CDS',
+    transcript_annot_feature='mRNA',
+    min_exon_length=30,
+    evalue_threshold=0.01,
+    self_hit_threshold=0.5,
+    query_coverage_threshold=0.9,
+    exon_clustering_overlap_threshold=0.91,
+    targets_clustering_overlap_threshold=0.9,
+    output_prefix="mock_specie",
+    csv=False,
+    enable_debug=False,
+    soft_force=False,
+    hard_force=False,
+    sleep_max_seconds=0,
+    cpus_number=1,
+    timeout_database=60,
+    output_directory_path=Path("."),
     )
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = results_db_path
@@ -363,7 +366,7 @@ exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
 exonize_obj.database_interface.insert_percent_query_column_to_fragments()
 
 exonize_obj.database_interface.create_filtered_full_length_events_view(
-    query_overlap_threshold=exonize_obj.query_overlapping_threshold,
+    query_overlap_threshold=exonize_obj.query_coverage_threshold,
     evalue_threshold=exonize_obj.evalue_threshold
         )
 exonize_obj.events_reconciliation()

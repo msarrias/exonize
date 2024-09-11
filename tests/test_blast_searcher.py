@@ -5,21 +5,20 @@ from pathlib import Path
 import portion as P
 import pytest
 
+
 data_container = DataPreprocessor(
+    gene_annot_feature='gene',
+    cds_annot_feature='CDS',
+    transcript_annot_feature='mRNA',
+    min_exon_length=20,
     logger_obj=Mock(),
     database_interface=Mock(),
     working_directory=Path(''),
     gff_file_path=Path(''),
     output_prefix='test',
     genome_file_path=Path(''),
-    self_hit_threshold=0.5,
-    cds_overlapping_threshold=0.8,
-    query_overlapping_threshold=0.9,
-    min_exon_length=30,
     debug_mode=False,
-    evalue_threshold=1e-5,
-    draw_event_multigraphs=False,
-    csv=False,
+    csv=False
 )
 
 blast_engine = BLASTsearcher(
@@ -27,8 +26,7 @@ blast_engine = BLASTsearcher(
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     min_exon_length=20,
-    cds_overlapping_threshold=0.8,
-    evalue_threshold=1e-5,
+    exon_clustering_overlap_threshold=0.8,
     debug_mode=False,
 )
 

@@ -5,36 +5,34 @@ from exonize.blast_searcher import BLASTsearcher
 from pathlib import Path
 import portion as P
 
-ata_container = DataPreprocessor(
+data_container = DataPreprocessor(
+    gene_annot_feature='gene',
+    cds_annot_feature='CDS',
+    transcript_annot_feature='mRNA',
+    min_exon_length=20,
     logger_obj=Mock(),
     database_interface=Mock(),
     working_directory=Path(''),
     gff_file_path=Path(''),
     output_prefix='test',
     genome_file_path=Path(''),
-    self_hit_threshold=0.5,
-    cds_overlapping_threshold=0.8,
-    query_overlapping_threshold=0.9,
-    min_exon_length=30,
     debug_mode=False,
-    evalue_threshold=1e-5,
-    draw_event_multigraphs=False,
-    csv=False,
+    csv=False
 )
 
 blast_engine = BLASTsearcher(
-    data_container=ata_container,
+    data_container=data_container,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     min_exon_length=20,
-    cds_overlapping_threshold=0.8,
-    evalue_threshold=1e-5,
+    exon_clustering_overlap_threshold=0.8,
     debug_mode=False,
-
 )
+
 counter_handler = ReconcilerHandler(
     blast_engine=blast_engine,
-    cds_overlapping_threshold=0.8,
+    targets_clustering_overlap_threshold=0.8,
+    query_coverage_threshold=0.8,
 )
 
 
@@ -62,7 +60,7 @@ def test_build_reference_dictionary():
     }
     overlapping_targets = counter_handler.data_container.get_overlapping_clusters(
         target_coordinates_set=target_coordinates,
-        threshold=counter_handler.cds_overlapping_threshold
+        threshold=counter_handler.targets_clustering_overlap_threshold
     )
 
     expected_output = {
