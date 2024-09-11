@@ -19,6 +19,7 @@ class DataPreprocessor(object):
             gene_annot_feature: str,
             cds_annot_feature: str,
             transcript_annot_feature: str,
+            min_exon_length: int,
             logger_obj: object,
             database_interface: object,
             working_directory: Path,
@@ -31,6 +32,7 @@ class DataPreprocessor(object):
         self.gene_annot_feature = gene_annot_feature
         self.cds_annot_feature = cds_annot_feature
         self.transcript_annot_feature = transcript_annot_feature
+        self.min_exon_length = min_exon_length
         self.environment = logger_obj
         self.database_interface = database_interface
         self.working_directory = working_directory
