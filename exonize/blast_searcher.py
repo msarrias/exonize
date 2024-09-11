@@ -178,12 +178,8 @@ class BLASTsearcher(object):
             query_file_path,
             '-subject',
             target_file_path,
-            '-evalue',
-            str(self.evalue_threshold),
             '-strand',
             strand,
-            '-qcov_hsp_perc',
-            str(self.cds_overlapping_threshold * 100),
             '-outfmt',
             '5',  # XML output format
             '-out',
