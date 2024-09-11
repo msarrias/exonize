@@ -13,7 +13,6 @@ import tarfile
 
 class DataPreprocessor(object):
     utr_features = ['five_prime_UTR', 'three_prime_UTR']
-    features_of_interest = [self.cds_annot_feature, 'exon', 'intron'] + utr_features
 
     def __init__(
             self,
@@ -48,6 +47,7 @@ class DataPreprocessor(object):
         self.genome_database = None
         self.genome_dictionary = dict()
         self.gene_hierarchy_dictionary = dict()
+        self.features_of_interest = [self.cds_annot_feature, 'exon', 'intron'] + self.utr_features
 
         # Derived attributes that depend on initial parameters
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
