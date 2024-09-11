@@ -1,6 +1,6 @@
-gffutils==0.13
-portion==2.4.0
-biopython==1.81
-networkx==3.2.1
-matplotlib==3.8.2
-pandas==2.0.2
+gffutils
+portion
+biopython
+matplotlib
+pandas
+networkx
