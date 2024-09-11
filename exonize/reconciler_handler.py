@@ -751,20 +751,12 @@ class ReconcilerHandler(object):
                  corrected_query_frame,
                  query_amino_seq,
                  corrected_target_seq
-                 ) = (0, 0, 0, 0, '', '')
-
-                # (corrected_dna_ident,
-                #  corrected_prot_ident,
-                #  corrected_target_frame,
-                #  corrected_query_frame,
-                #  query_amino_seq,
-                #  corrected_target_seq
-                #  ) = self.get_corrected_frames_and_identity(
-                #     gene_id=gene_id,
-                #     cds_coordinate=P.open(cds_start, cds_end),
-                #     corrected_coordinate=corrected_coordinate,
-                #     cds_candidates_dictionary=cds_candidates_dictionary
-                # )
+                 ) = self.get_corrected_frames_and_identity(
+                    gene_id=gene_id,
+                    cds_coordinate=P.open(cds_start, cds_end),
+                    corrected_coordinate=corrected_coordinate,
+                    cds_candidates_dictionary=cds_candidates_dictionary
+                )
                 corrected_coordinates_list.append((
                     corrected_coordinate.lower,
                     corrected_coordinate.upper,
