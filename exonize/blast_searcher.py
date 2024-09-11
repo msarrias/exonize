@@ -151,8 +151,8 @@ class BLASTsearcher(object):
             stderr=subprocess.STDOUT,
         )
 
+    @staticmethod
     def execute_tblastx(
-            self,
             query_file_path: Path,
             target_file_path: Path,
             output_file_path: Path,
