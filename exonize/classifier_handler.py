@@ -10,13 +10,11 @@ from collections import defaultdict
 class ClassifierHandler(object):
     def __init__(
             self,
-            blast_engine: object,
-            cds_overlapping_threshold: float,
+            blast_engine: object
     ):
         self.data_container = blast_engine.data_container
         self.blast_engine = blast_engine
         self.database_interface = blast_engine.database_interface
-        self.cds_overlapping_threshold = cds_overlapping_threshold
         self.coding_event_modes = ['FULL', 'INSERTION_EXCISION']
 
     @staticmethod
