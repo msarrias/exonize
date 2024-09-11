@@ -2,7 +2,6 @@
 # This module contains the CounterHandler class, which is used to handle
 # the counter object in the BlastEngine class.
 # ------------------------------------------------------------------------
-import matplotlib
 import networkx as nx
 from collections import defaultdict
 import portion as P
