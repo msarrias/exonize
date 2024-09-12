@@ -65,6 +65,18 @@ def argument_parser():
         help='Transcript feature in annotation. Default is transcript.'
     )
     parser.add_argument(
+        '--sequence-base',
+        type=int,
+        default=1,
+        help='Annotation sequence numbering base (0/1). Default is 1.'
+    )
+    parser.add_argument(
+        '--frame-base',
+        type=int,
+        default=0,
+        help='Annotation sequence numbering base (0/1). Default is 1.'
+    )
+    parser.add_argument(
         '-el',
         '--min-exon-length',
         default=30,
@@ -180,6 +192,8 @@ def main():
         gene_annot_feature=args.gene_annot_feature,
         cds_annot_feature=args.cds_annot_feature,
         transcript_annot_feature=args.transcript_annot_feature,
+        sequence_base=args.sequence_base,
+        frame_base=args.frame_base,
         min_exon_length=args.min_exon_length,
         evalue_threshold=args.evalue_threshold,
         self_hit_threshold=args.self_hit_threshold,
