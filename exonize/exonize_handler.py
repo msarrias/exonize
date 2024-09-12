@@ -44,6 +44,8 @@ class Exonize(object):
             gene_annot_feature: str,
             cds_annot_feature: str,
             transcript_annot_feature: str,
+            sequence_base: int,
+            frame_base: int,
             min_exon_length: int,
             evalue_threshold: float,
             self_hit_threshold: float,
@@ -72,6 +74,8 @@ class Exonize(object):
         self.cds_annot_feature = cds_annot_feature
         self.transcript_annot_feature = transcript_annot_feature
         # Search criteria parameters
+        self.sequence_base = sequence_base
+        self.frame_base = frame_base
         self.evalue_threshold = evalue_threshold
         self.min_exon_length = min_exon_length
         self.self_hit_threshold = self_hit_threshold
@@ -113,6 +117,8 @@ class Exonize(object):
             gene_annot_feature=self.gene_annot_feature,
             cds_annot_feature=self.cds_annot_feature,
             transcript_annot_feature=self.transcript_annot_feature,
+            sequence_base=self.sequence_base,
+            frame_base=self.frame_base,
             min_exon_length=self.min_exon_length,
             logger_obj=self.environment,
             database_interface=self.database_interface,
