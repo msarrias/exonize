@@ -12,13 +12,14 @@ import tarfile
 
 
 class DataPreprocessor(object):
-    utr_features = ['five_prime_UTR', 'three_prime_UTR']
 
     def __init__(
             self,
             gene_annot_feature: str,
             cds_annot_feature: str,
             transcript_annot_feature: str,
+            sequence_base: int,
+            frame_base: int,
             min_exon_length: int,
             logger_obj: object,
             database_interface: object,
@@ -32,6 +33,8 @@ class DataPreprocessor(object):
         self.gene_annot_feature = gene_annot_feature
         self.cds_annot_feature = cds_annot_feature
         self.transcript_annot_feature = transcript_annot_feature
+        self.sequence_base = sequence_base
+        self.frame_base = frame_base
         self.min_exon_length = min_exon_length
         self.environment = logger_obj
         self.database_interface = database_interface
@@ -44,12 +47,10 @@ class DataPreprocessor(object):
         self.csv = csv
         self._DEBUG_MODE = debug_mode
 
-        self.database_features = None
         self.old_filename = None
         self.genome_database = None
         self.genome_dictionary = dict()
         self.gene_hierarchy_dictionary = dict()
-        self.features_of_interest = [self.cds_annot_feature, 'exon', 'intron'] + self.utr_features
 
         # Derived attributes that depend on initial parameters
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
@@ -185,34 +186,6 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
-    def search_create_intron_annotations(
-            self,
-    ) -> None:
-        """
-        search_create_intron_annotations is a function that verifies
-        that the gffutils database contains intron annotations, if not,
-        it attempts to write them.
-        Some of the db.update() parameters description:
-        - make_backup: if True, a backup of the database will be
-        created before updating it.
-        """
-        if 'intron' not in self.database_features:
-            self.environment.logger.info(
-                "The GFF file does not contain intron annotations - "
-                "attempting to write intron annotations in database",
-            )
-            try:
-                self.genome_database.update(
-                    list(self.genome_database.create_introns()),
-                    make_backup=False
-                )
-            except ValueError as e:
-                self.environment.logger.critical(
-                    f"failed to write intron annotations in database. "
-                    f"Please provide a GFF3 file with intron annotations {e}"
-                )
-                sys.exit()
-
     def create_parse_or_update_database(
             self,
     ) -> None:
@@ -243,8 +216,6 @@ class DataPreprocessor(object):
                     "Reading annotations database"
                 )
                 self.load_genome_database()
-            self.database_features = list(self.genome_database.featuretypes())
-            self.search_create_intron_annotations()
 
     def load_genome_database(
             self,
@@ -354,7 +325,7 @@ class DataPreprocessor(object):
                 )
             ]
             if mrna_transcripts:
-                gene_coordinate = P.open(gene.start - 1, gene.end)
+                gene_coordinate = P.open(gene.start - self.sequence_base, gene.end)
                 mrna_dictionary = dict(
                     coordinate=gene_coordinate,
                     chrom=gene.chrom,
@@ -363,7 +334,7 @@ class DataPreprocessor(object):
                     mRNAs=dict()
                 )
                 for mrna_annot in mrna_transcripts:
-                    mrna_coordinate = P.open(mrna_annot.start - 1, mrna_annot.end)
+                    mrna_coordinate = P.open(mrna_annot.start - self.sequence_base, mrna_annot.end)
                     mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
                         coordinate=mrna_coordinate,
                         strand=gene.strand,
@@ -372,16 +343,16 @@ class DataPreprocessor(object):
                     mrna_transcripts_list = list()
                     for child in self.genome_database.children(
                             mrna_annot.id,
-                            featuretype=self.features_of_interest,
+                            featuretype=self.cds_annot_feature,
                             order_by='start'
                     ):
-                        child_coordinate = P.open(child.start - 1, child.end)
+                        child_coordinate = P.open(child.start - self.sequence_base, child.end)
                         if child_coordinate:
                             mrna_transcripts_list.append(
                                 dict(
                                     id=child.id,  # ID attribute
                                     coordinate=child_coordinate,  # ID coordinate starting at 0
-                                    frame=child.frame,  # One of '0', '1' or '2'.
+                                    frame=str(int(child.frame) - self.frame_base),  # One of '0', '1' or '2'.
                                     type=child.featuretype,   # feature type name
                                     attributes=dict(child.attributes)
                                 )   # feature attributes
