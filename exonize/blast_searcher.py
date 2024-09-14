@@ -131,8 +131,8 @@ class BLASTsearcher(object):
             match=hsp.match
         )
 
-    @staticmethod
     def execute_tblastx(
+            self,
             query_file_path: Path,
             target_file_path: Path,
             output_file_path: Path,
@@ -158,8 +158,12 @@ class BLASTsearcher(object):
             query_file_path,
             '-subject',
             target_file_path,
+            '-evalue',
+            str(self.evalue_threshold),
             '-strand',
             strand,
+            '-qcov_hsp_perc',
+            str(self.cds_overlapping_threshold * 100),
             '-outfmt',
             '5',  # XML output format
             '-out',
