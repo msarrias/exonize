@@ -30,6 +30,7 @@ class BLASTsearcher(object):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
+        self.evalue_threshold = evalue_threshold
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
