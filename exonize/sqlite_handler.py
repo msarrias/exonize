@@ -323,16 +323,14 @@ class SqliteHandler(object):
                 ;
             """
             )
-        cursor.execute("""CREATE INDEX IF NOT EXISTS Matches_full_length_idx ON Matches_full_length (FragmentID);""")
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS 
+            Matches_full_length_idx ON Matches_full_length (FragmentID);
+        """)
         columns_to_add = [
             ("CorrectedTargetStart", "INTEGER"),
-            ("CorrectedTargetEnd", "INTEGER"),
-            ("CorrectedDNAIdentity", "REAL"),
-            ("CorrectedProtIdentity", "REAL"),
-            ("QueryProtSeq", "VARCHAR"),
-            ("CorrectedTargetProtSeq", "VARCHAR"),
-            ("CorrectedTargetFrame", "INTEGER"),
-            ("CorrectedQueryFrame", "INTEGER"),]
+            ("CorrectedTargetEnd", "INTEGER")
+        ]
         for column_name, column_type in columns_to_add:
             self.add_column_to_table(
                 table_name="Matches_full_length",
@@ -352,13 +350,7 @@ class SqliteHandler(object):
                 """
                 UPDATE Matches_full_length
                 SET CorrectedTargetStart=?,
-                CorrectedTargetEnd=?,
-                CorrectedDNAIdentity=?,
-                CorrectedProtIdentity=?,
-                QueryProtSeq=?,
-                CorrectedTargetProtSeq=?,
-                CorrectedTargetFrame=?,
-                CorrectedQueryFrame=?
+                CorrectedTargetEnd=?
                 WHERE FragmentID=?
                 """,
                 list_tuples,
@@ -643,13 +635,7 @@ class SqliteHandler(object):
                 QueryAlnProtSeq,
                 TargetAlnProtSeq,
                 COALESCE(CorrectedTargetStart, TargetStart) + GeneStart AS CorrectedTargetStart,
-                COALESCE(CorrectedTargetEnd, TargetEnd) + GeneStart AS CorrectedTargetEnd,
-                COALESCE(CorrectedDNAIdentity, DNAIdentity) AS CorrectedDNAIdentity,
-                COALESCE(CorrectedProtIdentity, ProtIdentity) AS CorrectedProtIdentity,
-                COALESCE(QueryProtSeq, QueryAlnProtSeq) AS QueryProtSeq,
-                COALESCE(CorrectedTargetProtSeq, TargetAlnProtSeq) AS CorrectedTargetProtSeq,
-                COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
-                COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
+                COALESCE(CorrectedTargetEnd, TargetEnd) + GeneStart AS CorrectedTargetEnd
             FROM Matches_full_length
             WHERE FragmentID IN ({placeholders});
                     """
