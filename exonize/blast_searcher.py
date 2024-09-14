@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 import time
 import portion as P
-from Bio import SeqIO, AlignIO
+from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
