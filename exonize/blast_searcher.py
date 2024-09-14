@@ -24,6 +24,7 @@ class BLASTsearcher(object):
             self_hit_threshold: float,
             min_exon_length: int,
             evalue_threshold: float,
+            query_coverage_threshold: float,
             exon_clustering_overlap_threshold: float,
             debug_mode: bool,
     ):
@@ -31,6 +32,7 @@ class BLASTsearcher(object):
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
         self.evalue_threshold = evalue_threshold
+        self.query_coverage_threshold = query_coverage_threshold
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
@@ -165,7 +167,7 @@ class BLASTsearcher(object):
             '-strand',
             strand,
             '-qcov_hsp_perc',
-            str(self.cds_overlapping_threshold * 100),
+            str(self.query_coverage_threshold * 100),
             '-outfmt',
             '5',  # XML output format
             '-out',

@@ -27,6 +27,7 @@ blast_engine = BLASTsearcher(
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
     evalue_threshold=1e-5,
+    query_coverage_threshold=0.8,
     min_exon_length=20,
     exon_clustering_overlap_threshold=0.8,
     debug_mode=False,

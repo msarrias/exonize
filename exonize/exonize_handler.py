@@ -136,6 +136,7 @@ class Exonize(object):
             self_hit_threshold=self.self_hit_threshold,
             min_exon_length=self.min_exon_length,
             evalue_threshold=self.evalue_threshold,
+            query_coverage_threshold=self.query_coverage_threshold,
             exon_clustering_overlap_threshold=self.exon_clustering_overlap_threshold,
             debug_mode=self._DEBUG_MODE,
         )
