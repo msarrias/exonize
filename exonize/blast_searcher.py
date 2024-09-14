@@ -23,6 +23,7 @@ class BLASTsearcher(object):
             sleep_max_seconds: int,
             self_hit_threshold: float,
             min_exon_length: int,
+            evalue_threshold: float,
             exon_clustering_overlap_threshold: float,
             debug_mode: bool,
     ):
