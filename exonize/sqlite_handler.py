@@ -324,7 +324,7 @@ class SqliteHandler(object):
             """
             )
         cursor.execute("""
-        CREATE INDEX IF NOT EXISTS 
+        CREATE INDEX IF NOT EXISTS
             Matches_full_length_idx ON Matches_full_length (FragmentID);
         """)
         columns_to_add = [
