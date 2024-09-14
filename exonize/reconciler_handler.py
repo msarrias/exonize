@@ -7,7 +7,6 @@ from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
 from pathlib import Path
-from Bio.Seq import Seq
 # matplotlib.use('Agg')
 # ------------------------------------------------------------------------
 
