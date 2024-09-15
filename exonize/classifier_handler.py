@@ -15,7 +15,6 @@ class ClassifierHandler(object):
         self.data_container = blast_engine.data_container
         self.blast_engine = blast_engine
         self.database_interface = blast_engine.database_interface
-        self.coding_event_modes = ['FULL', 'INSERTION_EXCISION']
 
     @staticmethod
     def get_mrna_cds_annotations(
