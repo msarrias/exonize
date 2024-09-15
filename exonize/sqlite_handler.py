@@ -796,7 +796,7 @@ class SqliteHandler(object):
                 CorrectedTargetStart,
                 CorrectedTargetEnd
             FROM Matches_full_length_non_reciprocal
-            WHERE Mode="FULL" OR Mode="INSERTION"
+            WHERE Mode="FULL"
             ORDER BY
                 GeneID, FragmentID;
             """)
@@ -817,7 +817,7 @@ class SqliteHandler(object):
                 EventStart,
                 EventEnd
             FROM Expansions
-            WHERE Mode="FULL" OR Mode="INSERTION"
+            WHERE Mode="FULL"
             ORDER BY
                 GeneID, ExpansionID;
             """
@@ -853,7 +853,9 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = [table[0] for table in cursor.fetchall() if "sqlite" not in table[0]]
+            tables = [table[0]
+                      for table in cursor.fetchall()
+                      if ("sqlite" not in table[0] and "Matches" not in table[0])]
             for table in tables:
                 table_name = table
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", db)
