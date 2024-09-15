@@ -67,7 +67,7 @@ class ClassifierHandler(object):
     def get_expansions_dictionary(
             expansion_events: list
     ):
-        expansion_events_dict = defaultdict(lambda: defaultdict(lambda: list()))
+        expansion_events_dict = defaultdict(lambda: defaultdict(list))
         for record in expansion_events:
             gene_id, expansion_id, event_start, event_end = record
             expansion_events_dict[gene_id][expansion_id].append(
