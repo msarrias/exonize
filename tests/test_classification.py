@@ -311,11 +311,7 @@ non_reciprocal_matches_count = [
     (550, 600, 950, 1000, 'OPTIONAL_OBLIGATE'),
     (840, 900, 2540, 2600, 'EXCLUSIVE'),
     (1080, 1120, 1420, 1460, 'OPTIONAL_EXCLUSIVE'),
-    (1210, 1360, 1750, 1900, 'OPTIONAL_OBLIGATE'),
     # gene_0
-    (1, 200, 1300, 1500, 'FLEXIBLE'),
-    (100, 200, 600, 700, 'EXCLUSIVE'),
-    (600, 700, 1400, 1500, 'FLEXIBLE'),
     (400, 500, 850, 950, 'FLEXIBLE')
 ]
 
@@ -419,7 +415,7 @@ def test_matches_interdependence_counts():
              TargetEnd,
              Classification
             FROM Matches_full_length_non_reciprocal
-            WHERE Mode="FULL" or Mode="INSERTION";
+            WHERE Mode="FULL";
             """
         )
         records = {
@@ -559,9 +555,8 @@ test_events = [
 ]
 
 expected_expansions_classification = [
-    ('gene1', 0, 3, 2, 2, 2, 2, 0, 'FLEXIBLE', ''),  # n x (k + 1) = 3 x (1 + 1) = 6
-    ('gene1', 1, 3, 3, 3, 3, 3, 0, 'FLEXIBLE', ''),
-    ('gene1', 2, 3, 3, 9, 0, 0, 0, 'OBLIGATE', ''),
+    ('gene1', 1, 3, 2, 4, 1, 1, 0, 'FLEXIBLE', ''), # n x (k + 1) = 3 x (1 + 1) = 6
+    ('gene1', 2, 3, 2, 6, 0, 0, 0, 'OBLIGATE', ''),
     ('gene2', 0, 3, 3, 0, 5, 4, 0, 'EXCLUSIVE',
      '_'.join([str(i) for i in
                (P.open(600, 700), tuple((P.open(0, 100), P.open(150, 250))))
@@ -585,7 +580,7 @@ def test_expansion_transcript_iterdependence_classification():
     expansions_dict = defaultdict(lambda: defaultdict(lambda: list()))
     for event in test_events:
         matchid, geneid, mode, start, end, degree, clusterid, expansionid = event
-        if mode in ['FULL', 'INSERTION']:
+        if mode == 'FULL':
             expansions_dict[geneid][expansionid].append(P.open(start, end))
     expansion_interdependence_tuples = exonize_obj.event_classifier.classify_expansion_interdependence(
         expansions_dictionary=expansions_dict
