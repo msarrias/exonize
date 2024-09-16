@@ -62,18 +62,6 @@ class ClassifierHandler(object):
             intersected.intersection_update(t)
         return tuple(intersected) if intersected else ()
 
-    @staticmethod
-    def get_expansions_dictionary(
-            expansion_events: list
-    ):
-        expansion_events_dict = defaultdict(lambda: defaultdict(list))
-        for record in expansion_events:
-            gene_id, expansion_id, event_start, event_end = record
-            expansion_events_dict[gene_id][expansion_id].append(
-                P.open(event_start, event_end)
-            )
-        return expansion_events_dict
-
     def get_coding_events_transcript_counts(
             self,
             gene_id: str,
@@ -179,18 +167,17 @@ class ClassifierHandler(object):
         for gene_id, gene_dict in expansions_dictionary.items():
             for expansion_id, expansion_coding_events_coordinates in gene_dict.items():
                 n_events = len(expansion_coding_events_coordinates)
-                if n_events - 1 > 0:
-                    transcript_counts_list = self.get_coding_events_transcript_counts(
-                        gene_id=gene_id,
-                        coding_events_coordinates_list=expansion_coding_events_coordinates
-                        )
-                    classified_expansion = self.interdependence_classification(
-                        gene_id=gene_id,
-                        id_=expansion_id,
-                        transcript_counts_list=transcript_counts_list,
-                        n_coding_events=n_events
+                transcript_counts_list = self.get_coding_events_transcript_counts(
+                    gene_id=gene_id,
+                    coding_events_coordinates_list=expansion_coding_events_coordinates
                     )
-                    expansions_classification_tuples.append(classified_expansion)
+                classified_expansion = self.interdependence_classification(
+                    gene_id=gene_id,
+                    id_=expansion_id,
+                    transcript_counts_list=transcript_counts_list,
+                    n_coding_events=n_events
+                )
+                expansions_classification_tuples.append(classified_expansion)
         return expansions_classification_tuples
 
     def classify_coding_match_interdependence(
