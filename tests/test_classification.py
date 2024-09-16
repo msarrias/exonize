@@ -576,13 +576,69 @@ expected_expansions_classification = [
 
 
 def test_expansion_transcript_iterdependence_classification():
-    exonize_obj.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary_expansions_test
-    expansions_dict = defaultdict(lambda: defaultdict(lambda: list()))
-    for event in test_events:
-        matchid, geneid, mode, start, end, degree, clusterid, expansionid = event
-        if mode == 'FULL':
-            expansions_dict[geneid][expansionid].append(P.open(start, end))
-    expansion_interdependence_tuples = exonize_obj.event_classifier.classify_expansion_interdependence(
-        expansions_dictionary=expansions_dict
+    results_db_path = Path("mock_results2.db")
+    if results_db_path.exists():
+        os.remove("mock_results2.db")
+    exonize_obj = Exonize(
+        gff_file_path=Path('mock_gff.gff3'),
+        genome_file_path=Path('mock_genome.fa'),
+        gene_annot_feature='gene',
+        cds_annot_feature='CDS',
+        transcript_annot_feature='mRNA',
+        sequence_base=1,
+        frame_base=0,
+        min_exon_length=30,
+        evalue_threshold=0.01,
+        self_hit_threshold=0.5,
+        query_coverage_threshold=0.9,
+        exon_clustering_overlap_threshold=0.91,
+        targets_clustering_overlap_threshold=0.9,
+        output_prefix="mock_specie2",
+        csv=False,
+        enable_debug=False,
+        soft_force=False,
+        hard_force=False,
+        sleep_max_seconds=0,
+        cpus_number=1,
+        timeout_database=60,
+        output_directory_path=Path("."),
     )
-    assert expansion_interdependence_tuples == expected_expansions_classification
+    shutil.rmtree("mock_specie2_exonize", ignore_errors=True)
+    exonize_obj.database_interface.results_database_path = results_db_path
+    exonize_obj.database_interface.connect_create_results_database()
+    exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
+    exonize_obj.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary_expansions_test
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.executemany("""
+        INSERT INTO Expansions(
+            MatchID,
+            GeneID,
+            Mode,
+            EventStart,
+            EventEnd,
+            EventDegree,
+            ClusterID,
+            ExpansionID
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ? ,?)
+        """, test_events)
+
+    exonize_obj.database_interface.create_full_expansions_table()
+    expansions_dictionary = exonize_obj.database_interface.query_coding_expansion_events(
+    )
+    expansion_interdependence_tuples = exonize_obj.event_classifier.classify_expansion_interdependence(
+        expansions_dictionary=expansions_dictionary
+    )
+    exonize_obj.database_interface.insert_expansions_interdependence_classification(
+        list_tuples=expansion_interdependence_tuples
+    )
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            select * from Expansions_transcript_interdependence;
+            """
+        )
+        records = cursor.fetchall()
+        assert records == expected_expansions_classification
