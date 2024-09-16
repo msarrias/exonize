@@ -19,6 +19,12 @@ class SqliteHandler(object):
         self.results_database_path = results_database_path
         self.timeout_database = timeout_database
 
+    @staticmethod
+    def batch(iterable, n=1):
+        length = len(iterable)
+        for ndx in range(0, length, n):
+            yield iterable[ndx:min(ndx + n, length)]
+
     def check_if_table_exists(
         self,
         table_name: str,
@@ -571,9 +577,7 @@ class SqliteHandler(object):
             list_tuples = [
                 record for record in list_tuples if record not in records
             ]
-
-        for index in range(len(list_tuples), 100):
-            batch = list_tuples[index:index + 100]
+        for batch in self.batch(list_tuples, 100):
             with sqlite3.connect(
                     self.results_database_path, timeout=self.timeout_database
             ) as db:
