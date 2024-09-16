@@ -303,6 +303,9 @@ class ReconcilerHandler(object):
                                 'reference': reference,
                                 'mode': ref_type
                             }
+            missing = [coord for coord, eval_ in coordinates_cluster if coord not in reference_dictionary]
+            if missing:
+                print(f'Missing coordinates: {missing}')
         return reference_dictionary
 
     @staticmethod
@@ -648,11 +651,11 @@ class ReconcilerHandler(object):
 
     @staticmethod
     def center_and_sort_cds_coordinates(
-            cds_coordinates: list,
+            cds_coordinates: set,
             gene_start: int
     ) -> list[P.Interval]:
         return sorted(
-                list(set([P.open(i.lower - gene_start, i.upper - gene_start) for i in cds_coordinates])),
+                [P.open(i.lower - gene_start, i.upper - gene_start) for i in cds_coordinates],
                 key=lambda x: (x.lower, x.upper)
         )
 
@@ -703,9 +706,8 @@ class ReconcilerHandler(object):
             target_coordinates_set=target_coordinates,
             threshold=self.targets_clustering_overlap_threshold
         )
-        gene_cds_set = self.fetch_gene_cdss_set(
-            gene_id=gene_id
-        )
+        gene_cds_set = set(coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id))
+        gene_cds_set = set(self.center_and_sort_cds_coordinates(cds_coordinates=gene_cds_set, gene_start=gene_start))
         targets_reference_coordinates_dictionary = self.get_matches_reference_mode_dictionary(
             clusters_list=overlapping_targets,
             cds_candidates_set=set(cds_candidates_coordinates),
