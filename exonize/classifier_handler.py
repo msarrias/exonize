@@ -4,7 +4,6 @@
 # classify tblastx hits as full-length duplications.
 # ------------------------------------------------------------------------
 import portion as P
-from collections import defaultdict
 
 
 class ClassifierHandler(object):
