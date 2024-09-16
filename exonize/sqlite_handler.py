@@ -6,6 +6,8 @@ import sqlite3
 import contextlib
 from pathlib import Path
 import pandas as pd
+from collections import defaultdict
+import portion as P
 
 
 class SqliteHandler(object):
@@ -336,6 +338,32 @@ class SqliteHandler(object):
                 table_name="Matches_full_length",
                 column_name=column_name,
                 column_type=column_type,
+            )
+
+    def create_full_expansions_table(
+            self,
+    ):
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            CREATE TABLE Expansions_Full AS
+            WITH FullExpansionCounts AS (
+                SELECT GeneID, ExpansionID, COUNT(*) AS FullCount
+                FROM Expansions
+                WHERE Mode = 'FULL'
+                GROUP BY GeneID, ExpansionID
+                HAVING COUNT(*) > 1
+            )
+            SELECT
+                e.*
+            FROM Expansions e
+            JOIN FullExpansionCounts f ON e.GeneID=f.GeneID AND e.ExpansionID = f.ExpansionID
+            WHERE e.Mode='FULL'
+            ORDER BY e.GeneID, e.ExpansionID;
+                """
             )
 
     def insert_corrected_target_start_end(
@@ -804,7 +832,7 @@ class SqliteHandler(object):
 
     def query_coding_expansion_events(
             self,
-    ) -> list:
+    ) -> dict:
         with sqlite3.connect(
                 self.results_database_path, timeout=self.timeout_database
         ) as db:
@@ -812,17 +840,18 @@ class SqliteHandler(object):
             cursor.execute(
                 """
             SELECT
-                GeneID,
-                ExpansionID,
-                EventStart,
-                EventEnd
-            FROM Expansions
-            WHERE Mode="FULL"
+                GeneID, ExpansionID, EventStart, EventEnd 
+            FROM Expansions_Full
             ORDER BY
                 GeneID, ExpansionID;
             """
             )
-            return cursor.fetchall()
+            records = cursor.fetchall()
+            expansions_dictionary = defaultdict(lambda: defaultdict(list))
+            for record in records:
+                gene_id, expansion_id, event_start, event_end  = record
+                expansions_dictionary[gene_id][expansion_id].append(P.open(event_start, event_end))
+            return expansions_dictionary
 
     def query_gene_ids_in_results_database(
         self,
