@@ -553,28 +553,6 @@ class SqliteHandler(object):
             self,
             list_tuples: list,
     ) -> None:
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    GeneID,
-                    Mode,
-                    EventStart,
-                    EventEnd,
-                    EventDegree,
-                    ClusterID,
-                    ExpansionID
-                FROM Expansions;
-                """
-            )
-            records = cursor.fetchall()
-        if records:
-            list_tuples = [
-                record for record in list_tuples if record not in records
-            ]
         insert_gene_table_param = """
         INSERT INTO Expansions (
             GeneID,
@@ -587,17 +565,9 @@ class SqliteHandler(object):
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """
-        attempt = False
-        while not attempt:
-            try:
-                with sqlite3.connect(
-                    self.results_database_path, timeout=self.timeout_database
-                ) as db:
-                    cursor = db.cursor()
-                    cursor.executemany(insert_gene_table_param, list_tuples)
-                    attempt = True
-            except sqlite3.OperationalError:
-                time.sleep(random.randrange(start=0, stop=30))
+        with sqlite3.connect(self.results_database_path, timeout=self.timeout_database) as db:
+            cursor = db.cursor()
+            cursor.executemany(insert_gene_table_param, list_tuples)
 
     def insert_expansions_interdependence_classification(
             self,
