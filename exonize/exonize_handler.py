@@ -296,7 +296,7 @@ Exonize results database:   {self.results_database_path.name}
             )
         else:
             self.environment.logger.info(
-                'All genes have been processed.'
+                'All genes have been processed. '
                 'If you want to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
