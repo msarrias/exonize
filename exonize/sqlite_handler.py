@@ -353,15 +353,14 @@ class SqliteHandler(object):
                 self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
             CREATE TABLE IF NOT EXISTS Expansions_Full AS
             WITH FullExpansionCounts AS (
                 SELECT GeneID, ExpansionID, COUNT(*) AS FullCount
-                FROM Expansions
-                WHERE Mode = 'FULL'
-                GROUP BY GeneID, ExpansionID
-                HAVING COUNT(*) > 1
+            FROM Expansions
+            WHERE Mode = 'FULL'
+            GROUP BY GeneID, ExpansionID
+            HAVING COUNT(*) > 1
             )
             SELECT
                 e.*
@@ -369,8 +368,7 @@ class SqliteHandler(object):
             JOIN FullExpansionCounts f ON e.GeneID=f.GeneID AND e.ExpansionID = f.ExpansionID
             WHERE e.Mode='FULL'
             ORDER BY e.GeneID, e.ExpansionID;
-                """
-            )
+            """)
 
     def insert_corrected_target_start_end(
             self,
@@ -577,24 +575,29 @@ class SqliteHandler(object):
             list_tuples = [
                 record for record in list_tuples if record not in records
             ]
-        for batch in self.batch(list_tuples, 100):
-            with sqlite3.connect(
+        insert_gene_table_param = """
+        INSERT INTO Expansions (
+            GeneID,
+            Mode,
+            EventStart,
+            EventEnd,
+            EventDegree,
+            ClusterID,
+            ExpansionID
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        attempt = False
+        while not attempt:
+            try:
+                with sqlite3.connect(
                     self.results_database_path, timeout=self.timeout_database
-            ) as db:
-                cursor = db.cursor()
-                insert_gene_table_param = """
-                INSERT INTO Expansions (
-                    GeneID,
-                    Mode,
-                    EventStart,
-                    EventEnd,
-                    EventDegree,
-                    ClusterID,
-                    ExpansionID
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """
-                cursor.executemany(insert_gene_table_param, batch)
+                ) as db:
+                    cursor = db.cursor()
+                    cursor.executemany(insert_gene_table_param, list_tuples)
+                    attempt = True
+            except sqlite3.OperationalError:
+                time.sleep(random.randrange(start=0, stop=30))
 
     def insert_expansions_interdependence_classification(
             self,
