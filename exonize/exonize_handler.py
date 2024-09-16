@@ -314,7 +314,7 @@ Exonize results database:   {self.results_database_path.name}
             self,
     ) -> list[tuple]:
         expansion_interdependence_tuples = []
-        expansion_events_dict = self.database_interface.query_full_expansion_events()
+        expansion_events_dict = self.database_interface.query_coding_expansion_events()
         for gene_id, expansions_dict in expansion_events_dict.items():
             for expansion_id, coding_events_coordinates_list in expansions_dict.items():
                 if len(coding_events_coordinates_list) > 1:
@@ -409,6 +409,7 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.drop_table(
             table_name='Matches_full_length'
         )
+        self.database_interface.create_full_expansions_table()
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
         self.database_interface.update_has_duplicate_genes_table(
             list_tuples=genes_with_duplicates
@@ -430,9 +431,7 @@ Exonize results database:   {self.results_database_path.name}
             ]
         )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION
-        expansions_coding_events_list = self.database_interface.query_coding_expansion_events()
-        expansions_dictionary = self.event_classifier.get_expansions_dictionary(
-            expansion_events=expansions_coding_events_list
+        expansions_dictionary = self.database_interface.query_coding_expansion_events(
         )
         expansion_interdependence_tuples = self.event_classifier.classify_expansion_interdependence(
             expansions_dictionary=expansions_dictionary
