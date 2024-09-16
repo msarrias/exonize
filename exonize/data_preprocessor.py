@@ -374,12 +374,11 @@ class DataPreprocessor(object):
     ) -> list[tuple]:
         return list(
             set(
-                (coordinate, annotation_structure['frame'])
+                (annotation_structure['coordinate'], annotation_structure['frame'])
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
-                for annotation_structure in mrna_annotation['structure']
-                for coordinate in (annotation_structure['coordinate'],)
-                if (annotation_structure['type'] == self.cds_annot_feature
-                    and (coordinate.upper - coordinate.lower) >= self.min_exon_length)
+                for annotation in mrna_annotation['structure']
+                if (annotation['type'] == self.cds_annot_feature
+                    and (annotation['coordinate'].upper - annotation['coordinate'].lower) >= self.min_exon_length)
             )
         )
 
