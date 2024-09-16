@@ -310,23 +310,6 @@ Exonize results database:   {self.results_database_path.name}
             evalue_threshold=self.evalue_threshold,
         )
 
-    def classify_expansion_events_interdependence(
-            self,
-    ) -> list[tuple]:
-        expansion_interdependence_tuples = []
-        expansion_events_dict = self.database_interface.query_coding_expansion_events()
-        for gene_id, expansions_dict in expansion_events_dict.items():
-            for expansion_id, coding_events_coordinates_list in expansions_dict.items():
-                if len(coding_events_coordinates_list) > 1:
-                    expansion_interdependence_tuples.extend(
-                        self.event_classifier.classify_expansion_transcript_interdependence(
-                            gene_id=gene_id,
-                            expansion_id=expansion_id,
-                            coding_coordinates_list=coding_events_coordinates_list
-                        )
-                    )
-        return expansion_interdependence_tuples
-
     def classify_matches_transcript_interdependence(
             self,
             non_reciprocal_coding_matches_list: list
