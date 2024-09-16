@@ -51,7 +51,7 @@ class Exonize(object):
             frame_base: int = 0,
             min_exon_length: int = 30,
             evalue_threshold: float = 1e-3,
-            self_hit_threshold: float = 0.9,
+            self_hit_threshold: float = 0.5,
             query_coverage_threshold: float = 0.9,
             exon_clustering_overlap_threshold: float = 0.9,
             targets_clustering_overlap_threshold: float = 0.9,
