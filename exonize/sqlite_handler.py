@@ -349,7 +349,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute(
                 """
-            CREATE TABLE Expansions_Full AS
+            CREATE TABLE IF NOT EXISTS Expansions_Full AS
             WITH FullExpansionCounts AS (
                 SELECT GeneID, ExpansionID, COUNT(*) AS FullCount
                 FROM Expansions
@@ -840,7 +840,7 @@ class SqliteHandler(object):
             cursor.execute(
                 """
             SELECT
-                GeneID, ExpansionID, EventStart, EventEnd 
+                GeneID, ExpansionID, EventStart, EventEnd
             FROM Expansions_Full
             ORDER BY
                 GeneID, ExpansionID;
@@ -849,7 +849,7 @@ class SqliteHandler(object):
             records = cursor.fetchall()
             expansions_dictionary = defaultdict(lambda: defaultdict(list))
             for record in records:
-                gene_id, expansion_id, event_start, event_end  = record
+                gene_id, expansion_id, event_start, event_end = record
                 expansions_dictionary[gene_id][expansion_id].append(P.open(event_start, event_end))
             return expansions_dictionary
 
