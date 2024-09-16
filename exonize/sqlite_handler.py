@@ -567,14 +567,17 @@ class SqliteHandler(object):
                 """
             )
             records = cursor.fetchall()
-            if records:
-                list_tuples = [
-                    record for record in list_tuples if record not in records
-                ]
-            for index in range(len(list_tuples), 100):
-                batch = list_tuples[index:index + 100]
-                cursor.executemany(insert_gene_table_param, batch)
-                db.commit()
+        if records:
+            list_tuples = [
+                record for record in list_tuples if record not in records
+            ]
+
+        for index in range(len(list_tuples), 100):
+            batch = list_tuples[index:index + 100]
+            with sqlite3.connect(
+                    self.results_database_path, timeout=self.timeout_database
+            ) as db:
+                cursor = db.cursor()
                 insert_gene_table_param = """
                 INSERT INTO Expansions (
                     GeneID,
@@ -587,7 +590,7 @@ class SqliteHandler(object):
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """
-                cursor.executemany(insert_gene_table_param, list_tuples)
+                cursor.executemany(insert_gene_table_param, batch)
 
     def insert_expansions_interdependence_classification(
             self,
