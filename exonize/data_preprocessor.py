@@ -374,7 +374,7 @@ class DataPreprocessor(object):
     ) -> list[tuple]:
         return list(
             set(
-                (annotation_structure['coordinate'], annotation_structure['frame'])
+                (annotation['coordinate'], annotation['frame'])
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation in mrna_annotation['structure']
                 if (annotation['type'] == self.cds_annot_feature
