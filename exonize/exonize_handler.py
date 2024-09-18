@@ -334,47 +334,78 @@ Exonize results database:   {self.results_database_path.name}
 
     def reconcile(
             self,
-            gene_id: str,
+            genes_list: list,
     ) -> None:
-        tblastx_records_set = self.full_matches_dictionary[gene_id]
-        cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
-            gene_id=gene_id
-        )
-        (query_coordinates,
-         targets_reference_coordinates_dictionary
-         ) = self.event_reconciler.align_target_coordinates(
-            gene_id=gene_id,
-            tblastx_records_set=tblastx_records_set,
-            cds_candidates_dictionary=cds_candidates_dictionary
-        )
-        corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-            gene_id=gene_id,
-            tblastx_records_set=tblastx_records_set,
-            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
-            cds_candidates_dictionary=cds_candidates_dictionary
-        )
-        self.database_interface.insert_corrected_target_start_end(
-            list_tuples=corrected_coordinates_tuples
-        )
-        gene_graph = self.event_reconciler.create_events_multigraph(
-            tblastx_records_set=tblastx_records_set,
-            query_coordinates_set=query_coordinates,
-            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-        )
-        (gene_events_list,
-         non_reciprocal_fragment_ids_list
-         ) = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
-            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
-            gene_id=gene_id,
-            gene_graph=gene_graph
-        )
-        self.database_interface.insert_expansion_table(
-            list_tuples=gene_events_list
-        )
-        self.database_interface.insert_in_non_reciprocal_fragments_table(
-            fragment_ids_list=[id_ for mode, id_ in non_reciprocal_fragment_ids_list]
-        )
-        self.non_reciprocal_matches_modes.extend(non_reciprocal_fragment_ids_list)
+        for gene_id in genes_list:
+            tblastx_records_set = self.full_matches_dictionary[gene_id]
+            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+                gene_id=gene_id
+            )
+            (query_coordinates,
+             targets_reference_coordinates_dictionary
+             ) = self.event_reconciler.align_target_coordinates(
+                gene_id=gene_id,
+                tblastx_records_set=tblastx_records_set,
+                cds_candidates_dictionary=cds_candidates_dictionary
+            )
+            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                gene_id=gene_id,
+                tblastx_records_set=tblastx_records_set,
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+                cds_candidates_dictionary=cds_candidates_dictionary
+            )
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_corrected_target_start_end(
+                        list_tuples=corrected_coordinates_tuples
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
+            gene_graph = self.event_reconciler.create_events_multigraph(
+                tblastx_records_set=tblastx_records_set,
+                query_coordinates_set=query_coordinates,
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+            )
+            (gene_events_list,
+             non_reciprocal_fragment_ids_list
+             ) = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+                gene_id=gene_id,
+                gene_graph=gene_graph
+            )
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_expansion_table(
+                        list_tuples=gene_events_list
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_in_non_reciprocal_fragments_table(
+                        fragment_ids_list=[id_ for mode, id_ in non_reciprocal_fragment_ids_list]
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
+            self.non_reciprocal_matches_modes.extend(non_reciprocal_fragment_ids_list)
 
     def events_reconciliation(
             self,
@@ -385,9 +416,41 @@ Exonize results database:   {self.results_database_path.name}
         self.full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
             tblastx_full_matches_list=tblastx_full_matches_list
         )
+        status: int
+        code: int
+        forks: int = 0
         genes_to_process = list(self.full_matches_dictionary.keys())
-        for gene_id in genes_to_process:
-            self.reconcile(gene_id)
+        for balanced_batch in self.even_batches(
+                data=genes_to_process,
+                number_of_batches=self.FORKS_NUMBER,
+        ):
+            if os.fork():
+                forks += 1
+                if forks >= self.FORKS_NUMBER:
+                    _, status = os.wait()
+                    code = os.waitstatus_to_exitcode(status)
+                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                    assert code != os.EX_SOFTWARE
+                    forks -= 1
+            else:
+                status = os.EX_OK
+                try:
+                    self.reconcile(
+                        genes_list=list(balanced_batch)
+                    )
+                except Exception as exception:
+                    self.environment.logger.exception(
+                        str(exception)
+                    )
+                    status = os.EX_SOFTWARE
+                finally:
+                    os._exit(status)
+        while forks > 0:
+            _, status = os.wait()
+            code = os.waitstatus_to_exitcode(status)
+            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+            assert code != os.EX_SOFTWARE
+            forks -= 1
         self.database_interface.insert_mode_in_non_reciprocal_fragments_table(
             list_tuples=self.non_reciprocal_matches_modes
         )
