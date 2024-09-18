@@ -7,6 +7,7 @@ from collections import defaultdict
 import portion as P
 import matplotlib.pyplot as plt
 from pathlib import Path
+from Bio.Seq import Seq
 # matplotlib.use('Agg')
 # ------------------------------------------------------------------------
 
@@ -659,10 +660,89 @@ class ReconcilerHandler(object):
                 key=lambda x: (x.lower, x.upper)
         )
 
+    def get_corrected_frames_and_identity(
+            self,
+            gene_id: str,
+            cds_coordinate: P.Interval,
+            corrected_coordinate: P.Interval,
+            cds_candidates_dictionary: dict
+    ):
+        target_sequence_frames_translations = []
+        gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+        chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
+        strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+        aligned_cds_coord = P.open(cds_coordinate.lower + gene_start, cds_coordinate.upper + gene_start)
+        query_frame = int(cds_candidates_dictionary['cds_frame_dict'][aligned_cds_coord])
+        query = Seq(self.data_container.genome_dictionary[chrom][aligned_cds_coord.lower:aligned_cds_coord.upper])
+        if strand == '-':
+            query = query.reverse_complement()
+        adjusted_end = self.adjust_coordinates_to_frame(
+            end=len(query),
+            frame=query_frame
+        )
+        query = query[query_frame:adjusted_end]
+        trans_query = query.translate()
+        for frame in [0, 1, 2]:
+            target_coord = P.open(corrected_coordinate.lower + gene_start,
+                                  corrected_coordinate.upper + gene_start)
+            target = Seq(self.data_container.genome_dictionary[chrom][target_coord.lower:target_coord.upper])
+            if strand == '-':
+                target = target.reverse_complement()
+            adjusted_end = self.adjust_coordinates_to_frame(
+                end=len(target),
+                frame=frame
+            )
+            target = target[frame:adjusted_end]
+            trans_target = target.translate()
+            n_stop_codons = str(trans_target).count('*')
+            alignment = self.blast_engine.perform_msa(
+                query=trans_query,
+                target=trans_target
+            )
+            prot_identity = self.blast_engine.compute_identity(
+                sequence_i=alignment[0],
+                sequence_j=alignment[1]
+            )
+            target_sequence_frames_translations.append(
+                (prot_identity, frame, target, trans_target, n_stop_codons)
+            )
+        # we want the frame that gives us the highest identity alignment
+        (corrected_prot_perc_id,
+         corrected_frame,
+         target,
+         trans_target,
+         n_stop_codons
+         ) = max(target_sequence_frames_translations, key=lambda x: x[0])
+        alignment = self.blast_engine.perform_msa(
+            query=query,
+            target=target
+        )
+        dna_identity = self.blast_engine.compute_identity(
+            sequence_i=alignment[0],
+            sequence_j=alignment[1]
+        )
+        return (dna_identity, corrected_prot_perc_id,
+                corrected_frame, query_frame,
+                str(trans_query), str(trans_target))
+
     @staticmethod
-    def get_matches_corrected_coordinates(
+    def adjust_coordinates_to_frame(
+            end: int,
+            frame: int
+    ):
+        length = end - frame
+        if length % 3 != 0:
+            adjusted_end = end - (length % 3)
+        else:
+            adjusted_end = end
+        return adjusted_end
+
+    def get_matches_corrected_coordinates_and_identity(
+            self,
+            gene_id: str,
             tblastx_records_set: set[tuple],
             targets_reference_coordinates_dictionary: dict,
+            cds_candidates_dictionary: dict
     ) -> list[tuple]:
         corrected_coordinates_list = []
         for record in tblastx_records_set:
@@ -670,9 +750,27 @@ class ReconcilerHandler(object):
             target_coordinate = P.open(target_start, target_end)
             corrected_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             if target_coordinate != corrected_coordinate:
+                (corrected_dna_ident,
+                 corrected_prot_ident,
+                 corrected_target_frame,
+                 corrected_query_frame,
+                 query_amino_seq,
+                 corrected_target_seq
+                 ) = self.get_corrected_frames_and_identity(
+                    gene_id=gene_id,
+                    cds_coordinate=P.open(cds_start, cds_end),
+                    corrected_coordinate=corrected_coordinate,
+                    cds_candidates_dictionary=cds_candidates_dictionary
+                )
                 corrected_coordinates_list.append((
                     corrected_coordinate.lower,
                     corrected_coordinate.upper,
+                    corrected_dna_ident,
+                    corrected_prot_ident,
+                    query_amino_seq,
+                    corrected_target_seq,
+                    corrected_target_frame,
+                    corrected_query_frame,
                     fragment_id))
         return corrected_coordinates_list
 

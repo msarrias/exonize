@@ -14,6 +14,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
+from Bio import AlignIO
 
 
 class BLASTsearcher(object):
@@ -111,6 +112,47 @@ class BLASTsearcher(object):
         :param strand: + or -
         """
         return strand == '-'
+
+    @staticmethod
+    def execute_muscle(
+            seq_file_path: Path,
+            output_file_path: Path
+    ):
+        muscle_command = [
+            "muscle",
+            "-in",
+            seq_file_path,
+            "-out",
+            output_file_path
+        ]
+        subprocess.run(
+            muscle_command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+        )
+
+    def perform_msa(
+            self,
+            query: str,
+            target: str
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_file = Path(temp_dir, 'input.fasta')
+            output_file = Path(temp_dir, 'align.fasta')
+            self.dump_fasta_file(
+                out_file_path=input_file,
+                seq_dictionary={'query': query, 'target': target}
+            )
+            self.execute_muscle(
+                seq_file_path=input_file,
+                output_file_path=output_file
+            )
+            # Read the alignment result from the output file
+            alignment = AlignIO.read(output_file, "fasta")
+            if alignment:
+                return [str(i.seq) for i in alignment]
+            else:
+                return []
 
     @staticmethod
     def get_hsp_dictionary(
