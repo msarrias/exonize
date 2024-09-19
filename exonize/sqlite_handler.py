@@ -624,18 +624,31 @@ class SqliteHandler(object):
                 "Matches_full_length_non_reciprocal"
             )
             cursor.execute(new_table_schema)
+        self.add_column_to_table(
+            table_name="Matches_full_length_non_reciprocal",
+            column_name="Mode",
+            column_type="""
+                    Mode TEXT CHECK(Mode IN (
+                    'FULL',
+                    'INSERTION',
+                    'EXCISION',
+                    'CANDIDATE',
+                    'TRUNCATION'
+                    ))
+                    """,
+        )
 
     def insert_in_non_reciprocal_fragments_table(
             self,
             fragment_ids_list: list
     ) -> None:
+        fragments_mode_dict = {id_: mode for mode, id_ in fragment_ids_list}
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
             placeholders = ', '.join(['?'] * len(fragment_ids_list))
             query = f"""
-            INSERT INTO Matches_full_length_non_reciprocal
             SELECT
                 FragmentID,
                 GeneID,
@@ -668,37 +681,45 @@ class SqliteHandler(object):
                 COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
             FROM Matches_full_length
             WHERE FragmentID IN ({placeholders});
-                    """
-            cursor.execute(query, fragment_ids_list)
+            """
+            cursor.execute(query, list(fragments_mode_dict.keys()))
+            results = cursor.fetchall()
 
-    def insert_mode_in_non_reciprocal_fragments_table(
-            self,
-            list_tuples: list
-    ) -> None:
-        self.add_column_to_table(
-            table_name="Matches_full_length_non_reciprocal",
-            column_name="Mode",
-            column_type="""
-            Mode TEXT CHECK(Mode IN (
-            'FULL',
-            'INSERTION',
-            'EXCISION',
-            'CANDIDATE',
-            'TRUNCATION'
-            ))
-            """,
-        )
-        with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.executemany(
-                """
-                UPDATE Matches_full_length_non_reciprocal
-                SET Mode=? WHERE FragmentID=?
-                """,
-                list_tuples,
-            )
+            tuples_to_insert = [(*i, fragments_mode_dict[i[0]]) for i in results]
+            query = """
+            INSERT INTO Matches_full_length_non_reciprocal (
+            FragmentID,
+            GeneID,
+            GeneStart,
+            GeneEnd,
+            QueryExonFrame,
+            QueryFrame,
+            TargetFrame,
+            GeneStrand,
+            QueryStrand,
+            TargetStrand,
+            QueryExonStart,
+            QueryExonEnd,
+            QueryStart,
+            QueryEnd,
+            TargetStart,
+            TargetEnd,
+            Evalue,
+            DNAIdentity,
+            ProtIdentity,
+            QueryAlnProtSeq,
+            TargetAlnProtSeq,
+            CorrectedTargetStart,
+            CorrectedTargetEnd,
+            CorrectedDNAIdentity,
+            CorrectedProtIdentity,
+            QueryProtSeq,
+            CorrectedTargetProtSeq,
+            CorrectedTargetFrame,
+            CorrectedQueryFrame,
+            Mode)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"""
+            cursor.executemany(query, tuples_to_insert)
 
     def insert_matches_interdependence_classification(
             self,

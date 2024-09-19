@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 import cProfile
 import gc
+import time
+import random
 import portion as P
 from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
@@ -89,7 +91,6 @@ class Exonize(object):
         self.csv = csv
         self.tic = datetime.now()
         self.full_matches_dictionary = {}
-        self.non_reciprocal_matches_modes = []
 
         if not self.output_prefix:
             self.output_prefix = gff_file_path.stem
@@ -396,7 +397,7 @@ Exonize results database:   {self.results_database_path.name}
             while not attempt:
                 try:
                     self.database_interface.insert_in_non_reciprocal_fragments_table(
-                        fragment_ids_list=[id_ for mode, id_ in non_reciprocal_fragment_ids_list]
+                        fragment_ids_list=non_reciprocal_fragment_ids_list
                     )
                     attempt = True
                 except Exception as e:
@@ -405,7 +406,6 @@ Exonize results database:   {self.results_database_path.name}
                     else:
                         self.environment.logger.exception(e)
                         sys.exit()
-            self.non_reciprocal_matches_modes.extend(non_reciprocal_fragment_ids_list)
 
     def events_reconciliation(
             self,
@@ -451,9 +451,6 @@ Exonize results database:   {self.results_database_path.name}
             assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
             assert code != os.EX_SOFTWARE
             forks -= 1
-        self.database_interface.insert_mode_in_non_reciprocal_fragments_table(
-            list_tuples=self.non_reciprocal_matches_modes
-        )
         self.database_interface.drop_table(
             table_name='Matches_full_length'
         )
