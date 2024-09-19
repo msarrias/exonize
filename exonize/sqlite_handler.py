@@ -907,7 +907,7 @@ class SqliteHandler(object):
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = [table[0]
                       for table in cursor.fetchall()
-                      if ("sqlite" not in table[0] and "Matches" not in table[0])]
+                      if ("sqlite" not in table[0] and table[0] != "Matches")]
             for table in tables:
                 table_name = table
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", db)
