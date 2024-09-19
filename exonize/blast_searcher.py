@@ -400,7 +400,8 @@ class BLASTsearcher(object):
         )
         if cds_coordinates_and_frames:
             clusters = self.data_container.get_overlapping_clusters(
-                target_coordinates_set=set((coordinate, None) for coordinate, frame in cds_coordinates_and_frames),
+                target_coordinates_set=set(
+                    (coordinate, None) for coordinate, frame in cds_coordinates_and_frames),
                 threshold=self.exon_clustering_overlap_threshold
             )
             if clusters:

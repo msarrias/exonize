@@ -672,7 +672,7 @@ class ReconcilerHandler(object):
         chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
         strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
         aligned_cds_coord = P.open(cds_coordinate.lower + gene_start, cds_coordinate.upper + gene_start)
-        query_frame = int(cds_candidates_dictionary['cds_frame_dict'][aligned_cds_coord])
+        query_frame = int(cds_candidates_dictionary[aligned_cds_coord])
         query = Seq(self.data_container.genome_dictionary[chrom][aligned_cds_coord.lower:aligned_cds_coord.upper])
         if strand == '-':
             query = query.reverse_complement()
@@ -741,9 +741,10 @@ class ReconcilerHandler(object):
             self,
             gene_id: str,
             tblastx_records_set: set[tuple],
-            targets_reference_coordinates_dictionary: dict,
-            cds_candidates_dictionary: dict
+            targets_reference_coordinates_dictionary: dict
     ) -> list[tuple]:
+        fetch_gene_cdss_dict = {coord: frame
+                                for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)}
         corrected_coordinates_list = []
         for record in tblastx_records_set:
             fragment_id, _, cds_start, cds_end, target_start, target_end, _ = record
@@ -760,7 +761,7 @@ class ReconcilerHandler(object):
                     gene_id=gene_id,
                     cds_coordinate=P.open(cds_start, cds_end),
                     corrected_coordinate=corrected_coordinate,
-                    cds_candidates_dictionary=cds_candidates_dictionary
+                    cds_candidates_dictionary=fetch_gene_cdss_dict
                 )
                 corrected_coordinates_list.append((
                     corrected_coordinate.lower,

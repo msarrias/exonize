@@ -352,8 +352,7 @@ Exonize results database:   {self.results_database_path.name}
             corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
                 gene_id=gene_id,
                 tblastx_records_set=tblastx_records_set,
-                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
-                cds_candidates_dictionary=cds_candidates_dictionary
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
             )
             attempt = False
             while not attempt:
