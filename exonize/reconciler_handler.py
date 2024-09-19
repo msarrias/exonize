@@ -571,7 +571,9 @@ class ReconcilerHandler(object):
             for adjacent_node, adjacent_edges in gene_graph[(node_start - gene_start, node_end - gene_start)].items():
                 pair = {(node_start - gene_start, node_end - gene_start), adjacent_node}
                 if pair not in skip_pair:
-                    event_reduced_fragments_list.append((adjacent_edges[0]['mode'], adjacent_edges[0]['fragment_id']))
+                    event_reduced_fragments_list.append(
+                        (adjacent_edges[0]['mode'], adjacent_edges[0]['fragment_id'])
+                    )
                     skip_pair.append(pair)
         return event_reduced_fragments_list
 
