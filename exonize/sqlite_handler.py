@@ -621,11 +621,11 @@ class SqliteHandler(object):
             schema = cursor.fetchone()[0]
             new_table_schema = schema.replace(
                 "Matches_full_length",
-                "Matches_full_length_non_reciprocal"
+                "Matches_non_reciprocal"
             )
             cursor.execute(new_table_schema)
         self.add_column_to_table(
-            table_name="Matches_full_length_non_reciprocal",
+            table_name="Matches_non_reciprocal",
             column_name="Mode",
             column_type="""
                     Mode TEXT CHECK(Mode IN (
@@ -687,7 +687,7 @@ class SqliteHandler(object):
 
             tuples_to_insert = [(*i, fragments_mode_dict[i[0]]) for i in results]
             query = """
-            INSERT INTO Matches_full_length_non_reciprocal (
+            INSERT INTO Matches_non_reciprocal (
             FragmentID,
             GeneID,
             GeneStart,
@@ -731,12 +731,12 @@ class SqliteHandler(object):
         ]
         for column_name in column_names:
             self.add_column_to_table(
-                table_name="Matches_full_length_non_reciprocal",
+                table_name="Matches_non_reciprocal",
                 column_name=column_name,
                 column_type="INTEGER",
             )
         self.add_column_to_table(
-            table_name="Matches_full_length_non_reciprocal",
+            table_name="Matches_non_reciprocal",
             column_name='Classification',
             column_type="Classification TEXT "
                         "CHECK(Classification IN "
@@ -749,7 +749,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             insert_full_length_event_table_param = """
-            UPDATE Matches_full_length_non_reciprocal
+            UPDATE Matches_non_reciprocal
             SET
                 NumberTranscripts=?,
                 All_=?,
@@ -846,7 +846,7 @@ class SqliteHandler(object):
                 QueryExonEnd,
                 CorrectedTargetStart,
                 CorrectedTargetEnd
-            FROM Matches_full_length_non_reciprocal
+            FROM Matches_non_reciprocal
             WHERE Mode="FULL"
             ORDER BY
                 GeneID, FragmentID;
