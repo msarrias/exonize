@@ -185,11 +185,11 @@ fragments_gene1 = [
 ]
 expansions = [
     ('gene_0', 'FULL', 1, 200, 1, 0),
-    ('gene_0', 'INSERTION', 1300, 1500, 1, 0),
+    ('gene_0', 'PARTIAL_INSERTION', 1300, 1500, 1, 0),
     ('gene_0', 'FULL', 600, 700, 4, 1),
-    ('gene_0', 'INSERTION', 100, 200, 1, 1),
-    ('gene_0', 'INSERTION', 1400, 1500, 1, 1),
-    ('gene_0', 'TRUNCATION', 1750, 1850, 1, 1),
+    ('gene_0', 'PARTIAL_INSERTION', 100, 200, 1, 1),
+    ('gene_0', 'PARTIAL_INSERTION', 1400, 1500, 1, 1),
+    ('gene_0', 'INTER_BOUNDARY', 1750, 1850, 1, 1),
     ('gene_0', 'CANDIDATE', 2200, 2300, 1, 1),
     ('gene_0', 'FULL', 400, 500, 2, 2),
     ('gene_0', 'FULL', 850, 950, 2, 2),
@@ -206,7 +206,7 @@ expansions = [
     ('gene_1', 'FULL', 1080, 1120, 2, 5),
     ('gene_1', 'FULL', 1420, 1460, 2, 5),
     ('gene_1', 'FULL', 1750, 1900, 1, 6),
-    ('gene_1', 'INSERTION', 1210, 1360, 1, 6)
+    ('gene_1', 'PARTIAL_INSERTION', 1210, 1360, 1, 6)
 ]
 
 matches = [
@@ -294,7 +294,7 @@ matches = [
      1001, 1199, 1080, 1120, 0, 1, 0, 0, 1e-05),
     (36, 'gene_1', 'transcript_g1_3', 1420, 1460, '-', 'NEITHER', 'intron2_g1_t3',
      501, 1519, 1080, 1120, 1, 0, 0, 0, 1e-05),
-    # INSERTION - OPTIONAL
+    # PARTIAL_INSERTION - OPTIONAL
     (37, 'gene_1', 'transcript_g1_1', 1750, 1900, 'cds10_g1_t1', 'INS_CDS', 'cds9_g1_t1',
      1200, 1400, 1210, 1360, 0, 0, 0, 1, 1e-05),
     (38, 'gene_1', 'transcript_g1_2', 1750, 1900, 'cds10_g1_t2', 'INS_CDS', 'cds7_g1_t2',
@@ -509,19 +509,19 @@ gene_hierarchy_dictionary_expansions_test = {'gene1': {
 test_events = [
     # FLEXIBLE
     (1, 'gene1', "FULL", 0, 100, 2, None, 0),
-    (2, 'gene1', "INSERTION", 300, 400, 1, None, 0),
+    (2, 'gene1', "PARTIAL_INSERTION", 300, 400, 1, None, 0),
     (3, 'gene1', "CANDIDATE", 700, 800, 1, None, 0),
 
     # FLEXIBLE
     (4, 'gene1', "FULL", 0, 100, 3, None, 1),
     (5, 'gene1', "FULL", 150, 250, 3, None, 1),
-    (6, 'gene1', "INSERTION", 300, 400, 2, None, 1),
+    (6, 'gene1', "PARTIAL_INSERTION", 300, 400, 2, None, 1),
     (7, 'gene1', "CANDIDATE", 700, 800, 2, None, 1),
 
     # OBLIGATE
     (8, 'gene1', "FULL", 600, 700, 2, None, 2),
     (9, 'gene1', "FULL", 900, 1000, 2, None, 2),
-    (10, 'gene1', "INSERTION", 1100, 1200, 2, None, 2),
+    (10, 'gene1', "PARTIAL_INSERTION", 1100, 1200, 2, None, 2),
 
     # EXCLUSIVE
     (11, 'gene2', "FULL", 0, 100, 2, None, 0),

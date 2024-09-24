@@ -249,7 +249,7 @@ class ReconcilerHandler(object):
                                     'reference': cds_coord,
                                     'mode': ref_type
                                 }
-                # INSERTION
+                # PARTIAL_INSERTION
                 insertion_candidate_coding_coordinates = set(
                     (target_coord, eval_)
                     for (target_coord, eval_) in coding_coordinates
@@ -262,7 +262,7 @@ class ReconcilerHandler(object):
                         coding_coordinates_set=insertion_candidate_coding_coordinates
                     )
                     if insertion_reference_dictionary:
-                        ref_type = 'INSERTION'
+                        ref_type = 'PARTIAL_INSERTION'
                         for target_coordinate, reference in insertion_reference_dictionary.items():
                             tar_coordinate, _ = target_coordinate
                             reference_coordinate = reference
@@ -271,7 +271,7 @@ class ReconcilerHandler(object):
                                     'reference': reference_coordinate,
                                     'mode': ref_type
                                 }
-                # EXCISION
+                # PARTIAL_EXCISION
                 excision_candidate_coordinates = set(
                     (target, eval_)
                     for target, eval_ in coding_coordinates
@@ -282,7 +282,7 @@ class ReconcilerHandler(object):
                     truncation_coordinates_set=excision_candidate_coordinates
                 )
                 if excision_candidate_dict:
-                    ref_type = 'EXCISION'
+                    ref_type = 'PARTIAL_EXCISION'
                     for target_coordinate, reference in excision_candidate_dict.items():
                         target_coord, _ = target_coordinate
                         if target_coord not in reference_dictionary:
@@ -297,7 +297,7 @@ class ReconcilerHandler(object):
                 )
                 if truncation_candidate_coordinates:
                     reference = min(truncation_candidate_coordinates, key=lambda x: x[1])[0]
-                    ref_type = 'TRUNCATION'
+                    ref_type = 'INTER_BOUNDARY'
                     for target, eval_ in truncation_candidate_coordinates:
                         if target not in reference_dictionary:
                             reference_dictionary[target] = {
@@ -380,11 +380,11 @@ class ReconcilerHandler(object):
             figure_path: Path,
     ):
         color_map = {
-            'INSERTION': 'blue',
-            'EXCISION': 'purple',
+            'PARTIAL_INSERTION': 'blue',
+            'PARTIAL_EXCISION': 'purple',
             'FULL': 'green',
             'CANDIDATE': 'red',
-            'TRUNCATION': 'orange'
+            'INTER_BOUNDARY': 'orange'
         }
 
         plt.figure(figsize=(16, 8))

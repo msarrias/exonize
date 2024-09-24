@@ -157,10 +157,10 @@ class SqliteHandler(object):
                     GeneID VARCHAR(100),
                     Mode TEXT CHECK(Mode IN (
                                             'FULL',
-                                            'INSERTION',
-                                            'EXCISION',
+                                            'PARTIAL_INSERTION',
+                                            'PARTIAL_EXCISION',
                                             'CANDIDATE',
-                                            'TRUNCATION'
+                                            'INTER_BOUNDARY'
                      )),
                     EventStart INTEGER NOT NULL,
                     EventEnd INTEGER NOT NULL,
@@ -630,10 +630,10 @@ class SqliteHandler(object):
             column_type="""
                     Mode TEXT CHECK(Mode IN (
                     'FULL',
-                    'INSERTION',
-                    'EXCISION',
+                    'PARTIAL_INSERTION',
+                    'PARTIAL_EXCISION',
                     'CANDIDATE',
-                    'TRUNCATION'
+                    'INTER_BOUNDARY'
                     ))
                     """,
         )

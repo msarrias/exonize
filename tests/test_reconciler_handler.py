@@ -78,31 +78,31 @@ def test_build_reference_dictionary():
         },
         P.open(220, 250): {
             'reference': P.open(220, 250),
-            'mode': 'INSERTION'
+            'mode': 'PARTIAL_INSERTION'
         },
         P.open(0, 50): {
             'reference': P.open(0, 50),
-            'mode': 'INSERTION'
+            'mode': 'PARTIAL_INSERTION'
         },
         P.open(0, 48): {
             'reference': P.open(0, 50),
-            'mode': 'INSERTION'
+            'mode': 'PARTIAL_INSERTION'
         },
         P.open(40, 90): {
             'reference': P.open(40, 90),
-            'mode': 'INSERTION'
+            'mode': 'PARTIAL_INSERTION'
         },
         P.open(220, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION'
+            'mode': 'INTER_BOUNDARY'
         },
         P.open(215, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION'
+            'mode': 'INTER_BOUNDARY'
         },
         P.open(219, 270): {
             'reference': P.open(220, 270),
-            'mode': 'TRUNCATION'
+            'mode': 'INTER_BOUNDARY'
         },
         P.open(400, 450): {
             'reference': P.open(400, 450),
