@@ -148,6 +148,7 @@ class Exonize(object):
             blast_engine=self.blast_engine,
             targets_clustering_overlap_threshold=self.targets_clustering_overlap_threshold,
             query_coverage_threshold=self.query_coverage_threshold,
+            cds_annot_feature=self.cds_annot_feature
         )
         self.exonize_pipeline_settings = f"""
 Exonize - settings
@@ -373,17 +374,29 @@ Exonize results database:   {self.results_database_path.name}
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
             )
             (gene_events_list,
-             non_reciprocal_fragment_ids_list
+             non_reciprocal_fragment_ids_list,
+             full_events_list
              ) = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
                 gene_id=gene_id,
                 gene_graph=gene_graph
             )
+            tandemness_tuples = []
+            if full_events_list:
+                expansions_dictionary = self.event_reconciler.build_expansion_dictionary(
+                    records=full_events_list
+                )
+                tandemness_tuples = self.event_reconciler.get_gene_full_events_tandemness_tuples(
+                    expansions_dictionary
+                )
             attempt = False
             while not attempt:
                 try:
                     self.database_interface.insert_expansion_table(
-                        list_tuples=gene_events_list
+                        list_tuples=gene_events_list,
+                        list_tuples_full=full_events_list,
+                        list_tuples_tandemness=tandemness_tuples,
+
                     )
                     attempt = True
                 except Exception as e:
@@ -453,7 +466,6 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.drop_table(
             table_name='Matches_full_length'
         )
-        self.database_interface.create_full_expansions_table()
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
         self.database_interface.update_has_duplicate_genes_table(
             list_tuples=genes_with_duplicates
