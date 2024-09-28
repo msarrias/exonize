@@ -18,6 +18,7 @@ class ReconcilerHandler(object):
             blast_engine: object,
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
+            cds_annot_feature: str
     ):
         self.environment = blast_engine.environment
         self.data_container = blast_engine.data_container
@@ -25,6 +26,7 @@ class ReconcilerHandler(object):
         self.blast_engine = blast_engine
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
         self.query_coverage_threshold = query_coverage_threshold
+        self.cds_annot_feature = cds_annot_feature
 
     @staticmethod
     def compute_average(
@@ -577,14 +579,37 @@ class ReconcilerHandler(object):
                     skip_pair.append(pair)
         return event_reduced_fragments_list
 
+    @staticmethod
+    def get_full_event_component(
+            component: set[tuple],
+            gene_graph: nx.MultiGraph,
+            gene_start: int,
+            gene_id: str,
+            expansion_id_counter: int,
+    ) -> list[tuple]:
+        subgraph = gene_graph.subgraph(component).copy()
+        nodes_to_drop = [node
+                         for node in subgraph.nodes
+                         if subgraph.nodes[node].get('type') != 'FULL']
+        if nodes_to_drop:
+            subgraph.remove_nodes_from(nodes_to_drop)
+            if len(subgraph.nodes) > 1:
+                return [(gene_id,
+                         attrib.get('type'),
+                         node[0] + gene_start,
+                         node[1] + gene_start,
+                         subgraph.degree(node),
+                         expansion_id_counter)
+                        for node, attrib in subgraph.nodes(data=True)]
+        return []
+
     def get_reconciled_graph_and_expansion_events_tuples(
             self,
             targets_reference_coordinates_dictionary: dict,
             gene_id: str,
             gene_graph: nx.MultiGraph
-    ) -> tuple[list[tuple], list]:
+    ) -> tuple[list[tuple], list, list]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
-
         mode_dictionary = self.build_mode_dictionary(
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
@@ -595,6 +620,7 @@ class ReconcilerHandler(object):
         expansion_events_list = []
         expansion_non_reciprocal_fragments = []
         expansion_id_counter = 0
+        full_expansion_events_list = []
         for component in disconnected_components:
             # First: Assign event id to each component
             event_coordinates_dictionary = self.build_event_coordinates_dictionary(
@@ -620,8 +646,17 @@ class ReconcilerHandler(object):
                     gene_start=gene_start
                 )
             )
+            full_expansion_events_list.extend(
+                self.get_full_event_component(
+                    component=component,
+                    gene_graph=gene_graph,
+                    gene_start=gene_start,
+                    gene_id=gene_id,
+                    expansion_id_counter=expansion_id_counter
+                )
+            )
             expansion_id_counter += 1
-        return expansion_events_list, expansion_non_reciprocal_fragments
+        return expansion_events_list, expansion_non_reciprocal_fragments, full_expansion_events_list
 
     @staticmethod
     def get_gene_events_dictionary(
@@ -784,7 +819,7 @@ class ReconcilerHandler(object):
         return set(
             i['coordinate']
             for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
-            for i in struct['structure'] if i['type'] == 'CDS'
+            for i in struct['structure'] if i['type'] == self.cds_annot_feature
             if i['coordinate'].upper - i['coordinate'].lower >= self.blast_engine.min_exon_length
         )
 
@@ -815,3 +850,57 @@ class ReconcilerHandler(object):
             gene_cds_set=gene_cds_set
         )
         return query_coordinates, targets_reference_coordinates_dictionary
+
+    @staticmethod
+    def is_tandem_pair(
+            coord_i: P.interval,
+            coord_j: P.interval,
+            sorted_cds_intervals_dictionary: dict
+    ):
+        first_exon = [exon_number
+                      for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
+                      if coord_i in exon_coords_clust]
+        if len(first_exon) > 1:
+            print('exon shows more than once')
+        else:
+            exon_number = first_exon.pop()
+            if coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
+                return 1
+            return 0
+
+    @staticmethod
+    def build_expansion_dictionary(
+            records: list
+    ) -> dict:
+        expansions_dictionary = defaultdict(lambda: defaultdict(list))
+        for record in records:
+            gene_id, _, event_start, event_end, _, expansion_id = record
+            expansions_dictionary[gene_id][expansion_id].append(P.open(event_start, event_end))
+        return expansions_dictionary
+
+    def get_gene_full_events_tandemness_tuples(
+            self,
+            expansions_dictionary,
+    ):
+        tuples_to_insert = []
+        for gene, full_expansions in expansions_dictionary.items():
+            list_cds = sorted(list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene))),
+                              key=lambda x: (x.lower, x.upper))
+            overlapping_cds = sorted([
+                sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
+                for cluster in self.data_container.get_overlapping_clusters([(i, 0) for i in list_cds], 0)],
+                key=lambda x: (x[0].lower, x[0].upper))
+            next_dict = {
+                exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
+            }
+            for expansion_id, events_list in full_expansions.items():
+                coords_pairs = [(coordinate, events_list[index + 1]) for index, coordinate in
+                                enumerate(events_list[:-1])]
+                tuples_to_insert.extend([
+                    (gene, expansion_id, coord_i.lower, coord_i.upper, coord_j.lower, coord_j.upper,
+                     self.is_tandem_pair(
+                         coord_i=coord_i, coord_j=coord_j, sorted_cds_intervals_dictionary=next_dict
+                     ))
+                    for coord_i, coord_j in coords_pairs
+                ])
+        return tuples_to_insert

@@ -107,101 +107,129 @@ class SqliteHandler(object):
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Genes (
-                    GeneID VARCHAR(100) PRIMARY KEY,
-                    GeneChrom VARCHAR(100) NOT NULL,
-                    GeneStrand VARCHAR(1) NOT NULL,
-                    TranscriptCount INTEGER NOT NULL,
-                    GeneStart INTEGER NOT NULL,
-                    GeneEnd INTEGER NOT NULL,
-                    Duplication BINARY(1) DEFAULT 0
-                );
-                """
-            )
-            cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Matches (
-                    FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    GeneID  VARCHAR(100) NOT NULL,
-                    QueryExonStart INTEGER NOT NULL,
-                    QueryExonEnd INTEGER NOT NULL,
-                    QueryExonFrame VARCHAR NOT NULL,
-                    QueryFrame INTEGER NOT NULL,
-                    QueryStrand VARCHAR(1) NOT NULL,
-                    TargetFrame INTEGER NOT NULL,
-                    TargetStrand VARCHAR(1) NOT NULL,
-                    Score INTEGER NOT NULL,
-                    Bits INTEGER NOT NULL,
-                    Evalue REAL NOT NULL,
-                    AlignmentLength INTEGER NOT NULL,
-                    QueryStart INTEGER NOT NULL,
-                    QueryEnd INTEGER NOT NULL,
-                    TargetStart INTEGER NOT NULL,
-                    TargetEnd INTEGER NOT NULL,
-                    QueryAlnProtSeq VARCHAR NOT NULL,
-                    TargetAlnProtSeq VARCHAR NOT NULL,
-                    Match VARCHAR NOT NULL,
-                    QueryCountStopCodons INTEGER NOT NULL,
-                    TargetCountStopCodons INTEGER NOT NULL,
-                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
-                );
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Genes (
+                GeneID VARCHAR(100) PRIMARY KEY,
+                GeneChrom VARCHAR(100) NOT NULL,
+                GeneStrand VARCHAR(1) NOT NULL,
+                TranscriptCount INTEGER NOT NULL,
+                GeneStart INTEGER NOT NULL,
+                GeneEnd INTEGER NOT NULL,
+                Duplication BINARY(1) DEFAULT 0
+            );
             """
-            )
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Expansions (
-                    MatchID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    GeneID VARCHAR(100),
-                    Mode TEXT CHECK(Mode IN (
-                                            'FULL',
-                                            'PARTIAL_INSERTION',
-                                            'PARTIAL_EXCISION',
-                                            'CANDIDATE',
-                                            'INTER_BOUNDARY'
-                     )),
-                    EventStart INTEGER NOT NULL,
-                    EventEnd INTEGER NOT NULL,
-                    EventDegree INTEGER NOT NULL,
-                    ClusterID INTEGER,
-                    ExpansionID INTEGER NOT NULL,
-                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
-                    UNIQUE (
-                        GeneID,
-                        EventStart,
-                        EventEnd,
-                        ExpansionID
-                        )
-                        );
-                """
-            )
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS Expansions_transcript_interdependence (
-                    GeneID VARCHAR(100),
-                    ExpansionID INTEGER NOT NULL,
-                    NumberTranscripts INTEGER NOT NULL,
-                    NumberCodingEvents INTEGER NOT NULL,
-                    All_ INTEGER NOT NULL,
-                    Present INTEGER NOT NULL,
-                    Absent INTEGER NOT NULL,
-                    Neither INTEGER NOT NULL,
-                    Classification TEXT CHECK(Classification IN (
-                                            'OBLIGATE',
-                                            'EXCLUSIVE',
-                                            'FLEXIBLE',
-                                            'OPTIONAL_FLEXIBLE',
-                                            'OPTIONAL_EXCLUSIVE',
-                                            'OPTIONAL_OBLIGATE'
-                     )),
-                    ExclusiveEvents TEXT,
-                    FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
-                    PRIMARY KEY (ExpansionID, GeneID)
-                );
-                """
-            )
+                           )
+            cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Matches (
+                FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GeneID  VARCHAR(100) NOT NULL,
+                QueryExonStart INTEGER NOT NULL,
+                QueryExonEnd INTEGER NOT NULL,
+                QueryExonFrame VARCHAR NOT NULL,
+                QueryFrame INTEGER NOT NULL,
+                QueryStrand VARCHAR(1) NOT NULL,
+                TargetFrame INTEGER NOT NULL,
+                TargetStrand VARCHAR(1) NOT NULL,
+                Score INTEGER NOT NULL,
+                Bits INTEGER NOT NULL,
+                Evalue REAL NOT NULL,
+                AlignmentLength INTEGER NOT NULL,
+                QueryStart INTEGER NOT NULL,
+                QueryEnd INTEGER NOT NULL,
+                TargetStart INTEGER NOT NULL,
+                TargetEnd INTEGER NOT NULL,
+                QueryAlnProtSeq VARCHAR NOT NULL,
+                TargetAlnProtSeq VARCHAR NOT NULL,
+                Match VARCHAR NOT NULL,
+                QueryCountStopCodons INTEGER NOT NULL,
+                TargetCountStopCodons INTEGER NOT NULL,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
+            );"""
+                           )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Expansions (
+                GeneID VARCHAR(100),
+                Mode TEXT CHECK(Mode IN (
+                                        'FULL',
+                                        'PARTIAL_INSERTION',
+                                        'PARTIAL_EXCISION',
+                                        'CANDIDATE',
+                                        'INTER_BOUNDARY'
+                 )),
+                EventStart INTEGER NOT NULL,
+                EventEnd INTEGER NOT NULL,
+                EventDegree INTEGER NOT NULL,
+                ClusterID INTEGER,
+                ExpansionID INTEGER NOT NULL,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (
+                    GeneID,
+                    EventStart,
+                    EventEnd,
+                    ExpansionID
+                    )
+                    );"""
+                           )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Expansions_transcript_interdependence (
+                GeneID VARCHAR(100),
+                ExpansionID INTEGER NOT NULL,
+                NumberTranscripts INTEGER NOT NULL,
+                NumberCodingEvents INTEGER NOT NULL,
+                All_ INTEGER NOT NULL,
+                Present INTEGER NOT NULL,
+                Absent INTEGER NOT NULL,
+                Neither INTEGER NOT NULL,
+                Classification TEXT CHECK(Classification IN (
+                                        'OBLIGATE',
+                                        'EXCLUSIVE',
+                                        'FLEXIBLE',
+                                        'OPTIONAL_FLEXIBLE',
+                                        'OPTIONAL_EXCLUSIVE',
+                                        'OPTIONAL_OBLIGATE'
+                 )),
+                ExclusiveEvents TEXT,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (ExpansionID, GeneID)
+            );"""
+                           )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Expansions_full (
+                GeneID VARCHAR(100),
+                Mode TEXT CHECK(Mode IN ('FULL')),
+                EventStart INTEGER NOT NULL,
+                EventEnd INTEGER NOT NULL,
+                EventDegree INTEGER NOT NULL,
+                ExpansionID INTEGER NOT NULL,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (
+                    GeneID,
+                    EventStart,
+                    EventEnd,
+                    ExpansionID
+                    )
+            );"""
+                           )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Expansions_full_tandem (
+                GeneID VARCHAR(100),
+                ExpansionID INTEGER NOT NULL,
+                EventStart_i INTEGER NOT NULL,
+                EventEnd_i INTEGER NOT NULL,
+                EventStart_j INTEGER NOT NULL,
+                EventEnd_j INTEGER NOT NULL,
+                TandemPair BINARY(1) DEFAULT 0,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (
+                    GeneID,
+                    EventStart_i,
+                    EventEnd_i,
+                    EventStart_j,
+                    EventEnd_j
+                    )
+            );"""
+                           )
 
     def create_filtered_full_length_events_view(
         self,
@@ -351,30 +379,6 @@ class SqliteHandler(object):
                 column_name=column_name,
                 column_type=column_type,
             )
-
-    def create_full_expansions_table(
-            self,
-    ):
-        with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
-        ) as db:
-            cursor = db.cursor()
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Expansions_Full AS
-            WITH FullExpansionCounts AS (
-                SELECT GeneID, ExpansionID, COUNT(*) AS FullCount
-            FROM Expansions
-            WHERE Mode = 'FULL'
-            GROUP BY GeneID, ExpansionID
-            HAVING COUNT(*) > 1
-            )
-            SELECT
-                e.*
-            FROM Expansions e
-            JOIN FullExpansionCounts f ON e.GeneID=f.GeneID AND e.ExpansionID = f.ExpansionID
-            WHERE e.Mode='FULL'
-            ORDER BY e.GeneID, e.ExpansionID;
-            """)
 
     def insert_corrected_target_start_end(
             self,
@@ -564,22 +568,50 @@ class SqliteHandler(object):
     def insert_expansion_table(
             self,
             list_tuples: list,
+            list_tuples_full: list,
+            list_tuples_tandemness: list
     ) -> None:
-        insert_gene_table_param = """
-        INSERT INTO Expansions (
-            GeneID,
-            Mode,
-            EventStart,
-            EventEnd,
-            EventDegree,
-            ClusterID,
-            ExpansionID
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
         with sqlite3.connect(self.results_database_path, timeout=self.timeout_database) as db:
             cursor = db.cursor()
+            insert_gene_table_param = """
+            INSERT INTO Expansions (
+                GeneID,
+                Mode,
+                EventStart,
+                EventEnd,
+                EventDegree,
+                ClusterID,
+                ExpansionID
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
             cursor.executemany(insert_gene_table_param, list_tuples)
+            if list_tuples_full:
+                insert_gene_full_table_param = """
+                INSERT INTO Expansions_full (
+                    GeneID,
+                    Mode,
+                    EventStart,
+                    EventEnd,
+                    EventDegree,
+                    ExpansionID
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """
+                insert_gene_full_tandemness_table_param = """
+                INSERT INTO Expansions_full_tandem (
+                    GeneID,
+                    ExpansionID,
+                    EventStart_i,
+                    EventEnd_i,
+                    EventStart_j,
+                    EventEnd_j,
+                    TandemPair
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """
+                cursor.executemany(insert_gene_full_table_param, list_tuples_full)
+                cursor.executemany(insert_gene_full_tandemness_table_param, list_tuples_tandemness)
 
     def insert_expansions_interdependence_classification(
             self,
@@ -864,7 +896,7 @@ class SqliteHandler(object):
                 """
             SELECT
                 GeneID, ExpansionID, EventStart, EventEnd
-            FROM Expansions_Full
+            FROM Expansions_full
             ORDER BY
                 GeneID, ExpansionID;
             """
