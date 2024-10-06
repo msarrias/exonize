@@ -4,7 +4,6 @@ import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
 from pathlib import Path
-from collections import defaultdict
 
 
 gene_hierarchy_dictionary = {
@@ -682,7 +681,7 @@ def test_expansion_transcript_iterdependence_classification():
         cursor = db.cursor()
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 GeneID,
                 NumberTranscripts,
                 NumberCodingEvents,
@@ -692,7 +691,7 @@ def test_expansion_transcript_iterdependence_classification():
                 Neither,
                 Classification,
                 ExclusiveEvents
-            from Expansions_transcript_interdependence;
+            FROM Expansions_transcript_interdependence;
             """
         )
         records = cursor.fetchall()
