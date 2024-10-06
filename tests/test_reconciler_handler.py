@@ -37,6 +37,7 @@ counter_handler = ReconcilerHandler(
     blast_engine=blast_engine,
     targets_clustering_overlap_threshold=0.8,
     query_coverage_threshold=0.8,
+    cds_annot_feature='CDS',
 )
 
 
