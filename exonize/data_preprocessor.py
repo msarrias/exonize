@@ -377,8 +377,7 @@ class DataPreprocessor(object):
                 (annotation['coordinate'], annotation['frame'])
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation in mrna_annotation['structure']
-                if (annotation['type'] == self.cds_annot_feature
-                    and (annotation['coordinate'].upper - annotation['coordinate'].lower) >= self.min_exon_length)
+                if annotation['type'] == self.cds_annot_feature
             )
         )
 
