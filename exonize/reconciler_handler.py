@@ -844,8 +844,8 @@ class ReconcilerHandler(object):
             threshold=self.targets_clustering_overlap_threshold
         )
         gene_cds_set = set(
-            coord
-            for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
+            coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
+            if coord.upper - coord.lower >= self.blast_engine.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(
