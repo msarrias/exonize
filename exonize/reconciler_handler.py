@@ -588,19 +588,20 @@ class ReconcilerHandler(object):
             expansion_id_counter: int,
     ) -> list[tuple]:
         subgraph = gene_graph.subgraph(component).copy()
+        undirected_subgraph = nx.Graph(subgraph)
         nodes_to_drop = [node
-                         for node in subgraph.nodes
-                         if subgraph.nodes[node].get('type') != 'FULL']
+                         for node in undirected_subgraph.nodes
+                         if undirected_subgraph.nodes[node].get('type') != 'FULL']
         if nodes_to_drop:
-            subgraph.remove_nodes_from(nodes_to_drop)
-            if len(subgraph.nodes) > 1:
-                return [(gene_id,
-                         attrib.get('type'),
-                         node[0] + gene_start,
-                         node[1] + gene_start,
-                         subgraph.degree(node),
-                         expansion_id_counter)
-                        for node, attrib in subgraph.nodes(data=True)]
+            undirected_subgraph.remove_nodes_from(nodes_to_drop)
+        if len(undirected_subgraph.nodes) > 1:
+            return [(gene_id,
+                     attrib.get('type'),
+                     node[0] + gene_start,
+                     node[1] + gene_start,
+                     undirected_subgraph.degree(node),
+                     expansion_id_counter)
+                    for node, attrib in undirected_subgraph.nodes(data=True)]
         return []
 
     def get_reconciled_graph_and_expansion_events_tuples(
@@ -842,8 +843,16 @@ class ReconcilerHandler(object):
             target_coordinates_set=target_coordinates,
             threshold=self.targets_clustering_overlap_threshold
         )
-        gene_cds_set = set(coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id))
-        gene_cds_set = set(self.center_and_sort_cds_coordinates(cds_coordinates=gene_cds_set, gene_start=gene_start))
+        gene_cds_set = set(
+            coord
+            for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
+        )
+        gene_cds_set = set(
+            self.center_and_sort_cds_coordinates(
+                cds_coordinates=gene_cds_set,
+                gene_start=gene_start
+            )
+        )
         targets_reference_coordinates_dictionary = self.get_matches_reference_mode_dictionary(
             clusters_list=overlapping_targets,
             cds_candidates_set=set(cds_candidates_coordinates),
@@ -857,9 +866,11 @@ class ReconcilerHandler(object):
             coord_j: P.interval,
             sorted_cds_intervals_dictionary: dict
     ):
-        first_exon = [exon_number
-                      for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
-                      if coord_i in exon_coords_clust]
+        first_exon = [
+            exon_number
+            for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
+            if coord_i in exon_coords_clust
+        ]
         if len(first_exon) > 1:
             print('exon shows more than once')
         else:
@@ -876,6 +887,9 @@ class ReconcilerHandler(object):
         for record in records:
             gene_id, _, event_start, event_end, _, expansion_id = record
             expansions_dictionary[gene_id][expansion_id].append(P.open(event_start, event_end))
+        for gene, gene_dict in expansions_dictionary.items():
+            for exp_id, event_list in gene_dict.items():
+                gene_dict[exp_id] = sorted(event_list, key=lambda x: (x.lower, x.upper))
         return expansions_dictionary
 
     def get_gene_full_events_tandemness_tuples(
@@ -884,8 +898,10 @@ class ReconcilerHandler(object):
     ):
         tuples_to_insert = []
         for gene, full_expansions in expansions_dictionary.items():
-            list_cds = sorted(list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene))),
-                              key=lambda x: (x.lower, x.upper))
+            list_cds = sorted(
+                list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene))),
+                key=lambda x: (x.lower, x.upper)
+            )
             overlapping_cds = sorted([
                 sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
                 for cluster in self.data_container.get_overlapping_clusters([(i, 0) for i in list_cds], 0)],
@@ -894,12 +910,21 @@ class ReconcilerHandler(object):
                 exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
             }
             for expansion_id, events_list in full_expansions.items():
-                coords_pairs = [(coordinate, events_list[index + 1]) for index, coordinate in
-                                enumerate(events_list[:-1])]
+                coords_pairs = [
+                    (coordinate, events_list[index + 1])
+                    for index, coordinate in enumerate(events_list[:-1])
+                ]
                 tuples_to_insert.extend([
-                    (gene, expansion_id, coord_i.lower, coord_i.upper, coord_j.lower, coord_j.upper,
+                    (gene,
+                     expansion_id,
+                     coord_i.lower,
+                     coord_i.upper,
+                     coord_j.lower,
+                     coord_j.upper,
                      self.is_tandem_pair(
-                         coord_i=coord_i, coord_j=coord_j, sorted_cds_intervals_dictionary=next_dict
+                         coord_i=coord_i,
+                         coord_j=coord_j,
+                         sorted_cds_intervals_dictionary=next_dict
                      ))
                     for coord_i, coord_j in coords_pairs
                 ])
