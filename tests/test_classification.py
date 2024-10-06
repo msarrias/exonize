@@ -209,100 +209,6 @@ expansions = [
     ('gene_1', 'PARTIAL_INSERTION', 1210, 1360, 1, 6)
 ]
 
-matches = [
-    # FULL - FLEXIBLE
-    (1, 'gene_1', 'transcript_g1_1', 1, 200, 'cds1_g1_t1', 'FULL', 'cds9_g1_t1',
-     1200, 1400, 1200, 1400, 0, 0, 0, 1, 1e-05),
-    (2, 'gene_1', 'transcript_g1_2', 1, 200, 'cds1_g1_t2', 'FULL', 'cds7_g1_t2',
-     1200, 1400, 1200, 1400, 0, 0, 0, 1, 1e-05),
-    (3, 'gene_1', 'transcript_g1_3', 1, 200, 'cds1_g1_t3', 'DEACTIVATED', 'intron2_g1_t3',
-     501, 1519, 1200, 1400, 0, 1, 0, 0, 1e-05),
-    # FULL - FLEXIBLE - 1 RECIPROCAL
-    (4, 'gene_1', 'transcript_g1_1', 1200, 1400, 'cds9_g1_t1', 'FULL', 'cds1_g1_t1',
-     1, 200, 1, 200, 0, 0, 0, 1, 1e-05),
-    (5, 'gene_1', 'transcript_g1_2', 1200, 1400, 'cds7_g1_t2', 'FULL', 'cds1_g1_t2',
-     1, 200, 1, 200, 0, 0, 0, 1, 1e-05),
-    (6, 'gene_1', 'transcript_g1_3', 1200, 1400, '-', 'FULL', 'cds1_g1_t3',
-     1, 200, 1, 200, 0, 0, 1, 0, 1e-05),
-    # FULL - OBLIGATE
-    (7, 'gene_1', 'transcript_g1_1', 400, 500, 'cds3_g1_t1', 'FULL', 'cds11_g1_t1',
-     2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
-    (8,  'gene_1', 'transcript_g1_2', 400, 500, 'cds3_g1_t2', 'FULL', 'cds11_g1_t2',
-     2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
-    (9,  'gene_1', 'transcript_g1_3', 400, 500, 'cds2_g1_t3', 'FULL', 'cds5_g1_t3',
-     2300, 2400, 2300, 2400, 0, 0, 0, 1, 1e-05),
-    # FULL - OBLIGATE - 3 RECIPROCAL
-    (10, 'gene_1', 'transcript_g1_1', 2300, 2400, 'cds11_g1_t1', 'FULL', 'cds3_g1_t1',
-     400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
-    (11, 'gene_1', 'transcript_g1_2', 2300, 2400, 'cds11_g1_t2', 'FULL', 'cds3_g1_t2',
-     400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
-    (12, 'gene_1', 'transcript_g1_3', 2300, 2400, 'cds5_g1_t3', 'FULL', 'cds2_g1_t3',
-     400, 500, 400, 500, 0, 0, 0, 1, 1e-05),
-    # FULL - EXCLUSIVE
-    (13, 'gene_1', 'transcript_g1_1', 840, 900, 'cds6_g1_t1', 'OUT_OF_MRNA', '-', None, None,
-     2540, 2600, 0, 1, 0, 0, 1e-05),
-    (14, 'gene_1', 'transcript_g1_2', 840, 900, 'cds5_g1_t2', 'DEACTIVATED', 'intron10_g1_t2',
-     2401, 2799, 2540, 2600, 0, 1, 0, 0, 1e-05),
-    (15, 'gene_1', 'transcript_g1_3', 840, 900, '-', 'FULL', 'cds6_g1_t3',
-     2540, 2600, 2540, 2600, 0, 0, 1, 0, 1e-05),
-    # FULL - EXCLUSIVE - 5 RECIPROCAL
-    (16, 'gene_1', 'transcript_g1_1', 2540, 2600, '-', 'FULL', 'cds6_g1_t1',
-     840, 900, 840, 900, 0, 0, 1, 0, 1e-05),
-    (17, 'gene_1', 'transcript_g1_2', 2540, 2600, '-', 'FULL', 'cds5_g1_t2',
-     840, 900, 840, 900, 0, 0, 1, 0, 1e-05),
-    (18, 'gene_1', 'transcript_g1_3', 2540, 2600, 'cds6_g1_t3', 'DEACTIVATED', 'intron2_g1_t3',
-     501, 1519, 840, 900, 0, 1, 0, 0, 1e-05),
-    # FULL - OPTIONAL - OBLIGATE
-    (19, 'gene_1', 'transcript_g1_1', 550, 600, 'cds4_g1_t1', 'FULL', 'cds7_g1_t1',
-     950, 1000, 950, 1000, 0, 0, 0, 1, 1e-05),
-    (20, 'gene_1', 'transcript_g1_2', 550, 600, 'cds4_g1_t2', 'FULL', 'cds6_g1_t2',
-     950, 1000, 950, 1000, 0, 0, 0, 1, 1e-05),
-    (21, 'gene_1', 'transcript_g1_3', 550, 600, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 950, 1000, 1, 0, 0, 0, 1e-05),
-    # FULL - OPTIONAL - OBLIGATE - 7 RECIPROCAL
-    (22, 'gene_1', 'transcript_g1_1', 950, 1000, 'cds7_g1_t1', 'FULL', 'cds4_g1_t1',
-     550, 600, 550, 600, 0, 0, 0, 1, 1e-05),
-    (23, 'gene_1', 'transcript_g1_2', 950, 1000, 'cds6_g1_t2', 'FULL', 'cds4_g1_t2',
-     550, 600, 550, 600, 0, 0, 0, 1, 1e-05),
-    (24, 'gene_1', 'transcript_g1_3', 950, 1000, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 550, 600, 1, 0, 0, 0, 1e-05),
-    # FULL - OPTIONAL - FLEXIBLE
-    (25, 'gene_1', 'transcript_g1_1', 250, 350, 'cds2_g1_t1', 'FULL', 'cds5_g1_t1',
-     680, 780, 680, 780, 0, 0, 0, 1, 1e-05),
-    (26, 'gene_1', 'transcript_g1_2', 250, 350, 'cds2_g1_t2', 'DEACTIVATED', 'intron3_g1_t2',
-     601, 839, 680, 780, 0, 1, 0, 0, 1e-05),
-    (27, 'gene_1', 'transcript_g1_3', 250, 350, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 680, 780, 1, 0, 0, 0, 1e-05),
-    # FULL - OPTIONAL - FLEXIBLE  - 9 RECIPROCAL
-    (28, 'gene_1', 'transcript_g1_1', 680, 780, 'cds5_g1_t1', 'FULL', 'cds2_g1_t1',
-     250, 350, 250, 350, 0, 0, 0, 1, 1e-05),
-    (29, 'gene_1', 'transcript_g1_2', 680, 780, '-', 'FULL', 'cds2_g1_t2',
-     250, 350, 250, 350, 0, 0, 1, 0, 1e-05),
-    (30, 'gene_1', 'transcript_g1_3', 680, 780, '-', 'NEITHER', 'intron1_g1_t3',
-     201, 399, 250, 350, 1, 0, 0, 0, 1e-05),
-    # FULL - OPTIONAL - EXCLUSIVE
-    (31, 'gene_1', 'transcript_g1_1', 1080, 1120, 'cds8_g1_t1', 'DEACTIVATED', 'intron9_g1_t1',
-     1401, 1749, 1420, 1460, 0, 1, 0, 0, 1e-05),
-    (32, 'gene_1', 'transcript_g1_2', 1080, 1120, '-', 'FULL', 'cds8_g1_t2',
-     1420, 1460, 1420, 1460, 0, 0, 1, 0, 1e-05),
-    (33, 'gene_1', 'transcript_g1_3', 1080, 1120, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 1420, 1460, 1, 0, 0, 0, 1e-05),
-    # FULL - OPTIONAL - EXCLUSIVE - 11 RECIPROCAL
-    (34, 'gene_1', 'transcript_g1_1', 1420, 1460, '-', 'FULL', 'cds8_g1_t1',
-     1080, 1120, 1080, 1120, 0, 0, 1, 0, 1e-05),
-    (35, 'gene_1', 'transcript_g1_2', 1420, 1460, 'cds8_g1_t2', 'DEACTIVATED', 'intron5_g1_t2',
-     1001, 1199, 1080, 1120, 0, 1, 0, 0, 1e-05),
-    (36, 'gene_1', 'transcript_g1_3', 1420, 1460, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 1080, 1120, 1, 0, 0, 0, 1e-05),
-    # PARTIAL_INSERTION - OPTIONAL
-    (37, 'gene_1', 'transcript_g1_1', 1750, 1900, 'cds10_g1_t1', 'INS_CDS', 'cds9_g1_t1',
-     1200, 1400, 1210, 1360, 0, 0, 0, 1, 1e-05),
-    (38, 'gene_1', 'transcript_g1_2', 1750, 1900, 'cds10_g1_t2', 'INS_CDS', 'cds7_g1_t2',
-     1200, 1400, 1210, 1360, 0, 0, 1, 0, 1e-05),
-    (39, 'gene_1', 'transcript_g1_3', 1750, 1900, '-', 'NEITHER', 'intron2_g1_t3',
-     501, 1519, 1210, 1360, 1, 0, 0, 0, 1e-05)
-]
-
 non_reciprocal_matches_count = [
     # gene_1
     (1, 200, 1200, 1400, 'FLEXIBLE'),
@@ -429,133 +335,223 @@ def test_matches_interdependence_counts():
         assert records == expected_records
 
 
-gene_hierarchy_dictionary_expansions_test = {'gene1': {
-    'mRNAs': {
-        'tran1': {
-            'structure': [
-                {'coordinate': P.open(0, 100), 'type': 'CDS'},
-                {'coordinate': P.open(150, 250), 'type': 'CDS'},
-                {'coordinate': P.open(300, 500), 'type': 'CDS'},
-                {'coordinate': P.open(600, 700), 'type': 'CDS'},
-                {'coordinate': P.open(900, 1000), 'type': 'CDS'},
-                {'coordinate': P.open(1100, 1300), 'type': 'CDS'},
-            ]
-        },
-        'tran2': {
-            'structure': [
-                {'coordinate': P.open(0, 100), 'type': 'CDS'},
-                {'coordinate': P.open(150, 250), 'type': 'CDS'},
-                {'coordinate': P.open(600, 700), 'type': 'CDS'},
-                {'coordinate': P.open(900, 1000), 'type': 'CDS'},
-                {'coordinate': P.open(1100, 1300), 'type': 'CDS'},
-            ]
-        },
-        'tran3': {
-            'structure': [
-                {'coordinate': P.open(0, 100), 'type': 'CDS'},
-                {'coordinate': P.open(600, 700), 'type': 'CDS'},
-                {'coordinate': P.open(900, 1000), 'type': 'CDS'},
-                {'coordinate': P.open(1100, 1300), 'type': 'CDS'},
-                {'coordinate': P.open(1400, 1500), 'type': 'CDS'},
-            ]
-        }
-    }
-},
-    'gene2': {
+gene_hierarchy_dictionary_expansions_test = {
+    'gene1': {
+        'coordinate': P.open(0, 1500),
         'mRNAs': {
             'tran1': {
                 'structure': [
-                    {'coordinate': P.open(0, 100), 'type': 'CDS'},
-                    {'coordinate': P.open(150, 250), 'type': 'CDS'},
-                    {'coordinate': P.open(300, 500), 'type': 'CDS'},
-                    {'coordinate': P.open(1650, 1750), 'type': 'CDS'},
-                    {'coordinate': P.open(2100, 2200), 'type': 'CDS'},
-                    {'coordinate': P.open(2400, 2500), 'type': 'CDS'},
-                    {'coordinate': P.open(2900, 3000), 'type': 'CDS'},
-                    {'coordinate': P.open(3100, 3200), 'type': 'CDS'},
-                    {'coordinate': P.open(3400, 3500), 'type': 'CDS'},
-                    {'coordinate': P.open(4000, 4100), 'type': 'CDS'},
-                    {'coordinate': P.open(4200, 4300), 'type': 'CDS'},
+                    {'coordinate': P.open(0, 100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(150, 250), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(300, 500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(600, 700), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(900, 1000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1100, 1300), 'type': 'CDS', 'frame': 0},
+                ]
+            },
+            'tran2': {
+                'structure': [
+                    {'coordinate': P.open(0, 100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(150, 250), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(600, 700), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(900, 1000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1100, 1300), 'type': 'CDS', 'frame': 0},
+                ]
+            },
+            'tran3': {
+                'structure': [
+                    {'coordinate': P.open(0, 100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(600, 700), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(900, 1000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1100, 1300), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1400, 1500), 'type': 'CDS', 'frame': 0},
+                ]
+            }
+        }
+    },
+    'gene2': {
+        'coordinate': P.open(0, 4600),
+        'mRNAs': {
+            'tran1': {
+                'structure': [
+                    {'coordinate': P.open(0, 100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(150, 250), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(300, 500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1650, 1750), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(2100, 2200), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(2400, 2500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(2900, 3000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(3100, 3200), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(3400, 3500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4000, 4100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4200, 4300), 'type': 'CDS', 'frame': 0},
 
                 ]
             },
             'tran2': {
                 'structure': [
-                    {'coordinate': P.open(0, 100), 'type': 'CDS'},
-                    {'coordinate': P.open(150, 250), 'type': 'CDS'},
-                    {'coordinate': P.open(2900, 3000), 'type': 'CDS'},
-                    {'coordinate': P.open(3100, 3200), 'type': 'CDS'},
-                    {'coordinate': P.open(3400, 3500), 'type': 'CDS'},
-                    {'coordinate': P.open(4000, 4100), 'type': 'CDS'},
-                    {'coordinate': P.open(4500, 4600), 'type': 'CDS'},
+                    {'coordinate': P.open(0, 100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(150, 250), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(2900, 3000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(3100, 3200), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(3400, 3500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4000, 4100), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4500, 4600), 'type': 'CDS', 'frame': 0},
 
                 ]
             },
             'tran3': {
                 'structure': [
-                    {'coordinate': P.open(600, 700), 'type': 'CDS'},
-                    {'coordinate': P.open(900, 1000), 'type': 'CDS'},
-                    {'coordinate': P.open(1200, 1300), 'type': 'CDS'},
-                    {'coordinate': P.open(1400, 1500), 'type': 'CDS'},
-                    {'coordinate': P.open(1650, 1750), 'type': 'CDS'},
-                    {'coordinate': P.open(2700, 2800), 'type': 'CDS'},
-                    {'coordinate': P.open(4200, 4300), 'type': 'CDS'},
-                    {'coordinate': P.open(4500, 4600), 'type': 'CDS'},
+                    {'coordinate': P.open(600, 700), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(900, 1000), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1200, 1300), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1400, 1500), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(1650, 1750), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(2700, 2800), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4200, 4300), 'type': 'CDS', 'frame': 0},
+                    {'coordinate': P.open(4500, 4600), 'type': 'CDS', 'frame': 0},
                 ]
             }
         }
     }}
 
+mock_gene1 = ['gene1', 'Y', '+',
+              len(gene_hierarchy_dictionary_expansions_test['gene1']['mRNAs']),
+              0, 1500]
+fragments_gene1 = [
+    ('gene1', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 300, 400, '-', '-', '-', 0, 0),
+    ('gene1', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 700, 800, '-', '-', '-', 0, 0),
+    ('gene1', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 150, 250, '-', '-', '-', 0, 0),
+    ('gene1', 150, 250, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 0, 100, '-', '-', '-', 0, 0),
+    ('gene1', 150, 250, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 300, 400, '-', '-', '-', 0, 0),
+    ('gene1', 150, 250, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 700, 800, '-', '-', '-', 0, 0),
+    ('gene1', 300, 500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 0, 200, 1000, 1200, '-', '-', '-', 0, 0),
+    ('gene1', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 900, 1000, '-', '-', '-', 0, 0),
+    ('gene1', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1100, 1200, '-', '-', '-', 0, 0),
+    ('gene1', 900, 1000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 600, 700, '-', '-', '-', 0, 0),
+    ('gene1', 900, 1000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1100, 1200, '-', '-', '-', 0, 0),
+]
+mock_gene2 = ['gene2', 'X', '+',
+              len(gene_hierarchy_dictionary_expansions_test['gene2']['mRNAs']),
+              0, 4600]
+fragments_gene2 = [
+    ('gene2', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 150, 250, '-', '-', '-', 0, 0),
+    ('gene2', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 600, 700, '-', '-', '-', 0, 0),
+    ('gene2', 150, 250, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 0, 100, '-', '-', '-', 0, 0),
+    ('gene2', 150, 250, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 600, 700, '-', '-', '-', 0, 0),
+    ('gene2', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 150, 250, '-', '-', '-', 0, 0),
+    ('gene2', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 0, 100, '-', '-', '-', 0, 0),
+    ('gene2', 4000, 4100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4200, 4300, '-', '-', '-', 0, 0),
+    ('gene2', 4000, 4100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4500, 4600, '-', '-', '-', 0, 0),
+    ('gene2', 4200, 4300, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4000, 4100, '-', '-', '-', 0, 0),
+    ('gene2', 4200, 4300, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4500, 4600, '-', '-', '-', 0, 0),
+    ('gene2', 4500, 4600, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4200, 4300, '-', '-', '-', 0, 0),
+    ('gene2', 4500, 4600, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 4000, 4100, '-', '-', '-', 0, 0),
+    ('gene2', 1200, 1300, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1400, 1500, '-', '-', '-', 0, 0),
+    ('gene2', 1200, 1300, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1650, 1750, '-', '-', '-', 0, 0),
+    ('gene2', 1400, 1500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1200, 1300, '-', '-', '-', 0, 0),
+    ('gene2', 1400, 1500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1650, 1750, '-', '-', '-', 0, 0),
+    ('gene2', 1650, 1750, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1200, 1300, '-', '-', '-', 0, 0),
+    ('gene2', 1650, 1750, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1400, 1500, '-', '-', '-', 0, 0),
+    ('gene2', 2100, 2200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 2400, 2500, '-', '-', '-', 0, 0),
+    ('gene2', 2100, 2200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 2700, 2800, '-', '-', '-', 0, 0),
+    ('gene2', 2900, 3000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 3100, 3200, '-', '-', '-', 0, 0),
+    ('gene2', 2900, 3000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 3400, 3500, '-', '-', '-', 0, 0),
+    ('gene2', 3400, 3500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 2900, 3000, '-', '-', '-', 0, 0)
+]
+
 test_events = [
     # FLEXIBLE
-    (1, 'gene1', "FULL", 0, 100, 2, None, 0),
-    (2, 'gene1', "PARTIAL_INSERTION", 300, 400, 1, None, 0),
-    (3, 'gene1', "CANDIDATE", 700, 800, 1, None, 0),
+    ('gene1', "FULL", 0, 100, 2, None, 0),
+    ('gene1', "PARTIAL_INSERTION", 300, 400, 1, None, 0),
+    ('gene1', "CANDIDATE", 700, 800, 1, None, 0),
 
     # FLEXIBLE
-    (4, 'gene1', "FULL", 0, 100, 3, None, 1),
-    (5, 'gene1', "FULL", 150, 250, 3, None, 1),
-    (6, 'gene1', "PARTIAL_INSERTION", 300, 400, 2, None, 1),
-    (7, 'gene1', "CANDIDATE", 700, 800, 2, None, 1),
+    ('gene1', "FULL", 0, 100, 3, None, 1),
+    ('gene1', "FULL", 150, 250, 3, None, 1),
+    ('gene1', "PARTIAL_INSERTION", 300, 400, 2, None, 1),
+    ('gene1', "CANDIDATE", 700, 800, 2, None, 1),
 
     # OBLIGATE
-    (8, 'gene1', "FULL", 600, 700, 2, None, 2),
-    (9, 'gene1', "FULL", 900, 1000, 2, None, 2),
-    (10, 'gene1', "PARTIAL_INSERTION", 1100, 1200, 2, None, 2),
+    ('gene1', "FULL", 600, 700, 2, None, 2),
+    ('gene1', "FULL", 900, 1000, 2, None, 2),
+    ('gene1', "PARTIAL_INSERTION", 1100, 1200, 2, None, 2),
 
     # EXCLUSIVE
-    (11, 'gene2', "FULL", 0, 100, 2, None, 0),
-    (12, 'gene2', "FULL", 150, 250, 2, None, 0),
-    (13, 'gene2', "FULL", 600, 700, 2, None, 0),
+    ('gene2', "FULL", 0, 100, 2, None, 0),
+    ('gene2', "FULL", 150, 250, 2, None, 0),
+    ('gene2', "FULL", 600, 700, 2, None, 0),
 
     # EXCLUSIVE
-    (14, 'gene2', "FULL", 4000, 4100, 2, None, 1),
-    (15, 'gene2', "FULL", 4200, 4300, 2, None, 1),
-    (16, 'gene2', "FULL", 4500, 4600, 2, None, 1),
+    ('gene2', "FULL", 4000, 4100, 2, None, 1),
+    ('gene2', "FULL", 4200, 4300, 2, None, 1),
+    ('gene2', "FULL", 4500, 4600, 2, None, 1),
 
     # OPTIONAL - FLEXIBLE
-    (17, 'gene2', "FULL", 1200, 1300, 2, None, 2),
-    (18, 'gene2', "FULL", 1400, 1500, 2, None, 2),
-    (19, 'gene2', "FULL", 1650, 1750, 2, None, 2),
+    ('gene2', "FULL", 1200, 1300, 2, None, 2),
+    ('gene2', "FULL", 1400, 1500, 2, None, 2),
+    ('gene2', "FULL", 1650, 1750, 2, None, 2),
 
     # OPTIONAL - EXCLUSIVE
-    (20, 'gene2', "FULL", 2100, 2200, 2, None, 3),
-    (21, 'gene2', "FULL", 2400, 2500, 2, None, 3),
-    (22, 'gene2', "FULL", 2700, 2800, 2, None, 3),
+    ('gene2', "FULL", 2100, 2200, 2, None, 3),
+    ('gene2', "FULL", 2400, 2500, 2, None, 3),
+    ('gene2', "FULL", 2700, 2800, 2, None, 3),
 
     # OPTIONAL - OBLIGATE
-    (23, 'gene2', "FULL", 2900, 3000, 2, None, 4),
-    (24, 'gene2', "FULL", 3100, 3200, 2, None, 4),
-    (25, 'gene2', "FULL", 3400, 3500, 2, None, 4),
+    ('gene2', "FULL", 2900, 3000, 2, None, 4),
+    ('gene2', "FULL", 3100, 3200, 2, None, 4),
+    ('gene2', "FULL", 3400, 3500, 2, None, 4),
 
     # NON-CODING
-    (26, 'gene1', "FULL", 300, 500, 1, None, 3),
-    (27, 'gene1', "CANDIDATE", 1000, 1200, 1, None, 3),
+    ('gene1', "FULL", 300, 500, 1, None, 3),
+    ('gene1', "CANDIDATE", 1000, 1200, 1, None, 3),
+]
 
+exp_full_events = [
+    ('gene2', "FULL", 0, 100, 2),
+    ('gene2', "FULL", 150, 250, 2),
+    ('gene2', "FULL", 600, 700, 2),
+
+    ('gene2', "FULL", 4000, 4100, 2),
+    ('gene2', "FULL", 4200, 4300, 2),
+    ('gene2', "FULL", 4500, 4600, 2),
+
+    ('gene2', "FULL", 1200, 1300, 2),
+    ('gene2', "FULL", 1400, 1500, 2),
+    ('gene2', "FULL", 1650, 1750, 2),
+
+    ('gene2', "FULL", 2100, 2200, 2),
+    ('gene2', "FULL", 2400, 2500, 1),
+    ('gene2', "FULL", 2700, 2800, 1),
+
+    ('gene2', "FULL", 2900, 3000, 2),
+    ('gene2', "FULL", 3100, 3200, 1),
+    ('gene2', "FULL", 3400, 3500, 1),
+
+    ('gene1', "FULL", 0, 100, 1),
+    ('gene1', "FULL", 150, 250, 1),
+
+    ('gene1', "FULL", 600, 700, 1),
+    ('gene1', "FULL", 900, 1000, 1),
+]
+
+exp_full_events_tandemness = [
+    ('gene2', 0, 100, 150, 250, 1),
+    ('gene2', 150, 250, 600, 700, 0),
+    ('gene2', 4000, 4100, 4200, 4300, 1),
+    ('gene2', 4200, 4300, 4500, 4600, 1),
+    ('gene2',  1200, 1300, 1400, 1500, 1),
+    ('gene2', 1400, 1500, 1650, 1750, 1),
+    ('gene2', 2100, 2200, 2400, 2500, 1),
+    ('gene2', 2400, 2500, 2700, 2800, 1),
+    ('gene2',  2900, 3000, 3100, 3200, 1),
+    ('gene2', 3100, 3200, 3400, 3500, 1),
+    ('gene1', 0, 100, 150, 250, 1),
+    ('gene1', 600, 700, 900, 1000, 1)
 ]
 
 expected_expansions_classification = [
-    ('gene1', 1, 3, 2, 4, 1, 1, 0, 'FLEXIBLE', ''), # n x (k + 1) = 3 x (1 + 1) = 6
+    ('gene1', 1, 3, 2, 4, 1, 1, 0, 'FLEXIBLE', ''),  # n x (k + 1) = 3 x (1 + 1) = 6
     ('gene1', 2, 3, 2, 6, 0, 0, 0, 'OBLIGATE', ''),
     ('gene2', 0, 3, 3, 0, 5, 4, 0, 'EXCLUSIVE',
      '_'.join([str(i) for i in
@@ -563,12 +559,16 @@ expected_expansions_classification = [
                ])),
     ('gene2', 1, 3, 3, 0, 6, 3, 0, 'EXCLUSIVE',
      '_'.join([str(i) for i in
-               (P.open(4500, 4600), P.open(4200, 4300), P.open(4000, 4100))
+               (P.open(4500, 4600),
+                P.open(4200, 4300),
+                P.open(4000, 4100))
                ])),
     ('gene2', 2, 3, 3, 3, 1, 2, 3, 'OPTIONAL_FLEXIBLE', ''),
     ('gene2', 3, 3, 3, 0, 3, 3, 3, 'OPTIONAL_EXCLUSIVE',
      '_'.join([str(i) for i
-               in (P.open(2700, 2800), (P.open(2100, 2200), P.open(2400, 2500)))
+               in (P.open(2700, 2800),
+                   (P.open(2100, 2200),
+                    P.open(2400, 2500)))
                ])),
     ('gene2', 4, 3, 3, 6, 0, 0, 3, 'OPTIONAL_OBLIGATE', ''),
 ]
@@ -576,6 +576,9 @@ expected_expansions_classification = [
 
 
 def test_expansion_transcript_iterdependence_classification():
+    results_db_path = Path("mock_results2.db")
+    if results_db_path.exists():
+        os.remove("mock_results2.db")
     results_db_path = Path("mock_results2.db")
     if results_db_path.exists():
         os.remove("mock_results2.db")
@@ -606,39 +609,111 @@ def test_expansion_transcript_iterdependence_classification():
     shutil.rmtree("mock_specie2_exonize", ignore_errors=True)
     exonize_obj.database_interface.results_database_path = results_db_path
     exonize_obj.database_interface.connect_create_results_database()
-    exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
-    exonize_obj.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary_expansions_test
-    with sqlite3.connect(results_db_path) as db:
-        cursor = db.cursor()
-        cursor.executemany("""
-        INSERT INTO Expansions(
-            MatchID,
-            GeneID,
-            Mode,
-            EventStart,
-            EventEnd,
-            EventDegree,
-            ClusterID,
-            ExpansionID
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ? ,?)
-        """, test_events)
+    exonize_obj.database_interface.insert_matches(
+        gene_args_tuple=mock_gene1,
+        fragments_tuples_list=fragments_gene1
+    )
+    exonize_obj.database_interface.insert_matches(
+        gene_args_tuple=mock_gene2,
+        fragments_tuples_list=fragments_gene2
+    )
+    exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary_expansions_test
+    matches_list2 = exonize_obj.database_interface.query_raw_matches()
+    exonize_obj.database_interface.insert_identity_and_dna_algns_columns(
+        list_tuples=[(1, 1, '', '', i[0]) for i in matches_list2]
+    )
+    exonize_obj.database_interface.insert_percent_query_column_to_fragments()
 
-    exonize_obj.database_interface.create_full_expansions_table()
-    expansions_dictionary = exonize_obj.database_interface.query_coding_expansion_events(
+    exonize_obj.database_interface.create_filtered_full_length_events_view(
+        query_overlap_threshold=exonize_obj.query_coverage_threshold,
+        evalue_threshold=exonize_obj.evalue_threshold
     )
-    expansion_interdependence_tuples = exonize_obj.event_classifier.classify_expansion_interdependence(
-        expansions_dictionary=expansions_dictionary
+    exonize_obj.database_interface.create_non_reciprocal_fragments_table()
+    # group full matches by gene id
+    tblastx_full_matches_list = exonize_obj.database_interface.query_full_length_events()
+    exonize_obj.full_matches_dictionary = exonize_obj.event_reconciler.get_gene_events_dictionary(
+        tblastx_full_matches_list=tblastx_full_matches_list
     )
-    exonize_obj.database_interface.insert_expansions_interdependence_classification(
-        list_tuples=expansion_interdependence_tuples
-    )
+    genes_list = list(exonize_obj.full_matches_dictionary.keys())
+    for gene_id in genes_list:
+        tblastx_records_set = exonize_obj.full_matches_dictionary[gene_id]
+        cds_candidates_dictionary = exonize_obj.blast_engine.get_candidate_cds_coordinates(
+            gene_id=gene_id
+        )
+        (query_coordinates,
+         targets_reference_coordinates_dictionary
+         ) = exonize_obj.event_reconciler.align_target_coordinates(
+            gene_id=gene_id,
+            tblastx_records_set=tblastx_records_set,
+            cds_candidates_dictionary=cds_candidates_dictionary
+        )
+        gene_graph = exonize_obj.event_reconciler.create_events_multigraph(
+            tblastx_records_set=tblastx_records_set,
+            query_coordinates_set=query_coordinates,
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+        )
+        (gene_events_list,
+         non_reciprocal_fragment_ids_list,
+         full_events_list
+         ) = exonize_obj.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+            gene_id=gene_id,
+            gene_graph=gene_graph
+        )
+        if full_events_list:
+            expansions_dictionary = exonize_obj.event_reconciler.build_expansion_dictionary(
+                records=full_events_list
+            )
+            tuples_to_insert = exonize_obj.event_reconciler.get_gene_full_events_tandemness_tuples(
+                expansions_dictionary
+            )
+            exonize_obj.database_interface.insert_expansion_table(
+                list_tuples=gene_events_list,
+                list_tuples_full=full_events_list,
+                list_tuples_tandemness=tuples_to_insert,
+
+            )
+        exonize_obj.database_interface.insert_in_non_reciprocal_fragments_table(
+            fragment_ids_list=non_reciprocal_fragment_ids_list
+        )
+
+    exonize_obj.transcript_interdependence_classification()
     with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
             """
-            select * from Expansions_transcript_interdependence;
+            SELECT 
+                GeneID,
+                NumberTranscripts,
+                NumberCodingEvents,
+                All_,
+                Present,
+                Absent,
+                Neither,
+                Classification,
+                ExclusiveEvents
+            from Expansions_transcript_interdependence;
             """
         )
         records = cursor.fetchall()
-        assert records == expected_expansions_classification
+        assert set(records) == set([(i[0], *i[2:]) for i in expected_expansions_classification])
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            select GeneID, Mode, EventStart, EventEnd, EventDegree
+            from Expansions_full;
+            """
+        )
+        records = cursor.fetchall()
+        assert set(records) == set(exp_full_events)
+    with sqlite3.connect(results_db_path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            select GeneID, EventStart_i, EventEnd_i, EventStart_j, EventEnd_j, TandemPair
+            from Expansions_full_tandem;
+            """
+        )
+        records = cursor.fetchall()
+        assert set(records) == set(exp_full_events_tandemness)
