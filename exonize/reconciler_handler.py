@@ -875,7 +875,9 @@ class ReconcilerHandler(object):
             print('exon shows more than once')
         else:
             exon_number = first_exon.pop()
-            if coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
+            if coord_j in sorted_cds_intervals_dictionary[exon_number]:
+                return 2
+            elif coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
                 return 1
             return 0
 
