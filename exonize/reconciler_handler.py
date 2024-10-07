@@ -594,15 +594,14 @@ class ReconcilerHandler(object):
                          if undirected_subgraph.nodes[node].get('type') != 'FULL']
         if nodes_to_drop:
             undirected_subgraph.remove_nodes_from(nodes_to_drop)
-        if len(undirected_subgraph.nodes) > 1:
-            return [(gene_id,
-                     attrib.get('type'),
-                     node[0] + gene_start,
-                     node[1] + gene_start,
-                     undirected_subgraph.degree(node),
-                     expansion_id_counter)
-                    for node, attrib in undirected_subgraph.nodes(data=True)]
-        return []
+        return [(gene_id,
+                 attrib.get('type'),
+                 node[0] + gene_start,
+                 node[1] + gene_start,
+                 undirected_subgraph.degree(node),
+                 expansion_id_counter)
+                for node, attrib in undirected_subgraph.nodes(data=True)
+                if undirected_subgraph.degree(node) > 0]
 
     def get_reconciled_graph_and_expansion_events_tuples(
             self,
