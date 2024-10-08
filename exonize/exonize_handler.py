@@ -381,6 +381,7 @@ Exonize results database:   {self.results_database_path.name}
                 gene_id=gene_id,
                 gene_graph=gene_graph
             )
+            tandemness_tuples = []
             if full_events_list:
                 expansions_dictionary = self.event_reconciler.build_expansion_dictionary(
                     records=full_events_list
@@ -388,21 +389,21 @@ Exonize results database:   {self.results_database_path.name}
                 tandemness_tuples = self.event_reconciler.get_gene_full_events_tandemness_tuples(
                     expansions_dictionary
                 )
-                attempt = False
-                while not attempt:
-                    try:
-                        self.database_interface.insert_expansion_table(
-                            list_tuples=gene_events_list,
-                            list_tuples_full=full_events_list,
-                            list_tuples_tandemness=tandemness_tuples,
-                        )
-                        attempt = True
-                    except Exception as e:
-                        if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                        else:
-                            self.environment.logger.exception(e)
-                            sys.exit()
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_expansion_table(
+                        list_tuples=gene_events_list,
+                        list_tuples_full=full_events_list,
+                        list_tuples_tandemness=tandemness_tuples,
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
             attempt = False
             while not attempt:
                 try:
