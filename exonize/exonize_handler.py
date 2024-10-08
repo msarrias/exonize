@@ -407,7 +407,8 @@ Exonize results database:   {self.results_database_path.name}
             while not attempt:
                 try:
                     self.database_interface.insert_in_non_reciprocal_fragments_table(
-                        fragment_ids_list=non_reciprocal_fragment_ids_list
+                        fragment_ids_list=non_reciprocal_fragment_ids_list,
+                        gene_id=gene_id
                     )
                     attempt = True
                 except Exception as e:

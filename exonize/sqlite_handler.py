@@ -672,7 +672,8 @@ class SqliteHandler(object):
 
     def insert_in_non_reciprocal_fragments_table(
             self,
-            fragment_ids_list: list
+            fragment_ids_list: list,
+            gene_id: str
     ) -> None:
         fragments_mode_dict = {id_: mode for mode, id_ in fragment_ids_list}
         with sqlite3.connect(
@@ -712,7 +713,7 @@ class SqliteHandler(object):
                 COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
                 COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
             FROM Matches_full_length
-            WHERE FragmentID IN ({placeholders});
+            WHERE FragmentID IN ({placeholders}) AND GeneID='{gene_id}';
             """
             cursor.execute(query, list(fragments_mode_dict.keys()))
             results = cursor.fetchall()
