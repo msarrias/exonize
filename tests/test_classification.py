@@ -673,7 +673,8 @@ def test_expansion_transcript_iterdependence_classification():
 
             )
         exonize_obj.database_interface.insert_in_non_reciprocal_fragments_table(
-            fragment_ids_list=non_reciprocal_fragment_ids_list
+            fragment_ids_list=non_reciprocal_fragment_ids_list,
+            gene_id=gene_id
         )
 
     exonize_obj.transcript_interdependence_classification()
