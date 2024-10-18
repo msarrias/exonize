@@ -871,11 +871,11 @@ class ReconcilerHandler(object):
             if coord_i in exon_coords_clust
         ]
         if len(first_exon) > 1:
-            print('exon shows more than once')
+            raise ValueError('More than one exon found')
         else:
             exon_number = first_exon.pop()
             if coord_j in sorted_cds_intervals_dictionary[exon_number]:
-                return 2
+                return 2 # overlapping query/target coordinates
             elif coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
                 return 1
             return 0
