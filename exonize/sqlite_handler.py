@@ -250,9 +250,9 @@ class SqliteHandler(object):
                 TargetAlnDNASeq VARCHAR NOT NULL,
                 QueryAlnProtSeq VARCHAR NOT NULL,
                 TargetAlnProtSeq VARCHAR NOT NULL,
-                UNIQUE (GeneID, QueryExonStart, QueryExonEnd, 
-                        TargetExonStart, TargetExonEnd, 
-                        QueryPreviousFrame, QueryFrame, 
+                UNIQUE (GeneID, QueryExonStart, QueryExonEnd,
+                        TargetExonStart, TargetExonEnd,
+                        QueryPreviousFrame, QueryFrame,
                         TargetPreviousFrame, TargetFrame),
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
             );
