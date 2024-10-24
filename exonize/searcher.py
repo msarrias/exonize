@@ -17,7 +17,7 @@ from Bio.Blast import NCBIXML
 from Bio import AlignIO
 
 
-class BLASTsearcher(object):
+class Searcher(object):
     def __init__(
             self,
             data_container: object,
