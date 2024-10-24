@@ -761,8 +761,8 @@ class Searcher(object):
             self,
             genes_list: list[str]
     ):
-        retain_pairs = set()
         for gene_id in genes_list:
+            retain_pairs = set()
             gene_chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
             gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
             cds_list = [
@@ -790,15 +790,15 @@ class Searcher(object):
                         transcript_dict=transcripts_dictionary
                     )
                     if not all([
-                        len(seqs) == len(set([seq[-1] for seq in seqs]))
+                        len(seqs) == len(set([frames for *_, frames in seqs]))
                         for seqs in [seqs_i, seqs_j]
                     ]):
                         print('check here', pair)
                     else:
                         for seq_i in seqs_i:
+                            dna_i, prot_i, frame_i_tuple = seq_i
+                            prev_frame_i, frame_i = frame_i_tuple
                             for seq_j in seqs_j:
-                                dna_i, prot_i, frame_i_tuple = seq_i
-                                prev_frame_i, frame_i = frame_i_tuple
                                 dna_j, prot_j, frame_j_tuple = seq_j
                                 prev_frame_j, frame_j = frame_j_tuple
                                 align_dna = self.perform_msa(dna_i, dna_j)
