@@ -230,6 +230,30 @@ class SqliteHandler(object):
                     )
             );"""
                            )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS CDS_global_alignments (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GeneID VARCHAR(100) NOT NULL,
+                GeneChrom VARCHAR(100) NOT NULL,
+                GeneStrand VARCHAR(1) NOT NULL,
+                QueryStart INTEGER NOT NULL,
+                QueryEnd INTEGER NOT NULL,
+                TargetStart INTEGER NOT NULL,
+                TargetEnd INTEGER NOT NULL,
+                QueryPreviousFrame INTEGER NOT NULL,
+                QueryFrame INTEGER NOT NULL,
+                TargetPreviousFrame INTEGER NOT NULL,
+                TargetFrame INTEGER NOT NULL,
+                DNAIdentity REAL NOT NULL,
+                ProtIdentity REAL NOT NULL,
+                QueryAlnDNASeq VARCHAR NOT NULL,
+                TargetAlnDNASeq VARCHAR NOT NULL,
+                QueryAlnProtSeq VARCHAR NOT NULL,
+                TargetAlnProtSeq VARCHAR NOT NULL
+                REFERENCES Genes(GeneID)
+            );
+            """
+                           )
 
     def create_filtered_full_length_events_view(
         self,
@@ -754,6 +778,38 @@ class SqliteHandler(object):
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"""
             cursor.executemany(query, tuples_to_insert)
 
+    def insert_global_cds_alignments(
+            self,
+            list_tuples: list
+    ) -> None:
+        with sqlite3.connect(
+            self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.executemany(
+                """
+                INSERT INTO CDS_global_alignments (
+                    GeneID,
+                    GeneChrom,
+                    GeneStrand,
+                    QueryStart,
+                    QueryEnd,
+                    TargetStart,
+                    TargetEnd,
+                    QueryPreviousFrame,
+                    QueryFrame,
+                    TargetPreviousFrame,
+                    TargetFrame,
+                    DNAIdentity,
+                    ProtIdentity,
+                    QueryAlnDNASeq,
+                    TargetAlnDNASeq,
+                    QueryAlnProtSeq,
+                    TargetAlnProtSeq
+                )
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, list_tuples)
+
     def insert_matches_interdependence_classification(
             self,
             tuples_list: list
@@ -917,6 +973,16 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT GeneID FROM Genes")
+            return [record[0] for record in cursor.fetchall()]
+
+    def query_gene_ids_global_search(
+            self,
+    ) -> list:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("SELECT GeneID FROM CDS_global_alignments")
             return [record[0] for record in cursor.fetchall()]
 
     def query_genes_with_duplicated_cds(
