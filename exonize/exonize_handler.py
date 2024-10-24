@@ -199,7 +199,7 @@ Exonize results database:   {self.results_database_path.name}
             result.add('-'.join(perm))
         return list(result)
 
-    def search(
+    def blast_search(
             self
     ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -311,6 +311,75 @@ Exonize results database:   {self.results_database_path.name}
             query_overlap_threshold=self.query_coverage_threshold,
             evalue_threshold=self.evalue_threshold,
         )
+
+    def global_search(
+            self
+    ):
+        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
+        processed_gene_ids_list = set(
+            self.database_interface.query_gene_ids_global_search()
+        )
+        unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
+        if unprocessed_gene_ids_list:
+            gene_count = len(gene_ids_list)
+            out_message = 'Starting complementary global search'
+            if len(unprocessed_gene_ids_list) != gene_count:
+                out_message = 'Resuming global search'
+            self.environment.logger.info(
+                f'{out_message} for'
+                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
+            )
+
+            self.environment.logger.info(
+                'Exonizing: this may take a while...'
+            )
+            pr = cProfile.Profile()
+            pr.enable()
+            gc.collect()
+            gc.freeze()
+            # transactions_pks: set[int]
+            status: int
+            code: int
+            forks: int = 0
+            for balanced_batch in self.even_batches(
+                    data=unprocessed_gene_ids_list,
+                    number_of_batches=self.FORKS_NUMBER,
+            ):
+                if os.fork():
+                    forks += 1
+                    if forks >= self.FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
+                else:
+                    status = os.EX_OK
+                    try:
+                        self.blast_engine.cds_global_search(
+                            genes_list=list(balanced_batch)
+                        )
+                    except Exception as exception:
+                        self.environment.logger.exception(
+                            str(exception)
+                        )
+                        status = os.EX_SOFTWARE
+                    finally:
+                        # This prevents the child process forked above to keep along the for loop upon completion
+                        # of the try/except block. If this was not present, it would resume were it left off, and
+                        # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                        # We do not want that, so we gracefully exit the process when it is done.
+                        os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
+                gc.unfreeze()
+                pr.disable()
+                get_run_performance_profile(self.PROFILE_PATH, pr)
 
     def classify_matches_transcript_interdependence(
             self,
@@ -565,7 +634,8 @@ Exonize results database:   {self.results_database_path.name}
         """
         self.environment.logger.info(f'Running Exonize for: {self.output_prefix}')
         self.data_container.prepare_data()
-        self.search()
+        self.blast_search()
+        self.global_search()
         self.environment.logger.info('Reconciling matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')
