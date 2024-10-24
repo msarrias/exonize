@@ -277,8 +277,8 @@ exonize_obj.transcript_interdependence_classification()
 
 
 def test_representative_cdss():
-    gene_0_rcs = exonize_obj.blast_engine.get_candidate_cds_coordinates('gene_0')['candidates_cds_coordinates']
-    gene_1_rcs = exonize_obj.blast_engine.get_candidate_cds_coordinates('gene_1')['candidates_cds_coordinates']
+    gene_0_rcs = exonize_obj.search_engine.get_candidate_cds_coordinates('gene_0')['candidates_cds_coordinates']
+    gene_1_rcs = exonize_obj.search_engine.get_candidate_cds_coordinates('gene_1')['candidates_cds_coordinates']
     assert set(gene_0_rcs) == representative_cds_gene_0
     assert set(gene_1_rcs) == representative_cds_gene_1
 
@@ -636,7 +636,7 @@ def test_expansion_transcript_iterdependence_classification():
     genes_list = list(exonize_obj.full_matches_dictionary.keys())
     for gene_id in genes_list:
         tblastx_records_set = exonize_obj.full_matches_dictionary[gene_id]
-        cds_candidates_dictionary = exonize_obj.blast_engine.get_candidate_cds_coordinates(
+        cds_candidates_dictionary = exonize_obj.search_engine.get_candidate_cds_coordinates(
             gene_id=gene_id
         )
         (query_coordinates,

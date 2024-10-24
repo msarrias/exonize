@@ -15,15 +15,15 @@ from Bio.Seq import Seq
 class ReconcilerHandler(object):
     def __init__(
             self,
-            blast_engine: object,
+            search_engine: object,
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
             cds_annot_feature: str
     ):
-        self.environment = blast_engine.environment
-        self.data_container = blast_engine.data_container
-        self.database_interface = blast_engine.database_interface
-        self.blast_engine = blast_engine
+        self.environment = search_engine.environment
+        self.data_container = search_engine.data_container
+        self.database_interface = search_engine.database_interface
+        self.search_engine = search_engine
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
         self.query_coverage_threshold = query_coverage_threshold
         self.cds_annot_feature = cds_annot_feature
@@ -123,7 +123,7 @@ class ReconcilerHandler(object):
                 if coordinate.contains(other_coord):
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
-                elif self.blast_engine.get_overlap_percentage(
+                elif self.search_engine.get_overlap_percentage(
                         intv_i=coordinate,
                         intv_j=other_coord
                 ) >= self.query_coverage_threshold:
@@ -144,7 +144,7 @@ class ReconcilerHandler(object):
         overlapping_coords = defaultdict(list)
         for truncation_coord, teval in truncation_coordinates_set:
             for cds_coord in cds_candidates_set:
-                overlap_percentage = self.blast_engine.get_overlap_percentage(
+                overlap_percentage = self.search_engine.get_overlap_percentage(
                     intv_i=truncation_coord,
                     intv_j=cds_coord
                 )
@@ -732,11 +732,11 @@ class ReconcilerHandler(object):
             target = target[frame:adjusted_end]
             trans_target = target.translate()
             n_stop_codons = str(trans_target).count('*')
-            alignment = self.blast_engine.perform_msa(
+            alignment = self.search_engine.perform_msa(
                 query=trans_query,
                 target=trans_target
             )
-            prot_identity = self.blast_engine.compute_identity(
+            prot_identity = self.search_engine.compute_identity(
                 sequence_i=alignment[0],
                 sequence_j=alignment[1]
             )
@@ -750,11 +750,11 @@ class ReconcilerHandler(object):
          trans_target,
          n_stop_codons
          ) = max(target_sequence_frames_translations, key=lambda x: x[0])
-        alignment = self.blast_engine.perform_msa(
+        alignment = self.search_engine.perform_msa(
             query=query,
             target=target
         )
-        dna_identity = self.blast_engine.compute_identity(
+        dna_identity = self.search_engine.compute_identity(
             sequence_i=alignment[0],
             sequence_j=alignment[1]
         )
@@ -820,7 +820,7 @@ class ReconcilerHandler(object):
             i['coordinate']
             for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
             for i in struct['structure'] if i['type'] == self.cds_annot_feature
-            if i['coordinate'].upper - i['coordinate'].lower >= self.blast_engine.min_exon_length
+            if i['coordinate'].upper - i['coordinate'].lower >= self.search_engine.min_exon_length
         )
 
     def align_target_coordinates(
@@ -844,7 +844,7 @@ class ReconcilerHandler(object):
         )
         gene_cds_set = set(
             coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-            if coord.upper - coord.lower >= self.blast_engine.min_exon_length
+            if coord.upper - coord.lower >= self.search_engine.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(

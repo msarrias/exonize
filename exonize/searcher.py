@@ -815,7 +815,8 @@ class Searcher(object):
                                             sequence_i=align_pi,
                                             sequence_j=align_pj
                                         )
-                                        if identd > self.global_search_threshold and identp > self.global_search_threshold:
+                                        if (identd > self.global_search_threshold and
+                                                identp > self.global_search_threshold):
                                             retain_pairs.add((
                                                 gene_id, gene_chrom, gene_strand,
                                                 coord_i.lower, coord_i.upper,

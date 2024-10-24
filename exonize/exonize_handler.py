@@ -33,7 +33,7 @@ from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
-from exonize.blast_searcher import BLASTsearcher
+from exonize.searcher import Searcher
 from exonize.classifier_handler import ClassifierHandler
 from exonize.reconciler_handler import ReconcilerHandler
 
@@ -131,7 +131,7 @@ class Exonize(object):
             csv=self.csv,
         )
 
-        self.blast_engine = BLASTsearcher(
+        self.search_engine = Searcher(
             data_container=self.data_container,
             sleep_max_seconds=self.sleep_max_seconds,
             self_hit_threshold=self.self_hit_threshold,
@@ -142,10 +142,10 @@ class Exonize(object):
             debug_mode=self._DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
-            blast_engine=self.blast_engine
+            search_engine=self.search_engine
         )
         self.event_reconciler = ReconcilerHandler(
-            blast_engine=self.blast_engine,
+            search_engine=self.search_engine,
             targets_clustering_overlap_threshold=self.targets_clustering_overlap_threshold,
             query_coverage_threshold=self.query_coverage_threshold,
             cds_annot_feature=self.cds_annot_feature
@@ -248,7 +248,7 @@ Exonize results database:   {self.results_database_path.name}
                 # gc.collect()
                 # gc.freeze()
                 # # for gene_id in balanced_batch:
-                # self.blast_engine.find_coding_exon_duplicates(list(balanced_batch))
+                # self.search_engine.find_coding_exon_duplicates(list(balanced_batch))
                 # gc.unfreeze()
                 # pr.disable()
                 # get_run_performance_profile(self.PROFILE_PATH, pr)
@@ -264,7 +264,7 @@ Exonize results database:   {self.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.blast_engine.find_coding_exon_duplicates(
+                        self.search_engine.find_coding_exon_duplicates(
                             gene_id_list=list(balanced_batch)
                         )
                     except Exception as exception:
@@ -290,7 +290,7 @@ Exonize results database:   {self.results_database_path.name}
                 get_run_performance_profile(self.PROFILE_PATH, pr)
             self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_raw_matches()
-            identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
+            identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
                 matches_list=matches_list
             )
             self.database_interface.insert_identity_and_dna_algns_columns(
@@ -356,7 +356,7 @@ Exonize results database:   {self.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.blast_engine.cds_global_search(
+                        self.search_engine.cds_global_search(
                             genes_list=list(balanced_batch)
                         )
                     except Exception as exception:
@@ -409,7 +409,7 @@ Exonize results database:   {self.results_database_path.name}
     ) -> None:
         for gene_id in genes_list:
             tblastx_records_set = self.full_matches_dictionary[gene_id]
-            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
+            cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
                 gene_id=gene_id
             )
             (query_coordinates,

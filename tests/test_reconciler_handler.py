@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 from exonize.reconciler_handler import ReconcilerHandler
 from exonize.data_preprocessor import DataPreprocessor
-from exonize.blast_searcher import BLASTsearcher
+from exonize.searcher import Searcher
 from pathlib import Path
 import portion as P
 
@@ -22,7 +22,7 @@ data_container = DataPreprocessor(
     csv=False
 )
 
-blast_engine = BLASTsearcher(
+search_engine = Searcher(
     data_container=data_container,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
@@ -34,7 +34,7 @@ blast_engine = BLASTsearcher(
 )
 
 counter_handler = ReconcilerHandler(
-    blast_engine=blast_engine,
+    search_engine=search_engine,
     targets_clustering_overlap_threshold=0.8,
     query_coverage_threshold=0.8,
     cds_annot_feature='CDS',
