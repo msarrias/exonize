@@ -28,7 +28,7 @@ class Searcher(object):
             query_coverage_threshold: float,
             exon_clustering_overlap_threshold: float,
             debug_mode: bool,
-            global_search_threshold: float = 0.4,
+            global_search_identity_threshold: float = 0.4,
             aligned_pos_threshold: float = 0.1
     ):
         self.data_container = data_container
@@ -40,7 +40,7 @@ class Searcher(object):
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
-        self.global_search_threshold = global_search_threshold
+        self.global_search_identity_threshold = global_search_identity_threshold
         self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self._DEBUG_MODE = debug_mode
 
@@ -818,7 +818,7 @@ class Searcher(object):
                                             sequence_j=align_pj
                                         )
                                         align_pos_fract = align_pi.count('-')/len(align_pi)
-                                        if (identp > self.global_search_threshold and
+                                        if (identp > self.global_search_identity_threshold and
                                                 align_pos_fract < self.aligned_pos_threshold):
                                             retain_pairs.add((
                                                 gene_id, gene_chrom, gene_strand,
