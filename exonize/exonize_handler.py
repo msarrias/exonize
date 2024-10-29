@@ -36,7 +36,6 @@ from exonize.sqlite_handler import SqliteHandler
 from exonize.searcher import Searcher
 from exonize.classifier_handler import ClassifierHandler
 from exonize.reconciler_handler import ReconcilerHandler
-from tests.test_data_preprocessor import data_container
 
 
 class Exonize(object):
@@ -139,7 +138,7 @@ class Exonize(object):
             output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
             debug_mode=self._DEBUG_MODE,
-            global_search=self._GLOBAL_SEARCH,
+            global_search=self.GLOBAL_SEARCH,
             local_search=self.LOCAL_SEARCH,
             csv=self.csv,
         )
