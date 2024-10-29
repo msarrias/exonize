@@ -219,9 +219,9 @@ Exonize results database:   {self.results_database_path.name}
         unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
-            out_message = 'Starting exon duplication search'
+            out_message = 'Starting local search'
             if len(unprocessed_gene_ids_list) != gene_count:
-                out_message = 'Resuming search'
+                out_message = 'Resuming local search'
             self.environment.logger.info(
                 f'{out_message} for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
@@ -332,7 +332,7 @@ Exonize results database:   {self.results_database_path.name}
         unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
-            out_message = 'Starting complementary global search'
+            out_message = 'Starting global search'
             if len(unprocessed_gene_ids_list) != gene_count:
                 out_message = 'Resuming global search'
             self.environment.logger.info(
