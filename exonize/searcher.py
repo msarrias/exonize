@@ -771,7 +771,7 @@ class Searcher(object):
             cds_list = [
                 (coord, frame)
                 for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-                if coord.upper - coord.lower >= self.min_exon_length
+                if coord in self.get_candidate_cds_coordinates(gene_id=gene_id)['candidates_cds_coordinates']
             ]
             if len(cds_list) > 1:
                 gene_pairs = self.fetch_pairs_for_global_alignments(
