@@ -546,7 +546,8 @@ class SqliteHandler(object):
 
     def insert_gene_ids_table(
             self,
-            gene_args_tuple: tuple,
+            gene_args_tuple: tuple = None,
+            gene_args_tuple_list: list = None,
     ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
@@ -563,7 +564,10 @@ class SqliteHandler(object):
             )
             VALUES (?, ?, ?, ?, ?, ?)
             """
-            cursor.execute(insert_gene_table_param, gene_args_tuple)
+            if gene_args_tuple:
+                cursor.execute(insert_gene_table_param, gene_args_tuple)
+            if gene_args_tuple_list:
+                cursor.executemany(insert_gene_table_param, gene_args_tuple_list)
 
     def insert_matches(
         self,
@@ -840,7 +844,9 @@ class SqliteHandler(object):
 
     def insert_matches_interdependence_classification(
             self,
-            tuples_list: list
+            tuples_list: list,
+            table_name: str,
+            table_identifier_column: str
     ) -> None:
         column_names = [
             'NumberTranscripts',
@@ -848,12 +854,12 @@ class SqliteHandler(object):
         ]
         for column_name in column_names:
             self.add_column_to_table(
-                table_name="Matches_non_reciprocal",
+                table_name=table_name,
                 column_name=column_name,
                 column_type="INTEGER",
             )
         self.add_column_to_table(
-            table_name="Matches_non_reciprocal",
+            table_name=table_name,
             column_name='Classification',
             column_type="Classification TEXT "
                         "CHECK(Classification IN "
@@ -865,8 +871,8 @@ class SqliteHandler(object):
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            insert_full_length_event_table_param = """
-            UPDATE Matches_non_reciprocal
+            insert_full_length_event_table_param = f"""
+            UPDATE {table_name}
             SET
                 NumberTranscripts=?,
                 All_=?,
@@ -874,7 +880,7 @@ class SqliteHandler(object):
                 Absent=?,
                 Neither=?,
                 Classification=?
-                WHERE FragmentID=?
+                WHERE {table_identifier_column}=?
             """
             cursor.executemany(insert_full_length_event_table_param, tuples_list)
 
@@ -967,6 +973,26 @@ class SqliteHandler(object):
             WHERE Mode="FULL"
             ORDER BY
                 GeneID, FragmentID;
+            """)
+            return cursor.fetchall()
+
+    def query_cds_global_matches(
+            self,
+    ) -> list:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            SELECT
+                GeneID,
+                ID,
+                QueryExonStart,
+                QueryExonEnd,
+                TargetExonStart,
+                TargetExonEnd
+            FROM CDS_global_alignments;
             """)
             return cursor.fetchall()
 
