@@ -532,10 +532,10 @@ class DataPreprocessor(object):
             self,
             gene_strand: str,
             chromosome: str,
-            cds_coordinates_dict: list[dict],
+            cds_coordinates_list: list[dict],
     ) -> str:
         mrna_sequence = ''
-        for cds_coordinate in cds_coordinates_dict:
+        for cds_coordinate in cds_coordinates_list:
             start = cds_coordinate['coordinate'].lower
             end = cds_coordinate['coordinate'].upper
             cds_sequence = self.genome_dictionary[chromosome][start:end]
@@ -605,7 +605,7 @@ class DataPreprocessor(object):
             mrna_seq = self.construct_mrna_sequence(
                 gene_strand=gene_strand,
                 chromosome=gene_chrom,
-                cds_coordinates_dict=cds_coordinates_list
+                cds_coordinates_list=cds_coordinates_list
             )
             mrna_peptide_sequence, cds_seqs = self.construct_peptide_sequences(
                 gene_id=gene_id,
