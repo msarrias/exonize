@@ -139,13 +139,13 @@ def argument_parser():
         type=str,
         help='Species identifier - used for naming output files.')
     parser.add_argument(
-        '--global_search',
+        '--global-search',
         action='store_true',
         default=False,
         help='Exonize will perform a global search only.'
     )
     parser.add_argument(
-        '--local_search',
+        '--local-search',
         action='store_true',
         default=False,
         help='Exonize will perform a local search only.'
@@ -184,7 +184,7 @@ def argument_parser():
         help='Max seconds to sleep. Default is 5.'
     )
     parser.add_argument(
-        '--cpus_number',
+        '--cpus-number',
         default=os.cpu_count(),  # This is pretty greedy, could be changed and put in a config file
         type=int,
         help='Number of CPUs to use. Default is the number of CPUs available.')
