@@ -319,7 +319,7 @@ def test_matches_interdependence_counts():
              TargetStart,
              TargetEnd,
              Classification
-            FROM Matches_non_reciprocal
+            FROM Local_matches_non_reciprocal
             WHERE Mode="FULL";
             """
         )
