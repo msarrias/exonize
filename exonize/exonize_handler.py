@@ -607,7 +607,7 @@ Exonize results database:   {self.results_database_path.name}
                     for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
                     in transcripts_iterdependence_global_matches_tuples
                 ],
-                table_name='CDS_global_alignments',
+                table_name='Global_matches',
                 table_identifier_column='ID'
             )
 
@@ -634,6 +634,8 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.insert_expansions_interdependence_classification(
             list_tuples=expansion_interdependence_tuples
             )
+        if self.GLOBAL_SEARCH:
+            self.database_interface.drop_table('Expansions')
 
     def runtime_logger(
             self,

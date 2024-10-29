@@ -97,7 +97,7 @@ class SqliteHandler(object):
             items = cursor.fetchall()
             # Drop each table and view except 'Genes'
             for name, type_ in items:
-                if name not in ['Genes', 'Matches']:
+                if name not in ['Genes', 'Local_matches']:
                     cursor.execute(f"DROP {type_} IF EXISTS {name};")
 
     def create_genes_table(
@@ -220,7 +220,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Matches (
+            CREATE TABLE IF NOT EXISTS Local_matches (
                 FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID  VARCHAR(100) NOT NULL,
                 QueryExonStart INTEGER NOT NULL,
@@ -255,7 +255,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS CDS_global_alignments (
+            CREATE TABLE IF NOT EXISTS Global_matches (
                 ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID VARCHAR(100) NOT NULL,
                 GeneChrom VARCHAR(100) NOT NULL,
@@ -320,7 +320,7 @@ class SqliteHandler(object):
                         f.ProtIdentity,
                         f.QueryAlnProtSeq,
                         f.TargetAlnProtSeq
-                    FROM Matches AS f
+                    FROM Local_matches AS f
                     JOIN Genes g ON g.GeneID = f.GeneID
                     WHERE f.AlnQuery >= {query_overlap_threshold}
                     AND f.Evalue <= {evalue_threshold}
@@ -472,13 +472,13 @@ class SqliteHandler(object):
             cursor = db.cursor()
             for column_name, column_type in columns_to_add:
                 self.add_column_to_table(
-                    table_name="Matches",
+                    table_name="Local_matches",
                     column_name=column_name,
                     column_type=column_type,
                 )
             cursor.executemany(
                 """
-            UPDATE Matches
+            UPDATE Local_matches
             SET
                 QueryDNASeq=?,
                 TargetDNASeq=?,
@@ -513,17 +513,17 @@ class SqliteHandler(object):
             self.results_database_path, timeout=self.timeout_database
         ) as db:
             if not self.check_if_column_in_table_exists(
-                table_name="Matches", column_name="AlnQuery"
+                table_name="Local_matches", column_name="AlnQuery"
             ):
                 cursor = db.cursor()
                 cursor.execute(
                     """
-                    ALTER TABLE Matches ADD COLUMN AlnQuery DECIMAL(10, 3);
+                    ALTER TABLE Local_matches ADD COLUMN AlnQuery DECIMAL(10, 3);
                     """
                 )
                 cursor.execute(
                     """
-                    UPDATE Matches
+                    UPDATE Local_matches
                     SET AlnQuery =
                      ROUND(
                         CAST(int.intersect_end - int.intersect_start AS REAL) /
@@ -536,11 +536,11 @@ class SqliteHandler(object):
                             MIN(f.QueryExonEnd, (f.QueryEnd + f.QueryExonStart)) AS intersect_end,
                             f.QueryExonEnd,
                             f.QueryExonStart
-                        FROM Matches AS f
+                        FROM Local_matches AS f
                         WHERE f.QueryExonEnd >= (f.QueryStart + f.QueryExonStart)
                         AND f.QueryExonStart <= (f.QueryEnd + f.QueryExonStart)
                     ) AS int
-                    WHERE Matches.FragmentID = int.FragmentID;
+                    WHERE Local_matches.FragmentID = int.FragmentID;
                 """
                 )
 
@@ -575,7 +575,7 @@ class SqliteHandler(object):
         fragments_tuples_list: list,
     ) -> None:
         insert_matches_table_param = """
-        INSERT INTO Matches (
+        INSERT INTO Local_matches (
             GeneID,
             QueryExonStart,
             QueryExonEnd,
@@ -820,7 +820,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.executemany(
                 """
-            INSERT INTO CDS_global_alignments (
+            INSERT INTO Global_matches (
                 GeneID,
                 GeneChrom,
                 GeneStrand,
@@ -947,7 +947,7 @@ class SqliteHandler(object):
                 f.TargetStrand,
                 f.QueryAlnProtSeq,
                 f.TargetAlnProtSeq
-            FROM Matches as f
+            FROM Local_matches as f
             INNER JOIN Genes as g ON g.GeneID=f.GeneID
             """
             )
@@ -992,7 +992,7 @@ class SqliteHandler(object):
                 QueryExonEnd,
                 TargetExonStart,
                 TargetExonEnd
-            FROM CDS_global_alignments;
+            FROM Global_matches;
             """)
             return cursor.fetchall()
 
@@ -1036,7 +1036,7 @@ class SqliteHandler(object):
                 self.results_database_path, timeout=self.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute("SELECT GeneID FROM CDS_global_alignments")
+            cursor.execute("SELECT GeneID FROM Global_matches")
             return [record[0] for record in cursor.fetchall()]
 
     def query_genes_with_duplicated_cds(
@@ -1064,7 +1064,7 @@ class SqliteHandler(object):
                 f.QueryExonEnd - g.GeneStart,
                 f.TargetExonStart - g.GeneStart,
                 f.TargetExonEnd - g.GeneStart
-            FROM CDS_global_alignments AS f
+            FROM Global_matches AS f
             JOIN Genes AS g ON g.GeneID= f.GeneID
             """
             )
@@ -1085,7 +1085,7 @@ class SqliteHandler(object):
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = [table[0]
                       for table in cursor.fetchall()
-                      if ("sqlite" not in table[0] and table[0] != "Matches")]
+                      if ("sqlite" not in table[0] and table[0] != "Local_matches")]
             for table in tables:
                 table_name = table
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", db)
