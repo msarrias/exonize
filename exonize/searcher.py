@@ -27,21 +27,22 @@ class Searcher(object):
             evalue_threshold: float,
             query_coverage_threshold: float,
             exon_clustering_overlap_threshold: float,
-            debug_mode: bool,
-            global_search_identity_threshold: float = 0.4,
-            aligned_pos_threshold: float = 0.1
+            peptide_identity_threshold: float = 0.4,
+            fraction_of_aligned_positions: float = 0.9,
+            debug_mode: bool = False
     ):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
         self.evalue_threshold = evalue_threshold
         self.query_coverage_threshold = query_coverage_threshold
-        self.aligned_pos_threshold = aligned_pos_threshold
+        self.fraction_of_aligned_positions = fraction_of_aligned_positions
+        self.peptide_identity_threshold = peptide_identity_threshold
+        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
-        self.global_search_identity_threshold = global_search_identity_threshold
-        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
+
         self._DEBUG_MODE = debug_mode
 
     @staticmethod
@@ -818,8 +819,8 @@ class Searcher(object):
                                             sequence_j=align_pj
                                         )
                                         align_pos_fract = align_pi.count('-')/len(align_pi)
-                                        if (identp > self.global_search_identity_threshold and
-                                                align_pos_fract < self.aligned_pos_threshold):
+                                        if (identp > self.peptide_identity_threshold and
+                                                align_pos_fract < (1 - self.fraction_of_aligned_positions)):
                                             retain_pairs.add((
                                                 gene_id, gene_chrom, gene_strand,
                                                 coord_i.lower, coord_i.upper,
