@@ -533,12 +533,12 @@ class Searcher(object):
             gene_coordinate.upper
         )
 
-    def find_coding_exon_duplicates(
+    def local_search(
             self,
             gene_id_list: list[str],
     ) -> None:
         """
-        find_coding_exon_duplicates is a function that given a gene_id,
+        local_search is a function that given a gene_id,
         performs a tblastx for each representative CDS (see get_candidate_cds_coordinates).
         If the tblastx search returns hits, they are stored in the "results" database,
         otherwise the gene is recorded as having no duplication event.

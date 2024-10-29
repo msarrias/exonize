@@ -262,7 +262,7 @@ Exonize results database:   {self.results_database_path.name}
                 # gc.collect()
                 # gc.freeze()
                 # # for gene_id in balanced_batch:
-                # self.search_engine.find_coding_exon_duplicates(list(balanced_batch))
+                # self.search_engine.local_search(list(balanced_batch))
                 # gc.unfreeze()
                 # pr.disable()
                 # get_run_performance_profile(self.PROFILE_PATH, pr)
@@ -278,7 +278,7 @@ Exonize results database:   {self.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.search_engine.find_coding_exon_duplicates(
+                        self.search_engine.local_search(
                             gene_id_list=list(balanced_batch)
                         )
                     except Exception as exception:
