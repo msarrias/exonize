@@ -404,13 +404,7 @@ Exonize results database:   {self.results_database_path.name}
             self,
     ) -> None:
         tuples_to_insert = [
-            (gene_id,
-             gene_dict['chrom'],
-             gene_dict['strand'],
-             len(gene_dict['mRNAs']),
-             gene_dict['coordinate'].lower,
-             gene_dict['coordinate'].upper
-             )
+            self.search_engine.get_gene_tuple(gene_id=gene_id)
             for gene_id, gene_dict in self.data_container.gene_hierarchy_dictionary.items()
         ]
         self.database_interface.insert_gene_ids_table(
