@@ -393,19 +393,15 @@ Exonize results database:   {self.results_database_path.name}
                 gc.unfreeze()
                 pr.disable()
                 get_run_performance_profile(self.PROFILE_PATH, pr)
-
         genes_to_update = self.database_interface.query_gene_ids_global_search()
         if self.GLOBAL_SEARCH:
-            self.populate_genes_table(
-                genes_with_duplicates_list=genes_to_update
-            )
+            self.populate_genes_table()
         self.database_interface.update_has_duplicate_genes_table(
             list_tuples=[(gene,) for gene in genes_to_update]
         )
 
     def populate_genes_table(
             self,
-            genes_with_duplicates_list: list
     ) -> None:
         tuples_to_insert = [
             (gene_id,
@@ -415,10 +411,10 @@ Exonize results database:   {self.results_database_path.name}
              gene_dict['coordinate'].lower,
              gene_dict['coordinate'].upper
              )
-            for gene_id, gene_dict in data_container.gene_hierarchy_dictionary.items()
+            for gene_id, gene_dict in self.data_container.gene_hierarchy_dictionary.items()
         ]
         self.database_interface.insert_gene_ids_table(
-            list_tuples=tuples_to_insert
+            gene_args_tuple_list=tuples_to_insert
         )
 
     def classify_matches_transcript_interdependence(
@@ -524,20 +520,21 @@ Exonize results database:   {self.results_database_path.name}
                     else:
                         self.environment.logger.exception(e)
                         sys.exit()
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_in_non_reciprocal_fragments_table(
-                        fragment_ids_list=non_reciprocal_fragment_ids_list,
-                        gene_id=gene_id
-                    )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+                attempt = False
+                while not attempt:
+                    try:
+                        self.database_interface.insert_in_non_reciprocal_fragments_table(
+                            fragment_ids_list=non_reciprocal_fragment_ids_list,
+                            gene_id=gene_id
+                        )
+                        attempt = True
+                    except Exception as e:
+                        if "locked" in str(e):
+                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                        else:
+                            self.environment.logger.exception(e)
+                            sys.exit()
 
     def events_reconciliation(
             self,
@@ -599,17 +596,35 @@ Exonize results database:   {self.results_database_path.name}
             self
     ):
         # MATCHES INTERDEPENDENCE CLASSIFICATION
-        non_reciprocal_coding_matches_list = self.database_interface.query_non_reciprocal_coding_matches()
-        transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence(
-            non_reciprocal_coding_matches_list=non_reciprocal_coding_matches_list
-        )
-        self.database_interface.insert_matches_interdependence_classification(
-            tuples_list=[
-                (n_mrnas, all_, present, absent, neither, category, frag_id)
-                for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
-                in transcripts_iterdependence_tuples
-            ]
-        )
+        if self.SEARCH_ALL or self.GLOBAL_SEARCH:
+            cds_global_matches_list = self.database_interface.query_cds_global_matches()
+            transcripts_iterdependence_global_matches_tuples = self.classify_matches_transcript_interdependence(
+                non_reciprocal_coding_matches_list=cds_global_matches_list
+            )
+            self.database_interface.insert_matches_interdependence_classification(
+                tuples_list=[
+                    (n_mrnas, all_, present, absent, neither, category, frag_id)
+                    for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
+                    in transcripts_iterdependence_global_matches_tuples
+                ],
+                table_name='CDS_global_alignments',
+                table_identifier_column='ID'
+            )
+
+        if self.SEARCH_ALL or self.LOCAL_SEARCH:
+            non_reciprocal_coding_matches_list = self.database_interface.query_non_reciprocal_coding_matches()
+            transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence(
+                non_reciprocal_coding_matches_list=non_reciprocal_coding_matches_list
+            )
+            self.database_interface.insert_matches_interdependence_classification(
+                tuples_list=[
+                    (n_mrnas, all_, present, absent, neither, category, frag_id)
+                    for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
+                    in transcripts_iterdependence_tuples
+                ],
+                table_name='Matches_non_reciprocal',
+                table_identifier_column='FragmentID'
+            )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION
         expansions_dictionary = self.database_interface.query_coding_expansion_events(
         )
