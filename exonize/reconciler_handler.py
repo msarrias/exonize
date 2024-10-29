@@ -314,19 +314,29 @@ class ReconcilerHandler(object):
     @staticmethod
     def create_events_multigraph(
             targets_reference_coordinates_dictionary: dict,
-            query_coordinates_set: set,
+            query_local_coordinates_set: set,
             local_records_set: set,
+            global_records_set: set,
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
         ])
-
+        global_cds_coordinates_set = {
+            P.open(cds_start, cds_end)
+            for record in global_records_set
+            for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
+        }
+        global_records_set_pairs_set = {
+            sorted(P.open(cds_start, cds_end), P.open(target_start, target_end), key=lambda x: (x.lower, x.upper))
+            for _, cds_start, cds_end, target_start, target_end in global_records_set
+        }
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, 'FULL') for coordinate in query_coordinates_set],
+                *[(coordinate, 'FULL')
+                  for coordinate in query_local_coordinates_set.union(global_cds_coordinates_set)],
                 *target_coordinates_set
             ]
         ])
@@ -336,6 +346,11 @@ class ReconcilerHandler(object):
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
+
+        local_records_set_pairs_set = set(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
+            for _, _, cds_start, cds_end, target_start, target_end, _ in local_records_set
+        )
 
         for event in local_records_set:
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
@@ -352,6 +367,20 @@ class ReconcilerHandler(object):
                 query=(cds_start, cds_end),
                 evalue=evalue,
                 mode=mode,
+                color='black',
+                width=2
+            )
+        for pair in global_records_set_pairs_set - local_records_set_pairs_set:
+            cds_coordinate, target_coordinate = pair
+            gene_graph.add_edge(
+                u_for_edge=(cds_coordinate.lower, cds_coordinate.upper),
+                v_for_edge=(target_coordinate.lower, target_coordinate.upper),
+                fragment_id=None,
+                target=(target_coordinate.lower, target_coordinate.upper),
+                corrected_target=(target_coordinate.lower, target_coordinate.upper),
+                query=(cds_coordinate.lower, cds_coordinate.upper),
+                evalue=None,
+                mode='FULL',
                 color='black',
                 width=2
             )

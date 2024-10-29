@@ -36,6 +36,7 @@ from exonize.sqlite_handler import SqliteHandler
 from exonize.searcher import Searcher
 from exonize.classifier_handler import ClassifierHandler
 from exonize.reconciler_handler import ReconcilerHandler
+from tests.test_data_preprocessor import data_container
 
 
 class Exonize(object):
@@ -74,6 +75,7 @@ class Exonize(object):
         self.FORKS_NUMBER = cpus_number
         self.GLOBAL_SEARCH = global_search
         self.LOCAL_SEARCH = local_search
+        self.SEARCH_ALL = not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
@@ -98,7 +100,8 @@ class Exonize(object):
         self.timeout_database = timeout_database
         self.csv = csv
         self.tic = datetime.now()
-        self.full_matches_dictionary = {}
+        self.local_full_matches_dictionary = {}
+        self.global_full_matches_dictionary = {}
 
         if not self.output_prefix:
             self.output_prefix = gff_file_path.stem
@@ -211,7 +214,7 @@ Exonize results database:   {self.results_database_path.name}
             result.add('-'.join(perm))
         return list(result)
 
-    def blast_search(
+    def local_search(
             self
     ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -392,6 +395,33 @@ Exonize results database:   {self.results_database_path.name}
                 pr.disable()
                 get_run_performance_profile(self.PROFILE_PATH, pr)
 
+        genes_to_update = self.database_interface.query_gene_ids_global_search()
+        if self.GLOBAL_SEARCH:
+            self.populate_genes_table(
+                genes_with_duplicates_list=genes_to_update
+            )
+        self.database_interface.update_has_duplicate_genes_table(
+            list_tuples=[(gene,) for gene in genes_to_update]
+        )
+
+    def populate_genes_table(
+            self,
+            genes_with_duplicates_list: list
+    ) -> None:
+        tuples_to_insert = [
+            (gene_id,
+             gene_dict['chrom'],
+             gene_dict['strand'],
+             len(gene_dict['mRNAs']),
+             gene_dict['coordinate'].lower,
+             gene_dict['coordinate'].upper
+             )
+            for gene_id, gene_dict in data_container.gene_hierarchy_dictionary.items()
+        ]
+        self.database_interface.insert_gene_ids_table(
+            list_tuples=tuples_to_insert
+        )
+
     def classify_matches_transcript_interdependence(
             self,
             non_reciprocal_coding_matches_list: list
@@ -419,38 +449,50 @@ Exonize results database:   {self.results_database_path.name}
             genes_list: list,
     ) -> None:
         for gene_id in genes_list:
-            tblastx_records_set = self.full_matches_dictionary[gene_id]
-            cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
-                gene_id=gene_id
-            )
-            (query_coordinates,
-             targets_reference_coordinates_dictionary
-             ) = self.event_reconciler.align_target_coordinates(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set,
-                cds_candidates_dictionary=cds_candidates_dictionary
-            )
-            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set,
-                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-            )
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_corrected_target_start_end(
-                        list_tuples=corrected_coordinates_tuples
+            global_records_set = set()
+            local_records_set = set()
+            query_coordinates = set()
+            targets_reference_coordinates_dictionary = {}
+            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+                if gene_id in self.local_full_matches_dictionary:
+                    local_records_set = self.local_full_matches_dictionary[gene_id]
+                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
+                        gene_id=gene_id
                     )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+                    (query_coordinates,
+                     targets_reference_coordinates_dictionary
+                     ) = self.event_reconciler.align_target_coordinates(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        cds_candidates_dictionary=cds_candidates_dictionary
+                    )
+                    corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+                    )
+                    attempt = False
+                    while not attempt:
+                        try:
+                            self.database_interface.insert_corrected_target_start_end(
+                                list_tuples=corrected_coordinates_tuples
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
+
+            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+                global_records_set = self.global_full_matches_dictionary[gene_id]
+                query_coordinates = query_coordinates.union(exon_coordinates)
+
             gene_graph = self.event_reconciler.create_events_multigraph(
-                tblastx_records_set=tblastx_records_set,
-                query_coordinates_set=query_coordinates,
+                local_records_set=local_records_set,
+                global_records_set=global_records_set,
+                query_local_coordinates_set=query_coordinates,
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
             )
             (gene_events_list,
@@ -502,18 +544,22 @@ Exonize results database:   {self.results_database_path.name}
     def events_reconciliation(
             self,
     ):
-        self.database_interface.create_non_reciprocal_fragments_table()
-        # group full matches by gene id
-        tblastx_full_matches_list = self.database_interface.query_full_length_events()
-        self.full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
-            tblastx_full_matches_list=tblastx_full_matches_list
-        )
+        genes_to_process = set()
+        if self.SEARCH_ALL or self.LOCAL_SEARCH:
+            self.database_interface.create_non_reciprocal_fragments_table()
+            local_full_matches_list = self.database_interface.query_full_length_events()
+            self.local_full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
+                local_full_matches_list=local_full_matches_list
+            )
+            genes_to_process.union(set(self.local_full_matches_dictionary.keys()))
+        if self.SEARCH_ALL or self.GLOBAL_SEARCH:
+            self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
+            genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
         status: int
         code: int
         forks: int = 0
-        genes_to_process = list(self.full_matches_dictionary.keys())
         for balanced_batch in self.even_batches(
-                data=genes_to_process,
+                data=list(genes_to_process),
                 number_of_batches=self.FORKS_NUMBER,
         ):
             if os.fork():
@@ -645,13 +691,13 @@ Exonize results database:   {self.results_database_path.name}
         """
         self.environment.logger.info(f'Running Exonize for: {self.output_prefix}')
         self.data_container.prepare_data()
-        if not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH:
-            self.blast_search()
+        if self.SEARCH_ALL:
+            self.local_search()
             self.global_search()
         elif self.GLOBAL_SEARCH:
             self.global_search()
         else:
-            self.blast_search()
+            self.local_search()
         self.environment.logger.info('Reconciling matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')
