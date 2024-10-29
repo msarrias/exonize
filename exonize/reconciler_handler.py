@@ -330,9 +330,7 @@ class ReconcilerHandler(object):
         }
         global_records_set_pairs_set = set(tuple(
             sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
-        )
-                                           for _, cds_start, cds_end, target_start, target_end in global_records_set
-                                           )
+        ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
