@@ -57,10 +57,14 @@ class Exonize(object):
             query_coverage_threshold: float = 0.9,
             exon_clustering_overlap_threshold: float = 0.9,
             targets_clustering_overlap_threshold: float = 0.9,
+            fraction_of_aligned_positions: float = 0.9,
+            peptide_identity_threshold: float = 0.9,
             csv: bool = False,
             enable_debug: bool = False,
             soft_force: bool = False,
             hard_force: bool = False,
+            global_search: bool = False,
+            local_search: bool = False,
             sleep_max_seconds: int = 60,
             timeout_database: int = 160
     ):
@@ -68,6 +72,8 @@ class Exonize(object):
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.FORKS_NUMBER = cpus_number
+        self.GLOBAL_SEARCH = global_search
+        self.LOCAL_SEARCH = local_search
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
@@ -84,6 +90,8 @@ class Exonize(object):
         self.query_coverage_threshold = query_coverage_threshold
         self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
+        self.fraction_of_aligned_positions = fraction_of_aligned_positions
+        self.peptide_identity_threshold = peptide_identity_threshold
         # other
         self.output_prefix = output_prefix
         self.sleep_max_seconds = sleep_max_seconds
@@ -139,6 +147,8 @@ class Exonize(object):
             evalue_threshold=self.evalue_threshold,
             query_coverage_threshold=self.query_coverage_threshold,
             exon_clustering_overlap_threshold=self.exon_clustering_overlap_threshold,
+            fraction_of_aligned_positions=self.fraction_of_aligned_positions,
+            peptide_identity_threshold=self.peptide_identity_threshold,
             debug_mode=self._DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
@@ -329,7 +339,6 @@ Exonize results database:   {self.results_database_path.name}
                 f'{out_message} for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
             )
-
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
@@ -634,8 +643,13 @@ Exonize results database:   {self.results_database_path.name}
         """
         self.environment.logger.info(f'Running Exonize for: {self.output_prefix}')
         self.data_container.prepare_data()
-        self.blast_search()
-        self.global_search()
+        if not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH:
+            self.blast_search()
+            self.global_search()
+        elif self.GLOBAL_SEARCH:
+            self.global_search()
+        else:
+            self.blast_search()
         self.environment.logger.info('Reconciling matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')

@@ -102,7 +102,7 @@ def argument_parser():
         '--query-coverage-threshold',
         default=0.9,
         type=float,
-        help='tblastx query coverage threshold. Default is 0.9.'
+        help='query coverage threshold. Default is 0.9.'
     )
     parser.add_argument(
         '-ect',
@@ -118,12 +118,38 @@ def argument_parser():
         type=float,
         help='Target coordinates clustering overlap threshold. Default is 0.9.'
     )
+    parser.add_argument(
+        '-fap',
+        '--fraction-of-aligned-positions',
+        default=0.9,
+        type=float,
+        help='Local search fraction of aligned positions threshold. Default is 0.9.'
+    )
+    parser.add_argument(
+        '-pit',
+        '--peptide-identity-threshold',
+        default=0.4,
+        type=float,
+        help='Local search peptide identity threshold. Default is 0.4.'
+    )
 
     # Optional Arguments for Flags
     parser.add_argument(
         '--output_prefix',
         type=str,
         help='Species identifier - used for naming output files.')
+    parser.add_argument(
+        '--global_search',
+        action='store_true',
+        default=False,
+        help='Exonize will perform a global search only.'
+    )
+    parser.add_argument(
+        '--local_search',
+        action='store_true',
+        default=False,
+        help='Exonize will perform a local search only.'
+    )
     parser.add_argument(
         '--debug',
         action='store_true',
@@ -200,11 +226,15 @@ def main():
         query_coverage_threshold=args.query_coverage_threshold,
         exon_clustering_overlap_threshold=args.exon_clustering_overlap_threshold,
         targets_clustering_overlap_threshold=args.targets_clustering_overlap_threshold,
+        fraction_of_aligned_positions=args.fraction_of_aligned_positions,
+        peptide_identity_threshold=args.peptide_identity_threshold,
         output_prefix=args.output_prefix,
         csv=args.csv,
         enable_debug=args.debug,
         soft_force=args.soft_force,
         hard_force=args.hard_force,
+        global_search=args.global_search,
+        local_search=args.local_search,
         sleep_max_seconds=args.sleep_max_seconds,
         cpus_number=args.cpus_number,
         timeout_database=args.timeout_database,
