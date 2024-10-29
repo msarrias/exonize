@@ -100,8 +100,8 @@ class SqliteHandler(object):
                 if name not in ['Genes', 'Matches']:
                     cursor.execute(f"DROP {type_} IF EXISTS {name};")
 
-    def connect_create_results_database(
-        self,
+    def create_genes_table(
+            self
     ) -> None:
         with sqlite3.connect(
             self.results_database_path, timeout=self.timeout_database
@@ -120,33 +120,14 @@ class SqliteHandler(object):
             """
                            )
             cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Matches (
-                FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
-                GeneID  VARCHAR(100) NOT NULL,
-                QueryExonStart INTEGER NOT NULL,
-                QueryExonEnd INTEGER NOT NULL,
-                QueryExonFrame VARCHAR NOT NULL,
-                QueryFrame INTEGER NOT NULL,
-                QueryStrand VARCHAR(1) NOT NULL,
-                TargetFrame INTEGER NOT NULL,
-                TargetStrand VARCHAR(1) NOT NULL,
-                Score INTEGER NOT NULL,
-                Bits INTEGER NOT NULL,
-                Evalue REAL NOT NULL,
-                AlignmentLength INTEGER NOT NULL,
-                QueryStart INTEGER NOT NULL,
-                QueryEnd INTEGER NOT NULL,
-                TargetStart INTEGER NOT NULL,
-                TargetEnd INTEGER NOT NULL,
-                QueryAlnProtSeq VARCHAR NOT NULL,
-                TargetAlnProtSeq VARCHAR NOT NULL,
-                Match VARCHAR NOT NULL,
-                QueryCountStopCodons INTEGER NOT NULL,
-                TargetCountStopCodons INTEGER NOT NULL,
-                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
-            );"""
-                           )
+
+    def create_expansions_table(
+        self,
+    ) -> None:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Expansions (
                 GeneID VARCHAR(100),
@@ -230,6 +211,49 @@ class SqliteHandler(object):
                     )
             );"""
                            )
+
+    def create_local_search_table(
+        self,
+    ) -> None:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Matches (
+                FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GeneID  VARCHAR(100) NOT NULL,
+                QueryExonStart INTEGER NOT NULL,
+                QueryExonEnd INTEGER NOT NULL,
+                QueryExonFrame VARCHAR NOT NULL,
+                QueryFrame INTEGER NOT NULL,
+                QueryStrand VARCHAR(1) NOT NULL,
+                TargetFrame INTEGER NOT NULL,
+                TargetStrand VARCHAR(1) NOT NULL,
+                Score INTEGER NOT NULL,
+                Bits INTEGER NOT NULL,
+                Evalue REAL NOT NULL,
+                AlignmentLength INTEGER NOT NULL,
+                QueryStart INTEGER NOT NULL,
+                QueryEnd INTEGER NOT NULL,
+                TargetStart INTEGER NOT NULL,
+                TargetEnd INTEGER NOT NULL,
+                QueryAlnProtSeq VARCHAR NOT NULL,
+                TargetAlnProtSeq VARCHAR NOT NULL,
+                Match VARCHAR NOT NULL,
+                QueryCountStopCodons INTEGER NOT NULL,
+                TargetCountStopCodons INTEGER NOT NULL,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID)
+            );"""
+                           )
+
+    def create_global_search_table(
+        self,
+    ) -> None:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS CDS_global_alignments (
                 ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -792,27 +816,27 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.executemany(
                 """
-                INSERT INTO CDS_global_alignments (
-                    GeneID,
-                    GeneChrom,
-                    GeneStrand,
-                    QueryExonStart,
-                    QueryExonEnd,
-                    TargetExonStart,
-                    TargetExonEnd,
-                    QueryPreviousFrame,
-                    QueryFrame,
-                    TargetPreviousFrame,
-                    TargetFrame,
-                    DNAIdentity,
-                    ProtIdentity,
-                    QueryAlnDNASeq,
-                    TargetAlnDNASeq,
-                    QueryAlnProtSeq,
-                    TargetAlnProtSeq
-                )
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, list_tuples)
+            INSERT INTO CDS_global_alignments (
+                GeneID,
+                GeneChrom,
+                GeneStrand,
+                QueryExonStart,
+                QueryExonEnd,
+                TargetExonStart,
+                TargetExonEnd,
+                QueryPreviousFrame,
+                QueryFrame,
+                TargetPreviousFrame,
+                TargetFrame,
+                DNAIdentity,
+                ProtIdentity,
+                QueryAlnDNASeq,
+                TargetAlnDNASeq,
+                QueryAlnProtSeq,
+                TargetAlnProtSeq
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, list_tuples)
 
     def insert_matches_interdependence_classification(
             self,
