@@ -484,9 +484,8 @@ Exonize results database:   {self.results_database_path.name}
                                 self.environment.logger.exception(e)
                                 sys.exit()
 
-            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+            if self.SEARCH_ALL or self.GLOBAL_SEARCH:
                 global_records_set = self.global_full_matches_dictionary[gene_id]
-                query_coordinates = query_coordinates.union(exon_coordinates)
 
             gene_graph = self.event_reconciler.create_events_multigraph(
                 local_records_set=local_records_set,
@@ -550,10 +549,10 @@ Exonize results database:   {self.results_database_path.name}
             self.local_full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
                 local_full_matches_list=local_full_matches_list
             )
-            genes_to_process.union(set(self.local_full_matches_dictionary.keys()))
+            genes_to_process = genes_to_process.union(set(self.local_full_matches_dictionary.keys()))
         if self.SEARCH_ALL or self.GLOBAL_SEARCH:
             self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
-            genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
+            genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
         status: int
         code: int
         forks: int = 0
