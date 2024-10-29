@@ -217,7 +217,9 @@ def test_fetch_pairs_for_global_alignments():
         (P.open(1, 5), 0),
         (P.open(6, 10), 0),
         (P.open(3, 7), 0),
-        (P.open(11, 15), 0)
+        (P.open(11, 15), 0),
+        (P.open(20,30), 0),
+        (P.open(22,32), 0)
     ]
     expected_pairs = {
         (P.open(1, 5), P.open(6, 10)),
