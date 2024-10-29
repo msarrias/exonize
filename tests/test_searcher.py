@@ -210,3 +210,19 @@ def test_fetch_dna_sequence():
         strand="+"
     )
     assert sequence == "GCATGCAT"  # Trimmed sequence
+
+
+def test_fetch_pairs_for_global_alignments():
+    cds_list = [
+        (P.open(1, 5), 0),
+        (P.open(6, 10), 0),
+        (P.open(3, 7), 0),
+        (P.open(11, 15), 0)
+    ]
+    expected_pairs = {
+        (P.open(1, 5), P.open(6, 10)),
+        (P.open(1, 5), P.open(11, 15)),
+        (P.open(3, 7), P.open(11, 15)),
+        (P.open(6, 10), P.open(11, 15))
+    }
+    assert search_engine.fetch_pairs_for_global_alignments(cds_list=cds_list) == expected_pairs
