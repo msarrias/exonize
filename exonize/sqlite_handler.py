@@ -1023,6 +1023,31 @@ class SqliteHandler(object):
             cursor.execute("SELECT DISTINCT GeneID FROM Expansions")
             return [record for record in cursor.fetchall()]
 
+    def query_global_cds_events(
+            self,
+    ) -> dict:
+        with sqlite3.connect(
+                self.results_database_path, timeout=self.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            SELECT
+                f.GeneID,
+                f.QueryExonStart - g.GeneStart,
+                f.QueryExonEnd - g.GeneStart,
+                f.TargetExonStart - g.GeneStart,
+                f.TargetExonEnd - g.GeneStart
+            FROM CDS_global_alignments AS f
+            JOIN Genes AS g ON g.GeneID= f.GeneID
+            """
+            )
+            records = cursor.fetchall()
+            global_search_dict = defaultdict(list)
+            for record in records:
+                global_search_dict[record[0]].append(record)
+            return global_search_dict
+
     def export_all_tables_to_csv(
             self,
             output_dir: Path
