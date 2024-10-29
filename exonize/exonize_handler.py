@@ -622,7 +622,7 @@ Exonize results database:   {self.results_database_path.name}
                     for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
                     in transcripts_iterdependence_tuples
                 ],
-                table_name='Matches_non_reciprocal',
+                table_name='Local_matches_non_reciprocal',
                 table_identifier_column='FragmentID'
             )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION

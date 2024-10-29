@@ -709,11 +709,11 @@ class SqliteHandler(object):
             schema = cursor.fetchone()[0]
             new_table_schema = schema.replace(
                 "Matches_full_length",
-                "Matches_non_reciprocal"
+                "Local_matches_non_reciprocal"
             )
             cursor.execute(new_table_schema)
         self.add_column_to_table(
-            table_name="Matches_non_reciprocal",
+            table_name="Local_matches_non_reciprocal",
             column_name="Mode",
             column_type="""
                     Mode TEXT CHECK(Mode IN (
@@ -776,7 +776,7 @@ class SqliteHandler(object):
 
             tuples_to_insert = [(*i, fragments_mode_dict[i[0]]) for i in results]
             query = """
-            INSERT INTO Matches_non_reciprocal (
+            INSERT INTO Local_matches_non_reciprocal (
             FragmentID,
             GeneID,
             GeneStart,
@@ -969,7 +969,7 @@ class SqliteHandler(object):
                 QueryExonEnd,
                 CorrectedTargetStart,
                 CorrectedTargetEnd
-            FROM Matches_non_reciprocal
+            FROM Local_matches_non_reciprocal
             WHERE Mode="FULL"
             ORDER BY
                 GeneID, FragmentID;
