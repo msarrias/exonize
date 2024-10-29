@@ -30,7 +30,9 @@ class DataPreprocessor(object):
             output_prefix: str,
             genome_file_path: Path,
             debug_mode: bool,
-            csv: bool
+            global_search: bool,
+            local_search: bool,
+            csv: bool,
     ):
         self.gene_annot_feature = gene_annot_feature
         self.cds_annot_feature = cds_annot_feature
@@ -48,6 +50,8 @@ class DataPreprocessor(object):
         self.results_database = database_interface.results_database_path
         self.csv = csv
         self._DEBUG_MODE = debug_mode
+        self._GLOBAL_SEARCH = global_search
+        self._LOCAL_SEARCH = local_search
 
         self.old_filename = None
         self.genome_database = None
@@ -461,6 +465,17 @@ class DataPreprocessor(object):
             self.compress_directory(source_dir=self.csv_path)
             shutil.rmtree(self.csv_path)
 
+    def initialize_database(self):
+        self.database_interface.create_genes_table()
+        self.database_interface.create_expansions_table()
+        if not self._GLOBAL_SEARCH and not self._LOCAL_SEARCH:
+            self.database_interface.create_local_search_table()
+            self.database_interface.create_global_search_table()
+        elif self._LOCAL_SEARCH:
+            self.database_interface.create_local_search_table()
+        else:
+            self.database_interface.create_global_search_table()
+
     def prepare_data(
             self,
     ) -> None:
@@ -489,8 +504,7 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
             os.remove(self.genome_database_path)
-        self.database_interface.connect_create_results_database()
-        # self.database_interface.create_matches_interdependence_expansions_counts_table()
+        self.initialize_database()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
