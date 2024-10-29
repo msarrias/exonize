@@ -328,10 +328,11 @@ class ReconcilerHandler(object):
             for record in global_records_set
             for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
         }
-        global_records_set_pairs_set = {
-            sorted(P.open(cds_start, cds_end), P.open(target_start, target_end), key=lambda x: (x.lower, x.upper))
-            for _, cds_start, cds_end, target_start, target_end in global_records_set
-        }
+        global_records_set_pairs_set = set(tuple(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
+        )
+                                           for _, cds_start, cds_end, target_start, target_end in global_records_set
+                                           )
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
@@ -347,8 +348,8 @@ class ReconcilerHandler(object):
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
 
-        local_records_set_pairs_set = set(
-            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
+        local_records_set_pairs_set = set(tuple(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper)))
             for _, _, cds_start, cds_end, target_start, target_end, _ in local_records_set
         )
 
