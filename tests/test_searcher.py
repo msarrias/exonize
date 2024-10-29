@@ -20,6 +20,8 @@ data_container = DataPreprocessor(
     output_prefix='test',
     genome_file_path=Path(''),
     debug_mode=False,
+    global_search=False,
+    local_search=False,
     csv=False
 )
 

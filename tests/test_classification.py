@@ -251,7 +251,7 @@ exonize_obj = Exonize(
     )
 shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 exonize_obj.database_interface.results_database_path = results_db_path
-exonize_obj.database_interface.connect_create_results_database()
+exonize_obj.data_container.initialize_database()
 exonize_obj.database_interface.insert_matches(
     gene_args_tuple=mock_gene1,
     fragments_tuples_list=fragments_gene1
@@ -607,7 +607,7 @@ def test_expansion_transcript_iterdependence_classification():
     )
     shutil.rmtree("mock_specie2_exonize", ignore_errors=True)
     exonize_obj.database_interface.results_database_path = results_db_path
-    exonize_obj.database_interface.connect_create_results_database()
+    exonize_obj.data_container.initialize_database()
     exonize_obj.database_interface.insert_matches(
         gene_args_tuple=mock_gene1,
         fragments_tuples_list=fragments_gene1
@@ -631,7 +631,7 @@ def test_expansion_transcript_iterdependence_classification():
     # group full matches by gene id
     tblastx_full_matches_list = exonize_obj.database_interface.query_full_length_events()
     exonize_obj.full_matches_dictionary = exonize_obj.event_reconciler.get_gene_events_dictionary(
-        tblastx_full_matches_list=tblastx_full_matches_list
+        local_full_matches_list=tblastx_full_matches_list
     )
     genes_list = list(exonize_obj.full_matches_dictionary.keys())
     for gene_id in genes_list:
@@ -643,12 +643,13 @@ def test_expansion_transcript_iterdependence_classification():
          targets_reference_coordinates_dictionary
          ) = exonize_obj.event_reconciler.align_target_coordinates(
             gene_id=gene_id,
-            tblastx_records_set=tblastx_records_set,
+            local_records_set=tblastx_records_set,
             cds_candidates_dictionary=cds_candidates_dictionary
         )
         gene_graph = exonize_obj.event_reconciler.create_events_multigraph(
-            tblastx_records_set=tblastx_records_set,
-            query_coordinates_set=query_coordinates,
+            local_records_set=tblastx_records_set,
+            global_records_set=set(),
+            query_local_coordinates_set=query_coordinates,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
         (gene_events_list,
