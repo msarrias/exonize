@@ -15,15 +15,15 @@ from Bio.Seq import Seq
 class ReconcilerHandler(object):
     def __init__(
             self,
-            blast_engine: object,
+            search_engine: object,
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
             cds_annot_feature: str
     ):
-        self.environment = blast_engine.environment
-        self.data_container = blast_engine.data_container
-        self.database_interface = blast_engine.database_interface
-        self.blast_engine = blast_engine
+        self.environment = search_engine.environment
+        self.data_container = search_engine.data_container
+        self.database_interface = search_engine.database_interface
+        self.search_engine = search_engine
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
         self.query_coverage_threshold = query_coverage_threshold
         self.cds_annot_feature = cds_annot_feature
@@ -123,7 +123,7 @@ class ReconcilerHandler(object):
                 if coordinate.contains(other_coord):
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
-                elif self.blast_engine.get_overlap_percentage(
+                elif self.search_engine.get_overlap_percentage(
                         intv_i=coordinate,
                         intv_j=other_coord
                 ) >= self.query_coverage_threshold:
@@ -144,7 +144,7 @@ class ReconcilerHandler(object):
         overlapping_coords = defaultdict(list)
         for truncation_coord, teval in truncation_coordinates_set:
             for cds_coord in cds_candidates_set:
-                overlap_percentage = self.blast_engine.get_overlap_percentage(
+                overlap_percentage = self.search_engine.get_overlap_percentage(
                     intv_i=truncation_coord,
                     intv_j=cds_coord
                 )
@@ -314,19 +314,28 @@ class ReconcilerHandler(object):
     @staticmethod
     def create_events_multigraph(
             targets_reference_coordinates_dictionary: dict,
-            query_coordinates_set: set,
-            tblastx_records_set: set,
+            query_local_coordinates_set: set,
+            local_records_set: set,
+            global_records_set: set,
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         target_coordinates_set = set([
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
         ])
-
+        global_cds_coordinates_set = {
+            P.open(cds_start, cds_end)
+            for record in global_records_set
+            for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
+        }
+        global_records_set_pairs_set = set(tuple(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
+        ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, 'FULL') for coordinate in query_coordinates_set],
+                *[(coordinate, 'FULL')
+                  for coordinate in query_local_coordinates_set.union(global_cds_coordinates_set)],
                 *target_coordinates_set
             ]
         ])
@@ -337,7 +346,12 @@ class ReconcilerHandler(object):
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
 
-        for event in tblastx_records_set:
+        local_records_set_pairs_set = set(tuple(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper)))
+            for _, _, cds_start, cds_end, target_start, target_end, _ in local_records_set
+        )
+
+        for event in local_records_set:
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             target_coordinate = P.open(target_start, target_end)  # exact target coordinates
             # we take the "reference target coordinates"
@@ -352,6 +366,20 @@ class ReconcilerHandler(object):
                 query=(cds_start, cds_end),
                 evalue=evalue,
                 mode=mode,
+                color='black',
+                width=2
+            )
+        for pair in global_records_set_pairs_set - local_records_set_pairs_set:
+            cds_coordinate, target_coordinate = pair
+            gene_graph.add_edge(
+                u_for_edge=(cds_coordinate.lower, cds_coordinate.upper),
+                v_for_edge=(target_coordinate.lower, target_coordinate.upper),
+                fragment_id=None,
+                target=(target_coordinate.lower, target_coordinate.upper),
+                corrected_target=(target_coordinate.lower, target_coordinate.upper),
+                query=(cds_coordinate.lower, cds_coordinate.upper),
+                evalue=None,
+                mode='FULL',
                 color='black',
                 width=2
             )
@@ -577,6 +605,7 @@ class ReconcilerHandler(object):
                         (adjacent_edges[0]['mode'], adjacent_edges[0]['fragment_id'])
                     )
                     skip_pair.append(pair)
+        event_reduced_fragments_list = [(mode, id_) for mode, id_ in event_reduced_fragments_list if id_]
         return event_reduced_fragments_list
 
     @staticmethod
@@ -660,22 +689,22 @@ class ReconcilerHandler(object):
 
     @staticmethod
     def get_gene_events_dictionary(
-            tblastx_full_matches_list: list[tuple],
+            local_full_matches_list: list[tuple],
     ):
         full_matches_dictionary = defaultdict(set)
         # group full matches by gene id
-        for match in tblastx_full_matches_list:
+        for match in local_full_matches_list:
             gene_id = match[1]
             full_matches_dictionary[gene_id].add(match)
         return full_matches_dictionary
 
     @staticmethod
     def get_hits_query_and_target_coordinates(
-            tblastx_records_set: set,
+            local_records_set: set,
     ):
         query_coordinates = set()
         min_e_values = {}
-        for record in tblastx_records_set:
+        for record in local_records_set:
             fragment_id, gene_id, cds_start, cds_end, target_start, target_end, evalue = record
             target_coordinate = P.open(target_start, target_end)
             query_coordinates.add(P.open(cds_start, cds_end))
@@ -732,11 +761,11 @@ class ReconcilerHandler(object):
             target = target[frame:adjusted_end]
             trans_target = target.translate()
             n_stop_codons = str(trans_target).count('*')
-            alignment = self.blast_engine.perform_msa(
+            alignment = self.search_engine.perform_msa(
                 query=trans_query,
                 target=trans_target
             )
-            prot_identity = self.blast_engine.compute_identity(
+            prot_identity = self.search_engine.compute_identity(
                 sequence_i=alignment[0],
                 sequence_j=alignment[1]
             )
@@ -750,11 +779,11 @@ class ReconcilerHandler(object):
          trans_target,
          n_stop_codons
          ) = max(target_sequence_frames_translations, key=lambda x: x[0])
-        alignment = self.blast_engine.perform_msa(
+        alignment = self.search_engine.perform_msa(
             query=query,
             target=target
         )
-        dna_identity = self.blast_engine.compute_identity(
+        dna_identity = self.search_engine.compute_identity(
             sequence_i=alignment[0],
             sequence_j=alignment[1]
         )
@@ -777,13 +806,13 @@ class ReconcilerHandler(object):
     def get_matches_corrected_coordinates_and_identity(
             self,
             gene_id: str,
-            tblastx_records_set: set[tuple],
+            local_records_set: set[tuple],
             targets_reference_coordinates_dictionary: dict
     ) -> list[tuple]:
         fetch_gene_cdss_dict = {coord: frame
                                 for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)}
         corrected_coordinates_list = []
-        for record in tblastx_records_set:
+        for record in local_records_set:
             fragment_id, _, cds_start, cds_end, target_start, target_end, _ = record
             target_coordinate = P.open(target_start, target_end)
             corrected_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
@@ -812,21 +841,10 @@ class ReconcilerHandler(object):
                     fragment_id))
         return corrected_coordinates_list
 
-    def fetch_gene_cdss_set(
-            self,
-            gene_id: str
-    ):
-        return set(
-            i['coordinate']
-            for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
-            for i in struct['structure'] if i['type'] == self.cds_annot_feature
-            if i['coordinate'].upper - i['coordinate'].lower >= self.blast_engine.min_exon_length
-        )
-
     def align_target_coordinates(
             self,
             gene_id: str,
-            tblastx_records_set: set[tuple],
+            local_records_set: set[tuple],
             cds_candidates_dictionary: dict
     ) -> tuple[set[P.Interval], dict]:
         gene_start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
@@ -836,7 +854,7 @@ class ReconcilerHandler(object):
             gene_start=gene_start
         )
         query_coordinates, target_coordinates = self.get_hits_query_and_target_coordinates(
-            tblastx_records_set=tblastx_records_set
+            local_records_set=local_records_set
         )
         overlapping_targets = self.data_container.get_overlapping_clusters(
             target_coordinates_set=target_coordinates,
@@ -844,7 +862,7 @@ class ReconcilerHandler(object):
         )
         gene_cds_set = set(
             coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-            if coord.upper - coord.lower >= self.blast_engine.min_exon_length
+            if coord.upper - coord.lower >= self.search_engine.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(

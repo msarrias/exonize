@@ -33,7 +33,7 @@ from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
-from exonize.blast_searcher import BLASTsearcher
+from exonize.searcher import Searcher
 from exonize.classifier_handler import ClassifierHandler
 from exonize.reconciler_handler import ReconcilerHandler
 
@@ -57,10 +57,14 @@ class Exonize(object):
             query_coverage_threshold: float = 0.9,
             exon_clustering_overlap_threshold: float = 0.9,
             targets_clustering_overlap_threshold: float = 0.9,
+            fraction_of_aligned_positions: float = 0.9,
+            peptide_identity_threshold: float = 0.9,
             csv: bool = False,
             enable_debug: bool = False,
             soft_force: bool = False,
             hard_force: bool = False,
+            global_search: bool = False,
+            local_search: bool = False,
             sleep_max_seconds: int = 60,
             timeout_database: int = 160
     ):
@@ -68,6 +72,9 @@ class Exonize(object):
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
         self.FORKS_NUMBER = cpus_number
+        self.GLOBAL_SEARCH = global_search
+        self.LOCAL_SEARCH = local_search
+        self.SEARCH_ALL = not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH
 
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
@@ -84,13 +91,16 @@ class Exonize(object):
         self.query_coverage_threshold = query_coverage_threshold
         self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
+        self.fraction_of_aligned_positions = fraction_of_aligned_positions
+        self.peptide_identity_threshold = peptide_identity_threshold
         # other
         self.output_prefix = output_prefix
         self.sleep_max_seconds = sleep_max_seconds
         self.timeout_database = timeout_database
         self.csv = csv
         self.tic = datetime.now()
-        self.full_matches_dictionary = {}
+        self.local_full_matches_dictionary = {}
+        self.global_full_matches_dictionary = {}
 
         if not self.output_prefix:
             self.output_prefix = gff_file_path.stem
@@ -128,10 +138,12 @@ class Exonize(object):
             output_prefix=self.output_prefix,
             genome_file_path=self.genome_file_path,
             debug_mode=self._DEBUG_MODE,
+            global_search=self.GLOBAL_SEARCH,
+            local_search=self.LOCAL_SEARCH,
             csv=self.csv,
         )
 
-        self.blast_engine = BLASTsearcher(
+        self.search_engine = Searcher(
             data_container=self.data_container,
             sleep_max_seconds=self.sleep_max_seconds,
             self_hit_threshold=self.self_hit_threshold,
@@ -139,13 +151,15 @@ class Exonize(object):
             evalue_threshold=self.evalue_threshold,
             query_coverage_threshold=self.query_coverage_threshold,
             exon_clustering_overlap_threshold=self.exon_clustering_overlap_threshold,
+            fraction_of_aligned_positions=self.fraction_of_aligned_positions,
+            peptide_identity_threshold=self.peptide_identity_threshold,
             debug_mode=self._DEBUG_MODE,
         )
         self.event_classifier = ClassifierHandler(
-            blast_engine=self.blast_engine
+            search_engine=self.search_engine
         )
         self.event_reconciler = ReconcilerHandler(
-            blast_engine=self.blast_engine,
+            search_engine=self.search_engine,
             targets_clustering_overlap_threshold=self.targets_clustering_overlap_threshold,
             query_coverage_threshold=self.query_coverage_threshold,
             cds_annot_feature=self.cds_annot_feature
@@ -161,12 +175,14 @@ Indentifier:                  {self.output_prefix}
 GFF file:                     {gff_file_path}
 Genome file:                  {genome_file_path}
 --------------------------------
-tblastx e-value threshold:    {evalue_threshold}
-Query coverage threshold:     {query_coverage_threshold}
-Exon clustering threshold:    {exon_clustering_overlap_threshold}
-Targets clustering threshold: {targets_clustering_overlap_threshold}
-Self-hit threshold:           {self_hit_threshold}
-Min exon length (bps):        {min_exon_length}
+tblastx e-value threshold:     {evalue_threshold}
+Query coverage threshold:      {query_coverage_threshold}
+Exon clustering threshold:     {exon_clustering_overlap_threshold}
+Targets clustering threshold:  {targets_clustering_overlap_threshold}
+Self-hit threshold:            {self_hit_threshold}
+Min exon length (bps):         {min_exon_length}
+Fraction of aligned positions: {fraction_of_aligned_positions}
+Peptide identity threshold:    {peptide_identity_threshold}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
@@ -199,7 +215,7 @@ Exonize results database:   {self.results_database_path.name}
             result.add('-'.join(perm))
         return list(result)
 
-    def search(
+    def local_search(
             self
     ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
@@ -209,9 +225,9 @@ Exonize results database:   {self.results_database_path.name}
         unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
-            out_message = 'Starting exon duplication search'
+            out_message = 'Starting local search'
             if len(unprocessed_gene_ids_list) != gene_count:
-                out_message = 'Resuming search'
+                out_message = 'Resuming local search'
             self.environment.logger.info(
                 f'{out_message} for'
                 f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
@@ -248,7 +264,7 @@ Exonize results database:   {self.results_database_path.name}
                 # gc.collect()
                 # gc.freeze()
                 # # for gene_id in balanced_batch:
-                # self.blast_engine.find_coding_exon_duplicates(list(balanced_batch))
+                # self.search_engine.local_search(list(balanced_batch))
                 # gc.unfreeze()
                 # pr.disable()
                 # get_run_performance_profile(self.PROFILE_PATH, pr)
@@ -264,7 +280,7 @@ Exonize results database:   {self.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.blast_engine.find_coding_exon_duplicates(
+                        self.search_engine.local_search(
                             gene_id_list=list(balanced_batch)
                         )
                     except Exception as exception:
@@ -290,7 +306,7 @@ Exonize results database:   {self.results_database_path.name}
                 get_run_performance_profile(self.PROFILE_PATH, pr)
             self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_raw_matches()
-            identity_and_sequence_tuples = self.blast_engine.get_identity_and_dna_seq_tuples(
+            identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
                 matches_list=matches_list
             )
             self.database_interface.insert_identity_and_dna_algns_columns(
@@ -298,18 +314,112 @@ Exonize results database:   {self.results_database_path.name}
             )
         else:
             self.environment.logger.info(
-                'All genes have been processed. '
-                'If you want to re-run the analysis, '
+                'Local search has been completed. '
+                'If you wish to re-run the analysis, '
+                'consider using the hard-force/soft-force flag'
+            )
+            self.database_interface.clear_results_database()
+            self.data_container.initialize_database()
+        self.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=self.query_coverage_threshold,
+            evalue_threshold=self.evalue_threshold,
+        )
+
+    def global_search(
+            self
+    ):
+        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
+        processed_gene_ids_list = set(
+            self.database_interface.query_gene_ids_global_search()
+        )
+        unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
+        if unprocessed_gene_ids_list:
+            gene_count = len(gene_ids_list)
+            out_message = 'Starting global search'
+            if len(unprocessed_gene_ids_list) != gene_count:
+                out_message = 'Resuming global search'
+            self.environment.logger.info(
+                f'{out_message} for'
+                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
+            )
+            self.environment.logger.info(
+                'Exonizing: this may take a while...'
+            )
+            pr = cProfile.Profile()
+            pr.enable()
+            gc.collect()
+            gc.freeze()
+            # transactions_pks: set[int]
+            status: int
+            code: int
+            forks: int = 0
+            for balanced_batch in self.even_batches(
+                    data=unprocessed_gene_ids_list,
+                    number_of_batches=self.FORKS_NUMBER,
+            ):
+                if os.fork():
+                    forks += 1
+                    if forks >= self.FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
+                else:
+                    status = os.EX_OK
+                    try:
+                        self.search_engine.cds_global_search(
+                            genes_list=list(balanced_batch)
+                        )
+                    except Exception as exception:
+                        self.environment.logger.exception(
+                            str(exception)
+                        )
+                        status = os.EX_SOFTWARE
+                    finally:
+                        # This prevents the child process forked above to keep along the for loop upon completion
+                        # of the try/except block. If this was not present, it would resume were it left off, and
+                        # fork in turn its own children, duplicating the work done, and creating a huge mess.
+                        # We do not want that, so we gracefully exit the process when it is done.
+                        os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
+                gc.unfreeze()
+                pr.disable()
+                get_run_performance_profile(self.PROFILE_PATH, pr)
+            genes_to_update = self.database_interface.query_gene_ids_global_search()
+            if self.GLOBAL_SEARCH:
+                self.populate_genes_table()
+            self.database_interface.update_has_duplicate_genes_table(
+                list_tuples=[(gene,) for gene in genes_to_update]
+            )
+        else:
+            self.environment.logger.info(
+                'Gobal search has been completed. '
+                'If you wish to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
             self.environment.logger.info(
                 'Starting reconciliation and classification...'
             )
-            self.database_interface.clear_results_database()
-            self.database_interface.connect_create_results_database()
-        self.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=self.query_coverage_threshold,
-            evalue_threshold=self.evalue_threshold,
+            if self.GLOBAL_SEARCH:
+                self.database_interface.clear_results_database()
+                self.data_container.initialize_database()
+
+    def populate_genes_table(
+            self,
+    ) -> None:
+        tuples_to_insert = [
+            self.search_engine.get_gene_tuple(gene_id=gene_id)
+            for gene_id, gene_dict in self.data_container.gene_hierarchy_dictionary.items()
+        ]
+        self.database_interface.insert_gene_ids_table(
+            gene_args_tuple_list=tuples_to_insert
         )
 
     def classify_matches_transcript_interdependence(
@@ -339,38 +449,49 @@ Exonize results database:   {self.results_database_path.name}
             genes_list: list,
     ) -> None:
         for gene_id in genes_list:
-            tblastx_records_set = self.full_matches_dictionary[gene_id]
-            cds_candidates_dictionary = self.blast_engine.get_candidate_cds_coordinates(
-                gene_id=gene_id
-            )
-            (query_coordinates,
-             targets_reference_coordinates_dictionary
-             ) = self.event_reconciler.align_target_coordinates(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set,
-                cds_candidates_dictionary=cds_candidates_dictionary
-            )
-            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-                gene_id=gene_id,
-                tblastx_records_set=tblastx_records_set,
-                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-            )
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_corrected_target_start_end(
-                        list_tuples=corrected_coordinates_tuples
+            global_records_set = set()
+            local_records_set = set()
+            query_coordinates = set()
+            targets_reference_coordinates_dictionary = {}
+            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+                if gene_id in self.local_full_matches_dictionary:
+                    local_records_set = self.local_full_matches_dictionary[gene_id]
+                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
+                        gene_id=gene_id
                     )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+                    (query_coordinates,
+                     targets_reference_coordinates_dictionary
+                     ) = self.event_reconciler.align_target_coordinates(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        cds_candidates_dictionary=cds_candidates_dictionary
+                    )
+                    corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+                    )
+                    attempt = False
+                    while not attempt:
+                        try:
+                            self.database_interface.insert_corrected_target_start_end(
+                                list_tuples=corrected_coordinates_tuples
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
+
+            if self.SEARCH_ALL or self.GLOBAL_SEARCH:
+                global_records_set = self.global_full_matches_dictionary[gene_id]
+
             gene_graph = self.event_reconciler.create_events_multigraph(
-                tblastx_records_set=tblastx_records_set,
-                query_coordinates_set=query_coordinates,
+                local_records_set=local_records_set,
+                global_records_set=global_records_set,
+                query_local_coordinates_set=query_coordinates,
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
             )
             (gene_events_list,
@@ -404,36 +525,41 @@ Exonize results database:   {self.results_database_path.name}
                     else:
                         self.environment.logger.exception(e)
                         sys.exit()
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_in_non_reciprocal_fragments_table(
-                        fragment_ids_list=non_reciprocal_fragment_ids_list,
-                        gene_id=gene_id
-                    )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+            if self.SEARCH_ALL or self.LOCAL_SEARCH:
+                attempt = False
+                while not attempt:
+                    try:
+                        self.database_interface.insert_in_non_reciprocal_fragments_table(
+                            fragment_ids_list=non_reciprocal_fragment_ids_list,
+                            gene_id=gene_id
+                        )
+                        attempt = True
+                    except Exception as e:
+                        if "locked" in str(e):
+                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                        else:
+                            self.environment.logger.exception(e)
+                            sys.exit()
 
     def events_reconciliation(
             self,
     ):
-        self.database_interface.create_non_reciprocal_fragments_table()
-        # group full matches by gene id
-        tblastx_full_matches_list = self.database_interface.query_full_length_events()
-        self.full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
-            tblastx_full_matches_list=tblastx_full_matches_list
-        )
+        genes_to_process = set()
+        if self.SEARCH_ALL or self.LOCAL_SEARCH:
+            self.database_interface.create_non_reciprocal_fragments_table()
+            local_full_matches_list = self.database_interface.query_full_length_events()
+            self.local_full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
+                local_full_matches_list=local_full_matches_list
+            )
+            genes_to_process = genes_to_process.union(set(self.local_full_matches_dictionary.keys()))
+        if self.SEARCH_ALL or self.GLOBAL_SEARCH:
+            self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
+            genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
         status: int
         code: int
         forks: int = 0
-        genes_to_process = list(self.full_matches_dictionary.keys())
         for balanced_batch in self.even_batches(
-                data=genes_to_process,
+                data=list(genes_to_process),
                 number_of_batches=self.FORKS_NUMBER,
         ):
             if os.fork():
@@ -475,17 +601,35 @@ Exonize results database:   {self.results_database_path.name}
             self
     ):
         # MATCHES INTERDEPENDENCE CLASSIFICATION
-        non_reciprocal_coding_matches_list = self.database_interface.query_non_reciprocal_coding_matches()
-        transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence(
-            non_reciprocal_coding_matches_list=non_reciprocal_coding_matches_list
-        )
-        self.database_interface.insert_matches_interdependence_classification(
-            tuples_list=[
-                (n_mrnas, all_, present, absent, neither, category, frag_id)
-                for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
-                in transcripts_iterdependence_tuples
-            ]
-        )
+        if self.SEARCH_ALL or self.GLOBAL_SEARCH:
+            cds_global_matches_list = self.database_interface.query_cds_global_matches()
+            transcripts_iterdependence_global_matches_tuples = self.classify_matches_transcript_interdependence(
+                non_reciprocal_coding_matches_list=cds_global_matches_list
+            )
+            self.database_interface.insert_matches_interdependence_classification(
+                tuples_list=[
+                    (n_mrnas, all_, present, absent, neither, category, frag_id)
+                    for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
+                    in transcripts_iterdependence_global_matches_tuples
+                ],
+                table_name='Global_matches',
+                table_identifier_column='ID'
+            )
+
+        if self.SEARCH_ALL or self.LOCAL_SEARCH:
+            non_reciprocal_coding_matches_list = self.database_interface.query_non_reciprocal_coding_matches()
+            transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence(
+                non_reciprocal_coding_matches_list=non_reciprocal_coding_matches_list
+            )
+            self.database_interface.insert_matches_interdependence_classification(
+                tuples_list=[
+                    (n_mrnas, all_, present, absent, neither, category, frag_id)
+                    for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
+                    in transcripts_iterdependence_tuples
+                ],
+                table_name='Local_matches_non_reciprocal',
+                table_identifier_column='FragmentID'
+            )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION
         expansions_dictionary = self.database_interface.query_coding_expansion_events(
         )
@@ -495,6 +639,8 @@ Exonize results database:   {self.results_database_path.name}
         self.database_interface.insert_expansions_interdependence_classification(
             list_tuples=expansion_interdependence_tuples
             )
+        if self.GLOBAL_SEARCH:
+            self.database_interface.drop_table('Expansions')
 
     def runtime_logger(
             self,
@@ -565,8 +711,14 @@ Exonize results database:   {self.results_database_path.name}
         """
         self.environment.logger.info(f'Running Exonize for: {self.output_prefix}')
         self.data_container.prepare_data()
-        self.search()
-        self.environment.logger.info('Reconciling matches')
+        if self.SEARCH_ALL:
+            self.local_search()
+            self.global_search()
+        elif self.GLOBAL_SEARCH:
+            self.global_search()
+        else:
+            self.local_search()
+        self.environment.logger.info('Reconciling local matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')
         self.transcript_interdependence_classification()

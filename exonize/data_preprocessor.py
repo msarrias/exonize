@@ -9,6 +9,8 @@ from Bio import SeqIO
 import portion as P
 from pathlib import Path
 import tarfile
+from Bio.Seq import Seq
+from collections import defaultdict
 
 
 class DataPreprocessor(object):
@@ -28,7 +30,9 @@ class DataPreprocessor(object):
             output_prefix: str,
             genome_file_path: Path,
             debug_mode: bool,
-            csv: bool
+            global_search: bool,
+            local_search: bool,
+            csv: bool,
     ):
         self.gene_annot_feature = gene_annot_feature
         self.cds_annot_feature = cds_annot_feature
@@ -46,6 +50,8 @@ class DataPreprocessor(object):
         self.results_database = database_interface.results_database_path
         self.csv = csv
         self._DEBUG_MODE = debug_mode
+        self._GLOBAL_SEARCH = global_search
+        self._LOCAL_SEARCH = local_search
 
         self.old_filename = None
         self.genome_database = None
@@ -459,6 +465,17 @@ class DataPreprocessor(object):
             self.compress_directory(source_dir=self.csv_path)
             shutil.rmtree(self.csv_path)
 
+    def initialize_database(self):
+        self.database_interface.create_genes_table()
+        self.database_interface.create_expansions_table()
+        if not self._GLOBAL_SEARCH and not self._LOCAL_SEARCH:
+            self.database_interface.create_local_search_table()
+            self.database_interface.create_global_search_table()
+        elif self._LOCAL_SEARCH:
+            self.database_interface.create_local_search_table()
+        else:
+            self.database_interface.create_global_search_table()
+
     def prepare_data(
             self,
     ) -> None:
@@ -487,10 +504,116 @@ class DataPreprocessor(object):
                 records_dictionary=self.gene_hierarchy_dictionary
             )
             os.remove(self.genome_database_path)
-        self.database_interface.connect_create_results_database()
-        # self.database_interface.create_matches_interdependence_expansions_counts_table()
+        self.initialize_database()
         if self._DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."
             )
+
+    @staticmethod
+    def trim_sequence_to_codon_length(
+            sequence: str,
+            is_final_cds: bool,
+            gene_id: str,
+            transcript_id: str
+    ) -> str:
+        overhang = len(sequence) % 3
+        if overhang and is_final_cds:
+            return sequence[:-overhang]
+        elif overhang:
+            raise ValueError(
+                f' {gene_id}, {transcript_id}, non-final CDS has an overhang:'
+                f' {len(sequence)} is not divisible by 3'
+            )
+        return sequence
+
+    def construct_mrna_sequence(
+            self,
+            gene_strand: str,
+            chromosome: str,
+            cds_coordinates_list: list[dict],
+    ) -> str:
+        mrna_sequence = ''
+        for cds_coordinate in cds_coordinates_list:
+            start = cds_coordinate['coordinate'].lower
+            end = cds_coordinate['coordinate'].upper
+            cds_sequence = self.genome_dictionary[chromosome][start:end]
+            if gene_strand == '-':
+                cds_sequence = str(Seq(cds_sequence).reverse_complement())
+            mrna_sequence += cds_sequence
+        return mrna_sequence
+
+    def construct_peptide_sequences(
+            self,
+            gene_id: str,
+            transcript_id: str,
+            mrna_sequence: str,
+            cds_coordinates_list: list[dict],
+    ) -> tuple[str, dict]:
+        mrna_peptide_sequence = ''
+        start_coord = 0
+        n_coords = len(cds_coordinates_list) - 1
+        transcript_dict = defaultdict(list)
+        for coord_idx, cds_dictionary in enumerate(cds_coordinates_list):
+            frame_cds = int(cds_dictionary['frame'])
+            start = cds_dictionary['coordinate'].lower
+            end = cds_dictionary['coordinate'].upper
+            len_coord = end - start
+            frame_next_cds = 0
+            end_coord = len_coord + start_coord
+            if coord_idx != n_coords:
+                frame_next_cds = int(cds_coordinates_list[coord_idx + 1]['frame'])
+            cds_dna_sequence = self.trim_sequence_to_codon_length(
+                sequence=mrna_sequence[start_coord + frame_cds: end_coord + frame_next_cds],
+                is_final_cds=coord_idx == n_coords,
+                gene_id=gene_id,
+                transcript_id=transcript_id
+            )
+            cds_peptide_sequence = str(Seq(cds_dna_sequence).translate())
+            mrna_peptide_sequence += cds_peptide_sequence
+            start_coord = end_coord
+            frame_cds = frame_next_cds
+            transcript_dict[P.open(start, end)] = [coord_idx, frame_cds, cds_dna_sequence, cds_peptide_sequence]
+        return mrna_peptide_sequence, transcript_dict
+
+    @staticmethod
+    def recover_prot_dna_seq(
+            cds_coordinate: P.Interval,
+            transcript_dict: dict
+    ):
+        set_seq_coords = set()
+        for trans, seqs_dict in transcript_dict.items():
+            if cds_coordinate in seqs_dict['CDSs']:
+                n, frame, dna_align, prot_align = seqs_dict['CDSs'][cds_coordinate]
+                previous_frame = seqs_dict['CDSs'][list(seqs_dict['CDSs'].keys())[n - 1]][1]
+                dna_align = dna_align[previous_frame:len(dna_align) - frame]
+                if frame > 0:
+                    prot_align = prot_align[:-1]
+                set_seq_coords.add((dna_align, prot_align, (previous_frame, frame)))
+        return list(set_seq_coords)
+
+    def get_transcript_seqs_dict(
+            self,
+            gene_id: str
+    ) -> dict:
+        cds_dict = defaultdict(lambda: defaultdict())
+        gene_strand = self.gene_hierarchy_dictionary[gene_id]['strand']
+        gene_chrom = self.gene_hierarchy_dictionary[gene_id]['chrom']
+        for transcript_id, transcript_dict in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].items():
+            cds_coordinates_list = [coord_l for coord_l in transcript_dict['structure'] if coord_l['type'] == 'CDS']
+            mrna_seq = self.construct_mrna_sequence(
+                gene_strand=gene_strand,
+                chromosome=gene_chrom,
+                cds_coordinates_list=cds_coordinates_list
+            )
+            mrna_peptide_sequence, cds_seqs = self.construct_peptide_sequences(
+                gene_id=gene_id,
+                transcript_id=transcript_id,
+                mrna_sequence=mrna_seq,
+                cds_coordinates_list=cds_coordinates_list
+            )
+            cds_dict[transcript_id]['CDSs'] = cds_seqs
+            cds_dict[transcript_id]['mrnaSeq'] = mrna_seq
+            cds_dict[transcript_id]['pepSeq'] = mrna_peptide_sequence
+        return cds_dict
