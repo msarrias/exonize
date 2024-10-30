@@ -312,15 +312,12 @@ Exonize results database:   {self.results_database_path.name}
             )
         else:
             self.environment.logger.info(
-                'All genes have been processed. '
-                'If you want to re-run the analysis, '
+                'Local search has been completed. '
+                'If you wish to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
-            self.environment.logger.info(
-                'Starting reconciliation and classification...'
-            )
             self.database_interface.clear_results_database()
-            self.database_interface.connect_create_results_database()
+            self.data_container.initialize_database()
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.query_coverage_threshold,
             evalue_threshold=self.evalue_threshold,
@@ -393,12 +390,24 @@ Exonize results database:   {self.results_database_path.name}
                 gc.unfreeze()
                 pr.disable()
                 get_run_performance_profile(self.PROFILE_PATH, pr)
-        genes_to_update = self.database_interface.query_gene_ids_global_search()
-        if self.GLOBAL_SEARCH:
-            self.populate_genes_table()
-        self.database_interface.update_has_duplicate_genes_table(
-            list_tuples=[(gene,) for gene in genes_to_update]
-        )
+            genes_to_update = self.database_interface.query_gene_ids_global_search()
+            if self.GLOBAL_SEARCH:
+                self.populate_genes_table()
+            self.database_interface.update_has_duplicate_genes_table(
+                list_tuples=[(gene,) for gene in genes_to_update]
+            )
+        else:
+            self.environment.logger.info(
+                'Gobal search has been completed. '
+                'If you wish to re-run the analysis, '
+                'consider using the hard-force/soft-force flag'
+            )
+            self.environment.logger.info(
+                'Starting reconciliation and classification...'
+            )
+            if self.GLOBAL_SEARCH:
+                self.database_interface.clear_results_database()
+                self.data_container.initialize_database()
 
     def populate_genes_table(
             self,
