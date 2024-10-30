@@ -769,80 +769,82 @@ class Searcher(object):
             retain_pairs = set()
             gene_chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
             gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
-            cds_list = [
-                (coord, frame)
-                for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-                if coord in self.get_candidate_cds_coordinates(gene_id=gene_id)['candidates_cds_coordinates']
-            ]
-            if len(cds_list) > 1:
-                gene_pairs = self.fetch_pairs_for_global_alignments(
-                    cds_list=cds_list
-                )
-                try:
-                    transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
-                except ValueError as e:
-                    self.environment.logger.warning(f"{gene_id}: {str(e)}")
-                    continue
-                for pair in gene_pairs:
-                    coord_i, coord_j = pair
-                    seqs_i = self.data_container.recover_prot_dna_seq(
-                        cds_coordinate=coord_i,
-                        transcript_dict=transcripts_dictionary
+            candidate_cdss = exonize_obj.search_engine.get_candidate_cds_coordinates(gene_id=gene_id)
+            if candidate_cdss:
+                cds_list = [
+                    (coord, frame)
+                    for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
+                    if coord in candidate_cdss['candidates_cds_coordinates']
+                ]
+                if len(cds_list) > 1:
+                    gene_pairs = self.fetch_pairs_for_global_alignments(
+                        cds_list=cds_list
                     )
-                    seqs_j = self.data_container.recover_prot_dna_seq(
-                        cds_coordinate=coord_j,
-                        transcript_dict=transcripts_dictionary
-                    )
-                    if not all([
-                        len(seqs) == len(set([frames for *_, frames in seqs]))
-                        for seqs in [seqs_i, seqs_j]
-                    ]):
-                        print('check here', pair)
-                    else:
-                        for seq_i in seqs_i:
-                            dna_i, prot_i, frame_i_tuple = seq_i
-                            prev_frame_i, frame_i = frame_i_tuple
-                            for seq_j in seqs_j:
-                                dna_j, prot_j, frame_j_tuple = seq_j
-                                prev_frame_j, frame_j = frame_j_tuple
-                                align_dna = self.perform_msa(dna_i, dna_j)
-                                if align_dna:
-                                    align_di, align_dj = align_dna
-                                    identd = self.compute_identity(
-                                        sequence_i=align_di,
-                                        sequence_j=align_dj
-                                    )
-                                    align_prot = self.perform_msa(prot_i, prot_j)
-                                    if align_prot:
-                                        align_pi, align_pj = align_prot
-                                        identp = self.compute_identity(
-                                            sequence_i=align_pi,
-                                            sequence_j=align_pj
+                    try:
+                        transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
+                    except ValueError as e:
+                        self.environment.logger.warning(f"{gene_id}: {str(e)}")
+                        continue
+                    for pair in gene_pairs:
+                        coord_i, coord_j = pair
+                        seqs_i = self.data_container.recover_prot_dna_seq(
+                            cds_coordinate=coord_i,
+                            transcript_dict=transcripts_dictionary
+                        )
+                        seqs_j = self.data_container.recover_prot_dna_seq(
+                            cds_coordinate=coord_j,
+                            transcript_dict=transcripts_dictionary
+                        )
+                        if not all([
+                            len(seqs) == len(set([frames for *_, frames in seqs]))
+                            for seqs in [seqs_i, seqs_j]
+                        ]):
+                            print('check here', pair)
+                        else:
+                            for seq_i in seqs_i:
+                                dna_i, prot_i, frame_i_tuple = seq_i
+                                prev_frame_i, frame_i = frame_i_tuple
+                                for seq_j in seqs_j:
+                                    dna_j, prot_j, frame_j_tuple = seq_j
+                                    prev_frame_j, frame_j = frame_j_tuple
+                                    align_dna = self.perform_msa(dna_i, dna_j)
+                                    if align_dna:
+                                        align_di, align_dj = align_dna
+                                        identd = self.compute_identity(
+                                            sequence_i=align_di,
+                                            sequence_j=align_dj
                                         )
-                                        align_pos_fract = align_pi.count('-')/len(align_pi)
-                                        if (identp > self.peptide_identity_threshold and
-                                                align_pos_fract < (1 - self.fraction_of_aligned_positions)):
-                                            retain_pairs.add((
-                                                gene_id, gene_chrom, gene_strand,
-                                                coord_i.lower, coord_i.upper,
-                                                coord_j.lower, coord_j.upper,
-                                                prev_frame_i, frame_i,
-                                                prev_frame_j, frame_j,
-                                                identd, identp,
-                                                align_di, align_dj,
-                                                align_pi, align_pj
-                                            ))
-                if retain_pairs:
-                    attempt = False
-                    while not attempt:
-                        try:
-                            self.database_interface.insert_global_cds_alignments(
-                                list_tuples=list(retain_pairs)
-                            )
-                            attempt = True
-                        except Exception as e:
-                            if "locked" in str(e):
-                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
-                            else:
-                                self.environment.logger.exception(e)
-                                sys.exit()
+                                        align_prot = self.perform_msa(prot_i, prot_j)
+                                        if align_prot:
+                                            align_pi, align_pj = align_prot
+                                            identp = self.compute_identity(
+                                                sequence_i=align_pi,
+                                                sequence_j=align_pj
+                                            )
+                                            align_pos_fract = align_pi.count('-')/len(align_pi)
+                                            if (identp > self.peptide_identity_threshold and
+                                                    align_pos_fract < (1 - self.fraction_of_aligned_positions)):
+                                                retain_pairs.add((
+                                                    gene_id, gene_chrom, gene_strand,
+                                                    coord_i.lower, coord_i.upper,
+                                                    coord_j.lower, coord_j.upper,
+                                                    prev_frame_i, frame_i,
+                                                    prev_frame_j, frame_j,
+                                                    identd, identp,
+                                                    align_di, align_dj,
+                                                    align_pi, align_pj
+                                                ))
+                    if retain_pairs:
+                        attempt = False
+                        while not attempt:
+                            try:
+                                self.database_interface.insert_global_cds_alignments(
+                                    list_tuples=list(retain_pairs)
+                                )
+                                attempt = True
+                            except Exception as e:
+                                if "locked" in str(e):
+                                    time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                                else:
+                                    self.environment.logger.exception(e)
+                                    sys.exit()
