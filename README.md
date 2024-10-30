@@ -64,8 +64,8 @@ Exonize requires two positional arguments:
 - **`[--soft-force]`**: Overwrites the results database if it already exists.
 - **`[--hard-force]`**: Overwrites all internal files if they already exist.
 - **`[--csv]`**: Outputs a `.zip` file with a reduced set of results in CSV format.
-- **`[-v`, `--version]`**
-- **`[-h`, `--help]`**
+- **`[-v`, `--version]`**: show program's version number and exit.
+- **`[-h`, `--help]`**: show this help message and exit
 
 **Note:** If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
 
