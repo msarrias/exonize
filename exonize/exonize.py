@@ -65,16 +65,18 @@ def argument_parser():
         help='Transcript feature in annotation. Default is transcript.'
     )
     parser.add_argument(
+        '-sb',
         '--sequence-base',
         type=int,
         default=1,
         help='Annotation sequence numbering base (0/1). Default is 1.'
     )
     parser.add_argument(
+        '-fb',
         '--frame-base',
         type=int,
         default=0,
-        help='Annotation sequence numbering base (0/1). Default is 1.'
+        help='Frame base (0/1). Default is 0.'
     )
     parser.add_argument(
         '-el',
@@ -135,6 +137,7 @@ def argument_parser():
 
     # Optional Arguments for Flags
     parser.add_argument(
+        '-op',
         '--output_prefix',
         type=str,
         help='Species identifier - used for naming output files.')
@@ -173,7 +176,7 @@ def argument_parser():
         # metavar='csv-output-prefix',
         action='store_true',
         default=False,
-        help='File prefix for storing CSV file with identified exon duplicates and their classification.'
+        help='If set, Exonize will output a .zip file with a reduced set of the results in CSV format.'
     )
     # Optional Arguments for Numerical Values and Thresholds
     parser.add_argument(
@@ -184,6 +187,7 @@ def argument_parser():
         help='Max seconds to sleep. Default is 5.'
     )
     parser.add_argument(
+        '-cn',
         '--cpus-number',
         default=os.cpu_count(),  # This is pretty greedy, could be changed and put in a config file
         type=int,
@@ -196,6 +200,7 @@ def argument_parser():
         help='Database timeout. Default is 160.'
     )
     parser.add_argument(
+        '-odp',
         '--output-directory-path',
         type=Path,
         help='Output directory path. Default is current directory.'
