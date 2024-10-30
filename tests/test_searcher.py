@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from exonize.blast_searcher import BLASTsearcher
+from exonize.searcher import Searcher
 from exonize.data_preprocessor import DataPreprocessor
 from pathlib import Path
 import portion as P
@@ -20,10 +20,12 @@ data_container = DataPreprocessor(
     output_prefix='test',
     genome_file_path=Path(''),
     debug_mode=False,
+    global_search=False,
+    local_search=False,
     csv=False
 )
 
-blast_engine = BLASTsearcher(
+search_engine = Searcher(
     data_container=data_container,
     sleep_max_seconds=40,
     self_hit_threshold=0.5,
@@ -35,7 +37,7 @@ blast_engine = BLASTsearcher(
 )
 
 
-blast_engine.data_container.gene_hierarchy_dictionary = dict(
+search_engine.data_container.gene_hierarchy_dictionary = dict(
     gene_1=dict(
         coordinates=P.open(1, 10),
         chrom='1',
@@ -101,22 +103,22 @@ blast_engine.data_container.gene_hierarchy_dictionary = dict(
 
 def test_get_overlap_percentage():
     # test no overlap
-    assert blast_engine.get_overlap_percentage(
+    assert search_engine.get_overlap_percentage(
         intv_i=P.open(0, 1),
         intv_j=P.open(10, 100)
     ) == 0
     # test full overlap
-    assert blast_engine.get_overlap_percentage(
+    assert search_engine.get_overlap_percentage(
         intv_i=P.open(10, 100),
         intv_j=P.open(10, 100)
     ) == 1
     # test partial overlap
-    assert blast_engine.get_overlap_percentage(
+    assert search_engine.get_overlap_percentage(
         intv_i=P.open(10, 100),
         intv_j=P.open(15, 85)
     ) == (85 - 15) / (85 - 15)
 
-    assert blast_engine.get_overlap_percentage(
+    assert search_engine.get_overlap_percentage(
         intv_i=P.open(15, 85),
         intv_j=P.open(10, 100)
     ) == (85 - 15) / (100 - 10)
@@ -124,37 +126,37 @@ def test_get_overlap_percentage():
 
 
 def test_compute_identity():
-    assert blast_engine.compute_identity(
+    assert search_engine.compute_identity(
         sequence_i="ACGT",
         sequence_j="ACGT"
     ) == 1.0
-    assert blast_engine.compute_identity(
+    assert search_engine.compute_identity(
         sequence_i="ACGT",
         sequence_j="AC-T"
     ) == 0.75
-    assert blast_engine.compute_identity(
+    assert search_engine.compute_identity(
         sequence_i="ACGT",
         sequence_j="ATAT"
     ) == 0.5
-    assert blast_engine.compute_identity(
+    assert search_engine.compute_identity(
         sequence_i="ACGT",
         sequence_j="TGCA"
     ) == 0.0
     with pytest.raises(ValueError):
-        blast_engine.compute_identity(
+        search_engine.compute_identity(
             sequence_i="ACGT",
             sequence_j="ACG"
         )
 
 
 def test_reformat_tblastx_frame_strand():
-    assert blast_engine.reformat_tblastx_frame_strand(frame=1) == (0, '+')
-    assert blast_engine.reformat_tblastx_frame_strand(frame=-1) == (0, '-')
+    assert search_engine.reformat_tblastx_frame_strand(frame=1) == (0, '+')
+    assert search_engine.reformat_tblastx_frame_strand(frame=-1) == (0, '-')
 
 
 def test_reverse_sequence_bool():
-    assert blast_engine.reverse_sequence_bool(strand="+") is False
-    assert blast_engine.reverse_sequence_bool(strand="-") is True
+    assert search_engine.reverse_sequence_bool(strand="+") is False
+    assert search_engine.reverse_sequence_bool(strand="-") is True
 
 
 def test_get_candidate_cds_coordinates():
@@ -171,17 +173,17 @@ def test_get_candidate_cds_coordinates():
         P.open(6460, 6589),
         P.open(7311, 7442)
     ]
-    blast_res_a = blast_engine.get_candidate_cds_coordinates('gene_1')
+    blast_res_a = search_engine.get_candidate_cds_coordinates('gene_1')
     assert blast_res_a['cds_frame_dict'] == res_a_i
     assert blast_res_a['candidates_cds_coordinates'] == res_a_ii
 
 
 def test_fetch_dna_sequence():
-    blast_engine.data_container.genome_dictionary = {
+    search_engine.data_container.genome_dictionary = {
         "chr1": "ATGC" * 100  # example sequence
     }
 
-    sequence = blast_engine.fetch_dna_sequence(
+    sequence = search_engine.fetch_dna_sequence(
         chromosome="chr1",
         annotation_start=0,
         annotation_end=8,
@@ -190,7 +192,7 @@ def test_fetch_dna_sequence():
         strand="+"
     )
     assert sequence == "ATGC"
-    sequence = blast_engine.fetch_dna_sequence(
+    sequence = search_engine.fetch_dna_sequence(
         chromosome="chr1",
         annotation_start=0,
         annotation_end=8,
@@ -199,7 +201,7 @@ def test_fetch_dna_sequence():
         strand="-"
     )
     assert sequence == "GCAT"  # Reverse complement of "ATGC"
-    sequence = blast_engine.fetch_dna_sequence(
+    sequence = search_engine.fetch_dna_sequence(
         chromosome="chr1",
         annotation_start=0,
         annotation_end=12,
@@ -208,3 +210,21 @@ def test_fetch_dna_sequence():
         strand="+"
     )
     assert sequence == "GCATGCAT"  # Trimmed sequence
+
+
+def test_fetch_pairs_for_global_alignments():
+    cds_list = [
+        (P.open(1, 5), 0),
+        (P.open(6, 10), 0),
+        (P.open(3, 7), 0),
+        (P.open(11, 15), 0),
+        (P.open(20,30), 0),
+        (P.open(22,32), 0)
+    ]
+    expected_pairs = {
+        (P.open(1, 5), P.open(6, 10)),
+        (P.open(1, 5), P.open(11, 15)),
+        (P.open(3, 7), P.open(11, 15)),
+        (P.open(6, 10), P.open(11, 15))
+    }
+    assert search_engine.fetch_pairs_for_global_alignments(cds_list=cds_list) == expected_pairs

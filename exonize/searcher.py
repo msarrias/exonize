@@ -17,7 +17,7 @@ from Bio.Blast import NCBIXML
 from Bio import AlignIO
 
 
-class BLASTsearcher(object):
+class Searcher(object):
     def __init__(
             self,
             data_container: object,
@@ -27,17 +27,22 @@ class BLASTsearcher(object):
             evalue_threshold: float,
             query_coverage_threshold: float,
             exon_clustering_overlap_threshold: float,
-            debug_mode: bool,
+            peptide_identity_threshold: float = 0.4,
+            fraction_of_aligned_positions: float = 0.9,
+            debug_mode: bool = False
     ):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
         self.evalue_threshold = evalue_threshold
         self.query_coverage_threshold = query_coverage_threshold
+        self.fraction_of_aligned_positions = fraction_of_aligned_positions
+        self.peptide_identity_threshold = peptide_identity_threshold
+        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
         self.sleep_max_seconds = sleep_max_seconds
         self.self_hit_threshold = self_hit_threshold
         self.min_exon_length = min_exon_length
-        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
+
         self._DEBUG_MODE = debug_mode
 
     @staticmethod
@@ -148,9 +153,10 @@ class BLASTsearcher(object):
                 output_file_path=output_file
             )
             # Read the alignment result from the output file
-            alignment = AlignIO.read(output_file, "fasta")
-            if alignment:
-                return [str(i.seq) for i in alignment]
+            if os.path.exists(output_file):
+                alignment = AlignIO.read(output_file, "fasta")
+                if alignment:
+                    return [str(i.seq) for i in alignment]
             else:
                 return []
 
@@ -401,7 +407,8 @@ class BLASTsearcher(object):
         if cds_coordinates_and_frames:
             clusters = self.data_container.get_overlapping_clusters(
                 target_coordinates_set=set(
-                    (coordinate, None) for coordinate, frame in cds_coordinates_and_frames),
+                    (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
+                    if coordinate.upper - coordinate.lower >= self.min_exon_length),
                 threshold=self.exon_clustering_overlap_threshold
             )
             if clusters:
@@ -527,12 +534,12 @@ class BLASTsearcher(object):
             gene_coordinate.upper
         )
 
-    def find_coding_exon_duplicates(
+    def local_search(
             self,
             gene_id_list: list[str],
     ) -> None:
         """
-        find_coding_exon_duplicates is a function that given a gene_id,
+        local_search is a function that given a gene_id,
         performs a tblastx for each representative CDS (see get_candidate_cds_coordinates).
         If the tblastx search returns hits, they are stored in the "results" database,
         otherwise the gene is recorded as having no duplication event.
@@ -540,7 +547,6 @@ class BLASTsearcher(object):
         """
         for gene_id in gene_id_list:
             blast_hits_dictionary = dict()
-            # time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
             chromosome, gene_coordinate = (
                 self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
                 self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
@@ -731,3 +737,113 @@ class BLASTsearcher(object):
         """
         return [self.process_fragment(fragment=fragment)
                 for fragment in matches_list]
+
+    @staticmethod
+    def get_lengths_ratio(
+            intvi: P.Interval,
+            intvj: P.Interval
+    ) -> float:
+        short, long = sorted([intvi.upper - intvi.lower, intvj.upper - intvj.lower])
+        return short / long
+
+    def fetch_pairs_for_global_alignments(
+            self,
+            cds_list: list[tuple]
+    ) -> set:
+        pairs = set()
+        for idxi, (coordi, _) in enumerate(cds_list):
+            for coordj, _ in cds_list[idxi:]:
+                self_overlap = self.data_container.min_perc_overlap(coordi, coordj)
+                pair_length_coverage = self.get_lengths_ratio(coordi, coordj)
+                if self_overlap == 0 and pair_length_coverage >= self.query_coverage_threshold:
+                    pair = tuple(sorted((coordi, coordj), key=lambda x: x.lower - x.upper))
+                    pairs.add(pair)
+        return pairs
+
+    def cds_global_search(
+            self,
+            genes_list: list[str]
+    ):
+        for gene_id in genes_list:
+            retain_pairs = set()
+            gene_chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
+            gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
+            candidate_cdss = self.get_candidate_cds_coordinates(gene_id=gene_id)
+            if candidate_cdss:
+                cds_list = [
+                    (coord, frame)
+                    for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
+                    if coord in candidate_cdss['candidates_cds_coordinates']
+                ]
+                if len(cds_list) > 1:
+                    gene_pairs = self.fetch_pairs_for_global_alignments(
+                        cds_list=cds_list
+                    )
+                    try:
+                        transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
+                    except ValueError as e:
+                        self.environment.logger.warning(f"{gene_id}: {str(e)}")
+                        continue
+                    for pair in gene_pairs:
+                        coord_i, coord_j = pair
+                        seqs_i = self.data_container.recover_prot_dna_seq(
+                            cds_coordinate=coord_i,
+                            transcript_dict=transcripts_dictionary
+                        )
+                        seqs_j = self.data_container.recover_prot_dna_seq(
+                            cds_coordinate=coord_j,
+                            transcript_dict=transcripts_dictionary
+                        )
+                        if not all([
+                            len(seqs) == len(set([frames for *_, frames in seqs]))
+                            for seqs in [seqs_i, seqs_j]
+                        ]):
+                            print('check here', pair)
+                        else:
+                            for seq_i in seqs_i:
+                                dna_i, prot_i, frame_i_tuple = seq_i
+                                prev_frame_i, frame_i = frame_i_tuple
+                                for seq_j in seqs_j:
+                                    dna_j, prot_j, frame_j_tuple = seq_j
+                                    prev_frame_j, frame_j = frame_j_tuple
+                                    align_dna = self.perform_msa(dna_i, dna_j)
+                                    if align_dna:
+                                        align_di, align_dj = align_dna
+                                        identd = self.compute_identity(
+                                            sequence_i=align_di,
+                                            sequence_j=align_dj
+                                        )
+                                        align_prot = self.perform_msa(prot_i, prot_j)
+                                        if align_prot:
+                                            align_pi, align_pj = align_prot
+                                            identp = self.compute_identity(
+                                                sequence_i=align_pi,
+                                                sequence_j=align_pj
+                                            )
+                                            align_pos_fract = align_pi.count('-')/len(align_pi)
+                                            if (identp > self.peptide_identity_threshold and
+                                                    align_pos_fract < (1 - self.fraction_of_aligned_positions)):
+                                                retain_pairs.add((
+                                                    gene_id, gene_chrom, gene_strand,
+                                                    coord_i.lower, coord_i.upper,
+                                                    coord_j.lower, coord_j.upper,
+                                                    prev_frame_i, frame_i,
+                                                    prev_frame_j, frame_j,
+                                                    identd, identp,
+                                                    align_di, align_dj,
+                                                    align_pi, align_pj
+                                                ))
+                    if retain_pairs:
+                        attempt = False
+                        while not attempt:
+                            try:
+                                self.database_interface.insert_global_cds_alignments(
+                                    list_tuples=list(retain_pairs)
+                                )
+                                attempt = True
+                            except Exception as e:
+                                if "locked" in str(e):
+                                    time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                                else:
+                                    self.environment.logger.exception(e)
+                                    sys.exit()

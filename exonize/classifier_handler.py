@@ -9,11 +9,11 @@ import portion as P
 class ClassifierHandler(object):
     def __init__(
             self,
-            blast_engine: object
+            search_engine: object
     ):
-        self.data_container = blast_engine.data_container
-        self.blast_engine = blast_engine
-        self.database_interface = blast_engine.database_interface
+        self.data_container = search_engine.data_container
+        self.search_engine = search_engine
+        self.database_interface = search_engine.database_interface
 
     @staticmethod
     def get_mrna_cds_annotations(
