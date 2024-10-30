@@ -769,7 +769,7 @@ class Searcher(object):
             retain_pairs = set()
             gene_chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
             gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
-            candidate_cdss = self.search_engine.get_candidate_cds_coordinates(gene_id=gene_id)
+            candidate_cdss = self.get_candidate_cds_coordinates(gene_id=gene_id)
             if candidate_cdss:
                 cds_list = [
                     (coord, frame)
