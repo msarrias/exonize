@@ -547,7 +547,6 @@ class Searcher(object):
         """
         for gene_id in gene_id_list:
             blast_hits_dictionary = dict()
-            # time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
             chromosome, gene_coordinate = (
                 self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
                 self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate']
