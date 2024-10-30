@@ -1,10 +1,12 @@
 [project]
-name = "Exonize"
+name = "exonize"
 description = "A tool for finding duplicated exons in annotated genomes"
 authors = [
     {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
-    {name = "Lars Arvestad", email = "arve@math.su.se"},
-    {name = "Liam Longo"}
+    {name = "Liam Longo"},
+    {name = "Christopher Wheat"},
+    {name = "Lars Arvestad"},
+
 ]
 maintainers = [ 
     {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
