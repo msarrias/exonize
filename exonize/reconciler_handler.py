@@ -841,16 +841,6 @@ class ReconcilerHandler(object):
                     fragment_id))
         return corrected_coordinates_list
 
-    def fetch_gene_cdss_set(
-            self,
-            gene_id: str
-    ):
-        return set(
-            i['coordinate']
-            for mran, struct in self.data_container.gene_hierarchy_dictionary[gene_id]['mRNAs'].items()
-            for i in struct['structure'] if i['type'] == self.cds_annot_feature
-            if i['coordinate'].upper - i['coordinate'].lower >= self.search_engine.min_exon_length
-        )
 
     def align_target_coordinates(
             self,
