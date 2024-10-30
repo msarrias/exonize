@@ -605,6 +605,7 @@ class ReconcilerHandler(object):
                         (adjacent_edges[0]['mode'], adjacent_edges[0]['fragment_id'])
                     )
                     skip_pair.append(pair)
+        event_reduced_fragments_list = [(mode, id_) for mode, id_ in event_reduced_fragments_list if id_]
         return event_reduced_fragments_list
 
     @staticmethod
