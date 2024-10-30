@@ -175,12 +175,14 @@ Indentifier:                  {self.output_prefix}
 GFF file:                     {gff_file_path}
 Genome file:                  {genome_file_path}
 --------------------------------
-tblastx e-value threshold:    {evalue_threshold}
-Query coverage threshold:     {query_coverage_threshold}
-Exon clustering threshold:    {exon_clustering_overlap_threshold}
-Targets clustering threshold: {targets_clustering_overlap_threshold}
-Self-hit threshold:           {self_hit_threshold}
-Min exon length (bps):        {min_exon_length}
+tblastx e-value threshold:     {evalue_threshold}
+Query coverage threshold:      {query_coverage_threshold}
+Exon clustering threshold:     {exon_clustering_overlap_threshold}
+Targets clustering threshold:  {targets_clustering_overlap_threshold}
+Self-hit threshold:            {self_hit_threshold}
+Min exon length (bps):         {min_exon_length}
+Fraction of aligned positions: {fraction_of_aligned_positions}
+Peptide identity threshold:    {peptide_identity_threshold}
 --------------------------------
 Exonize results database:   {self.results_database_path.name}
         """
