@@ -19,7 +19,7 @@
 For running `exonize`, a local installation of [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) and [`MUSCLE`](https://www.drive5.com/muscle/) are required.
 
 ## Getting started
-You are best off installing `exonize` from PyPI.org using
+You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
 ```
 pip install exonize
 ```
