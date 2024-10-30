@@ -716,7 +716,7 @@ Exonize results database:   {self.results_database_path.name}
             self.global_search()
         else:
             self.local_search()
-        self.environment.logger.info('Reconciling matches')
+        self.environment.logger.info('Reconciling local matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')
         self.transcript_interdependence_classification()
