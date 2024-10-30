@@ -841,7 +841,6 @@ class ReconcilerHandler(object):
                     fragment_id))
         return corrected_coordinates_list
 
-
     def align_target_coordinates(
             self,
             gene_id: str,
