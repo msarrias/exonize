@@ -11,7 +11,7 @@
 `exonize` is an open-source command-line tool and Python package for identifying and classifying coding exon duplications in annotated genomes. `exonize` identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. In addition, `exonize` categorizes the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, the `exonize_analysis` module is available for Python notebooks.
 
 <div align="center">
-	<img src="https://github.com/msarrias/exonize/blob/msarrias-readme/figures/pipeline.png" style="width:70%;">
+	<img src="https://github.com/msarrias/exonize/blob/main/figures/pipeline.png" style="width:70%;">
 </div>
 </div>
 
@@ -42,9 +42,7 @@ Exonize requires two positional arguments:
 - **genome path**: Path to the genome sequence file, provided as the second argument. The file should be in FASTA format, with a `.zip` version also accepted.
   
 ## Optional Arguments
-
 - **`[-gfeat GENE_ANNOT_FEATURE]`**: Specifies the gene feature in the genome annotations. Default is `gene`.
-
 - **`[-cdsfeat CDS_ANNOT_FEATURE]`**: Specifies the coding sequence feature in the genome annotations. Default is `CDS`.
 - **`[-transfeat TRANSCRIPT_ANNOT_FEATURE]`**: Specifies the transcript feature in the genome annotations. Default is `transcript`.
 - **`[-sb SEQUENCE_BASE]`**: Annotation coordinates base (0 or 1). Default is `1`.
@@ -81,7 +79,7 @@ Optional arguments should be added in the command following the positional argum
 ## Example dataset: _Homo sapiens_ Y chromosome
 The following steps demonstrate how to use `exonize` on a test dataset for the human Ensembl annotations.
 
-1. Step into the `test_human_chrom_Y` directory and download the test data:
+1. Move into the `test_human_chrom_Y` directory and download the test data:
 ```
 cd test_human_chrom_Y
 source fetch_data.sh
@@ -96,7 +94,7 @@ exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
         --output_prefix Homo_sapiens_chrom_Y \
         --csv
 ```
-This command runs `exonize` on the human Y chromosome dataset, performing both global and local searches, and enables output in CSV format. 
+This command runs `exonize` on the human Y chromosome dataset, performing both global and local searches.
 
 ## Citation
 If you use `exonize` in a publication, please cite:
