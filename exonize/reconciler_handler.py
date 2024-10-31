@@ -329,7 +329,8 @@ class ReconcilerHandler(object):
             for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
         }
         global_records_set_pairs_set = set(tuple(
-            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper))
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)),
+                   key=lambda x: (x.lower, x.upper))
         ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
@@ -342,6 +343,7 @@ class ReconcilerHandler(object):
         gene_graph.add_nodes_from(
             [node_coordinate for node_coordinate, _ in set_of_nodes]
         )
+        drop_nodes = []
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
@@ -365,6 +367,7 @@ class ReconcilerHandler(object):
                         target = query_gc
                     if (self.data_container.min_perc_overlap(target_coordinate, query) >= self.query_coverage_threshold
                             or target.contains(target_coordinate)):
+                        drop_nodes.append(target_coordinate)
                         continue
             reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
@@ -380,6 +383,7 @@ class ReconcilerHandler(object):
                 color='black',
                 width=2
             )
+        gene_graph.remove_nodes_from(drop_nodes)
         for pair in global_records_set_pairs_set:
             cds_coordinate, target_coordinate = pair
             gene_graph.add_edge(
