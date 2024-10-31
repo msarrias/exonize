@@ -51,11 +51,11 @@ Exonize requires two positional arguments:
 - **`[-et EVALUE_THRESHOLD]`**: E-value threshold for search sensitivity in the local search. Default is `1e-3`.
 - **`[-ht SELF_HIT_THRESHOLD]`**: Self-hit threshold. Default is `0.5`.
 - **`[-qt QUERY_COVERAGE_THRESHOLD]`**: Minimum percentage of the aligned query for a match to be considered. Default is `0.9`.
-- **`[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`**: Maximum allowable overlap percentage between exons within a gene to be considered as distinct exons. Default is `0.9`.
-- **`[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`**: Overlap threshold for clustering target coordinates during the reconciliation step in local alignment. Default is`0.9`.
+- **`[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`**: Overlapping threshold for constructing the set of representative exons. Default is `0.9`.
+- **`[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`**: Threshold for clustering target coordinates in the reconciliation. Default is`0.9`.
 - **`[-fap FRACTION_OF_ALIGNED_POSITIONS]`**: Threshold for fraction of aligned positions in local search. Default is `0.9`.
 - **`[-pit PEPTIDE_IDENTITY_THRESHOLD]`**: Peptide identity threshold for local search. Default is `0.4`.
-- **`[-op OUTPUT_PREFIX]`**: Search identifier, used for naming output files. Default is the stem of the annotations file.
+- **`[-op OUTPUT_PREFIX]`**: Search identifier. Default is the stem of the annotations file.
 - **`[-cn CPUS_NUMBER]`**: Number of CPUs to use. Default is the available CPU count.
 - **`[-odp OUTPUT_DIRECTORY_PATH]`**: Path for output directory. Default is the current directory.
 - **`[--global-search]`**: Enables exclusively the global search mode; it cannot be combined with --local-search.
