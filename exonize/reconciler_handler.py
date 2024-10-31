@@ -348,6 +348,7 @@ class ReconcilerHandler(object):
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
         for event in local_records_set:
+            found = False
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
             cds_coordinate = P.open(cds_start, cds_end)
             target_coordinate = P.open(target_start, target_end)
@@ -367,22 +368,25 @@ class ReconcilerHandler(object):
                         target = query_gc
                     if (self.data_container.min_perc_overlap(target_coordinate, query) >= self.query_coverage_threshold
                             or target.contains(target_coordinate)):
-                        drop_nodes.append(target_coordinate)
-                        continue
-            reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
-            mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
-            gene_graph.add_edge(
-                u_for_edge=(cds_start, cds_end),
-                v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
-                fragment_id=fragment_id,
-                target=(target_start, target_end),
-                corrected_target=(reference_coordinate.lower, reference_coordinate.upper),
-                query=(cds_start, cds_end),
-                evalue=evalue,
-                mode=mode,
-                color='black',
-                width=2
-            )
+                        if target_coordinate != target:
+                            drop_nodes.append(target_coordinate)
+                        found = True
+            if not found:
+                reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
+                mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
+                gene_graph.add_edge(
+                    u_for_edge=(cds_start, cds_end),
+                    v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
+                    fragment_id=fragment_id,
+                    target=(target_start, target_end),
+                    corrected_target=(reference_coordinate.lower, reference_coordinate.upper),
+                    query=(cds_start, cds_end),
+                    evalue=evalue,
+                    mode=mode,
+                    search='local',
+                    color='black',
+                    width=2
+                )
         gene_graph.remove_nodes_from(drop_nodes)
         for pair in global_records_set_pairs_set:
             cds_coordinate, target_coordinate = pair
@@ -395,6 +399,7 @@ class ReconcilerHandler(object):
                 query=(cds_coordinate.lower, cds_coordinate.upper),
                 evalue=None,
                 mode='FULL',
+                search='global',
                 color='black',
                 width=2
             )
