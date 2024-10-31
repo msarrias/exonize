@@ -311,8 +311,8 @@ class ReconcilerHandler(object):
                 print(f'Missing coordinates: {missing}')
         return reference_dictionary
 
-    @staticmethod
     def create_events_multigraph(
+            self,
             targets_reference_coordinates_dictionary: dict,
             query_local_coordinates_set: set,
             local_records_set: set,
@@ -345,16 +345,27 @@ class ReconcilerHandler(object):
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
             gene_graph.nodes[node_coordinate]['type'] = coordinate_type
-
-        local_records_set_pairs_set = set(tuple(
-            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)), key=lambda x: (x.lower, x.upper)))
-            for _, _, cds_start, cds_end, target_start, target_end, _ in local_records_set
-        )
-
         for event in local_records_set:
             (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
-            target_coordinate = P.open(target_start, target_end)  # exact target coordinates
-            # we take the "reference target coordinates"
+            cds_coordinate = P.open(cds_start, cds_end)
+            target_coordinate = P.open(target_start, target_end)
+            global_candidates = [
+                global_pair
+                for global_pair in global_records_set_pairs_set
+                if cds_coordinate in global_pair
+            ]
+            if global_candidates:
+                for global_candidate in global_candidates:
+                    query_gc, target_gc = global_candidate
+                    if cds_coordinate == query_gc:
+                        query = query_gc
+                        target = target_gc
+                    else:
+                        query = target_gc
+                        target = query_gc
+                    if (self.data_container.min_perc_overlap(target_coordinate, query) >= self.query_coverage_threshold
+                            or target.contains(target_coordinate)):
+                        continue
             reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
             gene_graph.add_edge(
@@ -369,7 +380,7 @@ class ReconcilerHandler(object):
                 color='black',
                 width=2
             )
-        for pair in global_records_set_pairs_set - local_records_set_pairs_set:
+        for pair in global_records_set_pairs_set:
             cds_coordinate, target_coordinate = pair
             gene_graph.add_edge(
                 u_for_edge=(cds_coordinate.lower, cds_coordinate.upper),
