@@ -403,7 +403,7 @@ class DataPreprocessor(object):
     ) -> list[list[tuple]]:
         processed_intervals = set()
         overlapping_clusters = []
-        sorted_coordinates = sorted(target_coordinates_set, key=lambda x: x[0].lower)
+        sorted_coordinates = sorted(target_coordinates_set, key=lambda x: (x[0].lower, x[0].upper))
         for target_coordinate, evalue in sorted_coordinates:
             if target_coordinate not in processed_intervals:
                 processed_intervals.add(target_coordinate)
