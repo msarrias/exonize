@@ -15,6 +15,11 @@
 </div>
 </div>
 
+## Citation
+If you use `exonize` in a publication, please cite:
+```
+```
+
 ## Dependencies
 For running `exonize`, a local installation of [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) and [`MUSCLE`](https://www.drive5.com/muscle/) are required.
 
@@ -76,15 +81,21 @@ exonize <gff_file_path> <genome_file_path>
 ```
 Optional arguments should be added in the command following the positional arguments.
 
+
+# Tutorial
+
 ## Example dataset: _Homo sapiens_ Y chromosome
 The following steps demonstrate how to use `exonize` on a test dataset for the human Ensembl annotations.
 
-1. Move into the `test_human_chrom_Y` directory and download the test data:
-```
-cd test_human_chrom_Y
-source fetch_data.sh
-```
-2. Run `exonize`
+1. Download the test data.
+	* **If you have installed the package from the repo** move into the `test_human_chrom_Y` directory and download the test data:
+	```
+	cd test_human_chrom_Y
+	source fetch_data.sh
+	```
+ 	* **If you installed the package via `pip`** download the [`fetch_data.sh`](https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh) script and execute it.
+
+2. Run `exonize` on the human Y chromosome dataset. 
 ```
 exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
         Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
@@ -94,9 +105,6 @@ exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
         --output_prefix Homo_sapiens_chrom_Y \
         --csv
 ```
-This command runs `exonize` on the human Y chromosome dataset, performing both global and local searches.
+This command performs both global and local searches.
 
-## Citation
-If you use `exonize` in a publication, please cite:
-```
-```
+
