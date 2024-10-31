@@ -366,7 +366,10 @@ class ReconcilerHandler(object):
                     else:
                         query = target_gc
                         target = query_gc
-                    if (self.data_container.min_perc_overlap(target_coordinate, query) >= self.query_coverage_threshold
+                    if (self.search_engine.get_overlap_percentage(
+                            intv_i=target,
+                            intv_j=target_coordinate
+                    ) >= self.query_coverage_threshold
                             or target.contains(target_coordinate)):
                         if target_coordinate != target:
                             drop_nodes.append(target_coordinate)
