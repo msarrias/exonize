@@ -361,19 +361,18 @@ class ReconcilerHandler(object):
                 for global_candidate in global_candidates:
                     query_gc, target_gc = global_candidate
                     if cds_coordinate == query_gc:
-                        query = query_gc
                         target = target_gc
                     else:
-                        query = target_gc
                         target = query_gc
                     if (self.search_engine.get_overlap_percentage(
                             intv_i=target,
                             intv_j=target_coordinate
                     ) >= self.query_coverage_threshold
                             or target.contains(target_coordinate)):
+                        found = True
                         if target_coordinate != target:
                             drop_nodes.append(target_coordinate)
-                        found = True
+
             if not found:
                 reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
                 mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
