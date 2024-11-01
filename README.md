@@ -43,34 +43,37 @@ import exonize_analysis
 ## Positional arguments
 Exonize requires two positional arguments:
 
-- **annotation path**: Path to the genome annotations file, provided as the first argument. This file should be in GFF3 or GFF format.
-- **genome path**: Path to the genome sequence file, provided as the second argument. The file should be in FASTA format, with a `.zip` version also accepted.
+- **annotation path**: Path to the genome annotations file. This file should be in GFF3 or GFF format.
+- **genome path**: Path to the genome sequence file. The file should be in FASTA format, with a `.zip` version also accepted.
   
 ## Optional Arguments
-- **`[-gfeat GENE_ANNOT_FEATURE]`**: Specifies the gene feature in the genome annotations. Default is `gene`.
-- **`[-cdsfeat CDS_ANNOT_FEATURE]`**: Specifies the coding sequence feature in the genome annotations. Default is `CDS`.
-- **`[-transfeat TRANSCRIPT_ANNOT_FEATURE]`**: Specifies the transcript feature in the genome annotations. Default is `transcript`.
-- **`[-sb SEQUENCE_BASE]`**: Annotation coordinates base (0 or 1). Default is `1`.
-- **`[-fb FRAME_BASE]`**: Frame base (0 or 1). Default is `0`.
-- **`[-el MIN_EXON_LENGTH]`**: Minimum length required for the search. Default is `30`.
-- **`[-et EVALUE_THRESHOLD]`**: E-value threshold for search sensitivity in the local search. Default is `1e-3`.
-- **`[-ht SELF_HIT_THRESHOLD]`**: Self-hit threshold. Default is `0.5`.
-- **`[-qt QUERY_COVERAGE_THRESHOLD]`**: Minimum percentage of the aligned query for a match to be considered. Default is `0.9`.
-- **`[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`**: Overlapping threshold for constructing the set of representative exons. Default is `0.9`.
-- **`[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`**: Threshold for clustering target coordinates in the reconciliation. Default is`0.9`.
-- **`[-fap FRACTION_OF_ALIGNED_POSITIONS]`**: Threshold for fraction of aligned positions in local search. Default is `0.9`.
-- **`[-pit PEPTIDE_IDENTITY_THRESHOLD]`**: Peptide identity threshold for local search. Default is `0.4`.
-- **`[-op OUTPUT_PREFIX]`**: Search identifier. Default is the stem of the annotations file.
-- **`[-cn CPUS_NUMBER]`**: Number of CPUs to use. Default is the available CPU count.
-- **`[-odp OUTPUT_DIRECTORY_PATH]`**: Path for output directory. Default is the current directory.
-- **`[--global-search]`**: Enables exclusively the global search mode; it cannot be combined with --local-search.
-- **`[--local-search]`**: Enables only the local search mode; it cannot be combined with --global-search.
-- **`[--debug]`**: Enables debug mode, saving input and output files for the local search.
-- **`[--soft-force]`**: Overwrites the results database if it already exists.
-- **`[--hard-force]`**: Overwrites all internal files if they already exist.
-- **`[--csv]`**: Outputs a `.zip` file with a reduced set of results in CSV format.
-- **`[-v`, `--version]`**: show program's version number and exit.
-- **`[-h`, `--help]`**: show this help message and exit
+| Argument                                        | Description                                                                                                                  |
+|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| **`[-gfeat GENE_ANNOT_FEATURE]`**             | Specifies the gene feature in the genome annotations. Default is `gene`.                                                     |
+| **`[-cdsfeat CDS_ANNOT_FEATURE]`**            | Specifies the coding sequence feature in the genome annotations. Default is `CDS`.                                           |
+| **`[-transfeat TRANSCRIPT_ANNOT_FEATURE]`**   | Specifies the transcript feature in the genome annotations. Default is `transcript`.                                         |
+| **`[-sb SEQUENCE_BASE]`**                     | Annotation coordinates base (0 or 1). Default is `1`.                                                                        |
+| **`[-fb FRAME_BASE]`**                        | Frame base (0 or 1). Default is `0`.                                                                                         |
+| **`[-el MIN_EXON_LENGTH]`**                   | Minimum length required for the search. Default is `30`.                                                                     |
+| **`[-et EVALUE_THRESHOLD]`**                  | E-value threshold for search sensitivity in the local search. Default is `1e-3`.                                             |
+| **`[-ht SELF_HIT_THRESHOLD]`**                | Self-hit threshold. Default is `0.5`.                                                                                        |
+| **`[-qt QUERY_COVERAGE_THRESHOLD]`**          | Minimum percentage of the aligned query for a match to be considered. Default is `0.9`.                                      |
+| **`[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`**   | Overlapping threshold for constructing the set of representative exons. Default is `0.9`.                                 |
+| **`[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`** | Threshold for clustering target coordinates in the reconciliation. Default is `0.9`.                                   |
+| **`[-fap FRACTION_OF_ALIGNED_POSITIONS]`**    | Threshold for fraction of aligned positions in local search. Default is `0.9`.                                               |
+| **`[-pit PEPTIDE_IDENTITY_THRESHOLD]`**       | Peptide identity threshold for local search. Default is `0.4`.                                                               |
+| **`[-op OUTPUT_PREFIX]`**                     | Search identifier. Default is the stem of the annotations file.                                                              |
+| **`[-cn CPUS_NUMBER]`**                       | Number of CPUs to use. Default is the available CPU count.                                                                   |
+| **`[-odp OUTPUT_DIRECTORY_PATH]`**            | Path for output directory. Default is the current directory.                                                                 |
+| **`[--global-search]`**                       | Enables exclusively the global search mode; it cannot be combined with --local-search.                                       |
+| **`[--local-search]`**                        | Enables only the local search mode; it cannot be combined with --global-search.                                              |
+| **`[--debug]`**                               | Enables debug mode, saving input and output files for the local search.                                                      |
+| **`[--soft-force]`**                          | Overwrites the results database if it already exists.                                                                        |
+| **`[--hard-force]`**                          | Overwrites all internal files if they already exist.                                                                         |
+| **`[--csv]`**                                 | Outputs a `.zip` file with a reduced set of results in CSV format.                                                           |
+| **`[-v`, `--version]`**                       | Shows program's version number and exits.                                                                                    |
+| **`[-h`, `--help]`**                          | Shows this help message and exits.                                                                                           |
+
 
 **Note:** If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
 
@@ -81,12 +84,30 @@ exonize <gff_file_path> <genome_file_path>
 ```
 Optional arguments should be added in the command following the positional arguments.
 
+
 ## Output Description:
-- **`<output_prefix>_results.db`**:
-  <div align="center">
-	<img src="https://github.com/msarrias/exonize/blob/main/figures/database.png" style="width:80%;">
-</div>
-</div>
+- **`<output_prefix>_results.db`**: This is the main output database created by `exonize`.
+
+	| Table                             | Description                                                                                                                                                                                   |
+	|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+	| **Genes**                         | Lists all protein-coding genes analyzed for exon duplications.                                                                                                                               |
+	| **Global_matches**                | Contains all non-reciprocal matches identified by aligning pairs of representative exons using MUSCLE. All matches recorded here meet the peptide identity and aligned position fraction criteria.  |
+	| **Local_matches**                 | Contains all matches found by querying each representative exon within its gene using `tblastx`. These are the raw, unfiltered matches.                                                                        |
+	| **Local_matches_non_reciprocal**  | Contains all the combined non-reciprocal matches found during the global and (or) local search.                                                                                                  |
+	| **Expansions**                    | Contains all the group of duplicates (expansions) found within the genes. Each record represents a node in the expansion graph.                                                                   |
+	| **Expansions_full**               | Includes expansions formed by full-mode events only.                                                                                                                                           |
+	| **Expansions_transcript_interdependence** | Classifies transcript interdependence for each expansion in the `Expansions_full` table.                                                                                       |
+	| **Expansions_full_tandem**        | Each record represents a pair of consecutive full events within an expansion, indicating whether they are in tandem or not.                                                                   |
+
+
+	The figure below illustrates the database structure. A detailed description of each table's columns can be found in [].
+	
+	 <div align="center">
+		<img src="https://github.com/msarrias/exonize/blob/main/figures/database.png" style="width:100%;">
+	</div>
+	</div>
+	
+ 
 
 - **`<output_prefix>_gene_hierarchy.pkl`**:
 - **`csvs.tar.gz`** (optional):
