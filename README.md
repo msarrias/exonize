@@ -47,33 +47,30 @@ Exonize requires two positional arguments:
 - **genome path**: Path to the genome sequence file. The file should be in FASTA format, with a `.zip` version also accepted.
   
 ## Optional Arguments
-| Argument                                        | Description                                                                                                                  |
-|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| **`[-gfeat GENE_ANNOT_FEATURE]`**             | Specifies the gene feature in the genome annotations. Default is `gene`.                                                     |
-| **`[-cdsfeat CDS_ANNOT_FEATURE]`**            | Specifies the coding sequence feature in the genome annotations. Default is `CDS`.                                           |
-| **`[-transfeat TRANSCRIPT_ANNOT_FEATURE]`**   | Specifies the transcript feature in the genome annotations. Default is `transcript`.                                         |
-| **`[-sb SEQUENCE_BASE]`**                     | Annotation coordinates base (0 or 1). Default is `1`.                                                                        |
-| **`[-fb FRAME_BASE]`**                        | Frame base (0 or 1). Default is `0`.                                                                                         |
-| **`[-el MIN_EXON_LENGTH]`**                   | Minimum length required for the search. Default is `30`.                                                                     |
-| **`[-et EVALUE_THRESHOLD]`**                  | E-value threshold for search sensitivity in the local search. Default is `1e-3`.                                             |
-| **`[-ht SELF_HIT_THRESHOLD]`**                | Self-hit threshold. Default is `0.5`.                                                                                        |
-| **`[-qt QUERY_COVERAGE_THRESHOLD]`**          | Minimum percentage of the aligned query for a match to be considered. Default is `0.9`.                                      |
-| **`[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`**   | Overlapping threshold for constructing the set of representative exons. Default is `0.9`.                                 |
-| **`[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`** | Threshold for clustering target coordinates in the reconciliation. Default is `0.9`.                                   |
-| **`[-fap FRACTION_OF_ALIGNED_POSITIONS]`**    | Threshold for fraction of aligned positions in local search. Default is `0.9`.                                               |
-| **`[-pit PEPTIDE_IDENTITY_THRESHOLD]`**       | Peptide identity threshold for local search. Default is `0.4`.                                                               |
-| **`[-op OUTPUT_PREFIX]`**                     | Search identifier. Default is the stem of the annotations file.                                                              |
-| **`[-cn CPUS_NUMBER]`**                       | Number of CPUs to use. Default is the available CPU count.                                                                   |
-| **`[-odp OUTPUT_DIRECTORY_PATH]`**            | Path for output directory. Default is the current directory.                                                                 |
-| **`[--global-search]`**                       | Enables exclusively the global search mode; it cannot be combined with --local-search.                                       |
-| **`[--local-search]`**                        | Enables only the local search mode; it cannot be combined with --global-search.                                              |
-| **`[--debug]`**                               | Enables debug mode, saving input and output files for the local search.                                                      |
-| **`[--soft-force]`**                          | Overwrites the results database if it already exists.                                                                        |
-| **`[--hard-force]`**                          | Overwrites all internal files if they already exist.                                                                         |
-| **`[--csv]`**                                 | Outputs a `.zip` file with a reduced set of results in CSV format.                                                           |
-| **`[-v`, `--version]`**                       | Shows program's version number and exits.                                                                                    |
-| **`[-h`, `--help]`**                          | Shows this help message and exits.                                                                                           |
-
+- **[-gfeat GENE_ANNOT_FEATURE]**: Specifies the gene feature in the genome annotations. Default is gene.
+- **[-cdsfeat CDS_ANNOT_FEATURE]**: Specifies the coding sequence feature in the genome annotations. Default is CDS.
+- **[-transfeat TRANSCRIPT_ANNOT_FEATURE]**: Specifies the transcript feature in the genome annotations. Default is transcript.
+- **[-sb SEQUENCE_BASE]**: Annotation coordinates base (0 or 1). Default is 1.
+- **[-fb FRAME_BASE]**: Frame base (0 or 1). Default is 0.
+- **[-el MIN_EXON_LENGTH]**: Minimum length required for the search. Default is 30.
+- **[-et EVALUE_THRESHOLD]**: E-value threshold for search sensitivity in the local search. Default is 1e-3.
+- **[-ht SELF_HIT_THRESHOLD]**: Self-hit threshold. Default is 0.5.
+- **[-qt QUERY_COVERAGE_THRESHOLD]**: Minimum percentage of the aligned query for a match to be considered. Default is 0.9.
+- **[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]**: Overlapping threshold for constructing the set of representative exons. Default is 0.9.
+- **[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]**: Threshold for clustering target coordinates in the reconciliation. Default is0.9.
+- **[-fap FRACTION_OF_ALIGNED_POSITIONS]**: Threshold for fraction of aligned positions in local search. Default is 0.9.
+- **[-pit PEPTIDE_IDENTITY_THRESHOLD]**: Peptide identity threshold for local search. Default is 0.4.
+- **[-op OUTPUT_PREFIX]**: Search identifier. Default is the stem of the annotations file.
+- **[-cn CPUS_NUMBER]**: Number of CPUs to use. Default is the available CPU count.
+- **[-odp OUTPUT_DIRECTORY_PATH]**: Path for output directory. Default is the current directory.
+- **[--global-search]**: Enables exclusively the global search mode; it cannot be combined with --local-search.
+- **[--local-search]**: Enables only the local search mode; it cannot be combined with --global-search.
+- **[--debug]**: Enables debug mode, saving input and output files for the local search.
+- **[--soft-force]**: Overwrites the results database if it already exists.
+- **[--hard-force]**: Overwrites all internal files if they already exist.
+- **[--csv]**: Outputs a .zip file with a reduced set of results in CSV format.
+- **[-v, --version]**: show program's version number and exit.
+- **[-h, --help]**: show this help message and exit
 
 **Note:** If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
 
