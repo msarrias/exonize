@@ -1,6 +1,5 @@
 from unittest.mock import Mock
-from exonize.searcher import Searcher
-from exonize.data_preprocessor import DataPreprocessor
+from exonize.exonize import Exonize
 from pathlib import Path
 import portion as P
 import pytest
