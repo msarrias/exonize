@@ -81,6 +81,17 @@ exonize <gff_file_path> <genome_file_path>
 ```
 Optional arguments should be added in the command following the positional arguments.
 
+## Output Description:
+- **`<output_prefix>_results.db`**:
+  <div align="center">
+	<img src="https://github.com/msarrias/exonize/blob/main/figures/database.png" style="width:80%;">
+</div>
+</div>
+
+- **`<output_prefix>_gene_hierarchy.pkl`**:
+- **`csvs.tar.gz`** (optional):
+- **`<output_prefix>.log`**:
+
 
 # Tutorial
 
