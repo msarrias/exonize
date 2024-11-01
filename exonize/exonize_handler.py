@@ -24,8 +24,8 @@ from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
 from pathlib import Path
-import cProfile
-import gc
+# import cProfile
+# import gc
 import time
 import random
 import portion as P
@@ -188,10 +188,10 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
-            pr = cProfile.Profile()
-            pr.enable()
-            gc.collect()
-            gc.freeze()
+            # pr = cProfile.Profile()
+            # pr.enable()
+            # gc.collect()
+            # gc.freeze()
             # transactions_pks: set[int]
             status: int
             code: int
@@ -253,9 +253,9 @@ Exonize results database:   {self.environment.results_database_path.name}
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-                gc.unfreeze()
-                pr.disable()
-                get_run_performance_profile(self.environment.PROFILE_PATH, pr)
+                # gc.unfreeze()
+                # pr.disable()
+                # get_run_performance_profile(self.environment.PROFILE_PATH, pr)
             self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_raw_matches()
             identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
@@ -297,10 +297,10 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
-            pr = cProfile.Profile()
-            pr.enable()
-            gc.collect()
-            gc.freeze()
+            # pr = cProfile.Profile()
+            # pr.enable()
+            # gc.collect()
+            # gc.freeze()
             # transactions_pks: set[int]
             status: int
             code: int
@@ -341,9 +341,9 @@ Exonize results database:   {self.environment.results_database_path.name}
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-                gc.unfreeze()
-                pr.disable()
-                get_run_performance_profile(self.environment.PROFILE_PATH, pr)
+                # gc.unfreeze()
+                # pr.disable()
+                # get_run_performance_profile(self.environment.PROFILE_PATH, pr)
             genes_to_update = self.database_interface.query_gene_ids_global_search()
             if self.environment.GLOBAL_SEARCH:
                 self.populate_genes_table()
