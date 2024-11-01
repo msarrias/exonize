@@ -91,7 +91,7 @@ Optional arguments should be added in the command following the positional argum
 	| Table                             | Description                                                                                                                                                                                   |
 	|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 	| **Genes**                         | Lists all protein-coding genes analyzed for exon duplications.                                                                                                                               |
-	| **Global_matches**                | Contains all non-reciprocal matches identified by aligning pairs of representative exons using MUSCLE. All matches recorded here meet the peptide identity and aligned position fraction criteria.  |
+	| **Global_matches**                | Contains all non-reciprocal matches identified by aligning pairs of representative exons using `MUSCLE`. All matches recorded here meet the peptide identity and aligned position fraction criteria.  |
 	| **Local_matches**                 | Contains all matches found by querying each representative exon within its gene using `tblastx`. These are the raw, unfiltered matches.                                                                        |
 	| **Local_matches_non_reciprocal**  | Contains all the combined non-reciprocal matches found during the global and (or) local search.                                                                                                  |
 	| **Expansions**                    | Contains all the group of duplicates (expansions) found within the genes. Each record represents a node in the expansion graph.                                                                   |
@@ -100,18 +100,18 @@ Optional arguments should be added in the command following the positional argum
 	| **Expansions_full_tandem**        | Each record represents a pair of consecutive full events within an expansion, indicating whether they are in tandem or not.                                                                   |
 
 
-	The figure below illustrates the database structure. A detailed description of each table's columns can be found in [].
-	
+	### Database structure:
+
+	A detailed description of each table's columns can be found in [].
+
 	 <div align="center">
 		<img src="https://github.com/msarrias/exonize/blob/main/figures/database.png" style="width:100%;">
 	</div>
 	</div>
 	
  
-
-- **`<output_prefix>_gene_hierarchy.pkl`**:
-- **`csvs.tar.gz`** (optional):
-- **`<output_prefix>.log`**:
+- **`csvs.tar.gz`** (optional): compressed directory in .tar.gz format, containing individual files in CSV format for each table, except for the `Local_matches` and `Genes` tables in the results database.
+- **`<output_prefix>.log`**: Contains the search settings.
 
 
 # Tutorial
