@@ -5,37 +5,32 @@ from pathlib import Path
 import portion as P
 import pytest
 
-
-data_container = DataPreprocessor(
+exonize_obj = Exonize(
+    gff_file_path=Path('mock_gff.gff3'),
+    genome_file_path=Path('mock_genome.fa'),
     gene_annot_feature='gene',
     cds_annot_feature='CDS',
     transcript_annot_feature='mRNA',
     sequence_base=1,
     frame_base=0,
-    min_exon_length=20,
-    logger_obj=Mock(),
-    database_interface=Mock(),
-    working_directory=Path(''),
-    gff_file_path=Path(''),
-    output_prefix='test',
-    genome_file_path=Path(''),
-    debug_mode=False,
-    global_search=False,
-    local_search=False,
-    csv=False
-)
-
-search_engine = Searcher(
-    data_container=data_container,
-    sleep_max_seconds=40,
+    min_exon_length=30,
+    evalue_threshold=0.01,
     self_hit_threshold=0.5,
-    evalue_threshold=1e-5,
-    query_coverage_threshold=0.8,
-    min_exon_length=20,
-    exon_clustering_overlap_threshold=0.8,
-    debug_mode=False,
-)
+    query_coverage_threshold=0.9,
+    exon_clustering_overlap_threshold=0.91,
+    targets_clustering_overlap_threshold=0.9,
+    output_prefix="mock_specie",
+    csv=False,
+    enable_debug=False,
+    soft_force=False,
+    hard_force=False,
+    sleep_max_seconds=0,
+    cpus_number=1,
+    timeout_database=60,
+    output_directory_path=Path("."),
+    )
 
+search_engine = exonize_obj.search_engine
 
 search_engine.data_container.gene_hierarchy_dictionary = dict(
     gene_1=dict(

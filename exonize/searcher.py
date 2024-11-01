@@ -20,30 +20,11 @@ from Bio import AlignIO
 class Searcher(object):
     def __init__(
             self,
-            data_container: object,
-            sleep_max_seconds: int,
-            self_hit_threshold: float,
-            min_exon_length: int,
-            evalue_threshold: float,
-            query_coverage_threshold: float,
-            exon_clustering_overlap_threshold: float,
-            peptide_identity_threshold: float = 0.4,
-            fraction_of_aligned_positions: float = 0.9,
-            debug_mode: bool = False
+            data_container: object
     ):
         self.data_container = data_container
         self.database_interface = data_container.database_interface
         self.environment = data_container.environment
-        self.evalue_threshold = evalue_threshold
-        self.query_coverage_threshold = query_coverage_threshold
-        self.fraction_of_aligned_positions = fraction_of_aligned_positions
-        self.peptide_identity_threshold = peptide_identity_threshold
-        self.exon_clustering_overlap_threshold = exon_clustering_overlap_threshold
-        self.sleep_max_seconds = sleep_max_seconds
-        self.self_hit_threshold = self_hit_threshold
-        self.min_exon_length = min_exon_length
-
-        self._DEBUG_MODE = debug_mode
 
     @staticmethod
     def dump_fasta_file(
@@ -211,11 +192,11 @@ class Searcher(object):
             '-subject',
             target_file_path,
             '-evalue',
-            str(self.evalue_threshold),
+            str(self.environment.evalue_threshold),
             '-strand',
             strand,
             '-qcov_hsp_perc',
-            str(self.query_coverage_threshold * 100),
+            str(self.environment.query_coverage_threshold * 100),
             '-outfmt',
             '5',  # XML output format
             '-out',
@@ -267,7 +248,7 @@ class Searcher(object):
                 if self.data_container.min_perc_overlap(
                         intv_i=q_coord,
                         intv_j=blast_target_coord
-                ) <= self.self_hit_threshold:
+                ) <= self.environment.self_hit_threshold:
                     res_tblastx[hsp_idx] = self.get_hsp_dictionary(
                         hsp=hsp_record,
                         cds_frame=cds_frame
@@ -296,10 +277,10 @@ class Searcher(object):
         - output: output/{ident}_output.xml where ident is
          the identifier of the query sequence (CDS).
         """
-        output_file_path = self.data_container.working_directory / f'{identifier}_output.xml'
+        output_file_path = self.environment.working_directory / f'{identifier}_output.xml'
         if not os.path.exists(output_file_path):
-            query_file_path = self.data_container.working_directory / f'input/{identifier}_query.fa'
-            target_file_path = self.data_container.working_directory / f'input/{gene_id}_target.fa'
+            query_file_path = self.environment.working_directory / f'input/{identifier}_query.fa'
+            target_file_path = self.environment.working_directory / f'input/{gene_id}_target.fa'
             if not target_file_path.exists():
                 self.dump_fasta_file(
                     out_file_path=target_file_path,
@@ -342,7 +323,7 @@ class Searcher(object):
         execute_tblastx_using_tempfiles is a function that executes
         a tblastx search using temporary files.
         """
-        with tempfile.TemporaryDirectory(dir=self.data_container.working_directory) as temporary_directory:
+        with tempfile.TemporaryDirectory(dir=self.environment.working_directory) as temporary_directory:
             query_file_path = Path(temporary_directory, 'query.fa')
             target_file_path = Path(temporary_directory, 'target.fa')
             self.dump_fasta_file(
@@ -408,8 +389,8 @@ class Searcher(object):
             clusters = self.data_container.get_overlapping_clusters(
                 target_coordinates_set=set(
                     (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
-                    if coordinate.upper - coordinate.lower >= self.min_exon_length),
-                threshold=self.exon_clustering_overlap_threshold
+                    if coordinate.upper - coordinate.lower >= self.environment.min_exon_length),
+                threshold=self.environment.exon_clustering_overlap_threshold
             )
             if clusters:
                 representative_cdss = self.data_container.flatten_clusters_representative_exons(
@@ -456,7 +437,7 @@ class Searcher(object):
             f'{str(query_coordinate.lower)}_'
             f'{query_coordinate.upper}'
         ).replace(':', '_')
-        if self._DEBUG_MODE:
+        if self.environment.DEBUG_MODE:
             tblastx_o = self.tblastx_with_saved_io(
                 identifier=identifier,
                 gene_id=gene_id,
@@ -586,7 +567,7 @@ class Searcher(object):
                             attempt = True
                         except Exception as e:
                             if "locked" in str(e):
-                                time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                                time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
                             else:
                                 self.environment.logger.exception(e)
                                 sys.exit()
@@ -602,7 +583,7 @@ class Searcher(object):
                         attempt = True
                     except Exception as e:
                         if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                            time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
                         else:
                             self.environment.logger.exception(e)
                             sys.exit()
@@ -755,7 +736,7 @@ class Searcher(object):
             for coordj, _ in cds_list[idxi:]:
                 self_overlap = self.data_container.min_perc_overlap(coordi, coordj)
                 pair_length_coverage = self.get_lengths_ratio(coordi, coordj)
-                if self_overlap == 0 and pair_length_coverage >= self.query_coverage_threshold:
+                if self_overlap == 0 and pair_length_coverage >= self.environment.query_coverage_threshold:
                     pair = tuple(sorted((coordi, coordj), key=lambda x: x.lower - x.upper))
                     pairs.add(pair)
         return pairs
@@ -821,8 +802,9 @@ class Searcher(object):
                                                 sequence_j=align_pj
                                             )
                                             align_pos_fract = align_pi.count('-')/len(align_pi)
-                                            if (identp > self.peptide_identity_threshold and
-                                                    align_pos_fract < (1 - self.fraction_of_aligned_positions)):
+                                            perc_indels = 1 - self.environment.fraction_of_aligned_positions
+                                            if (identp > self.environment.peptide_identity_threshold and
+                                                    align_pos_fract < perc_indels):
                                                 retain_pairs.add((
                                                     gene_id, gene_chrom, gene_strand,
                                                     coord_i.lower, coord_i.upper,
@@ -843,7 +825,7 @@ class Searcher(object):
                                 attempt = True
                             except Exception as e:
                                 if "locked" in str(e):
-                                    time.sleep(random.randrange(start=0, stop=self.sleep_max_seconds))
+                                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
                                 else:
                                     self.environment.logger.exception(e)
                                     sys.exit()

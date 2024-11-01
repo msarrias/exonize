@@ -15,18 +15,12 @@ from Bio.Seq import Seq
 class ReconcilerHandler(object):
     def __init__(
             self,
-            search_engine: object,
-            targets_clustering_overlap_threshold: float,
-            query_coverage_threshold: float,
-            cds_annot_feature: str
+            search_engine: object
     ):
         self.environment = search_engine.environment
         self.data_container = search_engine.data_container
         self.database_interface = search_engine.database_interface
         self.search_engine = search_engine
-        self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
-        self.query_coverage_threshold = query_coverage_threshold
-        self.cds_annot_feature = cds_annot_feature
 
     @staticmethod
     def compute_average(
@@ -60,7 +54,7 @@ class ReconcilerHandler(object):
                 [self.data_container.min_perc_overlap(
                     intv_i=cds_coordinate,
                     intv_j=target_coordinate
-                ) > self.query_coverage_threshold
+                ) > self.environment.query_coverage_threshold
                  for target_coordinate, _ in overlapping_coordinates_list]
             )
         ]
@@ -81,7 +75,7 @@ class ReconcilerHandler(object):
         for coordinate in source_set:
             for other_coord, oeval in target_set:
                 overlap_perc = self.data_container.min_perc_overlap(coordinate, other_coord)
-                if overlap_perc >= self.query_coverage_threshold:
+                if overlap_perc >= self.environment.query_coverage_threshold:
                     overlapping_coords[coordinate].append((other_coord, oeval))
                     processed_target.add((other_coord, oeval))
         return overlapping_coords, processed_target
@@ -126,7 +120,7 @@ class ReconcilerHandler(object):
                 elif self.search_engine.get_overlap_percentage(
                         intv_i=coordinate,
                         intv_j=other_coord
-                ) >= self.query_coverage_threshold:
+                ) >= self.environment.query_coverage_threshold:
                     reference = P.open(
                         max(other_coord.lower, coordinate.lower),
                         min(other_coord.upper, coordinate.upper)
@@ -148,7 +142,7 @@ class ReconcilerHandler(object):
                     intv_i=truncation_coord,
                     intv_j=cds_coord
                 )
-                if overlap_percentage >= self.query_coverage_threshold:
+                if overlap_percentage >= self.environment.query_coverage_threshold:
                     overlapping_coords[(truncation_coord, teval)].append(cds_coord)
         if overlapping_coords:
             reference_coord, _ = max(overlapping_coords, key=lambda x: len(overlapping_coords[x]))
@@ -228,7 +222,7 @@ class ReconcilerHandler(object):
             # INACTIVE
             if non_coding_coordinates:
                 reference = min(non_coding_coordinates, key=lambda x: x[1])[0]
-                ref_type = 'CANDIDATE'
+                ref_type = self.environment.intronic
                 for non_coding_event, evalue, in non_coding_coordinates:
                     if non_coding_event not in reference_dictionary:
                         reference_dictionary[non_coding_event] = {
@@ -243,7 +237,7 @@ class ReconcilerHandler(object):
                     coding_coordinates_set=coding_coordinates
                 )
                 if candidate_cds_reference:
-                    ref_type = 'FULL'
+                    ref_type = self.environment.full
                     for cds_coord, overlapping_coords in candidate_cds_reference.items():
                         for target_coord, _ in overlapping_coords:
                             if target_coord not in reference_dictionary:
@@ -264,7 +258,7 @@ class ReconcilerHandler(object):
                         coding_coordinates_set=insertion_candidate_coding_coordinates
                     )
                     if insertion_reference_dictionary:
-                        ref_type = 'PARTIAL_INSERTION'
+                        ref_type = self.environment.partial_insertion
                         for target_coordinate, reference in insertion_reference_dictionary.items():
                             tar_coordinate, _ = target_coordinate
                             reference_coordinate = reference
@@ -284,7 +278,7 @@ class ReconcilerHandler(object):
                     truncation_coordinates_set=excision_candidate_coordinates
                 )
                 if excision_candidate_dict:
-                    ref_type = 'PARTIAL_EXCISION'
+                    ref_type = self.environment.partial_excision
                     for target_coordinate, reference in excision_candidate_dict.items():
                         target_coord, _ = target_coordinate
                         if target_coord not in reference_dictionary:
@@ -299,7 +293,7 @@ class ReconcilerHandler(object):
                 )
                 if truncation_candidate_coordinates:
                     reference = min(truncation_candidate_coordinates, key=lambda x: x[1])[0]
-                    ref_type = 'INTER_BOUNDARY'
+                    ref_type = self.environment.inter_boundary
                     for target, eval_ in truncation_candidate_coordinates:
                         if target not in reference_dictionary:
                             reference_dictionary[target] = {
@@ -335,7 +329,7 @@ class ReconcilerHandler(object):
         set_of_nodes = set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, 'FULL')
+                *[(coordinate, self.environment.full)
                   for coordinate in query_local_coordinates_set.union(global_cds_coordinates_set)],
                 *target_coordinates_set
             ]
@@ -367,12 +361,11 @@ class ReconcilerHandler(object):
                     if (self.search_engine.get_overlap_percentage(
                             intv_i=target,
                             intv_j=target_coordinate
-                    ) >= self.query_coverage_threshold
+                    ) >= self.environment.query_coverage_threshold
                             or target.contains(target_coordinate)):
                         found = True
                         if target_coordinate != target:
                             drop_nodes.append(target_coordinate)
-
             if not found:
                 reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
                 mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
@@ -400,7 +393,7 @@ class ReconcilerHandler(object):
                 corrected_target=(target_coordinate.lower, target_coordinate.upper),
                 query=(cds_coordinate.lower, cds_coordinate.upper),
                 evalue=None,
-                mode='FULL',
+                mode=self.environment.full,
                 search='global',
                 color='black',
                 width=2
@@ -431,17 +424,9 @@ class ReconcilerHandler(object):
             gene_graph: nx.MultiGraph,
             figure_path: Path,
     ):
-        color_map = {
-            'PARTIAL_INSERTION': 'blue',
-            'PARTIAL_EXCISION': 'purple',
-            'FULL': 'green',
-            'CANDIDATE': 'red',
-            'INTER_BOUNDARY': 'orange'
-        }
-
         plt.figure(figsize=(16, 8))
         node_colors = [
-            color_map[node[1]['type']]
+            self.environment.color_map[node[1]['type']]
             for node in gene_graph.nodes(data=True)
         ]
         components = list(nx.connected_components(gene_graph))
@@ -464,7 +449,6 @@ class ReconcilerHandler(object):
             for node, position in layout.items():
                 shifted_position = (position[0] + event_idx * position_shift, position[1])
                 component_position[node] = shifted_position
-
         if max([len(component) for component in components]) == 2:
             label_positions = component_position
         else:
@@ -472,8 +456,6 @@ class ReconcilerHandler(object):
                 node: (position[0], position[1] + 0.1)
                 for node, position in component_position.items()
             }
-
-        # Draw the graph with edge attributes
         nx.draw_networkx_nodes(
             G=gene_graph,
             node_color=node_colors,
@@ -492,7 +474,6 @@ class ReconcilerHandler(object):
             )
         )
         # overlapping_edges:
-        # Draw edges with different styles and colors
         for edge in gene_graph.edges(data=True):
             source, target, attributes = edge
             edge_style = attributes.get('style', 'solid')
@@ -506,7 +487,6 @@ class ReconcilerHandler(object):
                 style=edge_style,
                 width=edge_width
             )
-
         overlapping_edges = self.fetch_overlapping_edges(
             gene_graph=gene_graph
         )
@@ -534,8 +514,8 @@ class ReconcilerHandler(object):
             for reference_coordinate in targets_reference_coordinates_dictionary.values()
         }
 
-    @staticmethod
     def build_event_coordinates_dictionary(
+            self,
             component: set[tuple],
             mode_dict: dict,
             gene_graph: nx.MultiGraph
@@ -543,7 +523,7 @@ class ReconcilerHandler(object):
         event_coord_dict = {}
         for start, end in component:
             node_coord = P.open(int(start), int(end))
-            mode = mode_dict.get(node_coord, "FULL")  # queries are not included in the mode dictionary
+            mode = mode_dict.get(node_coord, self.environment.full)  # queries are not included in the mode dictionary
             degree = gene_graph.degree((start, end))
             event_coord_dict[node_coord] = [mode, degree, None]  # cluster_id is None initially
         return event_coord_dict
@@ -630,8 +610,8 @@ class ReconcilerHandler(object):
         event_reduced_fragments_list = [(mode, id_) for mode, id_ in event_reduced_fragments_list if id_]
         return event_reduced_fragments_list
 
-    @staticmethod
     def get_full_event_component(
+            self,
             component: set[tuple],
             gene_graph: nx.MultiGraph,
             gene_start: int,
@@ -642,7 +622,7 @@ class ReconcilerHandler(object):
         undirected_subgraph = nx.Graph(subgraph)
         nodes_to_drop = [node
                          for node in undirected_subgraph.nodes
-                         if undirected_subgraph.nodes[node].get('type') != 'FULL']
+                         if undirected_subgraph.nodes[node].get('type') != self.environment.full]
         if nodes_to_drop:
             undirected_subgraph.remove_nodes_from(nodes_to_drop)
         return [(gene_id,
@@ -880,11 +860,11 @@ class ReconcilerHandler(object):
         )
         overlapping_targets = self.data_container.get_overlapping_clusters(
             target_coordinates_set=target_coordinates,
-            threshold=self.targets_clustering_overlap_threshold
+            threshold=self.environment.targets_clustering_overlap_threshold
         )
         gene_cds_set = set(
             coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-            if coord.upper - coord.lower >= self.search_engine.min_exon_length
+            if coord.upper - coord.lower >= self.environment.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(

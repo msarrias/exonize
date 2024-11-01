@@ -1,46 +1,33 @@
 from unittest.mock import Mock
-from exonize.reconciler_handler import ReconcilerHandler
-from exonize.data_preprocessor import DataPreprocessor
-from exonize.searcher import Searcher
+from exonize.exonize import Exonize
 from pathlib import Path
 import portion as P
 
-data_container = DataPreprocessor(
+
+exonize_obj = Exonize(
+    gff_file_path=Path('mock_gff.gff3'),
+    genome_file_path=Path('mock_genome.fa'),
     gene_annot_feature='gene',
     cds_annot_feature='CDS',
     transcript_annot_feature='mRNA',
     sequence_base=1,
     frame_base=0,
-    min_exon_length=20,
-    logger_obj=Mock(),
-    database_interface=Mock(),
-    working_directory=Path(''),
-    gff_file_path=Path(''),
-    output_prefix='test',
-    genome_file_path=Path(''),
-    debug_mode=False,
-    global_search=False,
-    local_search=False,
-    csv=False
-)
-
-search_engine = Searcher(
-    data_container=data_container,
-    sleep_max_seconds=40,
+    evalue_threshold=0.01,
     self_hit_threshold=0.5,
-    evalue_threshold=1e-5,
     query_coverage_threshold=0.8,
     min_exon_length=20,
     exon_clustering_overlap_threshold=0.8,
-    debug_mode=False,
-)
-
-counter_handler = ReconcilerHandler(
-    search_engine=search_engine,
-    targets_clustering_overlap_threshold=0.8,
-    query_coverage_threshold=0.8,
-    cds_annot_feature='CDS',
-)
+    targets_clustering_overlap_threshold=0.9,
+    output_prefix="mock_specie",
+    csv=False,
+    enable_debug=False,
+    soft_force=False,
+    hard_force=False,
+    sleep_max_seconds=0,
+    cpus_number=1,
+    timeout_database=60,
+    output_directory_path=Path("."),
+    )
 
 
 def test_build_reference_dictionary():
@@ -65,63 +52,63 @@ def test_build_reference_dictionary():
     cds_candidates_dictionary = {
         'candidates_cds_coordinates': query_coordinates
     }
-    overlapping_targets = counter_handler.data_container.get_overlapping_clusters(
+    overlapping_targets = exonize_obj.data_container.get_overlapping_clusters(
         target_coordinates_set=target_coordinates,
-        threshold=counter_handler.targets_clustering_overlap_threshold
+        threshold=exonize_obj.environment.targets_clustering_overlap_threshold
     )
 
     expected_output = {
         P.open(200, 250): {
             'reference': P.open(200, 250),
-            'mode': 'FULL'
+            'mode': exonize_obj.environment.full
         },
         P.open(210, 250): {
             'reference': P.open(200, 250),
-            'mode': 'FULL'
+            'mode': exonize_obj.environment.full
         },
         P.open(220, 250): {
             'reference': P.open(220, 250),
-            'mode': 'PARTIAL_INSERTION'
+            'mode': exonize_obj.environment.partial_insertion
         },
         P.open(0, 50): {
             'reference': P.open(0, 50),
-            'mode': 'PARTIAL_INSERTION'
+            'mode': exonize_obj.environment.partial_insertion
         },
         P.open(0, 48): {
             'reference': P.open(0, 50),
-            'mode': 'PARTIAL_INSERTION'
+            'mode': exonize_obj.environment.partial_insertion
         },
         P.open(40, 90): {
             'reference': P.open(40, 90),
-            'mode': 'PARTIAL_INSERTION'
+            'mode': exonize_obj.environment.partial_insertion
         },
         P.open(220, 270): {
             'reference': P.open(220, 270),
-            'mode': 'INTER_BOUNDARY'
+            'mode': exonize_obj.environment.inter_boundary
         },
         P.open(215, 270): {
             'reference': P.open(220, 270),
-            'mode': 'INTER_BOUNDARY'
+            'mode': exonize_obj.environment.inter_boundary
         },
         P.open(219, 270): {
             'reference': P.open(220, 270),
-            'mode': 'INTER_BOUNDARY'
+            'mode': exonize_obj.environment.inter_boundary
         },
         P.open(400, 450): {
             'reference': P.open(400, 450),
-            'mode': 'CANDIDATE'
+            'mode': exonize_obj.environment.intronic
         },
         P.open(402, 450): {
             'reference': P.open(400, 450),
-            'mode': 'CANDIDATE'
+            'mode': exonize_obj.environment.intronic
         },
         P.open(420, 450): {
             'reference': P.open(420, 450),
-            'mode': 'CANDIDATE'
+            'mode': exonize_obj.environment.intronic
         }
         # Assuming no CDS overlap
     }
-    assert counter_handler.get_matches_reference_mode_dictionary(
+    assert exonize_obj.event_reconciler.get_matches_reference_mode_dictionary(
         cds_candidates_set=set(cds_candidates_dictionary['candidates_cds_coordinates']),
         clusters_list=overlapping_targets,
         gene_cds_set=set()

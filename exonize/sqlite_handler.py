@@ -13,11 +13,9 @@ import portion as P
 class SqliteHandler(object):
     def __init__(
         self,
-        results_database_path: Path,
-        timeout_database: int,
+        environment: object,
     ):
-        self.results_database_path = results_database_path
-        self.timeout_database = timeout_database
+        self.environment = environment
 
     @staticmethod
     def batch(iterable, n=1):
@@ -30,7 +28,7 @@ class SqliteHandler(object):
         table_name: str,
     ) -> bool:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""SELECT name FROM sqlite_master WHERE type='table';""")
@@ -46,7 +44,7 @@ class SqliteHandler(object):
     ) -> bool:
         if self.check_if_table_exists(table_name=table_name):
             with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
             ) as db:
                 cursor = db.cursor()
                 cursor.execute(f"PRAGMA table_info({table_name})")
@@ -62,20 +60,20 @@ class SqliteHandler(object):
         column_type: str,
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             if self.check_if_table_exists(table_name=table_name):
                 if self.check_if_column_in_table_exists(table_name=table_name, column_name=column_name):
-                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN {column_name};")
-                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
+                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN '{column_name}';")
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN '{column_name}' {column_type};")
 
     def drop_table(
             self,
             table_name: str
     ):
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(f"""DROP TABLE IF EXISTS {table_name};""")
@@ -84,7 +82,7 @@ class SqliteHandler(object):
             self
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -104,7 +102,7 @@ class SqliteHandler(object):
             self
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -125,18 +123,18 @@ class SqliteHandler(object):
         self,
     ) -> None:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute("""
+            cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS Expansions (
                 GeneID VARCHAR(100),
                 Mode TEXT CHECK(Mode IN (
-                                        'FULL',
-                                        'PARTIAL_INSERTION',
-                                        'PARTIAL_EXCISION',
-                                        'CANDIDATE',
-                                        'INTER_BOUNDARY'
+                                        '{self.environment.full}',
+                                        '{self.environment.partial_insertion}',
+                                        '{self.environment.partial_excision}',
+                                        '{self.environment.intronic}',
+                                        '{self.environment.inter_boundary}'
                  )),
                 EventStart INTEGER NOT NULL,
                 EventEnd INTEGER NOT NULL,
@@ -216,7 +214,7 @@ class SqliteHandler(object):
         self,
     ) -> None:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -251,7 +249,7 @@ class SqliteHandler(object):
         self,
     ) -> None:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -289,7 +287,7 @@ class SqliteHandler(object):
         evalue_threshold: float,
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -437,7 +435,7 @@ class SqliteHandler(object):
             list_tuples: list
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.executemany(
@@ -467,7 +465,7 @@ class SqliteHandler(object):
             ("TargetDNASeq", "VARCHAR"),
         ]
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             for column_name, column_type in columns_to_add:
@@ -494,7 +492,7 @@ class SqliteHandler(object):
             list_tuples: list
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.executemany(
@@ -510,7 +508,7 @@ class SqliteHandler(object):
             self,
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             if not self.check_if_column_in_table_exists(
                 table_name="Local_matches", column_name="AlnQuery"
@@ -550,7 +548,7 @@ class SqliteHandler(object):
             gene_args_tuple_list: list = None,
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             insert_gene_table_param = """
@@ -612,7 +610,7 @@ class SqliteHandler(object):
         VALUES (?, ?, ?, ?, ?, ?)
         """
         with contextlib.closing(
-            sqlite3.connect(self.results_database_path, timeout=self.timeout_database)
+            sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database)
         ) as db:
             with db:
                 with contextlib.closing(db.cursor()) as cursor:
@@ -627,7 +625,7 @@ class SqliteHandler(object):
             list_tuples_full: list,
             list_tuples_tandemness: list
     ) -> None:
-        with sqlite3.connect(self.results_database_path, timeout=self.timeout_database) as db:
+        with sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database) as db:
             cursor = db.cursor()
             insert_gene_table_param = """
             INSERT INTO Expansions (
@@ -674,7 +672,7 @@ class SqliteHandler(object):
             list_tuples: list
     ):
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.executemany("""
@@ -697,7 +695,7 @@ class SqliteHandler(object):
             self,
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -715,13 +713,13 @@ class SqliteHandler(object):
         self.add_column_to_table(
             table_name="Local_matches_non_reciprocal",
             column_name="Mode",
-            column_type="""
+            column_type=f"""
                     Mode TEXT CHECK(Mode IN (
-                    'FULL',
-                    'PARTIAL_INSERTION',
-                    'PARTIAL_EXCISION',
-                    'CANDIDATE',
-                    'INTER_BOUNDARY'
+                    '{self.environment.full}',
+                    '{self.environment.partial_insertion}',
+                    '{self.environment.partial_excision}',
+                    '{self.environment.intronic}',
+                    '{self.environment.inter_boundary}'
                     ))
                     """,
         )
@@ -733,7 +731,7 @@ class SqliteHandler(object):
     ) -> None:
         fragments_mode_dict = {id_: mode for mode, id_ in fragment_ids_list}
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             placeholders = ', '.join(['?'] * len(fragment_ids_list))
@@ -815,7 +813,7 @@ class SqliteHandler(object):
             list_tuples: list
     ) -> None:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.executemany(
@@ -868,7 +866,7 @@ class SqliteHandler(object):
         )
 
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             insert_full_length_event_table_param = f"""
@@ -889,7 +887,7 @@ class SqliteHandler(object):
             gene_id: str = None
     ) -> list:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             if not gene_id:
@@ -926,7 +924,7 @@ class SqliteHandler(object):
         self,
     ) -> list:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -957,7 +955,7 @@ class SqliteHandler(object):
             self,
     ) -> list:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -980,7 +978,7 @@ class SqliteHandler(object):
             self,
     ) -> list:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -1000,7 +998,7 @@ class SqliteHandler(object):
             self,
     ) -> dict:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -1023,7 +1021,7 @@ class SqliteHandler(object):
         self,
     ) -> list:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT GeneID FROM Genes")
@@ -1033,7 +1031,7 @@ class SqliteHandler(object):
             self,
     ) -> list:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT GeneID FROM Global_matches")
@@ -1043,7 +1041,7 @@ class SqliteHandler(object):
         self,
     ) -> list:
         with sqlite3.connect(
-            self.results_database_path, timeout=self.timeout_database
+            self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT DISTINCT GeneID FROM Expansions")
@@ -1053,7 +1051,7 @@ class SqliteHandler(object):
             self,
     ) -> dict:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute(
@@ -1079,7 +1077,7 @@ class SqliteHandler(object):
             output_dir: Path
     ) -> None:
         with sqlite3.connect(
-                self.results_database_path, timeout=self.timeout_database
+                self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")

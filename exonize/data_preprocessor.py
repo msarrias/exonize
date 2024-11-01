@@ -17,53 +17,14 @@ class DataPreprocessor(object):
 
     def __init__(
             self,
-            gene_annot_feature: str,
-            cds_annot_feature: str,
-            transcript_annot_feature: str,
-            sequence_base: int,
-            frame_base: int,
-            min_exon_length: int,
-            logger_obj: object,
             database_interface: object,
-            working_directory: Path,
-            gff_file_path: Path,
-            output_prefix: str,
-            genome_file_path: Path,
-            debug_mode: bool,
-            global_search: bool,
-            local_search: bool,
-            csv: bool,
     ):
-        self.gene_annot_feature = gene_annot_feature
-        self.cds_annot_feature = cds_annot_feature
-        self.transcript_annot_feature = transcript_annot_feature
-        self.sequence_base = sequence_base
-        self.frame_base = frame_base
-        self.min_exon_length = min_exon_length
-        self.environment = logger_obj
         self.database_interface = database_interface
-        self.working_directory = working_directory
-        self.gff_file_path = gff_file_path
-        self.output_prefix = output_prefix
-        self.genome_file_path = genome_file_path
-        self.timeout_database = database_interface.timeout_database
-        self.results_database = database_interface.results_database_path
-        self.csv = csv
-        self._DEBUG_MODE = debug_mode
-        self._GLOBAL_SEARCH = global_search
-        self._LOCAL_SEARCH = local_search
-
+        self.environment = database_interface.environment
         self.old_filename = None
         self.genome_database = None
         self.genome_dictionary = dict()
         self.gene_hierarchy_dictionary = dict()
-
-        # Derived attributes that depend on initial parameters
-        self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
-        self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
-        self.gene_hierarchy_path = self.working_directory / f"{self.output_prefix}_gene_hierarchy.pkl"
-        if self.csv:
-            self.csv_path = self.working_directory / "csvs"
 
     @staticmethod
     def dump_pkl_file(
@@ -148,7 +109,7 @@ class DataPreprocessor(object):
         -'O': This flag is used to enable the output of the file in GFF3 format.
         -'o': This flag is used to specify the output file name.
         """
-        gffread_command = ["gffread", self.old_filename, "-O", "-o", self.gff_file_path]
+        gffread_command = ["gffread", self.old_filename, "-O", "-o", self.environment.gff_file_path]
         subprocess.call(gffread_command)
 
     def create_genome_database(
@@ -177,8 +138,8 @@ class DataPreprocessor(object):
                 "Parsing annotations - This may take a while..."
             )
             self.genome_database = gffutils.create_db(
-                data=str(self.gff_file_path),
-                dbfn=str(self.genome_database_path),
+                data=str(self.environment.gff_file_path),
+                dbfn=str(self.environment.genome_database_path),
                 force=True,
                 keep_order=True,
                 merge_strategy='create_unique',
@@ -204,17 +165,17 @@ class DataPreprocessor(object):
         (i) Verifies that the database contains intron annotations, if not,
         it attempts to write them.
         """
-        if not self.gene_hierarchy_path.exists():
-            if not self.genome_database_path.exists():
-                if '.gtf' in self.gff_file_path.suffix:
-                    self.old_filename = self.gff_file_path.stem
-                    self.gff_file_path = Path(f"{self.old_filename}.gff")
+        if not self.environment.gene_hierarchy_path.exists():
+            if not self.environment.genome_database_path.exists():
+                if '.gtf' in self.environment.gff_file_path.suffix:
+                    self.old_filename = self.environment.gff_file_path.stem
+                    self.environment.gff_file_path = Path(f"{self.old_filename}.gff")
                     self.convert_gtf_to_gff()
                     self.environment.logger.info(
                         'the GTF file has been converted into a GFF3 file'
                     )
                     self.environment.logger.info(
-                        f'with filename: {self.gff_file_path}'
+                        f'with filename: {self.environment.gff_file_path}'
                     )
                 self.create_genome_database()
             if not self.genome_database:
@@ -256,13 +217,13 @@ class DataPreprocessor(object):
         self.environment.logger.info("Reading genome")
         try:
             self.genome_dictionary = {}
-            if self.genome_file_path.suffix == '.gz':
-                with gzip.open(self.genome_file_path, mode='rt') as genome_file:  # 'rt' for textmode
+            if self.environment.genome_file_path.suffix == '.gz':
+                with gzip.open(self.environment.genome_file_path, mode='rt') as genome_file:  # 'rt' for textmode
                     parsed_genome = SeqIO.parse(genome_file, 'fasta')
                     for record in parsed_genome:
                         self.genome_dictionary[record.id] = str(record.seq)
             else:
-                with open(self.genome_file_path, mode='r') as genome_file:
+                with open(self.environment.genome_file_path, mode='r') as genome_file:
                     parsed_genome = SeqIO.parse(genome_file, 'fasta')
                     for record in parsed_genome:
                         self.genome_dictionary[record.id] = str(record.seq)
@@ -321,17 +282,17 @@ class DataPreprocessor(object):
         self.environment.logger.info(
             "Fetching gene-hierarchy data from genome annotations"
         )
-        for gene in self.genome_database.features_of_type(self.gene_annot_feature):
+        for gene in self.genome_database.features_of_type(self.environment.gene_annot_feature):
             mrna_transcripts = [
                 mrna_transcript for mrna_transcript
                 in self.genome_database.children(
                     gene.id,
-                    featuretype=self.transcript_annot_feature,
+                    featuretype=self.environment.transcript_annot_feature,
                     order_by='start'
                 )
             ]
             if mrna_transcripts:
-                gene_coordinate = P.open(gene.start - self.sequence_base, gene.end)
+                gene_coordinate = P.open(gene.start - self.environment.sequence_base, gene.end)
                 mrna_dictionary = dict(
                     coordinate=gene_coordinate,
                     chrom=gene.chrom,
@@ -340,7 +301,7 @@ class DataPreprocessor(object):
                     mRNAs=dict()
                 )
                 for mrna_annot in mrna_transcripts:
-                    mrna_coordinate = P.open(mrna_annot.start - self.sequence_base, mrna_annot.end)
+                    mrna_coordinate = P.open(mrna_annot.start - self.environment.sequence_base, mrna_annot.end)
                     mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
                         coordinate=mrna_coordinate,
                         strand=gene.strand,
@@ -349,16 +310,17 @@ class DataPreprocessor(object):
                     mrna_transcripts_list = list()
                     for child in self.genome_database.children(
                             mrna_annot.id,
-                            featuretype=self.cds_annot_feature,
+                            featuretype=self.environment.cds_annot_feature,
                             order_by='start'
                     ):
-                        child_coordinate = P.open(child.start - self.sequence_base, child.end)
+                        child_coordinate = P.open(child.start - self.environment.sequence_base, child.end)
                         if child_coordinate:
                             mrna_transcripts_list.append(
                                 dict(
                                     id=child.id,  # ID attribute
                                     coordinate=child_coordinate,  # ID coordinate starting at 0
-                                    frame=str(int(child.frame) - self.frame_base),  # One of '0', '1' or '2'.
+                                    # One of '0', '1' or '2'. The phase indicates where the feature begins with
+                                    frame=str(int(child.frame) - self.environment.frame_base),
                                     type=child.featuretype,   # feature type name
                                     attributes=dict(child.attributes)
                                 )   # feature attributes
@@ -383,7 +345,7 @@ class DataPreprocessor(object):
                 (annotation['coordinate'], annotation['frame'])
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation in mrna_annotation['structure']
-                if annotation['type'] == self.cds_annot_feature
+                if annotation['type'] == self.environment.cds_annot_feature
             )
         )
 
@@ -459,19 +421,19 @@ class DataPreprocessor(object):
     def clear_working_directory(
             self,
     ) -> None:
-        if self.gene_hierarchy_path.exists() and self.genome_database_path.exists():
-            os.remove(self.genome_database_path)
-        if self.csv:
-            self.compress_directory(source_dir=self.csv_path)
-            shutil.rmtree(self.csv_path)
+        if self.environment.gene_hierarchy_path.exists() and self.environment.genome_database_path.exists():
+            os.remove(self.environment.genome_database_path)
+        if self.environment.CSV:
+            self.compress_directory(source_dir=self.environment.csv_path)
+            shutil.rmtree(self.environment.csv_path)
 
     def initialize_database(self):
         self.database_interface.create_genes_table()
         self.database_interface.create_expansions_table()
-        if not self._GLOBAL_SEARCH and not self._LOCAL_SEARCH:
+        if not self.environment.GLOBAL_SEARCH and not self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
             self.database_interface.create_global_search_table()
-        elif self._LOCAL_SEARCH:
+        elif self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
         else:
             self.database_interface.create_global_search_table()
@@ -486,26 +448,21 @@ class DataPreprocessor(object):
         (iii) reads the genome sequence
         (iv)  connects or creates the results database
         """
-        if self._DEBUG_MODE:
-            os.makedirs(self.working_directory / 'input', exist_ok=True)
-            os.makedirs(self.working_directory / 'output', exist_ok=True)
-        if self.csv:
-            os.makedirs(self.csv_path, exist_ok=True)
         self.create_parse_or_update_database()
         self.read_genome()
-        if self.gene_hierarchy_path.exists():
+        if self.environment.gene_hierarchy_path.exists():
             self.gene_hierarchy_dictionary = self.read_pkl_file(
-                file_path=self.gene_hierarchy_path
+                file_path=self.environment.gene_hierarchy_path
             )
         else:
             self.create_gene_hierarchy_dictionary()
             self.dump_pkl_file(
-                out_file_path=self.gene_hierarchy_path,
+                out_file_path=self.environment.gene_hierarchy_path,
                 records_dictionary=self.gene_hierarchy_dictionary
             )
-            os.remove(self.genome_database_path)
+            os.remove(self.environment.genome_database_path)
         self.initialize_database()
-        if self._DEBUG_MODE:
+        if self.environment.DEBUG_MODE:
             self.environment.logger.warning(
                 "All tblastx io files will be saved."
                 " This may take a large amount of disk space."

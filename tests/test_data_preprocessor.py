@@ -1,29 +1,36 @@
-from exonize.data_preprocessor import DataPreprocessor
+from exonize.exonize import Exonize
 from unittest.mock import Mock
 import portion as P
 from pathlib import Path
 from Bio.Seq import Seq
 import pytest
 
-data_container = DataPreprocessor(
+exonize_obj = Exonize(
+    gff_file_path=Path('mock_gff.gff3'),
+    genome_file_path=Path('mock_genome.fa'),
     gene_annot_feature='gene',
     cds_annot_feature='CDS',
     transcript_annot_feature='mRNA',
     sequence_base=1,
     frame_base=0,
-    min_exon_length=20,
-    logger_obj=Mock(),
-    database_interface=Mock(),
-    working_directory=Path(''),
-    gff_file_path=Path(''),
-    output_prefix='test',
-    genome_file_path=Path(''),
-    debug_mode=False,
-    global_search=False,
-    local_search=False,
-    csv=False
-)
+    min_exon_length=30,
+    evalue_threshold=0.01,
+    self_hit_threshold=0.5,
+    query_coverage_threshold=0.9,
+    exon_clustering_overlap_threshold=0.91,
+    targets_clustering_overlap_threshold=0.9,
+    output_prefix="mock_specie",
+    csv=False,
+    enable_debug=False,
+    soft_force=False,
+    hard_force=False,
+    sleep_max_seconds=0,
+    cpus_number=1,
+    timeout_database=60,
+    output_directory_path=Path("."),
+    )
 
+data_container = exonize_obj.data_container
 data_container.genome_dictionary = {
         "chr1": "ATGC" * 100  # Simulate a genome sequence for testing
     }
