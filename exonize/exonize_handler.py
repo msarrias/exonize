@@ -29,7 +29,7 @@ from pathlib import Path
 import time
 import random
 import portion as P
-from exonize.profiling import get_run_performance_profile
+# from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
