@@ -95,7 +95,7 @@ class EnvironmentSetup(object):
         else:
             self.working_directory = Path(f'{self.output_prefix}_exonize')
         self.results_database_path = self.working_directory / f'{self.output_prefix}_results.db'
-        self.log_file_name = self.working_directory / f"exonize_settings_{datetime.now():%Y%m%d_%H%M%S}.log"
+        self.log_file_name = self.working_directory / f"{self.output_prefix}.log"
         self.PROFILE_PATH = self.working_directory / 'cProfile_dump_stats.dmp'
 
         # Derived attributes that depend on initial parameters
