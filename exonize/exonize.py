@@ -18,8 +18,8 @@ def exonize_ascii_art_logo() -> None:
     print(exonize_ansi_regular, file=sys.stderr)
     print(f"Exonize {__version__}\n"
           "    authors: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
-          "             Liam M. Longo, Earth-Life Science Institute (ELSI), Tokyo Institute of Technology\n"
           "             Christopher Wheat, Department of Zoology, Stockholm University\n"
+          "             Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo\n"
           "             Lars Arvestad, Department of Mathematics, Stockholm University\n"
 
           "maintainers: Marina Herrera Sarrias, Department of Mathematics, Stockholm University,\n"
