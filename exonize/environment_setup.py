@@ -11,8 +11,8 @@ class EnvironmentSetup(object):
             self,
             genome_file_path: Path,
             gff_file_path: Path,
-            output_prefix: str,
             output_directory_path: Path,
+            output_prefix: str,
             gene_annot_feature: str,
             cds_annot_feature: str,
             transcript_annot_feature: str,
@@ -46,7 +46,7 @@ class EnvironmentSetup(object):
         self.SEARCH_ALL = not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH
         self.CSV = csv
 
-        self.gff_file_path = gff_file_path,
+        self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
         self.output_directory_path = output_directory_path
         self.output_prefix = output_prefix
