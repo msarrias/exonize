@@ -26,7 +26,11 @@ TBA
 ```
 
 ## Dependencies
-For running `exonize`, a local installation of [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) and [`MUSCLE`](https://www.drive5.com/muscle/) are required.
+For running `exonize`, a local installation of [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html), [`MUSCLE`](https://www.drive5.com/muscle/) and [`SQLite`](https://www.sqlite.org/download.html) are required. If you're not sure whether SQLite is installed on your computer, running the following command on your terminal should work:
+```
+sqlite3 --help
+```
+If you are a macOS user, SQLite should be installed by default.
 
 ## Getting started
 You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
@@ -35,9 +39,9 @@ pip install exonize
 ```
 If installing from the repo:
 ```
-$ git clone git@github.com:msarrias/exonize.git
-$ cd exonize
-$ pip install .
+git clone git@github.com:msarrias/exonize.git
+cd exonize
+pip install .
 ```
 You should now be able to run `exonize -h`.
 
@@ -45,13 +49,21 @@ For use in Python notebooks:
 ```python
 import exonize_analysis
 ```
-## Positional arguments
+## Usage
+
+```
+exonize <gff_file_path> <genome_file_path>
+```
+Optional arguments should be added in the command following the positional arguments.
+
+
+### Positional arguments
 Exonize requires two positional arguments:
 
 - **annotation path**: Path to the genome annotations file. This file should be in GFF3 or GFF format.
 - **genome path**: Path to the genome sequence file. The file should be in FASTA format, with a `.zip` version also accepted.
   
-## Optional arguments
+### Optional arguments
 - **[-gfeat GENE_ANNOT_FEATURE]**: Specifies the gene feature in the genome annotations. Default is gene.
 - **[-cdsfeat CDS_ANNOT_FEATURE]**: Specifies the coding sequence feature in the genome annotations. Default is CDS.
 - **[-transfeat TRANSCRIPT_ANNOT_FEATURE]**: Specifies the transcript feature in the genome annotations. Default is transcript.
@@ -78,14 +90,6 @@ Exonize requires two positional arguments:
 - **[-h, --help]**: show this help message and exit
 
 **Note:** If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
-
-## Usage
-
-```
-exonize <gff_file_path> <genome_file_path>
-```
-Optional arguments should be added in the command following the positional arguments.
-
 
 ## Output Description:
 - **`<output_prefix>_results.db`**: This is the main output database created by `exonize`.
