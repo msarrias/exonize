@@ -219,7 +219,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Local_matches (
-                FragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
+                LocalFragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID  VARCHAR(100) NOT NULL,
                 QueryExonStart INTEGER NOT NULL,
                 QueryExonEnd INTEGER NOT NULL,
@@ -254,7 +254,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Global_matches (
-                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GlobalFragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID VARCHAR(100) NOT NULL,
                 GeneChrom VARCHAR(100) NOT NULL,
                 GeneStrand VARCHAR(1) NOT NULL,
@@ -297,7 +297,7 @@ class SqliteHandler(object):
                 -- Identify candidate fragments that satisfy our coverage and in-frame criteria.
                 in_frame_candidate_fragments AS (
                     SELECT
-                        f.FragmentID,
+                        f.LocalFragmentID,
                         f.GeneID,
                         g.GeneStart,
                         g.GeneEnd,
@@ -353,14 +353,14 @@ class SqliteHandler(object):
                         LEFT JOIN overlapping_fragments AS f2 ON f1.GeneID = f2.GeneID
                         AND f1.QueryExonStart = f2.QueryExonStart
                         AND f1.QueryExonEnd = f2.QueryExonEnd
-                        AND f1.FragmentID <> f2.FragmentID
+                        AND f1.LocalFragmentID <> f2.LocalFragmentID
                         AND f1.TargetStart <= f2.TargetEnd
                         AND f1.TargetEnd >= f2.TargetStart
                         -- If step 2 works, introduce step 3, then 4 and so on.
-                        WHERE f2.FragmentID IS NULL -- Keep f1 because it lacks an overlapping fragment
-                        OR f1.FragmentID = (
+                        WHERE f2.LocalFragmentID IS NULL -- Keep f1 because it lacks an overlapping fragment
+                        OR f1.LocalFragmentID = (
                             SELECT
-                                FragmentID
+                                LocalFragmentID
                             FROM overlapping_fragments AS ofr
                             WHERE ofr.GeneID = f1.GeneID
                             AND ofr.QueryExonStart = f2.QueryExonStart
@@ -372,7 +372,7 @@ class SqliteHandler(object):
                                 Evalue
                                 LIMIT 1
                             )
-                        ORDER BY f1.FragmentID
+                        ORDER BY f1.LocalFragmentID
                     ),
                     -- Identify gene_ids+cdss with exactly one dupl fragment
                     single_fragment_genes AS (
@@ -387,7 +387,7 @@ class SqliteHandler(object):
                         SELECT cf.*
                     FROM in_frame_candidate_fragments AS cf
                     JOIN single_fragment_genes sfg ON sfg.GeneID = cf.GeneID
-                     AND sfg.FragmentID = cf.FragmentID
+                     AND sfg.LocalFragmentID = cf.LocalFragmentID
                     )
                 -- Combining the results of single_gene_fragments and filtered_overlapping_fragments
                 SELECT
@@ -399,7 +399,7 @@ class SqliteHandler(object):
                 FROM filtered_overlapping_fragments
                 ORDER BY
                     GeneID,
-                    FragmentID,
+                    LocalFragmentID,
                     QueryExonStart,
                     QueryExonEnd,
                     QueryStart,
@@ -411,7 +411,7 @@ class SqliteHandler(object):
             )
         cursor.execute("""
         CREATE INDEX IF NOT EXISTS
-            Matches_full_length_idx ON Matches_full_length (FragmentID);
+            Matches_full_length_idx ON Matches_full_length (LocalFragmentID);
         """)
         columns_to_add = [
             ("CorrectedTargetStart", "INTEGER"),
@@ -449,7 +449,7 @@ class SqliteHandler(object):
                 CorrectedTargetProtSeq=?,
                 CorrectedTargetFrame=?,
                 CorrectedQueryFrame=?
-                WHERE FragmentID=?
+                WHERE LocalFragmentID=?
                 """,
                 list_tuples,
             )
@@ -482,7 +482,7 @@ class SqliteHandler(object):
                 TargetDNASeq=?,
                 DNAIdentity=?,
                 ProtIdentity=?
-            WHERE FragmentID=?
+            WHERE LocalFragmentID=?
             """,
                 list_tuples,
             )
@@ -529,7 +529,7 @@ class SqliteHandler(object):
                     )
                     FROM (
                         SELECT
-                            FragmentID,
+                            LocalFragmentID,
                             MAX(f.QueryExonStart, (f.QueryStart + f.QueryExonStart)) AS intersect_start,
                             MIN(f.QueryExonEnd, (f.QueryEnd + f.QueryExonStart)) AS intersect_end,
                             f.QueryExonEnd,
@@ -538,7 +538,7 @@ class SqliteHandler(object):
                         WHERE f.QueryExonEnd >= (f.QueryStart + f.QueryExonStart)
                         AND f.QueryExonStart <= (f.QueryEnd + f.QueryExonStart)
                     ) AS int
-                    WHERE Local_matches.FragmentID = int.FragmentID;
+                    WHERE Local_matches.LocalFragmentID = int.LocalFragmentID;
                 """
                 )
 
@@ -737,7 +737,7 @@ class SqliteHandler(object):
             placeholders = ', '.join(['?'] * len(fragment_ids_list))
             query = f"""
             SELECT
-                FragmentID,
+                LocalFragmentID,
                 GeneID,
                 GeneStart,
                 GeneEnd,
@@ -767,7 +767,7 @@ class SqliteHandler(object):
                 COALESCE(CorrectedTargetFrame, TargetFrame) AS CorrectedTargetFrame,
                 COALESCE(CorrectedQueryFrame, QueryFrame) AS CorrectedQueryFrame
             FROM Matches_full_length
-            WHERE FragmentID IN ({placeholders}) AND GeneID='{gene_id}';
+            WHERE LocalFragmentID IN ({placeholders}) AND GeneID='{gene_id}';
             """
             cursor.execute(query, list(fragments_mode_dict.keys()))
             results = cursor.fetchall()
@@ -775,7 +775,7 @@ class SqliteHandler(object):
             tuples_to_insert = [(*i, fragments_mode_dict[i[0]]) for i in results]
             query = """
             INSERT INTO Local_matches_non_reciprocal (
-            FragmentID,
+            LocalFragmentID,
             GeneID,
             GeneStart,
             GeneEnd,
@@ -893,7 +893,7 @@ class SqliteHandler(object):
             if not gene_id:
                 matches_q = """
                 SELECT
-                    f.FragmentID,
+                    f.LocalFragmentID,
                     f.GeneID,
                     f.QueryExonStart - f.GeneStart as QueryExonStart,
                     f.QueryExonEnd - f.GeneStart as QueryExonEnd,
@@ -907,7 +907,7 @@ class SqliteHandler(object):
             else:
                 matches_q = f"""
                 SELECT
-                    f.FragmentID,
+                    f.LocalFragmentID,
                     f.GeneID,
                     f.QueryExonStart - f.GeneStart as QueryExonStart,
                     f.QueryExonEnd - f.GeneStart as QueryExonEnd,
@@ -930,7 +930,7 @@ class SqliteHandler(object):
             cursor.execute(
                 """
             SELECT
-                f.FragmentID,
+                f.LocalFragmentID,
                 f.GeneID,
                 g.GeneStart,
                 g.GeneEnd,
@@ -962,7 +962,7 @@ class SqliteHandler(object):
                 f"""
             SELECT
                 GeneID,
-                FragmentID,
+                LocalFragmentID,
                 QueryExonStart,
                 QueryExonEnd,
                 CorrectedTargetStart,
@@ -970,7 +970,7 @@ class SqliteHandler(object):
             FROM Local_matches_non_reciprocal
             WHERE Mode='{self.environment.full}'
             ORDER BY
-                GeneID, FragmentID;
+                GeneID, LocalFragmentID;
             """)
             return cursor.fetchall()
 
@@ -985,7 +985,7 @@ class SqliteHandler(object):
                 """
             SELECT
                 GeneID,
-                ID,
+                GlobalFragmentID,
                 QueryExonStart,
                 QueryExonEnd,
                 TargetExonStart,
