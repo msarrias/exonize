@@ -959,7 +959,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute(
-                """
+                f"""
             SELECT
                 GeneID,
                 FragmentID,
@@ -968,7 +968,7 @@ class SqliteHandler(object):
                 CorrectedTargetStart,
                 CorrectedTargetEnd
             FROM Local_matches_non_reciprocal
-            WHERE Mode="FULL"
+            WHERE Mode='{self.environment.full}'
             ORDER BY
                 GeneID, FragmentID;
             """)
