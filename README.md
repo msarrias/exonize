@@ -6,8 +6,8 @@
 ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
 ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
 🐬 Marina Herrera Sarrias, Department of Mathematics, Stockholm University
-🧬 Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo
 🐛 Christopher Wheat, Department of Zoology, Stockholm University
+🧬 Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo
 🦋 Lars Arvestad, Department of Mathematics, Stockholm University
 ```
 
@@ -50,7 +50,7 @@ Exonize requires two positional arguments:
 - **annotation path**: Path to the genome annotations file. This file should be in GFF3 or GFF format.
 - **genome path**: Path to the genome sequence file. The file should be in FASTA format, with a `.zip` version also accepted.
   
-## Optional Arguments
+## Optional arguments
 - **[-gfeat GENE_ANNOT_FEATURE]**: Specifies the gene feature in the genome annotations. Default is gene.
 - **[-cdsfeat CDS_ANNOT_FEATURE]**: Specifies the coding sequence feature in the genome annotations. Default is CDS.
 - **[-transfeat TRANSCRIPT_ANNOT_FEATURE]**: Specifies the transcript feature in the genome annotations. Default is transcript.
