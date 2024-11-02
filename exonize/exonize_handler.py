@@ -563,7 +563,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                     for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
                     in transcripts_iterdependence_global_matches_tuples
                 ],
-                table_name='Global_matches',
+                table_name='Global_matches_non_reciprocal',
                 table_identifier_column='GlobalFragmentID'
             )
 
