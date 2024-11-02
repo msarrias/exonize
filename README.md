@@ -22,6 +22,7 @@
 ## Citation
 If you use `exonize` in a publication, please cite:
 ```
+TBA
 ```
 
 ## Dependencies
