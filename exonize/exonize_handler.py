@@ -72,7 +72,6 @@ class Exonize(object):
         self.local_full_matches_dictionary = {}
         self.global_full_matches_dictionary = {}
 
-        # Initialize logger and set up environment
         self.environment = EnvironmentSetup(
             genome_file_path=genome_file_path,
             gff_file_path=gff_file_path,
@@ -565,7 +564,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                     in transcripts_iterdependence_global_matches_tuples
                 ],
                 table_name='Global_matches',
-                table_identifier_column='ID'
+                table_identifier_column='GlobalFragmentID'
             )
 
         if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
@@ -580,7 +579,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                     in transcripts_iterdependence_tuples
                 ],
                 table_name='Local_matches_non_reciprocal',
-                table_identifier_column='FragmentID'
+                table_identifier_column='LocalFragmentID'
             )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION
         expansions_dictionary = self.database_interface.query_coding_expansion_events(
