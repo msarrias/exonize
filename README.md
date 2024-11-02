@@ -97,13 +97,13 @@ Exonize requires two positional arguments:
 	| Table                             | Description                                                                                                                                                                                   |
 	|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 	| **Genes**                         | Lists all protein-coding genes analyzed for exon duplications.                                                                                                                               |
-	| **Global_matches**                | Contains all non-reciprocal matches identified by aligning pairs of representative exons using `MUSCLE`. All matches recorded here meet the peptide identity and aligned position fraction criteria.  |
-	| **Local_matches**                 | Contains all matches found by querying each representative exon within its gene using `tblastx`. These are the raw, unfiltered matches.                                                                        |
-	| **Local_matches_non_reciprocal**  | Contains all the combined non-reciprocal matches found during the global and (or) local search.                                                                                                  |
-	| **Expansions**                    | Contains all the group of duplicates (expansions) found within the genes. Each record represents a node in the expansion graph.                                                                   |
-	| **Expansions_full**               | Includes expansions formed by full-mode events only.                                                                                                                                           |
+	| **Global_matches_non_reciprocal**                | Contains all non-reciprocal matches identified by aligning pairs of representative exons using `MUSCLE`. All matches recorded here meet the peptide identity and aligned position fraction criteria.  |
+	| **Local_matches**                 | Contains all matches found by querying representative exons against the genes within which they are situated. These are the raw, unfiltered matches found using `tblastx`.                                                                        |
+	| **Local_matches_non_reciprocal**  | Contains all the non-reciprocal matches found in the local search. This table is a subset of the `Local_matches` table. Matches reported in this table do not overlap with matches in `Global_matches_non_reciprocal`.                                                                                           |
+	| **Expansions**                    | Contains all the groups of duplicates (expansions) found within the genes. Each record represents a node in the expansion graph. Expansions are constructed by combining the local and/or global matches.                                                                  |
+	| **Expansions_full**               | Includes expansions formed by full-mode events only.                                                                                                                                          |
 	| **Expansions_transcript_interdependence** | Classifies transcript interdependence for each expansion in the `Expansions_full` table.                                                                                       |
-	| **Expansions_full_tandem**        | Each record represents a pair of consecutive full events within an expansion, indicating whether they are in tandem or not.                                                                   |
+	| **Expansions_full_tandem**        | Each record represents a pair of consecutive full events within an expansion and indicates whether they are in tandem or not.                                                                   |
 
 
 	### Database structure:
@@ -116,8 +116,8 @@ Exonize requires two positional arguments:
 	</div>
 	
  
-- **`csvs.tar.gz`** (optional): compressed directory in .tar.gz format, containing individual files in CSV format for each table, except for the `Local_matches` and `Genes` tables in the results database.
-- **`<output_prefix>.log`**: Contains the search settings.
+- **`csvs.tar.gz`** (optional): compressed directory in .tar.gz format, containing individual files in CSV format for each table in the SQLite database, excluding the `Local_matches` and `Genes` tables.
+- **`<output_prefix>.log`**: Search settings.
 
 
 # Tutorial
