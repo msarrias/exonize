@@ -95,7 +95,7 @@ class SqliteHandler(object):
             items = cursor.fetchall()
             # Drop each table and view except 'Genes'
             for name, type_ in items:
-                if name not in ['Genes', 'Local_matches', 'Global_matches']:
+                if name not in ['Genes', 'Local_matches', 'Global_matches_non_reciprocal']:
                     cursor.execute(f"DROP {type_} IF EXISTS {name};")
 
     def create_genes_table(
@@ -253,7 +253,7 @@ class SqliteHandler(object):
         ) as db:
             cursor = db.cursor()
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Global_matches (
+            CREATE TABLE IF NOT EXISTS Global_matches_non_reciprocal (
                 GlobalFragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID VARCHAR(100) NOT NULL,
                 GeneChrom VARCHAR(100) NOT NULL,
@@ -818,7 +818,7 @@ class SqliteHandler(object):
             cursor = db.cursor()
             cursor.executemany(
                 """
-            INSERT INTO Global_matches (
+            INSERT INTO Global_matches_non_reciprocal (
                 GeneID,
                 GeneChrom,
                 GeneStrand,
@@ -990,7 +990,7 @@ class SqliteHandler(object):
                 QueryExonEnd,
                 TargetExonStart,
                 TargetExonEnd
-            FROM Global_matches;
+            FROM Global_matches_non_reciprocal;
             """)
             return cursor.fetchall()
 
@@ -1034,7 +1034,7 @@ class SqliteHandler(object):
                 self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute("SELECT GeneID FROM Global_matches")
+            cursor.execute("SELECT GeneID FROM Global_matches_non_reciprocal")
             return [record[0] for record in cursor.fetchall()]
 
     def query_genes_with_duplicated_cds(
@@ -1062,7 +1062,7 @@ class SqliteHandler(object):
                 f.QueryExonEnd - g.GeneStart,
                 f.TargetExonStart - g.GeneStart,
                 f.TargetExonEnd - g.GeneStart
-            FROM Global_matches AS f
+            FROM Global_matches_non_reciprocal AS f
             JOIN Genes AS g ON g.GeneID= f.GeneID
             """
             )
