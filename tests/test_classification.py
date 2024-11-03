@@ -696,8 +696,14 @@ def test_expansion_full_events_tandemness():
         cursor = db.cursor()
         cursor.execute(
             """
-            select GeneID, PredecessorStart, PredecessorEnd, SuccessorStart, SuccessorEnd, TandemPair
-            from Expansions_full_tandem;
+            SELECT 
+                GeneID,
+                PredecessorStart,
+                PredecessorEnd,
+                SuccessorStart,
+                SuccessorEnd,
+                TandemPair
+            FROM Expansions_full_tandem;
             """
         )
         records = cursor.fetchall()
