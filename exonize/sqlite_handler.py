@@ -194,18 +194,18 @@ class SqliteHandler(object):
             CREATE TABLE IF NOT EXISTS Expansions_full_tandem (
                 GeneID VARCHAR(100),
                 ExpansionID INTEGER NOT NULL,
-                EventStart_i INTEGER NOT NULL,
-                EventEnd_i INTEGER NOT NULL,
-                EventStart_j INTEGER NOT NULL,
-                EventEnd_j INTEGER NOT NULL,
+                PredecessorStart INTEGER NOT NULL,
+                PredecessorEnd INTEGER NOT NULL,
+                SuccessorStart INTEGER NOT NULL,
+                SuccessorEnd INTEGER NOT NULL,
                 TandemPair BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                 PRIMARY KEY (
                     GeneID,
-                    EventStart_i,
-                    EventEnd_i,
-                    EventStart_j,
-                    EventEnd_j
+                    PredecessorStart,
+                    PredecessorEnd,
+                    SuccessorStart,
+                    SuccessorEnd
                     )
             );"""
                            )
@@ -656,10 +656,10 @@ class SqliteHandler(object):
                 INSERT INTO Expansions_full_tandem (
                     GeneID,
                     ExpansionID,
-                    EventStart_i,
-                    EventEnd_i,
-                    EventStart_j,
-                    EventEnd_j,
+                    PredecessorStart,
+                    PredecessorEnd,
+                    SuccessorStart,
+                    SuccessorEnd,
                     TandemPair
                     )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
