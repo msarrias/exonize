@@ -299,7 +299,7 @@ def test_matches_interdependence_counts():
     with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
-            """
+            f"""
             SELECT
              QueryExonStart,
              QueryExonEnd,
@@ -696,7 +696,7 @@ def test_expansion_full_events_tandemness():
         cursor = db.cursor()
         cursor.execute(
             """
-            select GeneID, EventStart_i, EventEnd_i, EventStart_j, EventEnd_j, TandemPair
+            select GeneID, PredecessorStart, PredecessorEnd, SuccessorStart, SuccessorEnd, TandemPair
             from Expansions_full_tandem;
             """
         )
