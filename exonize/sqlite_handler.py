@@ -95,7 +95,7 @@ class SqliteHandler(object):
             items = cursor.fetchall()
             # Drop each table and view except 'Genes'
             for name, type_ in items:
-                if name not in ['Genes', 'Local_matches', 'Global_matches_non_reciprocal']:
+                if name not in ['Genes', 'Local_matches']:
                     cursor.execute(f"DROP {type_} IF EXISTS {name};")
 
     def create_genes_table(
