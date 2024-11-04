@@ -470,16 +470,38 @@ def test_gene_non_reciprocal_fragments(
         gene_start=0
     )
 
+
+def test_get_full_event_components(
+        exonize_obj,
+        gene_graph
+):
+    gene_graph, targets_reference_coordinates_dictionary = gene_graph
+    full_expansion_1 = {('gene1', 'FULL', 0, 100, 3, 1), ('gene1', 'FULL', 200, 300, 2, 1),
+                        ('gene1', 'FULL', 500, 600, 1, 1), ('gene1', 'FULL', 800, 900, 2, 1)}
+    full_expansion_0 = {('gene1', 'FULL', 1800, 2100, 1, 0), ('gene1', 'FULL', 2200, 2350, 1, 0)}
+    event1_component, event2_component = sorted(list(nx.connected_components(gene_graph)), key=lambda x: len(x))
+    full_expansions0 = exonize_obj.event_reconciler.get_full_event_component(
+        component=event1_component,
+        gene_graph=gene_graph,
+        gene_start=0,
+        gene_id='gene1',
+        expansion_id_counter=0
+    )
+    assert set(full_expansions0) == full_expansion_0
+    full_expansions1 = exonize_obj.event_reconciler.get_full_event_component(
+        component=event2_component,
+        gene_graph=gene_graph,
+        gene_start=0,
+        gene_id='gene1',
+        expansion_id_counter=1
+    )
+    assert set(full_expansions1) == full_expansion_1
+
 # def test_map_edges_to_records():
 #     pass
 #
-# def test_get_full_event_components():
-#     pass
-#
-#
 # def test_is_tandem_pair():
 #     pass
-#
 #
 # def test_get_gene_full_events_tandemness_tuples():
 #     pass
