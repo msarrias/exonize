@@ -305,14 +305,12 @@ class ReconcilerHandler(object):
                 print(f'Missing coordinates: {missing}')
         return reference_dictionary
 
-    def create_events_multigraph(
+    def get_expansion_nodes(
             self,
             targets_reference_coordinates_dictionary: dict,
-            query_local_coordinates_set: set,
-            local_records_set: set,
             global_records_set: set,
-    ) -> nx.MultiGraph:
-        gene_graph = nx.MultiGraph()
+            query_local_coordinates_set: set,
+    ):
         target_coordinates_set = set([
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
@@ -322,11 +320,7 @@ class ReconcilerHandler(object):
             for record in global_records_set
             for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
         }
-        global_records_set_pairs_set = set(tuple(
-            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)),
-                   key=lambda x: (x.lower, x.upper))
-        ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
-        set_of_nodes = set([
+        return set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
                 *[(coordinate, self.environment.full)
@@ -334,41 +328,81 @@ class ReconcilerHandler(object):
                 *target_coordinates_set
             ]
         ])
-        gene_graph.add_nodes_from(
-            [node_coordinate for node_coordinate, _ in set_of_nodes]
-        )
-        drop_nodes = []
-        for node in set_of_nodes:
-            node_coordinate, coordinate_type = node
-            gene_graph.nodes[node_coordinate]['type'] = coordinate_type
-        for event in local_records_set:
-            found = False
-            (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
-            cds_coordinate = P.open(cds_start, cds_end)
-            target_coordinate = P.open(target_start, target_end)
-            global_candidates = [
+
+    @staticmethod
+    def find_query_cds_global_matches(
+            global_records_set_pairs_set: set,
+            cds_coordinate: P.Interval
+    ):
+        return [
                 global_pair
                 for global_pair in global_records_set_pairs_set
                 if cds_coordinate in global_pair
             ]
-            if global_candidates:
-                for global_candidate in global_candidates:
-                    query_gc, target_gc = global_candidate
-                    if cds_coordinate == query_gc:
-                        target = target_gc
-                    else:
-                        target = query_gc
-                    if (self.search_engine.get_overlap_percentage(
-                            intv_i=target,
-                            intv_j=target_coordinate
-                    ) >= self.environment.query_coverage_threshold
-                            or target.contains(target_coordinate)):
-                        found = True
-                        if target_coordinate != target:
-                            drop_nodes.append(target_coordinate)
-            if not found:
-                reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
-                mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
+
+    def find_local_match_in_global_matches(
+            self,
+            global_candidates: list,
+            cds_coordinate: P.Interval,
+            reference_coordinate: P.Interval,
+    ):
+        for global_candidate in global_candidates:
+            query_gc, target_gc = global_candidate
+            if cds_coordinate == query_gc:
+                target = target_gc
+            else:
+                target = query_gc
+            if (self.search_engine.get_overlap_percentage(
+                    intv_i=target,
+                    intv_j=reference_coordinate
+            ) >= self.environment.query_coverage_threshold
+                    or target.contains(reference_coordinate)):
+                return target
+
+    def create_events_multigraph(
+            self,
+            targets_reference_coordinates_dictionary: dict,
+            query_local_coordinates_set: set,
+            local_records_set: set,
+            global_records_set: set,
+    ) -> nx.MultiGraph:
+        gene_graph = nx.MultiGraph()
+        set_of_nodes = self.get_expansion_nodes(
+            global_records_set=global_records_set,
+            query_local_coordinates_set=query_local_coordinates_set,
+            targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+        )
+        gene_graph.add_nodes_from(
+            [node_coordinate for node_coordinate, _ in set_of_nodes]
+        )
+        global_records_set_pairs_set = set(tuple(
+            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)),
+                   key=lambda x: (x.lower, x.upper))
+        ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
+        drop_nodes = []
+        for node in set_of_nodes:
+            node_coordinate, coordinate_type = node
+            gene_graph.nodes[node_coordinate]['type'] = coordinate_type
+        # LOCAL ALIGNMENT MATCHES
+        for event in local_records_set:
+            (fragment_id, _, cds_start, cds_end, target_start, target_end, evalue) = event
+            cds_coordinate = P.open(cds_start, cds_end)
+            target_coordinate = P.open(target_start, target_end)
+            reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
+            mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
+            global_candidates = self.find_query_cds_global_matches(
+                global_records_set_pairs_set=global_records_set_pairs_set,
+                cds_coordinate=cds_coordinate
+            )
+            global_target = self.find_local_match_in_global_matches(
+                global_candidates=global_candidates,
+                cds_coordinate=cds_coordinate,
+                reference_coordinate=reference_coordinate
+            )
+            if global_target:
+                if global_target != reference_coordinate:
+                    drop_nodes.append((reference_coordinate.lower, reference_coordinate.upper))
+            else:
                 gene_graph.add_edge(
                     u_for_edge=(cds_start, cds_end),
                     v_for_edge=(reference_coordinate.lower, reference_coordinate.upper),
@@ -383,6 +417,7 @@ class ReconcilerHandler(object):
                     width=2
                 )
         gene_graph.remove_nodes_from(drop_nodes)
+        # GLOBAL ALIGNMENT MATCHES
         for pair in global_records_set_pairs_set:
             cds_coordinate, target_coordinate = pair
             gene_graph.add_edge(
