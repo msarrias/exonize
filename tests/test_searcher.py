@@ -207,6 +207,7 @@ def test_fetch_dna_sequence():
 
 
 def test_fetch_pairs_for_global_alignments():
+    # should be done on candidate cdss
     cds_list = [
         (P.open(1, 5), 0),
         (P.open(6, 10), 0),
