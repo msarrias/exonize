@@ -113,8 +113,18 @@ def test_get_overlapping_clusters():
         [(P.open(60, 110), 0.8)],
         [(P.open(120, 170), 0.7)]
     ]
+    # Case 3: A & B overlaps and C & B overlap
+    target_coordinates_set_3 = [
+        (P.open(0, 50), 0.9),
+        (P.open(40, 100), 0.8),
+        (P.open(60, 100), 0.8)
+    ]
+    expected_clusters_3 = [
+        [(P.open(0, 50), 0.9),
+         (P.open(40, 100), 0.8)],
+        [(P.open(60, 100), 0.8)]
+    ]
 
-    # Test and assert
     assert data_container.get_overlapping_clusters(
         target_coordinates_set=target_coordinates_set_1,
         threshold=0
@@ -123,6 +133,10 @@ def test_get_overlapping_clusters():
         target_coordinates_set=target_coordinates_set_2,
         threshold=0
     ) == expected_clusters_2
+    assert data_container.get_overlapping_clusters(
+        target_coordinates_set=target_coordinates_set_3,
+        threshold=0
+    ) == expected_clusters_3
 
 
 def test_construct_mrna_sequence():
