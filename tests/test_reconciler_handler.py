@@ -406,17 +406,72 @@ def test_build_event_coordinates_dictionary(
         gene_graph=gene_graph
     )
 
-# def test_assign_cluster_ids_to_event_coordinates():
-#     pass
-#
-#
+
+def test_gene_non_reciprocal_fragments(
+        exonize_obj,
+        gene_graph,
+):
+    #  local_records_set = {
+    #     (1, 'gene1', 0, 100, 205, 300, 1e-3),  # full - there's a global match so we ignore
+    #     (2, 'gene1', 200, 300, 4, 99, 1e-3),  # reciprocal full - there's a global match so we ignore
+    #     (3, 'gene1', 800, 900, 6, 101, 1e-3),  # full - there's a global match so we ignore
+    #     (4, 'gene1', 500, 600, 700, 800, 1e-3),  # intronic
+    #     (5, 'gene1', 800, 900, 700, 800, 1e-4),  # intronic
+    #     (6, 'gene1', 1800, 2100, 2210, 2300, 1e-4)  # full - there's a global match so we ignore
+    # }
+    # global_records_set = {
+    #     (1, 0, 100, 200, 300),
+    #     (3, 0, 100, 800, 900),
+    #     (3, 200, 300, 800, 900),
+    #     (3, 0, 100, 500, 600),
+    #     (4, 1800, 2100, 2200, 2350)
+    # }
+    gene_graph, targets_reference_coordinates_dictionary = gene_graph
+    mode_dictionary = exonize_obj.event_reconciler.build_mode_dictionary(
+        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+    )
+    event1_component, event2_component = sorted(list(nx.connected_components(gene_graph)), key=lambda x: len(x))
+    event_coordinates_dictionary1 = exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event1_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph,
+    )
+    exonize_obj.event_reconciler.assign_cluster_ids_to_event_coordinates(
+        event_coordinates_dictionary=event_coordinates_dictionary1
+    )
+    event_coordinates_dictionary2 = exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event2_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph,
+    )
+    exonize_obj.event_reconciler.assign_cluster_ids_to_event_coordinates(
+        event_coordinates_dictionary=event_coordinates_dictionary2
+    )
+    res_events_list1 = set(
+        exonize_obj.event_reconciler.build_events_list(
+            gene_id='gene1',
+            event_coordinates_dictionary=event_coordinates_dictionary1,
+            expansion_id_counter=0,
+            gene_start=0
+        )
+    )
+    res_events_list2 = set(
+        exonize_obj.event_reconciler.build_events_list(
+            gene_id='gene1',
+            event_coordinates_dictionary=event_coordinates_dictionary2,
+            expansion_id_counter=1,
+            gene_start=0
+        )
+    )
+    res = [('INTRONIC', 5), ('INTRONIC', 4)]
+    assert res == exonize_obj.event_reconciler.gene_non_reciprocal_fragments(
+        gene_graph=gene_graph,
+        events_list=[*res_events_list1, *res_events_list2],
+        gene_start=0
+    )
+
 # def test_map_edges_to_records():
 #     pass
-#
-#
-# def test_gene_non_reciprocal_fragments():
-#     pass
-#
 #
 # def test_get_full_event_components():
 #     pass
