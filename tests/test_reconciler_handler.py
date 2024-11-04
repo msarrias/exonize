@@ -463,12 +463,12 @@ def test_gene_non_reciprocal_fragments(
             gene_start=0
         )
     )
-    res = [('INTRONIC', 5), ('INTRONIC', 4)]
-    assert res == exonize_obj.event_reconciler.gene_non_reciprocal_fragments(
+    res = {('INTRONIC', 5), ('INTRONIC', 4)}
+    assert res == set(exonize_obj.event_reconciler.gene_non_reciprocal_fragments(
         gene_graph=gene_graph,
         events_list=[*res_events_list1, *res_events_list2],
         gene_start=0
-    )
+    ))
 
 
 def test_get_full_event_components(
