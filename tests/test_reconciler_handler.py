@@ -92,41 +92,6 @@ def gene_graph(exonize_obj):
     return gene_graph, targets_reference_coordinates_dictionary
 
 
-def test_build_event_coordinates_dictionary(
-        exonize_obj,
-        gene_graph
-):
-    gene_graph, targets_reference_coordinates_dictionary = gene_graph
-    events1 = {
-        P.open(1800, 2100): ['FULL', 1, None],
-        P.open(2200, 2350): ['FULL', 1, None]
-    }
-    events2 = {
-        P.open(0, 100): ['FULL', 3, None],
-        P.open(200, 300): ['FULL', 2, None],
-        P.open(500, 600): ['FULL', 2, None],
-        P.open(700, 800): ['INTRONIC', 2, None],
-        P.open(800, 900): ['FULL', 3, None]
-    }
-    event1_component, event2_component = sorted(
-        list(nx.connected_components(gene_graph)),
-        key=lambda x: len(x)
-    )
-    mode_dictionary = exonize_obj.event_reconciler.build_mode_dictionary(
-        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-    )
-    assert events1 == exonize_obj.event_reconciler.build_event_coordinates_dictionary(
-        component=event1_component,
-        mode_dict=mode_dictionary,
-        gene_graph=gene_graph
-    )
-    assert events2 == exonize_obj.event_reconciler.build_event_coordinates_dictionary(
-        component=event2_component,
-        mode_dict=mode_dictionary,
-        gene_graph=gene_graph
-    )
-
-
 def test_build_reference_dictionary(
         exonize_obj
 ):
@@ -351,12 +316,96 @@ def test_find_local_match_in_global_matches(
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2190, 2305)
     )
-#
-#
-# def test_build_event_coordinates_dictionary():
-#     pass
-#
-#
+
+
+def test_build_events_list(
+        exonize_obj,
+        gene_graph
+):
+    gene_graph, targets_reference_coordinates_dictionary = gene_graph
+    mode_dictionary = exonize_obj.event_reconciler.build_mode_dictionary(
+        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+    )
+    event1_component, event2_component = sorted(list(nx.connected_components(gene_graph)), key=lambda x: len(x))
+    event_coordinates_dictionary1 = exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event1_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph,
+    )
+    exonize_obj.event_reconciler.assign_cluster_ids_to_event_coordinates(
+        event_coordinates_dictionary=event_coordinates_dictionary1
+    )
+    event_coordinates_dictionary2 = exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event2_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph,
+    )
+    exonize_obj.event_reconciler.assign_cluster_ids_to_event_coordinates(
+        event_coordinates_dictionary=event_coordinates_dictionary2
+    )
+    res_events_list1 = {
+        ('gene1', 'FULL', 1800, 2100, 1, None, 0),
+        ('gene1', 'FULL', 2200, 2350, 1, None, 0)
+    }
+    res_events_list2 = {
+        ('gene1', 'FULL', 0, 100, 3, None, 1),
+        ('gene1', 'FULL', 200, 300, 2, None, 1),
+        ('gene1', 'FULL', 500, 600, 2, None, 1),
+        ('gene1', 'INTRONIC', 700, 800, 2, None, 1),
+        ('gene1', 'FULL', 800, 900, 3, None, 1)
+    }
+    assert res_events_list1 == set(
+        exonize_obj.event_reconciler.build_events_list(
+            gene_id='gene1',
+            event_coordinates_dictionary=event_coordinates_dictionary1,
+            expansion_id_counter=0,
+            gene_start=0
+        )
+    )
+    assert res_events_list2 == set(
+        exonize_obj.event_reconciler.build_events_list(
+            gene_id='gene1',
+            event_coordinates_dictionary=event_coordinates_dictionary2,
+            expansion_id_counter=1,
+            gene_start=0
+        )
+    )
+
+
+def test_build_event_coordinates_dictionary(
+        exonize_obj,
+        gene_graph
+):
+    gene_graph, targets_reference_coordinates_dictionary = gene_graph
+    events1 = {
+        P.open(1800, 2100): ['FULL', 1, None],
+        P.open(2200, 2350): ['FULL', 1, None]
+    }
+    events2 = {
+        P.open(0, 100): ['FULL', 3, None],
+        P.open(200, 300): ['FULL', 2, None],
+        P.open(500, 600): ['FULL', 2, None],
+        P.open(700, 800): ['INTRONIC', 2, None],
+        P.open(800, 900): ['FULL', 3, None]
+    }
+    event1_component, event2_component = sorted(
+        list(nx.connected_components(gene_graph)),
+        key=lambda x: len(x)
+    )
+    mode_dictionary = exonize_obj.event_reconciler.build_mode_dictionary(
+        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+    )
+    assert events1 == exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event1_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph
+    )
+    assert events2 == exonize_obj.event_reconciler.build_event_coordinates_dictionary(
+        component=event2_component,
+        mode_dict=mode_dictionary,
+        gene_graph=gene_graph
+    )
+
 # def test_assign_cluster_ids_to_event_coordinates():
 #     pass
 #
