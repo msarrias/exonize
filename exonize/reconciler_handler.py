@@ -802,9 +802,10 @@ class ReconcilerHandler(object):
                 query=trans_query,
                 target=trans_target
             )
+            alignseq1, alignseq2 = alignment
             prot_identity = self.search_engine.compute_identity(
-                sequence_i=alignment[0],
-                sequence_j=alignment[1]
+                sequence_i=alignseq1,
+                sequence_j=alignseq2
             )
             target_sequence_frames_translations.append(
                 (prot_identity, frame, target, trans_target, n_stop_codons)
