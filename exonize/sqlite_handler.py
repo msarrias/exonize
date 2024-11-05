@@ -192,6 +192,7 @@ class SqliteHandler(object):
                            )
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Expansions_full_tandem (
+                PairID INTEGER PRIMARY KEY AUTOINCREMENT,
                 GeneID VARCHAR(100),
                 ExpansionID INTEGER NOT NULL,
                 PredecessorStart INTEGER NOT NULL,
@@ -200,7 +201,7 @@ class SqliteHandler(object):
                 SuccessorEnd INTEGER NOT NULL,
                 TandemPair BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
-                PRIMARY KEY (
+                UNIQUE (
                     GeneID,
                     PredecessorStart,
                     PredecessorEnd,
