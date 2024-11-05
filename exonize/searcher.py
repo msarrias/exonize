@@ -737,7 +737,7 @@ class Searcher(object):
                 for coordj, _ in cds_list[idxi:]:
                     self_overlap = self.data_container.min_perc_overlap(coordi, coordj)
                     pair_length_coverage = self.get_lengths_ratio(coordi, coordj)
-                    if self_overlap == 0 and pair_length_coverage >= self.environment.query_coverage_threshold:
+                    if self_overlap == 0 and pair_length_coverage >= self.environment.pair_coverage_threshold:
                         pair = tuple(sorted((coordi, coordj), key=lambda x: x.lower - x.upper))
                         pairs.add(pair)
             return pairs

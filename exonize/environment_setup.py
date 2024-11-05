@@ -22,6 +22,7 @@ class EnvironmentSetup(object):
             evalue_threshold: float,
             peptide_identity_threshold: float,
             fraction_of_aligned_positions: float,
+            pair_coverage_threshold: float,
             exon_clustering_overlap_threshold: float,
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
@@ -60,6 +61,7 @@ class EnvironmentSetup(object):
         self.targets_clustering_overlap_threshold = targets_clustering_overlap_threshold
         self.fraction_of_aligned_positions = fraction_of_aligned_positions
         self.peptide_identity_threshold = peptide_identity_threshold
+        self.pair_coverage_threshold = pair_coverage_threshold
         self.sequence_base = sequence_base
         self.frame_base = frame_base
 
