@@ -79,56 +79,63 @@ def argument_parser():
         help='Frame base (0/1). Default is 0.'
     )
     parser.add_argument(
-        '-el',
+        '-l',
         '--min-exon-length',
         default=30,
         type=int,
         help='Minimum exon length. Default is 30.'
     )
     parser.add_argument(
-        '-et',
+        '-e',
         '--evalue-threshold',
         default=1e-3,
         type=float,
         help='E-value threshold. Default is 1e-3.'
     )
     parser.add_argument(
-        '-ht',
+        '-ts',
         '--self-hit-threshold',
         default=0.5,
         type=float,
         help='Self-hit threshold. Default is 0.5.'
     )
     parser.add_argument(
-        '-qt',
+        '-te',
         '--query-coverage-threshold',
         default=0.9,
         type=float,
         help='query coverage threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-ect',
+        '-ce',
         '--exon-clustering-overlap-threshold',
         default=0.9,
         type=float,
         help='Exon clustering overlap threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-tct',
+        '-ct',
         '--targets-clustering-overlap-threshold',
         default=0.9,
         type=float,
         help='Target coordinates clustering overlap threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-fap',
+        '-tp',
+        '--pair-coverage-threshold',
+        default=0.9,
+        type=float,
+        help='Target coordinates clustering overlap threshold. Default is 0.9.'
+    )
+    parser.add_argument(
+        '-ta',
         '--fraction-of-aligned-positions',
         default=0.9,
         type=float,
         help='Local search fraction of aligned positions threshold. Default is 0.9.'
     )
     parser.add_argument(
-        '-pit',
+        '-ti',
         '--peptide-identity-threshold',
         default=0.4,
         type=float,
@@ -231,6 +238,7 @@ def main():
         query_coverage_threshold=args.query_coverage_threshold,
         exon_clustering_overlap_threshold=args.exon_clustering_overlap_threshold,
         targets_clustering_overlap_threshold=args.targets_clustering_overlap_threshold,
+        pair_coverage_threshold=args.pair_coverage_threshold,
         fraction_of_aligned_positions=args.fraction_of_aligned_positions,
         peptide_identity_threshold=args.peptide_identity_threshold,
         output_prefix=args.output_prefix,
