@@ -6,10 +6,10 @@ import subprocess
 import sys
 import shutil
 from Bio import SeqIO
+from Bio.Seq import Seq
 import portion as P
 from pathlib import Path
 import tarfile
-from Bio.Seq import Seq
 from collections import defaultdict
 
 
