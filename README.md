@@ -69,14 +69,15 @@ Exonize requires two positional arguments:
 - `[-transfeat TRANSCRIPT_ANNOT_FEATURE]`: Specifies the transcript feature in the genome annotations. Default is transcript.
 - `[-sb SEQUENCE_BASE]`: Annotation coordinates base (0 or 1). Default is 1.
 - `[-fb FRAME_BASE]`: Frame base (0 or 1). Default is 0.
-- `[-el MIN_EXON_LENGTH]`: Minimum length required for the search. Default is 30.
-- `[-et EVALUE_THRESHOLD]`: E-value threshold for search sensitivity in the local search. Default is 1e-3.
-- `[-ht SELF_HIT_THRESHOLD]`: Self-hit threshold. Default is 0.5.
-- `[-qt QUERY_COVERAGE_THRESHOLD]`: Minimum percentage of the aligned query for a match to be considered. Default is 0.9.
-- `[-ect EXON_CLUSTERING_OVERLAP_THRESHOLD]`: Overlapping threshold for constructing the set of representative exons. Default is 0.9.
-- `[-tct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`: Threshold for clustering target coordinates in the reconciliation. Default is0.9.
-- `[-fap FRACTION_OF_ALIGNED_POSITIONS]`: Threshold for fraction of aligned positions in local search. Default is 0.9.
-- `[-pit PEPTIDE_IDENTITY_THRESHOLD]`: Peptide identity threshold for local search. Default is 0.4.
+- `[-l MIN_EXON_LENGTH]`: Minimum length required for the search. Default is 30.
+- `[-e EVALUE_THRESHOLD]`: E-value threshold for search sensitivity in the local search. Default is 1e-3.
+- `[-ts SELF_HIT_THRESHOLD]`: Self-hit threshold. Default is 0.5.
+- `[-te QUERY_COVERAGE_THRESHOLD]`: Minimum percentage of the aligned query for a match to be considered. Default is 0.9.
+- `[-ce EXON_CLUSTERING_OVERLAP_THRESHOLD]`: Overlapping threshold for constructing the set of representative exons. Default is 0.9.
+- `[-ct TARGETS_CLUSTERING_OVERLAP_THRESHOLD]`: Threshold for clustering target coordinates in the reconciliation. Default is0.9.
+- `[-tp PAIR_COVERAGE_THRESHOLD]`: Minimum length coverage between pair of coordinates. Default is 0.9.
+- `[-ta FRACTION_OF_ALIGNED_POSITIONS]`: Threshold for fraction of aligned positions in local search. Default is 0.9.
+- `[-ti PEPTIDE_IDENTITY_THRESHOLD]`: Peptide identity threshold for local search. Default is 0.4.
 - `[-op OUTPUT_PREFIX]`: Search identifier. Default is the stem of the annotations file.
 - `[-cn CPUS_NUMBER]`: Number of CPUs to use. Default is the available CPU count.
 - `[-odp OUTPUT_DIRECTORY_PATH]`: Path for output directory. Default is the current directory.
@@ -86,7 +87,7 @@ Exonize requires two positional arguments:
 - `[--soft-force]`: Overwrites the results database if it already exists.
 - `[--hard-force]`: Overwrites all internal files if they already exist.
 - `[--csv]`: Outputs a .zip file with a reduced set of results in CSV format.
-- `[-v, --version]`: show program's version number and exit.
+- `[-v, --version]`: show the program's version number and exit.
 - `[-h, --help]`: show this help message and exit
 
 **Note:** If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
@@ -143,6 +144,6 @@ exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
         --output_prefix Homo_sapiens_chrom_Y \
         --csv
 ```
-This command performs both global and local searches.
+This command runs both global and local searches.
 
 
