@@ -125,7 +125,7 @@ def argument_parser():
         '--pair-coverage-threshold',
         default=0.9,
         type=float,
-        help='Target coordinates clustering overlap threshold. Default is 0.9.'
+        help='Minimum length coverage between pair of coordinates. Default is 0.9.'
     )
     parser.add_argument(
         '-ta',
