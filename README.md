@@ -5,10 +5,10 @@
 ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
 ███████╗██╔╝ ██╗╚██████╔╝██║ ╚████║██║███████╗███████╗
 ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝
-🐬 Marina Herrera Sarrias, Department of Mathematics, Stockholm University
-🐛 Christopher Wheat, Department of Zoology, Stockholm University
-🧬 Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo
-🦋 Lars Arvestad, Department of Mathematics, Stockholm University
+Marina Herrera Sarrias, Department of Mathematics, Stockholm University
+Christopher Wheat, Department of Zoology, Stockholm University
+Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo
+Lars Arvestad, Department of Mathematics, Stockholm University
 ```
 
 ## Welcome!
