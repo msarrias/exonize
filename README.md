@@ -121,8 +121,6 @@ Exonize requires two positional arguments:
 - **`<output_prefix>.log`**: Search settings.
 
 
-# Tutorial
-
 ## Example dataset: _Homo sapiens_ Y chromosome
 The following steps demonstrate how to use `exonize` on a test dataset for the human Ensembl annotations.
 
