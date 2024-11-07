@@ -33,17 +33,30 @@ class Gene:
     def __len__(self):
         return len(self.expansions)
 
+    def build_gene_graph(self):
+        gene_graph = nx.Graph(id=self.id)
+        for expansion in self.expansions.values():
+            for node, data in expansion.graph.nodes(data=True):
+                gene_graph.add_node(node, **data)
+            for source, target, edge_data in expansion.graph.edges(data=True):
+                gene_graph.add_edge(source, target, **edge_data)
+        return gene_graph
+
     def draw_expansions_multigraph(
             self,
-            expansion_id: str = None,
+            expansion_id: int = None,
             figure_path: Path = None,
             figure_size: tuple[float, float] = (8.0, 8.0),
             legend: bool = True,
             connect_overlapping_nodes: bool = True
     ):
+        if expansion_id is not None:
+            G = self.expansions[expansion_id].graph
+        else:
+            G = self.build_gene_graph()
         self.plot_handler.draw_expansions_multigraph(
             gene_start=self.coordinates.lower,
-            gene_graph=self.expansions[expansion_id].graph,
+            gene_graph=G,
             figure_path=figure_path,
             figure_size=figure_size,
             legend=legend,
@@ -143,6 +156,63 @@ class PlotHandler:
             self._inter_boundary: 'orange'
         }
 
+    @staticmethod
+    def component_positions(
+            components: list[list],
+            gene_graph: nx.MultiGraph
+    ):
+        layout_scale = 2
+        component_positions = []
+        large_components = [comp for comp in components if len(comp) > 2]
+        small_components = [comp for comp in components if len(comp) <= 2]
+        # Generate positions for large components with horizontal shifting
+        for component in large_components:
+            layout = nx.circular_layout(gene_graph.subgraph(component), scale=layout_scale)
+            component_positions.append(layout)
+        # Set a reduced horizontal shift between large and small components
+        position_shift = layout_scale * 3  # Reduced horizontal shift for a tighter layout
+        component_position = {}
+        # Special case handling for two-node graph
+        if len(gene_graph.nodes) == 2:
+            nodex, nodey = list(gene_graph.nodes)
+            component_position[nodex] = (0, 0)
+            component_position[nodey] = (0.2, 0)  # Small offset to avoid overlap
+        else:
+            # Place the large components with horizontal shifts
+            for event_idx, layout in enumerate(component_positions):
+                for node, position in layout.items():
+                    x, y = position
+                    shifted_position = (x + event_idx * position_shift, y)
+                    component_position[node] = shifted_position
+            # Calculate the vertical range (y_min and y_max) based on large component positions
+            if component_position:
+                y_values = [y for x, y in component_position.values()]
+                y_min, y_max = min(y_values), max(y_values)
+            else:
+                y_min, y_max = 0, 0  # Default values if no components are positioned
+            # Determine the starting x-position for small components, to the right of large components
+            last_large_x = max(x for x, y in component_position.values()) if component_position else 0
+            small_component_x = last_large_x + position_shift
+            # Calculate even vertical spacing for small components within the y_min and y_max range
+            num_small_components = len(small_components)
+            if num_small_components > 1:
+                small_component_spacing = (y_max - y_min) / (num_small_components - 1)
+            else:
+                small_component_spacing = 0  # No spacing needed if there's only one component
+            # Position small components vertically at the fixed x position,
+            # with slight offsets for two-node components
+            for idx, component in enumerate(small_components):
+                y_position = y_max - idx * small_component_spacing  # even spacing
+                if len(component) == 2:
+                    # Add a small horizontal offset for two-node components to avoid collapsing
+                    x, y = list(component)
+                    component_position[x] = (small_component_x - 1, y_position)
+                    component_position[y] = (small_component_x + 1, y_position)
+                else:
+                    for node in component:
+                        component_position[node] = (small_component_x, y_position)
+        return component_position
+
     def draw_expansions_multigraph(
             self,
             gene_start: int,
@@ -161,27 +231,15 @@ class PlotHandler:
             node: f'({node.lower - gene_start},{node.upper - gene_start})'
             for node in gene_graph.nodes
         }
-        layout_scale = 2
-        component_positions = []
-        for component in components:
-            layout = nx.circular_layout(
-                gene_graph.subgraph(component),
-                scale=layout_scale
-            )
-            component_positions.append(layout)
-        position_shift = max(layout_scale * 5.5, 15)
-        component_position = {}
-        for event_idx, layout in enumerate(component_positions):
-            for node, position in layout.items():
-                shifted_position = (position[0] + event_idx * position_shift, position[1])
-                component_position[node] = shifted_position
-        if max([len(component) for component in components]) == 2:
-            label_positions = component_position
-        else:
-            label_positions = {
-                node: (position[0], position[1] + 0.1)
-                for node, position in component_position.items()
-            }
+        component_position = self.component_positions(
+            components=components,
+            gene_graph=gene_graph
+        )
+        # Adjust label positions
+        label_positions = {
+            node: (x, y + 0.1)
+            for node, (x, y) in component_position.items()
+        }
         nx.draw_networkx_nodes(
             G=gene_graph,
             node_color=node_colors,
@@ -240,7 +298,7 @@ class PlotHandler:
                 )
                 for label in node_attributes
             ]
-            plt.legend(handles=legend_elements, loc="upper right", frameon=False)
+            plt.legend(handles=legend_elements, loc="upper right", bbox_to_anchor=(1.2, 1), frameon=False)
         for spine in plt.gca().spines.values():
             spine.set_visible(False)
         if figure_path:
