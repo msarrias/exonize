@@ -5,10 +5,7 @@
 import networkx as nx
 from collections import defaultdict
 import portion as P
-import matplotlib.pyplot as plt
-from pathlib import Path
 from Bio.Seq import Seq
-# matplotlib.use('Agg')
 # ------------------------------------------------------------------------
 
 
@@ -453,92 +450,6 @@ class ReconcilerHandler(object):
             for cluster in overlapping_clusters
         ]
         return pairs_list
-
-    def draw_event_multigraph(
-            self,
-            gene_graph: nx.MultiGraph,
-            figure_path: Path,
-    ):
-        plt.figure(figsize=(16, 8))
-        node_colors = [
-            self.environment.color_map[node[1]['type']]
-            for node in gene_graph.nodes(data=True)
-        ]
-        components = list(nx.connected_components(gene_graph))
-        node_labels = {
-            node: f'({node[0]},{node[1]})'
-            for node in gene_graph.nodes
-        }
-        # Create a separate circular layout for each component
-        layout_scale = 2
-        component_positions = []
-        for component in components:
-            layout = nx.circular_layout(
-                gene_graph.subgraph(component),
-                scale=layout_scale
-            )
-            component_positions.append(layout)
-        position_shift = max(layout_scale * 5.5, 15)
-        component_position = {}
-        for event_idx, layout in enumerate(component_positions):
-            for node, position in layout.items():
-                shifted_position = (position[0] + event_idx * position_shift, position[1])
-                component_position[node] = shifted_position
-        if max([len(component) for component in components]) == 2:
-            label_positions = component_position
-        else:
-            label_positions = {
-                node: (position[0], position[1] + 0.1)
-                for node, position in component_position.items()
-            }
-        nx.draw_networkx_nodes(
-            G=gene_graph,
-            node_color=node_colors,
-            pos=component_position,
-            node_size=350,
-        )
-        nx.draw_networkx_labels(
-            gene_graph,
-            label_positions,
-            labels=node_labels,
-            font_size=8,
-            bbox=dict(
-                boxstyle="round,pad=0.3",
-                edgecolor="white",
-                facecolor="white"
-            )
-        )
-        # overlapping_edges:
-        for edge in gene_graph.edges(data=True):
-            source, target, attributes = edge
-            edge_style = attributes.get('style', 'solid')
-            edge_color = attributes.get('color', 'black')
-            edge_width = attributes.get('width', 1)
-            nx.draw_networkx_edges(
-                gene_graph,
-                component_position,
-                edgelist=[(source, target)],
-                edge_color=edge_color,
-                style=edge_style,
-                width=edge_width
-            )
-        overlapping_edges = self.fetch_overlapping_edges(
-            gene_graph=gene_graph
-        )
-        for cluster in overlapping_edges:
-            for pair in cluster:
-                query, targ = pair
-                nx.draw_networkx_edges(
-                    gene_graph,
-                    component_position,
-                    edgelist=[((query.lower, query.upper),
-                               (targ.lower, targ.upper))],
-                    edge_color='red',
-                    style='dotted',
-                    width=2
-                )
-        plt.savefig(figure_path)
-        plt.close()
 
     @staticmethod
     def build_mode_dictionary(
