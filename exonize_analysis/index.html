@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Exonize Analysis - exonize</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Exonize Analysis";
+        var mkdocs_page_input_path = "exonize_analysis.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/django.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-274394082"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', "G-274394082");
+      </script>
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> exonize
+        </a>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../output/">Output</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">exonize</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Exonize Analysis</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/msarrias/exonize/edit/master/docs/exonize_analysis.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="exonize-analysis">Exonize Analysis<a class="headerlink" href="#exonize-analysis" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="exonize.exonize_analysis" class="doc doc-heading">
+            <code>exonize.exonize_analysis</code>
+
+
+<a href="#exonize.exonize_analysis" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="exonize.exonize_analysis.Gene" class="doc doc-heading">
+            <code>Gene</code>
+
+
+<a href="#exonize.exonize_analysis.Gene" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+        <p>Gene class is a container for gene expansion graphs.</p>
+<h5 id="exonize.exonize_analysis.Gene--attributes">Attributes<a class="headerlink" href="#exonize.exonize_analysis.Gene--attributes" title="Permanent link">&para;</a></h5>
+
+
+<details class="id" open>
+  <summary>str</summary>
+  <p>The unique identifier for the gene.</p>
+</details>
+
+<details class="coordinates" open>
+  <summary>tuple</summary>
+  <p>The start and end coordinates of the gene on the chromosome.</p>
+</details>
+
+<details class="strand" open>
+  <summary>str</summary>
+  <p>The DNA strand ('+' or '-') on which the gene is located.</p>
+</details>
+
+<details class="chromosome" open>
+  <summary>str</summary>
+  <p>The chromosome on which the gene is located.</p>
+</details>
+
+<details class="expansions" open>
+  <summary>dict</summary>
+  <p>A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.</p>
+</details>
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.__init__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">gene_id</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">,</span> <span class="n">strand</span><span class="p">,</span> <span class="n">chromosome</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initializes a Gene instance.</p>
+<h6 id="exonize.exonize_analysis.Gene.__init__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.Gene.__init__--parameters" title="Permanent link">&para;</a></h6>
+<p>gene_id : str
+    The unique identifier for the gene.
+coordinates : tuple
+    The start and end coordinates of the gene on the chromosome.
+strand : str
+    The DNA strand ('+' or '-') on which the gene is located.
+chromosome : str
+    The chromosome on which the gene is located.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.__getitem__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">expansion_id</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.__getitem__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Retrieves the expansion graph for the specified expansion ID.</p>
+<h6 id="exonize.exonize_analysis.Gene.__getitem__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.Gene.__getitem__--parameters" title="Permanent link">&para;</a></h6>
+<p>expansion_id : int
+    The ID of the expansion to retrieve.</p>
+<h6 id="exonize.exonize_analysis.Gene.__getitem__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.Gene.__getitem__--returns" title="Permanent link">&para;</a></h6>
+<p>networkx.Graph
+    The expansion graph associated with the given expansion ID.</p>
+<h6 id="exonize.exonize_analysis.Gene.__getitem__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.Gene.__getitem__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>gene[1]  # Retrieves the expansion graph for expansion ID 1</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.__iter__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__iter__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.__iter__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns an iterator over the expansion graphs.</p>
+<h6 id="exonize.exonize_analysis.Gene.__iter__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.Gene.__iter__--returns" title="Permanent link">&para;</a></h6>
+<p>iterator
+    An iterator yielding each expansion graph.</p>
+<h6 id="exonize.exonize_analysis.Gene.__iter__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.Gene.__iter__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>for graph in gene:
+...     print(graph)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.__repr__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__repr__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.__repr__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns a string representation of the Gene object.</p>
+<h6 id="exonize.exonize_analysis.Gene.__repr__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.Gene.__repr__--returns" title="Permanent link">&para;</a></h6>
+<p>str
+    A string describing the gene's ID and number of expansions.</p>
+<h6 id="exonize.exonize_analysis.Gene.__repr__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.Gene.__repr__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>repr(gene)
+'<Gene GENE123 with 0 expansions (iterable of expansion graphs)>'</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.__len__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__len__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.__len__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns the number of expansions associated with the gene.</p>
+<h6 id="exonize.exonize_analysis.Gene.__len__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.Gene.__len__--returns" title="Permanent link">&para;</a></h6>
+<p>int
+    The number of expansions.</p>
+<h6 id="exonize.exonize_analysis.Gene.__len__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.Gene.__len__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>len(gene)
+0</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.build_gene_graph" class="doc doc-heading">
+            <code class=" language-python"><span class="n">build_gene_graph</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.build_gene_graph" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.</p>
+<h6 id="exonize.exonize_analysis.Gene.build_gene_graph--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.Gene.build_gene_graph--returns" title="Permanent link">&para;</a></h6>
+<p>networkx.Graph
+    A combined graph with nodes and edges from all expansions.</p>
+<h6 id="exonize.exonize_analysis.Gene.build_gene_graph--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.Gene.build_gene_graph--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>combined_graph = gene.build_gene_graph()
+print(combined_graph.nodes)
+print(combined_graph.edges)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Gene.draw_expansions_multigraph" class="doc doc-heading">
+            <code class=" language-python"><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">figure_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">figure_size</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span> <span class="n">legend</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">connect_overlapping_nodes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">full_expansion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Draws a multi-graph of gene expansions.</p>
+<h6 id="exonize.exonize_analysis.Gene.draw_expansions_multigraph--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph--parameters" title="Permanent link">&para;</a></h6>
+<p>expansion_id : int, optional
+    The ID of a specific expansion to draw. If None, the combined gene graph is drawn.
+figure_path : Path, optional
+    The path to save the figure. If None, the figure is not saved.
+figure_size : tuple of float, optional
+    The size of the figure in inches. Default is (8.0, 8.0).
+legend : bool, optional
+    Whether to display a legend on the plot. Default is True.
+connect_overlapping_nodes : bool, optional
+    Whether to draw edges connecting overlapping nodes in the graph. Default is True.
+full_expansion : bool, optional
+    Whether to show the full expansion graph only. Default is False.</p>
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="exonize.exonize_analysis.Expansion" class="doc doc-heading">
+            <code>Expansion</code>
+
+
+<a href="#exonize.exonize_analysis.Expansion" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+        <p>Expansion class represents an expansion graph for a specific gene expansion.</p>
+<h5 id="exonize.exonize_analysis.Expansion--attributes">Attributes<a class="headerlink" href="#exonize.exonize_analysis.Expansion--attributes" title="Permanent link">&para;</a></h5>
+<p>graph : networkx.Graph
+    A NetworkX graph representing the expansion.</p>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.Expansion.__init__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">expansion_id</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">edges</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.Expansion.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initializes an Expansion instance.</p>
+<h6 id="exonize.exonize_analysis.Expansion.__init__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.Expansion.__init__--parameters" title="Permanent link">&para;</a></h6>
+<p>expansion_id : int
+    The unique identifier for the expansion.
+nodes : list of tuples
+    A list of tuples representing the nodes, where each tuple is in the form (coord, node_type).
+    - coord: The coordinate of the node (e.g., an integer or other unique identifier).
+    - node_type: The type of the node (e.g., 'FULL', 'PARTIAL').
+edges : list of tuples
+    A list of tuples representing the edges, where each tuple is in the form (query_coord, target_coord, mode).
+    - query_coord: The coordinate of the query node.
+    - target_coord: The coordinate of the target node.
+    - mode: The match mode.</p>
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="exonize.exonize_analysis.GenomeExpansions" class="doc doc-heading">
+            <code>GenomeExpansions</code>
+
+
+<a href="#exonize.exonize_analysis.GenomeExpansions" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+        <p>GenomeExpansions class is a container for managing gene expansions across an entire genome.</p>
+<h5 id="exonize.exonize_analysis.GenomeExpansions--attributes">Attributes<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions--attributes" title="Permanent link">&para;</a></h5>
+<p>exonize_db_path : str
+    The file path to the Exonize database.
+_genes : dict
+    A dictionary of Gene objects, keyed by gene ID.
+_db_handler : _ExonizeDBHandler
+    An instance of _ExonizeDBHandler for interacting with the database.</p>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.genes" class="doc doc-heading">
+            <code class=" language-python"><span class="n">genes</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.genes" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns a list of gene IDs.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.genes--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.genes--returns" title="Permanent link">&para;</a></h6>
+<p>list
+    A list of gene IDs in the GenomeExpansions.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.genes--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.genes--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>genome_expansions.genes
+['GENE123', 'GENE456', 'GENE789']</p>
+</blockquote>
+</blockquote>
+</blockquote>
+    </div>
+
+</div>
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.__init__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">exonize_db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initializes a GenomeExpansions instance and builds expansions from the database.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__init__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__init__--parameters" title="Permanent link">&para;</a></h6>
+<p>exonize_db_path : str
+    The file path to the Exonize database.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.__iter__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__iter__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.__iter__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns an iterator over the Gene objects.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__iter__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__iter__--returns" title="Permanent link">&para;</a></h6>
+<p>iterator
+    An iterator yielding each Gene object.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__iter__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__iter__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>for gene in genome_expansions:
+...     print(gene)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.__contains__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__contains__</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.__contains__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Checks if a gene ID exists in the GenomeExpansions.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__contains__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__contains__--parameters" title="Permanent link">&para;</a></h6>
+<p>n : str
+    The gene ID to check for existence.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__contains__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__contains__--returns" title="Permanent link">&para;</a></h6>
+<p>bool
+    True if the gene ID exists, False otherwise.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__contains__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__contains__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>"GENE123" in genome_expansions
+True</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.__getitem__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">gene_id</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.__getitem__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Retrieves a Gene object by gene ID.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__getitem__--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__getitem__--parameters" title="Permanent link">&para;</a></h6>
+<p>gene_id : str
+    The ID of the gene to retrieve.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__getitem__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__getitem__--returns" title="Permanent link">&para;</a></h6>
+<p>Gene
+    The Gene object associated with the specified gene ID.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__getitem__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__getitem__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>gene = genome_expansions["GENE123"]
+print(gene)
+<Gene GENE123 with 0 expansions (iterable of expansion graphs)></p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.__len__" class="doc doc-heading">
+            <code class=" language-python"><span class="fm">__len__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.__len__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns the number of genes in the GenomeExpansions.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__len__--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__len__--returns" title="Permanent link">&para;</a></h6>
+<p>int
+    The number of genes in the GenomeExpansions.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.__len__--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.__len__--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>len(genome_expansions)
+18</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.add_gene" class="doc doc-heading">
+            <code class=" language-python"><span class="n">add_gene</span><span class="p">(</span><span class="n">gene_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gene</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.add_gene" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Adds a Gene object to the genome based on the provided gene ID.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.add_gene--parameters">Parameters<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.add_gene--parameters" title="Permanent link">&para;</a></h6>
+<p>gene_id : str
+    The unique identifier for the gene.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.add_gene--returns">Returns<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.add_gene--returns" title="Permanent link">&para;</a></h6>
+<p>Gene
+    The Gene object that was added.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.add_gene--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.add_gene--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>gene = genome_expansions.add_gene("GENE123")
+print(gene)
+<Gene GENE123 with 0 expansions (iterable of expansion graphs)></p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="exonize.exonize_analysis.GenomeExpansions.build_expansions" class="doc doc-heading">
+            <code class=" language-python"><span class="n">build_expansions</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.GenomeExpansions.build_expansions" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Constructs the expansion data for each gene by loading nodes and edges from the database.</p>
+<p>This method initializes each Gene object and populates its expansions based on data from
+the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.</p>
+<h6 id="exonize.exonize_analysis.GenomeExpansions.build_expansions--examples">Examples<a class="headerlink" href="#exonize.exonize_analysis.GenomeExpansions.build_expansions--examples" title="Permanent link">&para;</a></h6>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>genome_expansions.build_expansions()
+print(len(genome_expansions))
+18</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/msarrias/exonize" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
