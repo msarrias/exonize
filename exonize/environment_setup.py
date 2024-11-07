@@ -81,14 +81,6 @@ class EnvironmentSetup(object):
         self.inter_boundary = 'INTER_BOUNDARY'
         self.intronic = 'INTRONIC'
 
-        self.color_map = {
-            self.partial_insertion: 'blue',
-            self.partial_excision: 'purple',
-            self.full: 'green',
-            self.intronic: 'red',
-            self.inter_boundary: 'orange'
-
-        }
         if not self.output_prefix:
             self.output_prefix = self.gff_file_path.stem
         if self.output_directory_path:
