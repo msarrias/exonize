@@ -48,7 +48,8 @@ class Gene:
             figure_path: Path = None,
             figure_size: tuple[float, float] = (8.0, 8.0),
             legend: bool = True,
-            connect_overlapping_nodes: bool = True
+            connect_overlapping_nodes: bool = True,
+            full_expansion: bool = False
     ):
         if expansion_id is not None:
             G = self.expansions[expansion_id].graph
@@ -60,7 +61,8 @@ class Gene:
             figure_path=figure_path,
             figure_size=figure_size,
             legend=legend,
-            connect_overlapping_nodes=connect_overlapping_nodes
+            connect_overlapping_nodes=connect_overlapping_nodes,
+            full_expansion=full_expansion
         )
 
 
@@ -213,105 +215,137 @@ class PlotHandler:
                         component_position[node] = (small_component_x, y_position)
         return component_position
 
+    @staticmethod
+    def full_expansion(
+            graph: nx.Graph,
+    ) -> None:
+        nodes_to_drop = [
+            node
+            for node in graph.nodes
+            if graph.nodes[node].get('type') != 'FULL'
+        ]
+        if nodes_to_drop:
+            graph.remove_nodes_from(nodes_to_drop)
+
     def draw_expansions_multigraph(
             self,
             gene_start: int,
-            gene_graph: nx.MultiGraph,
+            gene_graph: [nx.Graph, nx.MultiGraph],
             figure_size: tuple[float, float] = (8.0, 8.0),
             figure_path: Path = None,
             legend: bool = True,
-            connect_overlapping_nodes: bool = True
+            connect_overlapping_nodes: bool = True,
+            full_expansion: bool = False
     ):
-        plt.figure(figsize=figure_size)
-        node_colors = [
-            self._color_map[attrib['type']] for node, attrib in gene_graph.nodes(data=True)
-        ]
-        components = list(nx.connected_components(gene_graph))
-        node_labels = {
-            node: f'({node.lower - gene_start},{node.upper - gene_start})'
-            for node in gene_graph.nodes
-        }
-        component_position = self.component_positions(
-            components=components,
-            gene_graph=gene_graph
-        )
-        # Adjust label positions
-        label_positions = {
-            node: (x, y + 0.1)
-            for node, (x, y) in component_position.items()
-        }
-        nx.draw_networkx_nodes(
-            G=gene_graph,
-            node_color=node_colors,
-            pos=component_position,
-            node_size=350,
-        )
-        nx.draw_networkx_labels(
-            gene_graph,
-            label_positions,
-            labels=node_labels,
-            font_size=8,
-            bbox=dict(
-                boxstyle="round,pad=0.3",
-                edgecolor="white",
-                facecolor="white"
+        G = gene_graph.copy()
+        if full_expansion:
+            self.full_expansion(
+                graph=G
             )
-        )
-        for edge in gene_graph.edges(data=True):
-            source, target, attributes = edge
-            edge_style = attributes.get('style', 'solid')
-            edge_color = attributes.get('color', 'black')
-            edge_width = attributes.get('width', 1)
-            nx.draw_networkx_edges(
-                gene_graph,
-                component_position,
-                edgelist=[(source, target)],
-                edge_color=edge_color,
-                style=edge_style,
-                width=edge_width
-            )
-        if connect_overlapping_nodes:
-            overlapping_nodes = self.fetch_overlapping_nodes(
-                gene_graph=gene_graph
-            )
-            for cluster in overlapping_nodes:
-                for pair in cluster:
-                    nodei, nodej = pair
-                    nx.draw_networkx_edges(
-                        gene_graph,
-                        component_position,
-                        edgelist=[(nodei, nodej)],
-                        edge_color='red',
-                        style='dotted',
-                        width=2
-                    )
-        if legend:
-            node_attributes = {attrib['type'] for _, attrib in gene_graph.nodes(data=True)}
-            legend_elements = [
-                mlines.Line2D(
-                    [], [],
-                    color=self._color_map[label],
-                    marker='o',
-                    linestyle='None',
-                    markersize=10,
-                    label=label
-                )
-                for label in node_attributes
+        if G.number_of_nodes() > 1:
+            plt.figure(figsize=figure_size)
+            node_colors = [
+                self._color_map[attrib['type']]
+                for node, attrib in G.nodes(data=True)
             ]
-            plt.legend(handles=legend_elements, loc="upper right", bbox_to_anchor=(1.2, 1), frameon=False)
-        for spine in plt.gca().spines.values():
-            spine.set_visible(False)
-        if figure_path:
-            plt.savefig(figure_path)
-        else:
-            plt.show()
+            components = list(nx.connected_components(G))
+            node_labels = {
+                node: f'({node.lower - gene_start},{node.upper - gene_start})'
+                for node in G.nodes
+            }
+            component_position = self.component_positions(
+                components=components,
+                gene_graph=G
+            )
+            # Adjust label positions
+            label_positions = {
+                node: (x, y + 0.1)
+                for node, (x, y) in component_position.items()
+            }
+            nx.draw_networkx_nodes(
+                G=G,
+                node_color=node_colors,
+                pos=component_position,
+                node_size=350,
+            )
+            nx.draw_networkx_labels(
+                G,
+                label_positions,
+                labels=node_labels,
+                font_size=8,
+                bbox=dict(
+                    boxstyle="round,pad=0.3",
+                    edgecolor="white",
+                    facecolor="white"
+                )
+            )
+            for edge in G.edges(data=True):
+                source, target, attributes = edge
+                edge_style = attributes.get('style', 'solid')
+                edge_color = attributes.get('color', 'black')
+                edge_width = attributes.get('width', 1)
+                nx.draw_networkx_edges(
+                    G,
+                    component_position,
+                    edgelist=[(source, target)],
+                    edge_color=edge_color,
+                    style=edge_style,
+                    width=edge_width
+                )
+            if connect_overlapping_nodes:
+                overlapping_nodes = self.fetch_overlapping_nodes(
+                    gene_graph=G
+                )
+                for cluster in overlapping_nodes:
+                    for pair in cluster:
+                        nodei, nodej = pair
+                        nx.draw_networkx_edges(
+                            G,
+                            component_position,
+                            edgelist=[(nodei, nodej)],
+                            edge_color='red',
+                            style='dotted',
+                            width=2
+                        )
+            if legend:
+                node_attributes = {
+                    attrib['type']
+                    for _, attrib in G.nodes(data=True)
+                }
+                legend_elements = [
+                    mlines.Line2D(
+                        [], [],
+                        color=self._color_map[label],
+                        marker='o',
+                        linestyle='None',
+                        markersize=10,
+                        label=label
+                    )
+                    for label in node_attributes
+                ]
+                plt.legend(
+                    handles=legend_elements,
+                    loc="upper right",
+                    bbox_to_anchor=(1.2, 1),
+                    frameon=False
+                )
+
+            for spine in plt.gca().spines.values():
+                spine.set_visible(False)
+            if figure_path:
+                plt.savefig(figure_path)
+            else:
+                plt.show()
 
     def fetch_overlapping_nodes(
             self,
             gene_graph: nx.MultiGraph
     ):
         overlapping_clusters = self._get_overlapping_clusters(
-            target_coordinates_set=set([(coordinate, None) for coordinate in gene_graph.nodes]),
+            target_coordinates_set=set([
+                (coordinate, None)
+                for coordinate in gene_graph.nodes
+            ]),
             threshold=0
         )
         overlapping_clusters = [
