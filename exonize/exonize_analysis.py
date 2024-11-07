@@ -10,23 +10,12 @@ class Gene:
     """
     Gene class is a container for gene expansion graphs.
 
-    Attributes
-    ----------
-
-    id: str
-        The unique identifier for the gene.
-
-    coordinates: tuple
-        The start and end coordinates of the gene on the chromosome.
-
-    strand: str
-        The DNA strand ('+' or '-') on which the gene is located.
-
-    chromosome: str
-        The chromosome on which the gene is located.
-
-    expansions: dict
-        A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.
+    Attributes:
+        id (str): The unique identifier for the gene.
+        coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.
+        strand (str): The DNA strand ('+' or '-') on which the gene is located.
+        chromosome (str): The chromosome on which the gene is located.
+        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.
     """
     def __init__(
             self,
@@ -35,19 +24,13 @@ class Gene:
             strand,
             chromosome
     ):
-        """
-        Initializes a Gene instance.
+        """Initializes a Gene instance.
 
-        Parameters
-        ----------
-        gene_id : str
-            The unique identifier for the gene.
-        coordinates : tuple
-            The start and end coordinates of the gene on the chromosome.
-        strand : str
-            The DNA strand ('+' or '-') on which the gene is located.
-        chromosome : str
-            The chromosome on which the gene is located.
+        Args:
+            gene_id (str): The unique identifier for the gene.
+            coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.
+            strand (str): The DNA strand ('+' or '-') on which the gene is located.
+            chromosome (str): The chromosome on which the gene is located.
         """
         self.id = gene_id
         self.coordinates = coordinates
@@ -56,88 +39,77 @@ class Gene:
         self.expansions = {}
         self.plot_handler = _PlotHandler()
 
-    def __getitem__(self, expansion_id):
-        """
-        Retrieves the expansion graph for the specified expansion ID.
+    def __getitem__(
+            self,
+            expansion_id: int
+    ) -> nx.Graph:
+        """Retrieves the expansion graph for the specified expansion ID.
 
-        Parameters
-        ----------
-        expansion_id : int
-            The ID of the expansion to retrieve.
+        Args:
+            expansion_id (int): The ID of the expansion to retrieve.
 
-        Returns
-        -------
-        networkx.Graph
-            The expansion graph associated with the given expansion ID.
+        Returns:
+            networkx.Graph: The expansion graph associated with the given expansion ID.
 
-        Examples
-        --------
-        >>> gene[1]  # Retrieves the expansion graph for expansion ID 1
+        Examples:
+            >>> gene[1]  # Retrieves the expansion graph for expansion ID 1
         """
         return self.expansions[expansion_id].graph
 
-    def __iter__(self):
-        """
-        Returns an iterator over the expansion graphs.
+    def __iter__(
+            self
+    ) -> iter:
+        """Returns an iterator over the expansion graphs.
 
-        Returns
-        -------
-        iterator
-            An iterator yielding each expansion graph.
+        Returns:
+            iterator: An iterator yielding each expansion graph.
 
-        Examples
-        --------
-        >>> for graph in gene:
-        ...     print(graph)
+        Examples:
+            >>> for graph in gene:
+            ...     print(graph)
         """
         return iter(expansion.graph for expansion in self.expansions.values())
 
-    def __repr__(self):
-        """
-        Returns a string representation of the Gene object.
+    def __repr__(
+            self
+    ) -> str:
+        """Returns a string representation of the Gene object.
 
-        Returns
-        -------
-        str
-            A string describing the gene's ID and number of expansions.
+        Returns:
+            str: A string describing the gene's ID and number of expansions.
 
-        Examples
-        --------
-        >>> repr(gene)
-        '<Gene GENE123 with 0 expansions (iterable of expansion graphs)>'
+        Examples:
+            >>> repr(gene)
+            '<Gene GENE123 with 0 expansions (iterable of expansion graphs)>'
         """
         return f"<Gene {self.id} with {len(self.expansions)} expansions (iterable of expansion graphs)>"
 
-    def __len__(self):
-        """
-        Returns the number of expansions associated with the gene.
+    def __len__(
+            self
+    ) -> int:
+        """Returns the number of expansions associated with the gene.
 
-        Returns
-        -------
-        int
-            The number of expansions.
+        Returns:
+            int: The number of expansions.
 
-        Examples
-        --------
-        >>> len(gene)
-        0
+        Examples:
+            >>> len(gene)
+            0
         """
         return len(self.expansions)
 
-    def build_gene_graph(self):
-        """
-        Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.
+    def build_gene_graph(
+            self
+    ) -> nx.Graph:
+        """Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.
 
-        Returns
-        -------
-        networkx.Graph
-            A combined graph with nodes and edges from all expansions.
+        Returns:
+            networkx.Graph: A combined graph with nodes and edges from all expansions.
 
-        Examples
-        --------
-        >>> combined_graph = gene.build_gene_graph()
-        >>> print(combined_graph.nodes)
-        >>> print(combined_graph.edges)
+        Examples:
+            >>> combined_graph = gene.build_gene_graph()
+            >>> print(combined_graph.nodes)
+            >>> print(combined_graph.edges)
         """
         gene_graph = nx.Graph(id=self.id)
         for expansion in self.expansions.values():
@@ -155,25 +127,18 @@ class Gene:
             legend: bool = True,
             connect_overlapping_nodes: bool = True,
             full_expansion: bool = False
-    ):
-        """
-        Draws a multi-graph of gene expansions.
+    ) -> None:
+        """Draws a multi-graph of gene expansions.
 
-        Parameters
-        ----------
-        expansion_id : int, optional
-            The ID of a specific expansion to draw. If None, the combined gene graph is drawn.
-        figure_path : Path, optional
-            The path to save the figure. If None, the figure is not saved.
-        figure_size : tuple of float, optional
-            The size of the figure in inches. Default is (8.0, 8.0).
-        legend : bool, optional
-            Whether to display a legend on the plot. Default is True.
-        connect_overlapping_nodes : bool, optional
-            Whether to draw edges connecting overlapping nodes in the graph. Default is True.
-        full_expansion : bool, optional
-            Whether to show the full expansion graph only. Default is False.
-
+        Args:
+            expansion_id (int, optional): The ID of a specific expansion to draw.
+             If None, the combined gene graph is drawn.
+            figure_path (Path, optional): The path to save the figure. If None, the figure is not saved.
+            figure_size (tuple of float, optional): The size of the figure in inches. Default is (8.0, 8.0).
+            legend (bool, optional): Whether to display a legend on the plot. Default is True.
+            connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph.
+             Default is True.
+            full_expansion (bool, optional): Whether to show the full expansion graph only. Default is False.
         """
         if expansion_id is not None:
             G = self.expansions[expansion_id].graph
@@ -191,37 +156,23 @@ class Gene:
 
 
 class Expansion:
-    """
-    Expansion class represents an expansion graph for a specific gene expansion.
+    """Expansion class represents an expansion graph for a specific gene expansion.
 
-    Attributes
-    ----------
-    graph : networkx.Graph
-        A NetworkX graph representing the expansion.
+    Attributes:
+    graph (networkx.Graph): A NetworkX graph representing the expansion.
     """
     def __init__(
             self,
-            expansion_id,
-            nodes,
-            edges
+            expansion_id: int,
+            nodes: list[tuple],
+            edges: list[tuple]
     ):
-        """
-        Initializes an Expansion instance.
+        """Initializes an Expansion instance.
 
-        Parameters
-        ----------
-        expansion_id : int
-            The unique identifier for the expansion.
-        nodes : list of tuples
-            A list of tuples representing the nodes, where each tuple is in the form (coord, node_type).
-            - coord: The coordinate of the node (e.g., an integer or other unique identifier).
-            - node_type: The type of the node (e.g., 'FULL', 'PARTIAL').
-        edges : list of tuples
-            A list of tuples representing the edges, where each tuple is in the form (query_coord, target_coord, mode).
-            - query_coord: The coordinate of the query node.
-            - target_coord: The coordinate of the target node.
-            - mode: The match mode.
-
+        Args:
+            expansion_id (int): The unique identifier for the expansion.
+            nodes (list of tuples): A list of tuples representing the nodes, where each tuple is in the form (coord, node_type).
+            edges (list of tuples): A list of tuples representing the edges, where each tuple is in the form (query_coord, target_coord, mode).
         """
         self.graph = nx.Graph()
         self.graph.id = expansion_id
@@ -239,149 +190,111 @@ class Expansion:
 
 
 class GenomeExpansions:
-    """
-    GenomeExpansions class is a container for managing gene expansions across an entire genome.
+    """A container for managing gene expansions across an entire genome.
 
-     Attributes
-    ----------
-    exonize_db_path : str
-        The file path to the Exonize database.
-    _genes : dict
-        A dictionary of Gene objects, keyed by gene ID.
-    _db_handler : _ExonizeDBHandler
-        An instance of _ExonizeDBHandler for interacting with the database.
+    Attributes:
+        exonize_db_path (str): The file path to the Exonize database.
     """
     def __init__(
             self,
             exonize_db_path: str
     ):
-        """
-        Initializes a GenomeExpansions instance and builds expansions from the database.
+        """Initializes a GenomeExpansions instance and builds expansions from the database.
 
-        Parameters
-        ----------
-        exonize_db_path : str
-            The file path to the Exonize database.
+        Args:
+            exonize_db_path (str): The file path to the Exonize database.
         """
         self.exonize_db_path = exonize_db_path
         self._genes = {}
         self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
         self.build_expansions()
 
-    def __iter__(self):
-        """
-        Returns an iterator over the Gene objects.
+    def __iter__(
+            self
+    ):
+        """Returns an iterator over the Gene objects.
 
-        Returns
-        -------
-        iterator
-            An iterator yielding each Gene object.
+        Returns:
+            iterator: An iterator yielding each Gene object.
 
-        Examples
-        --------
-        >>> for gene in genome_expansions:
-        ...     print(gene)
+        Examples:
+            >>> for gene in genome_expansions:
+            ...     print(gene)
         """
         return iter(self._genes.values())
 
     def __contains__(self, n):
-        """
-        Checks if a gene ID exists in the GenomeExpansions.
+        """Checks if a gene ID exists in the GenomeExpansions.
 
-        Parameters
-        ----------
-        n : str
-            The gene ID to check for existence.
+        Args:
+            n (str): The gene ID to check for existence.
 
-        Returns
-        -------
-        bool
-            True if the gene ID exists, False otherwise.
+        Returns:
+            bool: True if the gene ID exists, False otherwise.
 
-        Examples
-        --------
-        >>> "GENE123" in genome_expansions
-        True
+        Examples:
+            >>> "GENE123" in genome_expansions
+            True
         """
         return n in self._genes
 
     def __getitem__(self, gene_id):
-        """
-        Retrieves a Gene object by gene ID.
+        """Retrieves a Gene object by gene ID.
 
-        Parameters
-        ----------
-        gene_id : str
-            The ID of the gene to retrieve.
+        Args:
+            gene_id (str): The ID of the gene to retrieve.
 
-        Returns
-        -------
-        Gene
-            The Gene object associated with the specified gene ID.
+        Returns:
+            Gene: The Gene object associated with the specified gene ID.
 
-        Examples
-        --------
-        >>> gene = genome_expansions["GENE123"]
-        >>> print(gene)
-        <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
+        Examples:
+            >>> gene = genome_expansions["GENE123"]
+            >>> print(gene)
+            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
         """
         return self._genes[gene_id]
 
     def __len__(self):
-        """
-        Returns the number of genes in the GenomeExpansions.
+        """Returns the number of genes in the GenomeExpansions.
 
-        Returns
-        -------
-        int
-            The number of genes in the GenomeExpansions.
+        Returns:
+            int: The number of genes in the GenomeExpansions.
 
-        Examples
-        --------
-        >>> len(genome_expansions)
-        18
+        Examples:
+            >>> len(genome_expansions)
+            18
         """
         return len(self._genes)
 
     @property
     def genes(self):
-        """
-        Returns a list of gene IDs.
+        """Returns a list of gene IDs.
 
-        Returns
-        -------
-        list
-            A list of gene IDs in the GenomeExpansions.
+        Returns:
+            list: A list of gene IDs in the GenomeExpansions.
 
-        Examples
-        --------
-        >>> genome_expansions.genes
-        ['GENE123', 'GENE456', 'GENE789']
+        Examples:
+            >>> genome_expansions.genes
+            ['GENE123', 'GENE456', 'GENE789']
         """
         return list(self._genes.keys())
 
-    def add_gene(
+    def _add_gene(
             self,
             gene_id: str
     ) -> Gene:
-        """
-        Adds a Gene object to the genome based on the provided gene ID.
+        """Adds a Gene object to the genome based on the provided gene ID.
 
-        Parameters
-        ----------
-        gene_id : str
-            The unique identifier for the gene.
+        Args:
+            gene_id (str): The unique identifier for the gene.
 
-        Returns
-        -------
-        Gene
-            The Gene object that was added.
+        Returns:
+            Gene: The Gene object that was added.
 
-        Examples
-        --------
-        >>> gene = genome_expansions.add_gene("GENE123")
-        >>> print(gene)
-        <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
+        Examples:
+            >>> gene = genome_expansions.add_gene("GENE123")
+            >>> print(gene)
+            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
         """
         if gene_id not in self._genes:
             chrom, strand, start, end = self._db_handler.genes_dict[gene_id]
@@ -393,20 +306,18 @@ class GenomeExpansions:
             )
 
     def build_expansions(self):
-        """
-        Constructs the expansion data for each gene by loading nodes and edges from the database.
+        """Constructs the gene expansions from the Exonize database.
 
         This method initializes each Gene object and populates its expansions based on data from
         the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.
 
-        Examples
-        --------
-        >>> genome_expansions.build_expansions()
-        >>> print(len(genome_expansions))
-        18
+        Examples:
+            >>> genome_expansions.build_expansions()
+            >>> print(len(genome_expansions))
+            18
         """
         for gene_id, non_reciprocal_matches in self._db_handler.gene_expansions_dict.items():
-            self._genes[gene_id] = self.add_gene(
+            self._genes[gene_id] = self._add_gene(
                 gene_id=gene_id
             )
             for expansion_id, data in non_reciprocal_matches.items():
@@ -421,8 +332,7 @@ class GenomeExpansions:
 
 
 class _PlotHandler:
-    """
-    _PlotHandler is a class for managing and visualizing gene expansion graphs
+    """_PlotHandler is a class for managing and visualizing gene expansion graphs
     with various layout and styling options.
 
     Attributes
