@@ -11,12 +11,13 @@ Liam M. Longo, Earth-Life Science Institute, Institute of Science Tokyo
 Lars Arvestad, Department of Mathematics, Stockholm University
 ```
 
-## Welcome!
+Welcome!
+============
 
 `exonize` is an open-source command-line tool and [Python package](https://pypi.org/project/exonize/) for identifying and classifying coding exon duplications in annotated genomes. `exonize` identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. In addition, `exonize` categorizes the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, the `exonize_analysis` module is available for Python notebooks.
 
 Installation
-============
+---------------------
 You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
 
 ```

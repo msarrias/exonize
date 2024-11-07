@@ -19,6 +19,7 @@ Output Description
 
 Database structure
 ---------------------
-![Database](https://github.com/msarrias/exonize/raw/main/figures/database.png)
+[![Database Structure](https://github.com/msarrias/exonize/raw/main/figures/database.png)](https://github.com/msarrias/exonize/blob/main/figures/database.png)
+
 
 

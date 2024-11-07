@@ -8,9 +8,6 @@ Exonize requires two positional arguments that can be followed by optional argum
 exonize <gff_file_path> <genome_file_path> [OPTIONS]
 ```
 
-Parameters
-============
-
 Required Arguments
 ---------------------
 
@@ -50,12 +47,12 @@ Optional Arguments
 > If neither flag `--global-search` or `--local-search` is specified, both searches will run by default.
 ---
 
-Example dataset: Human Y chromosome
-============
+Example: Human Y chromosome
+---------------------
 
 The following steps demonstrate how to run `exonize` on a test dataset.
 
-#### Download the test data
+**Download the test data**
 
 
 * If you have installed the package from the repo, move into the `test_human_chrom_Y` directory and download the test data:
@@ -67,7 +64,7 @@ source fetch_data.sh
 
   * If you installed the package via `pip`, you can download the script here: [`fetch_data.sh`](https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh).
 
-####  Run exonize:
+**Run exonize:**
 
 ```
 exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
