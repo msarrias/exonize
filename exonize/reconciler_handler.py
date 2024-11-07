@@ -432,25 +432,6 @@ class ReconcilerHandler(object):
             )
         return gene_graph
 
-    def fetch_overlapping_edges(
-            self,
-            gene_graph: nx.MultiGraph
-    ):
-        overlapping_clusters = self.data_container.get_overlapping_clusters(
-            set([(P.open(i[0], i[1]), None) for i in gene_graph.nodes]), 0)
-        overlapping_clusters = [
-            [coordinate for coordinate, _ in cluster]
-            for cluster in overlapping_clusters
-            if len(cluster) > 1
-        ]
-        pairs_list = [
-            [(I, J)
-             for indx_i, I in enumerate(cluster)
-             for J in cluster[indx_i + 1:]]
-            for cluster in overlapping_clusters
-        ]
-        return pairs_list
-
     @staticmethod
     def build_mode_dictionary(
             targets_reference_coordinates_dictionary: dict
