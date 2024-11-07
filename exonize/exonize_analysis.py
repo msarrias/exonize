@@ -12,18 +12,21 @@ class Gene:
 
     Attributes
     ----------
-    id : str
+
+    id: str
         The unique identifier for the gene.
-    coordinates : tuple
+
+    coordinates: tuple
         The start and end coordinates of the gene on the chromosome.
-    strand : str
+
+    strand: str
         The DNA strand ('+' or '-') on which the gene is located.
-    chromosome : str
+
+    chromosome: str
         The chromosome on which the gene is located.
-    expansions : dict
+
+    expansions: dict
         A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.
-    plot_handler : PlotHandler
-        An instance of PlotHandler responsible for visualizing the gene's expansions.
     """
     def __init__(
             self,
@@ -51,7 +54,7 @@ class Gene:
         self.strand = strand
         self.chromosome = chromosome
         self.expansions = {}
-        self.plot_handler = PlotHandler()
+        self.plot_handler = _PlotHandler()
 
     def __getitem__(self, expansion_id):
         """
@@ -245,8 +248,8 @@ class GenomeExpansions:
         The file path to the Exonize database.
     _genes : dict
         A dictionary of Gene objects, keyed by gene ID.
-    _db_handler : ExonizeDBHandler
-        An instance of ExonizeDBHandler for interacting with the database.
+    _db_handler : _ExonizeDBHandler
+        An instance of _ExonizeDBHandler for interacting with the database.
     """
     def __init__(
             self,
@@ -262,7 +265,7 @@ class GenomeExpansions:
         """
         self.exonize_db_path = exonize_db_path
         self._genes = {}
-        self._db_handler = ExonizeDBHandler(self.exonize_db_path)
+        self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
         self.build_expansions()
 
     def __iter__(self):
@@ -417,9 +420,9 @@ class GenomeExpansions:
                 self._genes[gene_id].expansions[expansion_id] = expansion
 
 
-class PlotHandler:
+class _PlotHandler:
     """
-    PlotHandler is a class for managing and visualizing gene expansion graphs
+    _PlotHandler is a class for managing and visualizing gene expansion graphs
     with various layout and styling options.
 
     Attributes
@@ -429,7 +432,7 @@ class PlotHandler:
     """
     def __init__(self):
         """
-        Initializes the PlotHandler instance with predefined node types and color mappings.
+        Initializes the _PlotHandler instance with predefined node types and color mappings.
         """
         self._full = 'FULL'
         self._partial_insertion = 'PARTIAL_INSERTION'
@@ -774,9 +777,9 @@ class PlotHandler:
         return 0.0
 
 
-class ExonizeDBHandler:
+class _ExonizeDBHandler:
     """
-        ExonizeDBHandler class manages database interactions for gene and expansion data with exon duplications.
+        _ExonizeDBHandler class manages database interactions for gene and expansion data with exon duplications.
 
         Attributes
         ----------
@@ -794,7 +797,7 @@ class ExonizeDBHandler:
         """
     def __init__(self, db_path):
         """
-        Initializes an ExonizeDBHandler instance, fetching genes and expansions from the database.
+        Initializes an _ExonizeDBHandler instance, fetching genes and expansions from the database.
 
         Parameters
         ----------
