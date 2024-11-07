@@ -11,7 +11,7 @@ class Gene:
             strand,
             chromosome
     ):
-        self.gene_id = gene_id
+        self.id = gene_id
         self.coordinates = coordinates
         self.strand = strand
         self.chromosome = chromosome
@@ -20,66 +20,83 @@ class Gene:
     def __getitem__(self, expansion_id):
         return self.expansions[expansion_id]
 
+    def __iter__(self):
+        return iter(self.expansions.values())
 
-class Expansions:
+    def __len__(self):
+        return len(self.expansions)
+
+
+class Expansion:
+    def __init__(self, expansion_id, nodes, edges):
+        self.expansion_id = expansion_id
+        self.graph = nx.Graph()
+        self.graph.add_nodes_from(nodes)
+        for edge in edges:
+            query_coord, target_coord, mode = edge
+            self.graph.add_edge(
+                u_of_edge=query_coord,
+                v_of_edge=target_coord,
+                mode=mode
+            )
+
+
+class GenomeExpansions:
     def __init__(
             self,
             exonize_db_path: str
     ):
         self.exonize_db_path = exonize_db_path
-        self.genes = {}
+        self._genes = {}
         self._db_handler = ExonizeDBHandler(self.exonize_db_path)
+        self.build_expansions()
+
+    def __iter__(self):
+        return iter(self._genes.values())
+
+    def __contains__(self, n):
+        return n in self._genes
 
     def __getitem__(self, gene_id):
-        return self.genes[gene_id]
+        return self._genes[gene_id]
+
+    def __len__(self):
+        return len(self._genes)
+
+    @property
+    def genes(self):
+        return list(self._genes.keys())
 
     def add_gene(
             self,
             gene_id: str
     ) -> Gene:
-        if gene_id not in self.genes:
-            chrom, strand, start, end = self._genes_dict[gene_id]
+        if gene_id not in self._genes:
+            chrom, strand, start, end = self._db_handler.genes_dict[gene_id]
             return Gene(
-                id=gene_id,
+                gene_id=gene_id,
                 coordinates=(start, end),
                 strand=strand,
                 chromosome=chrom
             )
 
-    def build_expansion_graph(
-            self,
-            gene_id: str,
-            expansion_id: int
-    ):
-        expansion_graph = nx.Graph()
-        nodes = self._db_handler.gene_expansions_dict[gene_id][expansion_id]['nodes']
-        expansion_graph.add_nodes_from(nodes)
-        for edge in self._db_handler.gene_expansions_dict[gene_id][expansion_id]['edges']:
-            q_start, q_end, t_start, t_end, mode = edge
-            expansion_graph.add_edge(
-                u_for_edge=(q_start, t_start),
-                v_for_edge=(t_start, t_end),
-                mode=mode
-            )
-        return expansion_graph
-
     def build_expansions(self):
         for gene_id, non_reciprocal_matches in self._db_handler.gene_expansions_dict.items():
-            self.genes[gene_id] = self.add_gene(
+            self._genes[gene_id] = self.add_gene(
                 gene_id=gene_id
             )
-            for expansion_id in non_reciprocal_matches.keys():
-                self.genes[gene_id].expansions[expansion_id] = self.build_expansion_graph(
-                    gene_id=gene_id,
-                    expansion_id=expansion_id
-                )
+            for expansion_id, data in non_reciprocal_matches.items():
+                nodes = data['nodes']
+                edges = data['edges']
+                expansion = Expansion(expansion_id, nodes, edges)
+                self._genes[gene_id].expansions[expansion_id] = expansion
 
 
 class ExonizeDBHandler:
     def __init__(self, db_path):
         self.db_path = db_path
         self.genes_dict = self.collect_genes(self.fetch_genes_with_exon_dup())
-        self.gene_expansions_dict = dict(dict(dict(list)))
+        self.gene_expansions_dict = {}
         self._expansions_nodes = self.fetch_expansions_nodes()
         self._expansions_edges = self.fetch_expansions_edges()
         self.collect_expansion_nodes(expansions=self._expansions_nodes)
@@ -209,5 +226,8 @@ class ExonizeDBHandler:
                         TargetExonEnd;
                     """
                 )
-                global_matches = set((*res, 'FULL') for res in cursor.fetchall())
+                global_matches = set(
+                    (*res, 'FULL')
+                    for res in cursor.fetchall()
+                )
         return global_matches.union(local_matches)
