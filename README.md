@@ -16,7 +16,7 @@ Lars Arvestad, Department of Mathematics, Stockholm University
 
 ## Documentation
 
-Please see the [Documentation][mkdocs] for  a full user guide and an introductory tutorial to the `exonize_analysis` module.
+Please see the [Documentation](https://msarrias.github.io/exonize/) for a full user guide and an introductory tutorial to the `exonize_analysis` module.
 
 ## Support
 
