@@ -1,6 +1,6 @@
 import sqlite3
-
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 import networkx as nx
 import portion as P
 from pathlib import Path
@@ -35,11 +35,19 @@ class Gene:
 
     def draw_expansions_multigraph(
             self,
-            figure_path: Path = None
+            expansion_id: str = None,
+            figure_path: Path = None,
+            figure_size: tuple[float, float] = (8.0, 8.0),
+            legend: bool = True,
+            connect_overlapping_nodes: bool = True
     ):
         self.plot_handler.draw_expansions_multigraph(
-            self.expansions.graph,
-            figure_path
+            gene_start=self.coordinates.lower,
+            gene_graph=self.expansions[expansion_id].graph,
+            figure_path=figure_path,
+            figure_size=figure_size,
+            legend=legend,
+            connect_overlapping_nodes=connect_overlapping_nodes
         )
 
 
@@ -50,8 +58,8 @@ class Expansion:
             nodes,
             edges
     ):
-        self.expansion_id = expansion_id
         self.graph = nx.Graph()
+        self.graph.id = expansion_id
         self.graph.add_nodes_from([
             (coord, {"type": node_type})
             for coord, node_type in nodes
@@ -99,7 +107,7 @@ class GenomeExpansions:
             chrom, strand, start, end = self._db_handler.genes_dict[gene_id]
             return Gene(
                 gene_id=gene_id,
-                coordinates=(start, end),
+                coordinates=P.open(start, end),
                 strand=strand,
                 chromosome=chrom
             )
@@ -127,7 +135,7 @@ class PlotHandler:
         self._partial_excision = 'PARTIAL_EXCISION'
         self._inter_boundary = 'INTER_BOUNDARY'
         self._intronic = 'INTRONIC'
-        self.color_map = {
+        self._color_map = {
             self._partial_insertion: 'blue',
             self._partial_excision: 'purple',
             self._full: 'green',
@@ -137,21 +145,22 @@ class PlotHandler:
 
     def draw_expansions_multigraph(
             self,
+            gene_start: int,
             gene_graph: nx.MultiGraph,
+            figure_size: tuple[float, float] = (8.0, 8.0),
             figure_path: Path = None,
-            draw_overlapping_edges: bool = False,
+            legend: bool = True,
+            connect_overlapping_nodes: bool = True
     ):
-        plt.figure(figsize=(16, 8))
+        plt.figure(figsize=figure_size)
         node_colors = [
-            self._color_map[node[1]['type']]
-            for node in gene_graph.nodes(data=True)
+            self._color_map[attrib['type']] for node, attrib in gene_graph.nodes(data=True)
         ]
         components = list(nx.connected_components(gene_graph))
         node_labels = {
-            node: f'({node[0]},{node[1]})'
+            node: f'({node.lower - gene_start},{node.upper - gene_start})'
             for node in gene_graph.nodes
         }
-        # Create a separate circular layout for each component
         layout_scale = 2
         component_positions = []
         for component in components:
@@ -190,7 +199,6 @@ class PlotHandler:
                 facecolor="white"
             )
         )
-        # overlapping_edges:
         for edge in gene_graph.edges(data=True):
             source, target, attributes = edge
             edge_style = attributes.get('style', 'solid')
@@ -204,24 +212,131 @@ class PlotHandler:
                 style=edge_style,
                 width=edge_width
             )
-        plt.show()
-        # overlapping_edges = self.fetch_overlapping_edges(
-        #     gene_graph=gene_graph
-        # )
-        # for cluster in overlapping_edges:
-        #     for pair in cluster:
-        #         query, targ = pair
-        #         nx.draw_networkx_edges(
-        #             gene_graph,
-        #             component_position,
-        #             edgelist=[((query.lower, query.upper),
-        #                        (targ.lower, targ.upper))],
-        #             edge_color='red',
-        #             style='dotted',
-        #             width=2
-        #         )
-        # plt.savefig(figure_path)
-        plt.close()
+        if connect_overlapping_nodes:
+            overlapping_nodes = self.fetch_overlapping_nodes(
+                gene_graph=gene_graph
+            )
+            for cluster in overlapping_nodes:
+                for pair in cluster:
+                    nodei, nodej = pair
+                    nx.draw_networkx_edges(
+                        gene_graph,
+                        component_position,
+                        edgelist=[(nodei, nodej)],
+                        edge_color='red',
+                        style='dotted',
+                        width=2
+                    )
+        if legend:
+            node_attributes = {attrib['type'] for _, attrib in gene_graph.nodes(data=True)}
+            legend_elements = [
+                mlines.Line2D(
+                    [], [],
+                    color=self._color_map[label],
+                    marker='o',
+                    linestyle='None',
+                    markersize=10,
+                    label=label
+                )
+                for label in node_attributes
+            ]
+            plt.legend(handles=legend_elements, loc="upper right", frameon=False)
+        for spine in plt.gca().spines.values():
+            spine.set_visible(False)
+        if figure_path:
+            plt.savefig(figure_path)
+        else:
+            plt.show()
+
+    def fetch_overlapping_nodes(
+            self,
+            gene_graph: nx.MultiGraph
+    ):
+        overlapping_clusters = self._get_overlapping_clusters(
+            target_coordinates_set=set([(coordinate, None) for coordinate in gene_graph.nodes]),
+            threshold=0
+        )
+        overlapping_clusters = [
+            [coordinate for coordinate, _ in cluster]
+            for cluster in overlapping_clusters
+            if len(cluster) > 1
+        ]
+        pairs_list = [
+            [(I, J)
+             for indx_i, I in enumerate(cluster)
+             for J in cluster[indx_i + 1:]]
+            for cluster in overlapping_clusters
+        ]
+        return pairs_list
+
+    def _get_overlapping_clusters(
+            self,
+            target_coordinates_set: set[tuple],
+            threshold: float,
+    ) -> list[list[tuple]]:
+        processed_intervals = set()
+        overlapping_clusters = []
+        sorted_coordinates = sorted(
+            target_coordinates_set,
+            key=lambda x: (x[0].lower, x[0].upper)
+        )
+        for target_coordinate, evalue in sorted_coordinates:
+            if target_coordinate not in processed_intervals:
+                processed_intervals.add(target_coordinate)
+                processed_intervals, cluster = self._find_interval_clusters(
+                    sorted_coordinates=sorted_coordinates,
+                    processed_intervals=processed_intervals,
+                    cluster=[(target_coordinate, evalue)],
+                    threshold=threshold
+                )
+                overlapping_clusters.append(cluster)
+        overlapping_clusters.sort(key=len, reverse=True)
+        return overlapping_clusters
+
+    def _find_interval_clusters(
+            self,
+            sorted_coordinates: list,
+            processed_intervals: set,
+            cluster: list[tuple],
+            threshold: float
+    ) -> tuple:
+        new_cluster = list(cluster)
+        for other_coordinate, other_evalue in sorted_coordinates:
+            if (other_coordinate not in processed_intervals and all(
+                    round(self._min_perc_overlap(
+                        intv_i=target_coordinate,
+                        intv_j=other_coordinate), 1) >= threshold if threshold > 0 else
+                    round(self._min_perc_overlap(
+                        intv_i=target_coordinate,
+                        intv_j=other_coordinate), 1) > threshold
+                    for target_coordinate, evalue in new_cluster
+            )):
+                new_cluster.append((other_coordinate, other_evalue))
+                processed_intervals.add(other_coordinate)
+        if new_cluster == cluster:
+            return processed_intervals, new_cluster
+        else:
+            return self._find_interval_clusters(
+                sorted_coordinates=sorted_coordinates,
+                processed_intervals=processed_intervals,
+                cluster=new_cluster,
+                threshold=threshold
+            )
+
+    @staticmethod
+    def _min_perc_overlap(
+            intv_i: P.Interval,
+            intv_j: P.Interval,
+    ) -> float:
+        def get_interval_length(
+                interval: P.Interval,
+        ):
+            return sum(intv.upper - intv.lower for intv in interval)
+        if intv_i.overlaps(intv_j):
+            intersection_span = get_interval_length(intv_i.intersection(intv_j))
+            longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
+            return round(intersection_span / longest_length, 3)
+        return 0.0
 
 
 class ExonizeDBHandler:
