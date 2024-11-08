@@ -20,7 +20,7 @@ Please see the [Documentation](https://msarrias.github.io/exonize/) for a full u
 
 ## Support
 
-If you need help with `exonize`, get in contact with us! To report a bug or request a new feature, open an **[Issue]** on our GitHub repo.
+If you need help with `exonize`, contact us! To report a bug or request a new feature, open an **[Issue](https://github.com/msarrias/exonize/issues)** on the `exonize` repo.
 
 ## Citation
 
