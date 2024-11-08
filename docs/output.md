@@ -9,12 +9,12 @@ This is the main output database created by `exonize`.
 
 If you are only interested in the final results, these are the tables you want to look at:
     
-| **Table**                                | **Description**                                                                                                                                                                             |
-|------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Expansions**                           | Contains all groups of duplicates (expansions) found<br/> within genes. Each record represents a node in the<br/> expansion graph, created by combining local and (or) <br/>global matches. |
-| **Expansions_full**                      | Includes expansions formed by full-mode events only.                                                                                                                                        |
-| **Expansions_full_tandem**               | Represents pairs of consecutive full events within<br/> an expansion, indicating whether they are in tandem <br/>or not.                                                                    |
-| **Expansions_transcript_interdependence**| Classifies transcript interdependence for each expansion <br/>in the `Expansions_full` table.                                                                                               |
+| **Table**                                | **Description**                                                                                                                                                                      |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Expansions**                           | Contains all groups of duplicates (expansions) found<br/> found. Each record represents a node in the<br/> expansion graph, created by combining local and (or) <br/>global matches. |
+| **Expansions_full**                      | Includes expansions formed by full-mode events only.                                                                                                                                 |
+| **Expansions_full_tandem**               | Represents pairs of consecutive full events within<br/> an expansion, indicating whether they are in tandem <br/>or not.                                                             |
+| **Expansions_transcript_interdependence**| Classifies transcript interdependence for each expansion <br/>in the `Expansions_full` table.                                                                                        |
 
 
 ##### Other tables
