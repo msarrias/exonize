@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
         <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
-        <link href="../css/extra.css" rel="stylesheet" />
+        <link href="../extra.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -52,6 +52,50 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">exonize_analysis</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis">exonize_analysis</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.Expansion">Expansion</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Expansion.__init__">__init__</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.Gene">Gene</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__getitem__">__getitem__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__init__">__init__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__iter__">__iter__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__len__">__len__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__repr__">__repr__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.build_gene_graph">build_gene_graph</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph">draw_expansions_multigraph</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions">GenomeExpansions</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.genes">genes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__contains__">__contains__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__getitem__">__getitem__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__init__">__init__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__iter__">__iter__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__len__">__len__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.build_expansions">build_expansions</a>
+    </li>
+        </ul>
+    </li>
     </ul>
                 </li>
               </ul>
@@ -79,7 +123,10 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <div class="doc doc-object doc-module">
+                <h1 id="exonize_analysis-module">exonize_analysis module<a class="headerlink" href="#exonize_analysis-module" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
 
 
 
@@ -147,79 +194,6 @@
 
 
 
-              <details class="quote">
-                <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Expansion</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Expansion class represents an expansion graph for a specific gene expansion.</span>
-
-<span class="sd">    Attributes:</span>
-<span class="sd">        graph (networkx.Graph): A NetworkX graph representing the expansion.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-            <span class="n">nodes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">],</span>
-            <span class="n">edges</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes an Expansion instance.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            expansion_id (int): The unique identifier for the expansion.</span>
-<span class="sd">            nodes (list of tuples): A list of tuples representing the nodes,</span>
-<span class="sd">             where each tuple is in the form (coord, node_type).</span>
-<span class="sd">            edges (list of tuples): A list of tuples representing the edges,</span>
-<span class="sd">             where each tuple is in the form (query_coord, target_coord, mode).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">expansion_id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_nodes_from</span><span class="p">([</span>
-            <span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">node_type</span><span class="p">})</span>
-            <span class="k">for</span> <span class="n">coord</span><span class="p">,</span> <span class="n">node_type</span> <span class="ow">in</span> <span class="n">nodes</span>
-        <span class="p">])</span>
-        <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edges</span><span class="p">:</span>
-            <span class="n">query_coord</span><span class="p">,</span> <span class="n">target_coord</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="n">edge</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span>
-                <span class="n">u_of_edge</span><span class="o">=</span><span class="n">query_coord</span><span class="p">,</span>
-                <span class="n">v_of_edge</span><span class="o">=</span><span class="n">target_coord</span><span class="p">,</span>
-                <span class="n">mode</span><span class="o">=</span><span class="n">mode</span>
-            <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-              </details>
 
 
 
@@ -270,8 +244,7 @@
                   (<code>list of tuples</code>)
               –
               <div class="doc-md-description">
-                <p>A list of tuples representing the nodes,
-where each tuple is in the form (coord, node_type).</p>
+                <p>A list of tuples representing the nodes in the form (coord, node_type).</p>
               </div>
             </li>
             <li>
@@ -279,8 +252,7 @@ where each tuple is in the form (coord, node_type).</p>
                   (<code>list of tuples</code>)
               –
               <div class="doc-md-description">
-                <p>A list of tuples representing the edges,
-where each tuple is in the form (query_coord, target_coord, mode).</p>
+                <p>A list of tuples representing the edges in the form (q_coord, t_coord, mode).</p>
               </div>
             </li>
         </ul>
@@ -288,65 +260,6 @@ where each tuple is in the form (query_coord, target_coord, mode).</p>
     </tr>
   </tbody>
 </table>
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">nodes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">],</span>
-        <span class="n">edges</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initializes an Expansion instance.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        expansion_id (int): The unique identifier for the expansion.</span>
-<span class="sd">        nodes (list of tuples): A list of tuples representing the nodes,</span>
-<span class="sd">         where each tuple is in the form (coord, node_type).</span>
-<span class="sd">        edges (list of tuples): A list of tuples representing the edges,</span>
-<span class="sd">         where each tuple is in the form (query_coord, target_coord, mode).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">expansion_id</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_nodes_from</span><span class="p">([</span>
-        <span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">node_type</span><span class="p">})</span>
-        <span class="k">for</span> <span class="n">coord</span><span class="p">,</span> <span class="n">node_type</span> <span class="ow">in</span> <span class="n">nodes</span>
-    <span class="p">])</span>
-    <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edges</span><span class="p">:</span>
-        <span class="n">query_coord</span><span class="p">,</span> <span class="n">target_coord</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="n">edge</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span>
-            <span class="n">u_of_edge</span><span class="o">=</span><span class="n">query_coord</span><span class="p">,</span>
-            <span class="n">v_of_edge</span><span class="o">=</span><span class="n">target_coord</span><span class="p">,</span>
-            <span class="n">mode</span><span class="o">=</span><span class="n">mode</span>
-        <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -423,8 +336,7 @@ where each tuple is in the form (query_coord, target_coord, mode).</p>
                   (<code>dict</code>)
               –
               <div class="doc-md-description">
-                <p>A dictionary where keys are expansion IDs and values are expansion objects,
-each containing an expansion graph.</p>
+                <p>A dictionary where keys are expansion IDs and values are expansion objects.</p>
               </div>
             </li>
         </ul>
@@ -437,305 +349,6 @@ each containing an expansion graph.</p>
 
 
 
-              <details class="quote">
-                <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">  9</span>
-<span class="normal"> 10</span>
-<span class="normal"> 11</span>
-<span class="normal"> 12</span>
-<span class="normal"> 13</span>
-<span class="normal"> 14</span>
-<span class="normal"> 15</span>
-<span class="normal"> 16</span>
-<span class="normal"> 17</span>
-<span class="normal"> 18</span>
-<span class="normal"> 19</span>
-<span class="normal"> 20</span>
-<span class="normal"> 21</span>
-<span class="normal"> 22</span>
-<span class="normal"> 23</span>
-<span class="normal"> 24</span>
-<span class="normal"> 25</span>
-<span class="normal"> 26</span>
-<span class="normal"> 27</span>
-<span class="normal"> 28</span>
-<span class="normal"> 29</span>
-<span class="normal"> 30</span>
-<span class="normal"> 31</span>
-<span class="normal"> 32</span>
-<span class="normal"> 33</span>
-<span class="normal"> 34</span>
-<span class="normal"> 35</span>
-<span class="normal"> 36</span>
-<span class="normal"> 37</span>
-<span class="normal"> 38</span>
-<span class="normal"> 39</span>
-<span class="normal"> 40</span>
-<span class="normal"> 41</span>
-<span class="normal"> 42</span>
-<span class="normal"> 43</span>
-<span class="normal"> 44</span>
-<span class="normal"> 45</span>
-<span class="normal"> 46</span>
-<span class="normal"> 47</span>
-<span class="normal"> 48</span>
-<span class="normal"> 49</span>
-<span class="normal"> 50</span>
-<span class="normal"> 51</span>
-<span class="normal"> 52</span>
-<span class="normal"> 53</span>
-<span class="normal"> 54</span>
-<span class="normal"> 55</span>
-<span class="normal"> 56</span>
-<span class="normal"> 57</span>
-<span class="normal"> 58</span>
-<span class="normal"> 59</span>
-<span class="normal"> 60</span>
-<span class="normal"> 61</span>
-<span class="normal"> 62</span>
-<span class="normal"> 63</span>
-<span class="normal"> 64</span>
-<span class="normal"> 65</span>
-<span class="normal"> 66</span>
-<span class="normal"> 67</span>
-<span class="normal"> 68</span>
-<span class="normal"> 69</span>
-<span class="normal"> 70</span>
-<span class="normal"> 71</span>
-<span class="normal"> 72</span>
-<span class="normal"> 73</span>
-<span class="normal"> 74</span>
-<span class="normal"> 75</span>
-<span class="normal"> 76</span>
-<span class="normal"> 77</span>
-<span class="normal"> 78</span>
-<span class="normal"> 79</span>
-<span class="normal"> 80</span>
-<span class="normal"> 81</span>
-<span class="normal"> 82</span>
-<span class="normal"> 83</span>
-<span class="normal"> 84</span>
-<span class="normal"> 85</span>
-<span class="normal"> 86</span>
-<span class="normal"> 87</span>
-<span class="normal"> 88</span>
-<span class="normal"> 89</span>
-<span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
-<span class="normal"> 96</span>
-<span class="normal"> 97</span>
-<span class="normal"> 98</span>
-<span class="normal"> 99</span>
-<span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Gene</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gene class is a container for gene expansion graphs.</span>
-
-<span class="sd">    Attributes:</span>
-<span class="sd">        id (str): The unique identifier for the gene.</span>
-<span class="sd">        coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.</span>
-<span class="sd">        strand (str): The DNA strand (&#39;+&#39; or &#39;-&#39;) on which the gene is located.</span>
-<span class="sd">        chromosome (str): The chromosome on which the gene is located.</span>
-<span class="sd">        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects,</span>
-<span class="sd">         each containing an expansion graph.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">gene_id</span><span class="p">,</span>
-            <span class="n">coordinates</span><span class="p">,</span>
-            <span class="n">strand</span><span class="p">,</span>
-            <span class="n">chromosome</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes a Gene instance.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            gene_id (str): The unique identifier for the gene.</span>
-<span class="sd">            coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.</span>
-<span class="sd">            strand (str): The DNA strand (&#39;+&#39; or &#39;-&#39;) on which the gene is located.</span>
-<span class="sd">            chromosome (str): The chromosome on which the gene is located.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">gene_id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">strand</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">chromosome</span> <span class="o">=</span> <span class="n">chromosome</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plot_handler</span> <span class="o">=</span> <span class="n">_PlotHandler</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieves the expansion graph for the specified expansion ID.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            expansion_id (int): The ID of the expansion to retrieve.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            networkx.Graph: The expansion graph associated with the given expansion ID.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; gene[1]  # Retrieves the expansion graph for expansion ID 1</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span><span class="o">.</span><span class="n">graph</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">iter</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an iterator over the expansion graphs.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            iterator: An iterator yielding each expansion graph.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; for graph in gene:</span>
-<span class="sd">            ...     print(graph)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="n">expansion</span><span class="o">.</span><span class="n">graph</span> <span class="k">for</span> <span class="n">expansion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a string representation of the Gene object.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            str: A string describing the gene&#39;s ID and number of expansions.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; repr(gene)</span>
-<span class="sd">            &#39;&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;&#39;</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Gene </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">)</span><span class="si">}</span><span class="s2"> expansions (iterable of expansion graphs)&gt;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the number of expansions associated with the gene.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            int: The number of expansions.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; len(gene)</span>
-<span class="sd">            0</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">build_gene_graph</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            networkx.Graph: A combined graph with nodes and edges from all expansions.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; combined_graph = gene.build_gene_graph()</span>
-<span class="sd">            &gt;&gt;&gt; print(combined_graph.nodes)</span>
-<span class="sd">            &gt;&gt;&gt; print(combined_graph.edges)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">gene_graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">expansion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">expansion</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="n">gene_graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">edge_data</span> <span class="ow">in</span> <span class="n">expansion</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="n">gene_graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">edge_data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">gene_graph</span>
-
-    <span class="k">def</span> <span class="nf">draw_expansions_multigraph</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">figure_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">figure_size</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span>
-            <span class="n">legend</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="n">connect_overlapping_nodes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="n">full_expansion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Draws a multi-graph of gene expansions.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            expansion_id (int, optional): The ID of a specific expansion to draw.</span>
-<span class="sd">             If None, the combined gene graph is drawn.</span>
-<span class="sd">            figure_path (Path, optional): The path to save the figure. If None, the figure is not saved.</span>
-<span class="sd">            figure_size (tuple of float, optional): The size of the figure in inches. Default is (8.0, 8.0).</span>
-<span class="sd">            legend (bool, optional): Whether to display a legend on the plot. Default is True.</span>
-<span class="sd">            connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph.</span>
-<span class="sd">             Default is True.</span>
-<span class="sd">            full_expansion (bool, optional): Whether to show the full expansion graph only. Default is False.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">expansion_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span><span class="o">.</span><span class="n">graph</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_gene_graph</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plot_handler</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
-            <span class="n">gene_start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span>
-            <span class="n">gene_graph</span><span class="o">=</span><span class="n">G</span><span class="p">,</span>
-            <span class="n">figure_path</span><span class="o">=</span><span class="n">figure_path</span><span class="p">,</span>
-            <span class="n">figure_size</span><span class="o">=</span><span class="n">figure_size</span><span class="p">,</span>
-            <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span>
-            <span class="n">connect_overlapping_nodes</span><span class="o">=</span><span class="n">connect_overlapping_nodes</span><span class="p">,</span>
-            <span class="n">full_expansion</span><span class="o">=</span><span class="n">full_expansion</span>
-        <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-              </details>
 
 
 
@@ -814,41 +427,6 @@ each containing an expansion graph.</p>
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">gene</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># Retrieves the expansion graph for expansion ID 1</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retrieves the expansion graph for the specified expansion ID.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        expansion_id (int): The ID of the expansion to retrieve.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        networkx.Graph: The expansion graph associated with the given expansion ID.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; gene[1]  # Retrieves the expansion graph for expansion ID 1</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span><span class="o">.</span><span class="n">graph</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -914,51 +492,6 @@ each containing an expansion graph.</p>
     </tr>
   </tbody>
 </table>
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">20</span>
-<span class="normal">21</span>
-<span class="normal">22</span>
-<span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
-<span class="normal">26</span>
-<span class="normal">27</span>
-<span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
-<span class="normal">39</span>
-<span class="normal">40</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">gene_id</span><span class="p">,</span>
-        <span class="n">coordinates</span><span class="p">,</span>
-        <span class="n">strand</span><span class="p">,</span>
-        <span class="n">chromosome</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initializes a Gene instance.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        gene_id (str): The unique identifier for the gene.</span>
-<span class="sd">        coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.</span>
-<span class="sd">        strand (str): The DNA strand (&#39;+&#39; or &#39;-&#39;) on which the gene is located.</span>
-<span class="sd">        chromosome (str): The chromosome on which the gene is located.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">gene_id</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">strand</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">chromosome</span> <span class="o">=</span> <span class="n">chromosome</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">plot_handler</span> <span class="o">=</span> <span class="n">_PlotHandler</span><span class="p">()</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1005,35 +538,6 @@ each containing an expansion graph.</p>
 <span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">iter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns an iterator over the expansion graphs.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        iterator: An iterator yielding each expansion graph.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; for graph in gene:</span>
-<span class="sd">        ...     print(graph)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="n">expansion</span><span class="o">.</span><span class="n">graph</span> <span class="k">for</span> <span class="n">expansion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1080,35 +584,6 @@ each containing an expansion graph.</p>
 <span class="go">0</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">87</span>
-<span class="normal">88</span>
-<span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span>
-<span class="normal">92</span>
-<span class="normal">93</span>
-<span class="normal">94</span>
-<span class="normal">95</span>
-<span class="normal">96</span>
-<span class="normal">97</span>
-<span class="normal">98</span>
-<span class="normal">99</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the number of expansions associated with the gene.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        int: The number of expansions.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; len(gene)</span>
-<span class="sd">        0</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1155,35 +630,6 @@ each containing an expansion graph.</p>
 <span class="go">&#39;&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;&#39;</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
-<span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span>
-<span class="normal">80</span>
-<span class="normal">81</span>
-<span class="normal">82</span>
-<span class="normal">83</span>
-<span class="normal">84</span>
-<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a string representation of the Gene object.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        str: A string describing the gene&#39;s ID and number of expansions.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; repr(gene)</span>
-<span class="sd">        &#39;&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;&#39;</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Gene </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">)</span><span class="si">}</span><span class="s2"> expansions (iterable of expansion graphs)&gt;&quot;</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1231,51 +677,6 @@ each containing an expansion graph.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">combined_graph</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">build_gene_graph</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        networkx.Graph: A combined graph with nodes and edges from all expansions.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; combined_graph = gene.build_gene_graph()</span>
-<span class="sd">        &gt;&gt;&gt; print(combined_graph.nodes)</span>
-<span class="sd">        &gt;&gt;&gt; print(combined_graph.edges)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">gene_graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">expansion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">expansion</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="n">gene_graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">edge_data</span> <span class="ow">in</span> <span class="n">expansion</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="n">gene_graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">**</span><span class="n">edge_data</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">gene_graph</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1311,8 +712,7 @@ each containing an expansion graph.</p>
 )
               –
               <div class="doc-md-description">
-                <p>The ID of a specific expansion to draw.
-If None, the combined gene graph is drawn.</p>
+                <p>The ID of a specific expansion to draw. If None, the  gene graph is drawn.</p>
               </div>
             </li>
             <li>
@@ -1371,77 +771,6 @@ Default is True.</p>
     </tr>
   </tbody>
 </table>
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">draw_expansions_multigraph</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">expansion_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">figure_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">figure_size</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span>
-        <span class="n">legend</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">connect_overlapping_nodes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">full_expansion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Draws a multi-graph of gene expansions.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        expansion_id (int, optional): The ID of a specific expansion to draw.</span>
-<span class="sd">         If None, the combined gene graph is drawn.</span>
-<span class="sd">        figure_path (Path, optional): The path to save the figure. If None, the figure is not saved.</span>
-<span class="sd">        figure_size (tuple of float, optional): The size of the figure in inches. Default is (8.0, 8.0).</span>
-<span class="sd">        legend (bool, optional): Whether to display a legend on the plot. Default is True.</span>
-<span class="sd">        connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph.</span>
-<span class="sd">         Default is True.</span>
-<span class="sd">        full_expansion (bool, optional): Whether to show the full expansion graph only. Default is False.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">expansion_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span><span class="o">.</span><span class="n">graph</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_gene_graph</span><span class="p">()</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">plot_handler</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
-        <span class="n">gene_start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span>
-        <span class="n">gene_graph</span><span class="o">=</span><span class="n">G</span><span class="p">,</span>
-        <span class="n">figure_path</span><span class="o">=</span><span class="n">figure_path</span><span class="p">,</span>
-        <span class="n">figure_size</span><span class="o">=</span><span class="n">figure_size</span><span class="p">,</span>
-        <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">,</span>
-        <span class="n">connect_overlapping_nodes</span><span class="o">=</span><span class="n">connect_overlapping_nodes</span><span class="p">,</span>
-        <span class="n">full_expansion</span><span class="o">=</span><span class="n">full_expansion</span>
-    <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -1499,309 +828,6 @@ Default is True.</p>
 
 
 
-              <details class="quote">
-                <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
-<span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
-<span class="normal">284</span>
-<span class="normal">285</span>
-<span class="normal">286</span>
-<span class="normal">287</span>
-<span class="normal">288</span>
-<span class="normal">289</span>
-<span class="normal">290</span>
-<span class="normal">291</span>
-<span class="normal">292</span>
-<span class="normal">293</span>
-<span class="normal">294</span>
-<span class="normal">295</span>
-<span class="normal">296</span>
-<span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span>
-<span class="normal">305</span>
-<span class="normal">306</span>
-<span class="normal">307</span>
-<span class="normal">308</span>
-<span class="normal">309</span>
-<span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
-<span class="normal">341</span>
-<span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">GenomeExpansions</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A container for managing gene expansions across an entire genome.</span>
-
-<span class="sd">    Attributes:</span>
-<span class="sd">        exonize_db_path (str): The file path to the Exonize database.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">exonize_db_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes a GenomeExpansions instance and builds expansions from the database.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            exonize_db_path (str): The file path to the Exonize database.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">exonize_db_path</span> <span class="o">=</span> <span class="n">exonize_db_path</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_db_handler</span> <span class="o">=</span> <span class="n">_ExonizeDBHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exonize_db_path</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">build_expansions</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">iter</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an iterator over the Gene objects.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            iter: An iterator yielding each Gene object.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; for gene in genome_expansions:</span>
-<span class="sd">            ...     print(gene)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-
-    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">n</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if a gene ID exists in the GenomeExpansions.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            n (str): The gene ID to check for existence.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            bool: True if the gene ID exists, False otherwise.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; &quot;GENE123&quot; in genome_expansions</span>
-<span class="sd">            True</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span>
-
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">gene_id</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gene</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieves a Gene object by gene ID.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            gene_id (str): The ID of the gene to retrieve.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            Gene: The Gene object associated with the specified gene ID.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; gene = genome_expansions[&quot;GENE123&quot;]</span>
-<span class="sd">            &gt;&gt;&gt; print(gene)</span>
-<span class="sd">            &lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span>
-
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the number of genes in the GenomeExpansions.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            int: The number of genes in the GenomeExpansions.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; len(genome_expansions)</span>
-<span class="sd">            18</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">genes</span><span class="p">(</span>
-            <span class="bp">self</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a list of gene IDs.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            list: A list of gene IDs in the GenomeExpansions.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; genome_expansions.genes</span>
-<span class="sd">            [&#39;GENE123&#39;, &#39;GENE456&#39;, &#39;GENE789&#39;]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-
-    <span class="k">def</span> <span class="nf">_add_gene</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">gene_id</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gene</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Adds a Gene object to the genome based on the provided gene ID.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            gene_id (str): The unique identifier for the gene.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            Gene: The Gene object that was added.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; gene = genome_expansions.add_gene(&quot;GENE123&quot;)</span>
-<span class="sd">            &gt;&gt;&gt; print(gene)</span>
-<span class="sd">            &lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">gene_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">:</span>
-            <span class="n">chrom</span><span class="p">,</span> <span class="n">strand</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_handler</span><span class="o">.</span><span class="n">genes_dict</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">Gene</span><span class="p">(</span>
-                <span class="n">gene_id</span><span class="o">=</span><span class="n">gene_id</span><span class="p">,</span>
-                <span class="n">coordinates</span><span class="o">=</span><span class="n">P</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">),</span>
-                <span class="n">strand</span><span class="o">=</span><span class="n">strand</span><span class="p">,</span>
-                <span class="n">chromosome</span><span class="o">=</span><span class="n">chrom</span>
-            <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">build_expansions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructs the gene expansions from the Exonize database.</span>
-
-<span class="sd">        This method initializes each Gene object and populates its expansions based on data from</span>
-<span class="sd">        the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.</span>
-
-<span class="sd">        Examples:</span>
-<span class="sd">            &gt;&gt;&gt; genome_expansions.build_expansions()</span>
-<span class="sd">            &gt;&gt;&gt; print(len(genome_expansions))</span>
-<span class="sd">            18</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">gene_id</span><span class="p">,</span> <span class="n">non_reciprocal_matches</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_handler</span><span class="o">.</span><span class="n">gene_expansions_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_gene</span><span class="p">(</span>
-                <span class="n">gene_id</span><span class="o">=</span><span class="n">gene_id</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">expansion_id</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">non_reciprocal_matches</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">nodes</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;nodes&#39;</span><span class="p">]</span>
-                <span class="n">edges</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;edges&#39;</span><span class="p">]</span>
-                <span class="n">expansion</span> <span class="o">=</span> <span class="n">Expansion</span><span class="p">(</span>
-                    <span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">,</span>
-                    <span class="n">nodes</span><span class="o">=</span><span class="n">nodes</span><span class="p">,</span>
-                    <span class="n">edges</span><span class="o">=</span><span class="n">edges</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">expansion</span>
-</code></pre></div></td></tr></table></div>
-              </details>
 
 
 
@@ -1931,43 +957,6 @@ Default is True.</p>
 <span class="go">True</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">n</span><span class="p">:</span> <span class="nb">str</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Checks if a gene ID exists in the GenomeExpansions.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        n (str): The gene ID to check for existence.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        bool: True if the gene ID exists, False otherwise.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; &quot;GENE123&quot; in genome_expansions</span>
-<span class="sd">        True</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2039,45 +1028,6 @@ Default is True.</p>
 <span class="go">&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">gene_id</span><span class="p">:</span> <span class="nb">str</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gene</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retrieves a Gene object by gene ID.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        gene_id (str): The ID of the gene to retrieve.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        Gene: The Gene object associated with the specified gene ID.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; gene = genome_expansions[&quot;GENE123&quot;]</span>
-<span class="sd">        &gt;&gt;&gt; print(gene)</span>
-<span class="sd">        &lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2119,35 +1069,6 @@ Default is True.</p>
     </tr>
   </tbody>
 </table>
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">exonize_db_path</span><span class="p">:</span> <span class="nb">str</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initializes a GenomeExpansions instance and builds expansions from the database.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        exonize_db_path (str): The file path to the Exonize database.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">exonize_db_path</span> <span class="o">=</span> <span class="n">exonize_db_path</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_db_handler</span> <span class="o">=</span> <span class="n">_ExonizeDBHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exonize_db_path</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">build_expansions</span><span class="p">()</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2194,35 +1115,6 @@ Default is True.</p>
 <span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">iter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns an iterator over the Gene objects.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        iter: An iterator yielding each Gene object.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; for gene in genome_expansions:</span>
-<span class="sd">        ...     print(gene)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2269,35 +1161,6 @@ Default is True.</p>
 <span class="go">18</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
-<span class="normal">278</span>
-<span class="normal">279</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span>
-        <span class="bp">self</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the number of genes in the GenomeExpansions.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        int: The number of genes in the GenomeExpansions.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; len(genome_expansions)</span>
-<span class="sd">        18</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2324,57 +1187,6 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
 <span class="go">18</span>
 </code></pre></div>
 
-            <details class="quote">
-              <summary>Source code in <code>exonize/exonize_analysis.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
-<span class="normal">341</span>
-<span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">build_expansions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constructs the gene expansions from the Exonize database.</span>
-
-<span class="sd">    This method initializes each Gene object and populates its expansions based on data from</span>
-<span class="sd">    the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.</span>
-
-<span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; genome_expansions.build_expansions()</span>
-<span class="sd">        &gt;&gt;&gt; print(len(genome_expansions))</span>
-<span class="sd">        18</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">gene_id</span><span class="p">,</span> <span class="n">non_reciprocal_matches</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_db_handler</span><span class="o">.</span><span class="n">gene_expansions_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_gene</span><span class="p">(</span>
-            <span class="n">gene_id</span><span class="o">=</span><span class="n">gene_id</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">expansion_id</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">non_reciprocal_matches</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">nodes</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;nodes&#39;</span><span class="p">]</span>
-            <span class="n">edges</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;edges&#39;</span><span class="p">]</span>
-            <span class="n">expansion</span> <span class="o">=</span> <span class="n">Expansion</span><span class="p">(</span>
-                <span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">,</span>
-                <span class="n">nodes</span><span class="o">=</span><span class="n">nodes</span><span class="p">,</span>
-                <span class="n">edges</span><span class="o">=</span><span class="n">edges</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_genes</span><span class="p">[</span><span class="n">gene_id</span><span class="p">]</span><span class="o">.</span><span class="n">expansions</span><span class="p">[</span><span class="n">expansion_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">expansion</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
@@ -2394,8 +1206,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
 
     </div>
 
-</div><p>options:
-      show_source: false</p>
+</div>
               
             </div>
           </div><footer>

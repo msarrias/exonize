@@ -3,3 +3,21 @@
     background: none;
     box-shadow: none;
 }
+/* Add more space between sections */
+.md-typeset .docstring {
+    margin-bottom: 1.5em;
+}
+
+.md-typeset dt, .md-typeset dd {
+    margin-bottom: 0.75em;
+}
+
+/* Add padding around attributes and parameters */
+.md-typeset .docstring-attributes dl,
+.md-typeset .docstring-parameters dl {
+    padding: 0.5em 0;
+}
+
+.md-typeset h2, .md-typeset h3, .md-typeset h4 {
+    margin-top: 1.5em;
+}
