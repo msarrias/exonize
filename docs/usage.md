@@ -11,25 +11,25 @@ exonize <gff_file_path> <genome_file_path> [OPTIONS]
 Required Arguments
 ---------------------
 
-- `<gff_file_path>`: Path to the genome annotations file. This file should be in GFF3 or GFF format.
+- `<gff_file_path>`: Path to the genome annotation file. This file should be in GFF3 or GFF format.
 - `<genome_file_path>`: Path to the genome sequence file. The file should be in FASTA format. A `.zip` version is also accepted.
  
 Optional Arguments
 ---------------------
-- `[-gfeat]`: Specifies the gene feature in the genome annotations. **Default**: `gene`.
-- `[-cdsfeat]`: Specifies the coding sequence feature in the genome annotations. **Default**: `CDS`.
+- `[-gfeat]`: Specifies the gene feature in the annotations file. **Default**: `gene`.
+- `[-cdsfeat]`: Specifies the coding sequence feature in the annotations file. **Default**: `CDS`.
 - `[-transfeat]`: Specifies the transcript feature in the genome annotations. **Default**: `transcript`.
-- `[-sb]`: Annotation coordinates base, either `0` or `1`. **Default**: `1`.
-- `[-fb]`: Frame base, either `0` or `1`. **Default**: `0`.
-- `[-l]`: Minimum exon length required for the search. **Default**: `30`.
-- `[-e]`: E-value threshold for search sensitivity in the local search. **Default**: `1e-3`.
-- `[-ts]`: Self-hit threshold. **Default**: `0.5`.
-- `[-te]`: Minimum percentage of the aligned query for a match to be retained. **Default**: `0.9`.
+- `[-sb]`: Annotation coordinates base of input annotations, either `0` or `1`. **Default**: `1`.
+- `[-fb]`: Frame base of input annotations, either `0` or `1`. **Default**: `0`.
+- `[-l]`: Minimum exon length in bases required for the search. **Default**: `30`.
+- `[-e]`: E-value threshold (local BLAST search param). **Default**: `1e-3`.
+- `[-ts]`: Self-hit overlap threshold. **Default**: `0.5`.
+- `[-te]`: Minimum query coverage cut-off. **Default**: `0.9`.
 - `[-ce]`: Overlap threshold for constructing the set of representative exons. **Default**: `0.9`.
-- `[-ct]`: Threshold for clustering target coordinates in the reconciliation process. **Default**: `0.9`.
-- `[-tp]`: Minimum length coverage between a pair of coordinates. **Default**: `0.9`.
-- `[-ta]`: Threshold for the fraction of aligned positions in the local search. **Default**: `0.9`.
-- `[-ti]`: Peptide identity threshold for the local search. **Default**: `0.4`.
+- `[-ct]`: Overlap threshold for target coordinate reconciliation (local BLAST search param). **Default**: `0.9`.
+- `[-tp]`: Minimum length coverage between the query and target (global MUSCL search param). **Default**: `0.9`.
+- `[-ta]`: Threshold for the fraction of aligned positions (global MUSCL search param). **Default**: `0.9`.
+- `[-ti]`: Peptide identity threshold  (global MUSCL search param). **Default**: `0.4`.
 - `[-op]`: Search identifier. **Default**: The stem of the annotations file.
 - `[-cn]`: Number of CPUs to use. **Default**: The available CPU count.
 - `[-odp]`: Path to the output directory. **Default**: The current directory.
