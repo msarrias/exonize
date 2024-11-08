@@ -7,8 +7,7 @@ from pathlib import Path
 
 
 class Gene:
-    """
-    Gene class is a container for gene expansion graphs.
+    """Gene class is a container for gene expansion graphs.
 
     Attributes:
         id (str): The unique identifier for the gene.
@@ -101,7 +100,8 @@ class Gene:
     def build_gene_graph(
             self
     ) -> nx.Graph:
-        """Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.
+        """
+        Builds and returns a consolidated gene graph containing nodes and edges from all expansion graphs.
 
         Returns:
             networkx.Graph: A combined graph with nodes and edges from all expansions.
@@ -156,10 +156,11 @@ class Gene:
 
 
 class Expansion:
-    """Expansion class represents an expansion graph for a specific gene expansion.
+    """
+    Expansion class represents an expansion graph for a specific gene expansion.
 
     Attributes:
-    graph (networkx.Graph): A NetworkX graph representing the expansion.
+        graph (networkx.Graph): A NetworkX graph representing the expansion.
     """
     def __init__(
             self,
@@ -211,11 +212,11 @@ class GenomeExpansions:
 
     def __iter__(
             self
-    ):
+    ) -> iter:
         """Returns an iterator over the Gene objects.
 
         Returns:
-            iterator: An iterator yielding each Gene object.
+            iter: An iterator yielding each Gene object.
 
         Examples:
             >>> for gene in genome_expansions:
@@ -223,7 +224,10 @@ class GenomeExpansions:
         """
         return iter(self._genes.values())
 
-    def __contains__(self, n):
+    def __contains__(
+            self,
+            n: str
+    ) -> bool:
         """Checks if a gene ID exists in the GenomeExpansions.
 
         Args:
@@ -238,7 +242,10 @@ class GenomeExpansions:
         """
         return n in self._genes
 
-    def __getitem__(self, gene_id):
+    def __getitem__(
+            self,
+            gene_id: str
+    ) -> Gene:
         """Retrieves a Gene object by gene ID.
 
         Args:
@@ -254,7 +261,9 @@ class GenomeExpansions:
         """
         return self._genes[gene_id]
 
-    def __len__(self):
+    def __len__(
+            self
+    ) -> int:
         """Returns the number of genes in the GenomeExpansions.
 
         Returns:
@@ -267,7 +276,9 @@ class GenomeExpansions:
         return len(self._genes)
 
     @property
-    def genes(self):
+    def genes(
+            self
+    ) -> list:
         """Returns a list of gene IDs.
 
         Returns:
