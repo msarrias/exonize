@@ -14,8 +14,7 @@ class Gene:
         coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.
         strand (str): The DNA strand ('+' or '-') on which the gene is located.
         chromosome (str): The chromosome on which the gene is located.
-        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects,
-         each containing an expansion graph.
+        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.
     """
     def __init__(
             self,
@@ -132,13 +131,11 @@ class Gene:
         """Draws a multi-graph of gene expansions.
 
         Args:
-            expansion_id (int, optional): The ID of a specific expansion to draw.
-             If None, the combined gene graph is drawn.
+            expansion_id (int, optional): The ID of a specific expansion to draw. If None, the combined gene graph is drawn.
             figure_path (Path, optional): The path to save the figure. If None, the figure is not saved.
             figure_size (tuple of float, optional): The size of the figure in inches. Default is (8.0, 8.0).
             legend (bool, optional): Whether to display a legend on the plot. Default is True.
-            connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph.
-             Default is True.
+            connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph. Default is True.
             full_expansion (bool, optional): Whether to show the full expansion graph only. Default is False.
         """
         if expansion_id is not None:
@@ -173,10 +170,8 @@ class Expansion:
 
         Args:
             expansion_id (int): The unique identifier for the expansion.
-            nodes (list of tuples): A list of tuples representing the nodes,
-             where each tuple is in the form (coord, node_type).
-            edges (list of tuples): A list of tuples representing the edges,
-             where each tuple is in the form (query_coord, target_coord, mode).
+            nodes (list of tuples): A list of tuples representing the nodes, where each tuple is in the form (coord, node_type).
+            edges (list of tuples): A list of tuples representing the edges, where each tuple is in the form (query_coord, target_coord, mode).
         """
         self.graph = nx.Graph()
         self.graph.id = expansion_id
