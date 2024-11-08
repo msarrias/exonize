@@ -48,6 +48,16 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Output</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#main-file-output_prefix_resultsdb">Main file: &lt;output_prefix&gt;_results.db</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#main-tables">Main tables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#other-tables">Other tables</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#additional-files">Additional files</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#database-structure">Database structure</a>
     </li>
     </ul>
@@ -82,9 +92,37 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="output-description">Output Description<a class="headerlink" href="#output-description" title="Permanent link">&para;</a></h1>
-<ul>
-<li>
-<p><strong><code>&lt;output_prefix&gt;_results.db</code></strong>: This is the main output database created by <code>exonize</code>.</p>
+<h3 id="main-file-output_prefix_resultsdb">Main file: <code>&lt;output_prefix&gt;_results.db</code><a class="headerlink" href="#main-file-output_prefix_resultsdb" title="Permanent link">&para;</a></h3>
+<p>This is the main output database created by <code>exonize</code>.</p>
+<h5 id="main-tables">Main tables<a class="headerlink" href="#main-tables" title="Permanent link">&para;</a></h5>
+<p>If you are only interested in the final results, these are the tables you want to look at:</p>
+<table>
+<thead>
+<tr>
+<th><strong>Table</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Expansions</strong></td>
+<td>Contains all groups of duplicates (expansions) found<br/> within genes. Each record represents a node in the<br/> expansion graph, created by combining local and (or) <br/>global matches.</td>
+</tr>
+<tr>
+<td><strong>Expansions_full</strong></td>
+<td>Includes expansions formed by full-mode events only.</td>
+</tr>
+<tr>
+<td><strong>Expansions_full_tandem</strong></td>
+<td>Represents pairs of consecutive full events within<br/> an expansion, indicating whether they are in tandem <br/>or not.</td>
+</tr>
+<tr>
+<td><strong>Expansions_transcript_interdependence</strong></td>
+<td>Classifies transcript interdependence for each expansion <br/>in the <code>Expansions_full</code> table.</td>
+</tr>
+</tbody>
+</table>
+<h5 id="other-tables">Other tables<a class="headerlink" href="#other-tables" title="Permanent link">&para;</a></h5>
 <table>
 <thead>
 <tr>
@@ -95,46 +133,35 @@
 <tbody>
 <tr>
 <td><strong>Genes</strong></td>
-<td>Lists all protein-coding genes analyzed <br/>for exon duplications.</td>
-</tr>
-<tr>
-<td><strong>Global_matches_non_reciprocal</strong></td>
-<td>Contains all non-reciprocal matches identified by aligning<br/> pairs of representative exons using <code>MUSCLE</code>.<br/> All matches meet the peptide identity and aligned <br/>position fraction criteria.</td>
+<td>Lists all protein-coding genes analyzed for exon duplications.</td>
 </tr>
 <tr>
 <td><strong>Local_matches</strong></td>
-<td>Contains all matches found by querying representative <br/>exons against the genes within which they are situated.<br/> These are raw, unfiltered matches found using <code>tblastx</code>.</td>
+<td>Contains all matches found by querying representative <br/>exons against the genes within which they are situated.<br/> These are raw, unfiltered matches found using BLAST.</td>
 </tr>
 <tr>
 <td><strong>Local_matches_non_reciprocal</strong></td>
-<td>Contains non-reciprocal matches found in the local search. <br/>This is a subset of the <code>Local_matches</code> table. Matches here do not overlap with<br/> <code>Global_matches_non_reciprocal</code> matches.</td>
+<td>This table is a filtered version of <code>Local_matches</code>, containing only <br/>non-reciprocal and reconciled matches identified in the <br/>BLAST local search. These matches meet the search criteria,<br/> including query coverage, in-frame alignment, <br/>and significant non-overlapping.</td>
 </tr>
 <tr>
-<td><strong>Expansions</strong></td>
-<td>Contains all groups of duplicates (expansions) found<br/> within genes. Each record represents a node in the<br/> expansion graph, created by combining local and/or <br/>global matches.</td>
-</tr>
-<tr>
-<td><strong>Expansions_full</strong></td>
-<td>Includes expansions formed by full-mode events only.</td>
-</tr>
-<tr>
-<td><strong>Expansions_transcript_interdependence</strong></td>
-<td>Classifies transcript interdependence for each expansion <br/>in the <code>Expansions_full</code> table.</td>
-</tr>
-<tr>
-<td><strong>Expansions_full_tandem</strong></td>
-<td>Represents pairs of consecutive full events within<br/> an expansion, indicating whether they are in tandem <br/>or not.</td>
+<td><strong>Global_matches_non_reciprocal</strong></td>
+<td>Contains all matches identified by aligning pairs of representative<br/> exons using <code>MUSCLE</code>. All matches meet the peptide identity and <br/>fraction of aligned position criteria.</td>
 </tr>
 </tbody>
 </table>
-</li>
-<li>
-<p><strong><code>csvs.tar.gz</code></strong> (optional): compressed directory in .tar.gz format, containing individual files in CSV format for each table in the SQLite database, excluding the <code>Local_matches</code> and <code>Genes</code> tables.</p>
-</li>
+<blockquote>
+<p><strong>Note:</strong>
+Combining the <code>Local_matches_non_reciprocal</code> and <code>Global_matches_non_reciprocal</code> tables provides a complete list of all matches identified by <code>exonize</code>. When full matches are detected by both methods, they are retained only in the <code>Local_matches_non_reciprocal</code> table and omitted from the <code>Global_matches_non_reciprocal</code> table.</p>
+</blockquote>
+<h3 id="additional-files">Additional files<a class="headerlink" href="#additional-files" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>csvs.tar.gz</code></strong> (optional): compressed directory in .tar.gz format, containing individual files in CSV format for each table in the SQLite database, excluding the <code>Local_matches</code> and <code>Genes</code> tables.</li>
 <li><strong><code>&lt;output_prefix&gt;.log</code></strong>: Search settings.</li>
 </ul>
 <h2 id="database-structure">Database structure<a class="headerlink" href="#database-structure" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/msarrias/exonize/blob/main/figures/database.png"><img alt="Database Structure" src="https://github.com/msarrias/exonize/raw/main/figures/database.png" /></a></p>
+<p><a href="https://github.com/msarrias/exonize/blob/main/figures/database.png" target="_blank">
+    <img src="https://github.com/msarrias/exonize/raw/main/figures/database.png" alt="Database Structure">
+</a></p>
               
             </div>
           </div><footer>

@@ -91,25 +91,25 @@
 </code></pre></div>
 <h2 id="required-arguments">Required Arguments<a class="headerlink" href="#required-arguments" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>&lt;gff_file_path&gt;</code>: Path to the genome annotations file. This file should be in GFF3 or GFF format.</li>
+<li><code>&lt;gff_file_path&gt;</code>: Path to the genome annotation file. This file should be in GFF3 or GFF format.</li>
 <li><code>&lt;genome_file_path&gt;</code>: Path to the genome sequence file. The file should be in FASTA format. A <code>.zip</code> version is also accepted.</li>
 </ul>
 <h2 id="optional-arguments">Optional Arguments<a class="headerlink" href="#optional-arguments" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>[-gfeat]</code>: Specifies the gene feature in the genome annotations. <strong>Default</strong>: <code>gene</code>.</li>
-<li><code>[-cdsfeat]</code>: Specifies the coding sequence feature in the genome annotations. <strong>Default</strong>: <code>CDS</code>.</li>
+<li><code>[-gfeat]</code>: Specifies the gene feature in the annotations file. <strong>Default</strong>: <code>gene</code>.</li>
+<li><code>[-cdsfeat]</code>: Specifies the coding sequence feature in the annotations file. <strong>Default</strong>: <code>CDS</code>.</li>
 <li><code>[-transfeat]</code>: Specifies the transcript feature in the genome annotations. <strong>Default</strong>: <code>transcript</code>.</li>
-<li><code>[-sb]</code>: Annotation coordinates base, either <code>0</code> or <code>1</code>. <strong>Default</strong>: <code>1</code>.</li>
-<li><code>[-fb]</code>: Frame base, either <code>0</code> or <code>1</code>. <strong>Default</strong>: <code>0</code>.</li>
-<li><code>[-l]</code>: Minimum exon length required for the search. <strong>Default</strong>: <code>30</code>.</li>
-<li><code>[-e]</code>: E-value threshold for search sensitivity in the local search. <strong>Default</strong>: <code>1e-3</code>.</li>
-<li><code>[-ts]</code>: Self-hit threshold. <strong>Default</strong>: <code>0.5</code>.</li>
-<li><code>[-te]</code>: Minimum percentage of the aligned query for a match to be retained. <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-sb]</code>: Annotation coordinates base of input annotations, either <code>0</code> or <code>1</code>. <strong>Default</strong>: <code>1</code>.</li>
+<li><code>[-fb]</code>: Frame base of input annotations, either <code>0</code> or <code>1</code>. <strong>Default</strong>: <code>0</code>.</li>
+<li><code>[-l]</code>: Minimum exon length in bases required for the search. <strong>Default</strong>: <code>30</code>.</li>
+<li><code>[-e]</code>: E-value threshold (local BLAST search param). <strong>Default</strong>: <code>1e-3</code>.</li>
+<li><code>[-ts]</code>: Self-hit overlap threshold. <strong>Default</strong>: <code>0.5</code>.</li>
+<li><code>[-te]</code>: Minimum query coverage cut-off. <strong>Default</strong>: <code>0.9</code>.</li>
 <li><code>[-ce]</code>: Overlap threshold for constructing the set of representative exons. <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ct]</code>: Threshold for clustering target coordinates in the reconciliation process. <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-tp]</code>: Minimum length coverage between a pair of coordinates. <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ta]</code>: Threshold for the fraction of aligned positions in the local search. <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ti]</code>: Peptide identity threshold for the local search. <strong>Default</strong>: <code>0.4</code>.</li>
+<li><code>[-ct]</code>: Overlap threshold for target coordinate reconciliation (local BLAST search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-tp]</code>: Minimum length coverage between the query and target (global MUSCL search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-ta]</code>: Threshold for the fraction of aligned positions (global MUSCL search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-ti]</code>: Peptide identity threshold  (global MUSCL search param). <strong>Default</strong>: <code>0.4</code>.</li>
 <li><code>[-op]</code>: Search identifier. <strong>Default</strong>: The stem of the annotations file.</li>
 <li><code>[-cn]</code>: Number of CPUs to use. <strong>Default</strong>: The available CPU count.</li>
 <li><code>[-odp]</code>: Path to the output directory. <strong>Default</strong>: The current directory.</li>
