@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
         <link href="assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="css/extra.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -22,17 +23,7 @@
       <script src="js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/django.min.js"></script>
       <script>hljs.highlightAll();</script> 
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-274394082"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', "G-274394082");
-      </script>
 </head>
 
 <body class="wy-body-for-nav" role="document">
@@ -49,6 +40,10 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Overview</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
+    </li>
     </ul>
                 </li>
               </ul>
@@ -58,6 +53,10 @@
               </ul>
               <ul>
                 <li class="toctree-l1"><a class="reference internal" href="output/">Output</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="exonize_analysis/">exonize_analysis</a>
                 </li>
               </ul>
       </div>
@@ -84,7 +83,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <div class="codehilite"><pre><span></span><code>███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
+                <div class="highlight"><pre><span></span><code>███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
 ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
 █████╗   ╚███╔╝ ██║   ██║██╔██╗ ██║██║  ███╔╝ █████╗
 ██╔══╝   ██╔██╗ ██║   ██║██║╚██╗██║██║ ███╔╝  ██╔══╝
@@ -95,20 +94,17 @@ Christopher Wheat, Department of Zoology, Stockholm University
 Liam M. Longo, Earth-Life Science Institute, Institute of Science Tokyo
 Lars Arvestad, Department of Mathematics, Stockholm University
 </code></pre></div>
-
-<h2 id="welcome">Welcome!<a class="headerlink" href="#welcome" title="Permanent link">&para;</a></h2>
+<h1 id="welcome">Welcome!<a class="headerlink" href="#welcome" title="Permanent link">&para;</a></h1>
 <p><code>exonize</code> is an open-source command-line tool and <a href="https://pypi.org/project/exonize/">Python package</a> for identifying and classifying coding exon duplications in annotated genomes. <code>exonize</code> identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. In addition, <code>exonize</code> categorizes the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, the <code>exonize_analysis</code> module is available for Python notebooks.</p>
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <p>You are best off installing <code>exonize</code> from <a href="https://pypi.org/project/Exonize/1.0/">PyPI.org</a> using</p>
-<div class="codehilite"><pre><span></span><code>pip install exonize
+<div class="highlight"><pre><span></span><code>pip install exonize
 </code></pre></div>
-
 <p>If installing from the <a href="https://github.com/msarrias/exonize">GitHub</a> repo</p>
-<div class="codehilite"><pre><span></span><code>git clone git@github.com:msarrias/exonize.git
+<div class="highlight"><pre><span></span><code>git clone git@github.com:msarrias/exonize.git
 cd exonize
 pip install .
 </code></pre></div>
-
 <p>You should now be able to run <code>exonize -h</code>.</p>
 <p><code>exonize</code> is tested  with Python 3.9, 3.10, 3.11, 3.12</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
@@ -169,5 +165,5 @@ pip install .
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2024-11-07 21:37:11.910585+00:00
+Build Date UTC : 2024-11-08 07:02:40.488835+00:00
 -->

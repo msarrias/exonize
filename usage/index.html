@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
         <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../css/extra.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -22,17 +23,7 @@
       <script src="../js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/django.min.js"></script>
       <script>hljs.highlightAll();</script> 
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-274394082"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', "G-274394082");
-      </script>
 </head>
 
 <body class="wy-body-for-nav" role="document">
@@ -53,11 +44,21 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Usage</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#required-arguments">Required Arguments</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#optional-arguments">Optional Arguments</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-human-y-chromosome">Example: Human Y chromosome</a>
+    </li>
     </ul>
                 </li>
               </ul>
               <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../output/">Output</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../exonize_analysis/">exonize_analysis</a>
                 </li>
               </ul>
       </div>
@@ -86,10 +87,8 @@
               
                 <h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
 <p>Exonize requires two positional arguments that can be followed by optional arguments. </p>
-<div class="codehilite"><pre><span></span><code>exonize &lt;gff_file_path&gt; &lt;genome_file_path&gt; [OPTIONS]
+<div class="highlight"><pre><span></span><code>exonize &lt;gff_file_path&gt; &lt;genome_file_path&gt; [OPTIONS]
 </code></pre></div>
-
-<h1 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h1>
 <h2 id="required-arguments">Required Arguments<a class="headerlink" href="#required-arguments" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>&lt;gff_file_path&gt;</code>: Path to the genome annotations file. This file should be in GFF3 or GFF format.</li>
@@ -129,21 +128,20 @@
 If neither flag <code>--global-search</code> or <code>--local-search</code> is specified, both searches will run by default.</p>
 </blockquote>
 <hr />
-<h1 id="example-dataset-human-y-chromosome">Example dataset: Human Y chromosome<a class="headerlink" href="#example-dataset-human-y-chromosome" title="Permanent link">&para;</a></h1>
+<h2 id="example-human-y-chromosome">Example: Human Y chromosome<a class="headerlink" href="#example-human-y-chromosome" title="Permanent link">&para;</a></h2>
 <p>The following steps demonstrate how to run <code>exonize</code> on a test dataset.</p>
-<h4 id="download-the-test-data">Download the test data<a class="headerlink" href="#download-the-test-data" title="Permanent link">&para;</a></h4>
+<p><strong>Download the test data</strong></p>
 <ul>
 <li>If you have installed the package from the repo, move into the <code>test_human_chrom_Y</code> directory and download the test data:</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>cd test_human_chrom_Y
+<div class="highlight"><pre><span></span><code>cd test_human_chrom_Y
 source fetch_data.sh
 </code></pre></div>
-
 <ul>
 <li>If you installed the package via <code>pip</code>, you can download the script here: <a href="https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh"><code>fetch_data.sh</code></a>.</li>
 </ul>
-<h4 id="run-exonize">Run exonize:<a class="headerlink" href="#run-exonize" title="Permanent link">&para;</a></h4>
-<div class="codehilite"><pre><span></span><code>exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
+<p><strong>Run exonize:</strong></p>
+<div class="highlight"><pre><span></span><code>exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
        Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
        --gene-annot-feature gene \
        --cds-annot-feature CDS \
@@ -151,7 +149,6 @@ source fetch_data.sh
        --output_prefix Homo_sapiens_chrom_Y \
        --csv
 </code></pre></div>
-
 <p>This command will enable the global and local searches.</p>
               
             </div>
