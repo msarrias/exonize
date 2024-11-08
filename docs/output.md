@@ -18,6 +18,8 @@ If you are only interested in the final results, these are the tables you want t
 
 
 ##### Other tables
+
+If you want to ignore the expansion constructions and analyze the matches directly, these tables contain the raw data:
    
 | **Table**                                    | **Description**                                                                                                                                                                                                                                                                   |
     |------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
