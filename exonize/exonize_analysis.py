@@ -14,7 +14,8 @@ class Gene:
         coordinates (portion.Interval): The start and end coordinates of the gene on the chromosome.
         strand (str): The DNA strand ('+' or '-') on which the gene is located.
         chromosome (str): The chromosome on which the gene is located.
-        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects, each containing an expansion graph.
+        expansions (dict): A dictionary where keys are expansion IDs and values are expansion objects,
+         each containing an expansion graph.
     """
     def __init__(
             self,
@@ -172,8 +173,10 @@ class Expansion:
 
         Args:
             expansion_id (int): The unique identifier for the expansion.
-            nodes (list of tuples): A list of tuples representing the nodes, where each tuple is in the form (coord, node_type).
-            edges (list of tuples): A list of tuples representing the edges, where each tuple is in the form (query_coord, target_coord, mode).
+            nodes (list of tuples): A list of tuples representing the nodes,
+             where each tuple is in the form (coord, node_type).
+            edges (list of tuples): A list of tuples representing the edges,
+             where each tuple is in the form (query_coord, target_coord, mode).
         """
         self.graph = nx.Graph()
         self.graph.id = expansion_id
