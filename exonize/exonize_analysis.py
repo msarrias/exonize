@@ -126,8 +126,8 @@ class Gene:
             figure_path: Path = None,
             figure_size: tuple[float, float] = (8.0, 8.0),
             legend: bool = True,
-            connect_overlapping_nodes: bool = True,
-            color_tandem_pair_edges: bool = True,
+            connect_overlapping_nodes: bool = False,
+            color_tandem_pair_edges: bool = False,
             full_expansion: bool = False,
             tandem_edges_color: str = 'blue'
     ) -> None:
@@ -483,8 +483,8 @@ class _PlotHandler:
             figure_size: tuple[float, float] = (8.0, 8.0),
             figure_path: Path = None,
             legend: bool = True,
-            color_tandem_pair_edges: bool = True,
-            connect_overlapping_nodes: bool = True,
+            color_tandem_pair_edges: bool = False,
+            connect_overlapping_nodes: bool = False,
             full_expansion: bool = False,
             tandem_edges_color: str = 'blue'
     ):
