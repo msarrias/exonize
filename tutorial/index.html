@@ -60,9 +60,9 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#data-representation">Data representation</a>
     </li>
-        </ul>
+    <li class="toctree-l3"><a class="reference internal" href="#plotting">Plotting</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#plotting">Plotting</a>
+        </ul>
     </li>
     </ul>
                 </li>
@@ -136,7 +136,7 @@
 <span class="p">{</span><span class="s1">&#39;FULL&#39;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s1">&#39;INTRONIC&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
 </code></pre></div>
 This tells us that there are matches between 15 exons and 3 intronic regions. </p>
-<h2 id="plotting">Plotting<a class="headerlink" href="#plotting" title="Permanent link">&para;</a></h2>
+<h3 id="plotting">Plotting<a class="headerlink" href="#plotting" title="Permanent link">&para;</a></h3>
 <p><strong>Step 1: Visualize the Expansion #1 Graph</strong></p>
 <p>Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:</p>
 <div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
