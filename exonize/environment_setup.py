@@ -81,6 +81,13 @@ class EnvironmentSetup(object):
         self.inter_boundary = 'INTER_BOUNDARY'
         self.intronic = 'INTRONIC'
 
+        self.check_if_tool_installed('sqlite3')
+        if self.SEARCH_ALL:
+            self.check_if_tool_installed('tblastx')
+            self.check_if_tool_installed('muscle')
+        elif self.LOCAL_SEARCH:
+            self.check_if_tool_installed('muscle')
+
         if not self.output_prefix:
             self.output_prefix = self.gff_file_path.stem
         if self.output_directory_path:
@@ -103,6 +110,14 @@ class EnvironmentSetup(object):
         if self.CSV:
             os.makedirs(self.csv_path, exist_ok=True)
         self.setup_environment()
+
+    @staticmethod
+    def check_if_tool_installed(
+            name: str
+    ) -> None:
+        if shutil.which(name) is None:
+            self.logger.error(f"Error: {name} is not installed or not in your PATH environment variable.")
+            sys.exit(1)
 
     def configure_logger(self):
         """
