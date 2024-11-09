@@ -18,6 +18,35 @@ Lars Arvestad, Department of Mathematics, Stockholm University
 
 Please see the [Documentation](https://msarrias.github.io/exonize/) for a full user guide and an introductory tutorial to the `exonize_analysis` module.
 
+## Installation
+
+You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
+
+```bash
+pip install exonize
+```
+
+If installing from the [GitHub](https://github.com/msarrias/exonize) repo
+
+```bash
+git clone git@github.com:msarrias/exonize.git
+cd exonize
+pip install .
+```
+
+You should now be able to run `exonize -h`.
+
+`exonize` is tested with Python 3.9, 3.10, 3.11, 3.12
+
+## Requirements
+
+`exonize` requires a local installation of:
+
+* [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) (for conducting the local search)
+* [`MUSCLE`](https://www.drive5.com/muscle/) (for conducting the global alignment and correcting the identity of reconciled matches)
+* [`SQLite`](https://www.sqlite.org/download.html) (for storing the search results)
+
+
 ## Support
 
 If you need help with `exonize`, contact us! To report a bug or request a new feature, open an **[Issue](https://github.com/msarrias/exonize/issues)** on the `exonize` repo.
