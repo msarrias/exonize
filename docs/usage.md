@@ -64,14 +64,11 @@ source fetch_data.sh
 
   * If you installed the package via `pip`, you can download the script here: [`fetch_data.sh`](https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh).
 
-**Run exonize:**
+**Run exonize with default parameters:**
 
 ```
 exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
        Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
-       --gene-annot-feature gene \
-       --cds-annot-feature CDS \
-       --transcript-annot-feature mRNA \
        --output_prefix Homo_sapiens_chrom_Y \
        --csv
 ```
