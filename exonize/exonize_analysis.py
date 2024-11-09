@@ -4,6 +4,7 @@ import matplotlib.lines as mlines
 import networkx as nx
 import portion as P
 from pathlib import Path
+import numpy as np
 
 
 class Gene:
@@ -126,7 +127,9 @@ class Gene:
             figure_size: tuple[float, float] = (8.0, 8.0),
             legend: bool = True,
             connect_overlapping_nodes: bool = True,
-            full_expansion: bool = False
+            color_tandem_pair_edges: bool = True,
+            full_expansion: bool = False,
+            tandem_edges_color: str = 'blue'
     ) -> None:
         """Draws a multi-graph of gene expansions.
 
@@ -137,7 +140,9 @@ class Gene:
             legend (bool, optional): Whether to display a legend on the plot. Default is True.
             connect_overlapping_nodes (bool, optional): Whether to draw edges connecting overlapping nodes in the graph.
              Default is True.
+            color_tandem_pair_edges (bool, optional): Color edges between tandem exon nodes. Default is True.
             full_expansion (bool, optional): Whether to show the full expansion graph only. Default is False.
+            tandem_edges_color (str, optional): The color to use for tandem pair edges. Default is 'blue'.
         """
         if expansion_id is not None:
             G = self.expansions[expansion_id].graph
@@ -150,7 +155,9 @@ class Gene:
             figure_size=figure_size,
             legend=legend,
             connect_overlapping_nodes=connect_overlapping_nodes,
-            full_expansion=full_expansion
+            color_tandem_pair_edges=color_tandem_pair_edges,
+            full_expansion=full_expansion,
+            tandem_edges_color=tandem_edges_color
         )
 
 
@@ -186,7 +193,7 @@ class Expansion:
                 u_of_edge=query_coord,
                 v_of_edge=target_coord,
                 mode=mode,
-                color='black' if not tandem else 'magenta',
+                tandem=tandem,
                 width=1 if not tandem else 2,
             )
 
@@ -363,9 +370,9 @@ class _PlotHandler:
         self._intronic = 'INTRONIC'
         self._color_map = {
             self._partial_insertion: '#0072B2',  # dark blue
-            self._partial_excision: '#D55E00',  # burnt orange
+            self._partial_excision: '#0072B2',  # burnt orange
             self._full: '#009E73',  # teal green
-            self._intronic: '#CC79A7',  # reddish pink
+            self._intronic: '#D55E00',  # reddish pink
             self._inter_boundary: '#E69F00'  # golden yellow
         }
 
@@ -395,8 +402,15 @@ class _PlotHandler:
         large_components = [comp for comp in components if len(comp) > 2]
         small_components = [comp for comp in components if len(comp) <= 2]
         # Generate positions for large components with horizontal shifting
-        for component in large_components:
-            layout = nx.circular_layout(gene_graph.subgraph(component), scale=layout_scale)
+        for component_idx, component in enumerate(large_components):
+            # Sort nodes within the component by their 'lower' and 'upper' coordinates
+            layout = {}
+            sorted_nodes = sorted(component, key=lambda coord: (coord.lower, coord.upper))
+            n = len(sorted_nodes)
+            for i, node in enumerate(sorted_nodes):
+                # Circular layout for larger components
+                angle = 2 * np.pi * i / n
+                layout[node] = (layout_scale * np.cos(angle), layout_scale * np.sin(angle))
             component_positions.append(layout)
         # Set a reduced horizontal shift between large and small components
         position_shift = layout_scale * 3  # Reduced horizontal shift for a tighter layout
@@ -469,8 +483,10 @@ class _PlotHandler:
             figure_size: tuple[float, float] = (8.0, 8.0),
             figure_path: Path = None,
             legend: bool = True,
+            color_tandem_pair_edges: bool = True,
             connect_overlapping_nodes: bool = True,
-            full_expansion: bool = False
+            full_expansion: bool = False,
+            tandem_edges_color: str = 'blue'
     ):
         """
         Draws a multi-graph of gene expansions.
@@ -487,10 +503,14 @@ class _PlotHandler:
             The path to save the figure. If None, the figure is not saved.
         legend : bool, optional
             Whether to display a legend on the plot. Default is True.
+        color_tandem_pair_edges : bool, optional
+            Color edges between tandem exon nodes. Default is True.
         connect_overlapping_nodes : bool, optional
             Whether to draw edges connecting overlapping nodes in the graph. Default is True.
         full_expansion : bool, optional
             Whether to show the full expansion graph only. Default is False.
+        tandem_edges_color : str, optional
+            The color to use for tandem pair edges. Default is 'blue'.
         """
         G = gene_graph.copy()
         if full_expansion:
@@ -537,8 +557,12 @@ class _PlotHandler:
             for edge in G.edges(data=True):
                 source, target, attributes = edge
                 edge_style = attributes.get('style', 'solid')
-                edge_color = attributes.get('color', 'black')
-                edge_width = attributes.get('width', 1)
+                if not color_tandem_pair_edges:
+                    edge_color = 'black'
+                    edge_width = 1
+                else:
+                    edge_color = tandem_edges_color if attributes.get('tandem') else 'black'
+                    edge_width = attributes.get('width', 1)
                 nx.draw_networkx_edges(
                     G,
                     component_position,
@@ -578,6 +602,13 @@ class _PlotHandler:
                     )
                     for label in node_attributes
                 ]
+                if color_tandem_pair_edges:
+                    tandem_legend = mlines.Line2D(
+                        [], [], color=tandem_edges_color, linewidth=2, label='TANDEM'
+                    )
+                    legend_elements.append(tandem_legend)
+
+                # Display the legend
                 plt.legend(
                     handles=legend_elements,
                     loc="upper right",
