@@ -689,7 +689,7 @@
 
 
 <h3 id="exonize.exonize_analysis.Gene.draw_expansions_multigraph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">figure_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">figure_size</span><span class="o">=</span><span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">connect_overlapping_nodes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">full_expansion</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">figure_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">figure_size</span><span class="o">=</span><span class="p">(</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">connect_overlapping_nodes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">color_tandem_pair_edges</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">full_expansion</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tandem_edges_color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span></code>
 
 <a href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -752,12 +752,22 @@
             <li>
               <b><code>connect_overlapping_nodes</code></b>
                   (<code>bool</code>, default:
-                      <code>True</code>
+                      <code>False</code>
 )
               –
               <div class="doc-md-description">
                 <p>Whether to draw edges connecting overlapping nodes in the graph.
 Default is True.</p>
+              </div>
+            </li>
+            <li>
+              <b><code>color_tandem_pair_edges</code></b>
+                  (<code>bool</code>, default:
+                      <code>False</code>
+)
+              –
+              <div class="doc-md-description">
+                <p>Color edges between tandem exon nodes. Default is True.</p>
               </div>
             </li>
             <li>
@@ -768,6 +778,16 @@ Default is True.</p>
               –
               <div class="doc-md-description">
                 <p>Whether to show the full expansion graph only. Default is False.</p>
+              </div>
+            </li>
+            <li>
+              <b><code>tandem_edges_color</code></b>
+                  (<code>str</code>, default:
+                      <code>&#39;blue&#39;</code>
+)
+              –
+              <div class="doc-md-description">
+                <p>The color to use for tandem pair edges. Default is 'blue'.</p>
               </div>
             </li>
         </ul>

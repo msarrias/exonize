@@ -144,12 +144,9 @@ source fetch_data.sh
 <ul>
 <li>If you installed the package via <code>pip</code>, you can download the script here: <a href="https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh"><code>fetch_data.sh</code></a>.</li>
 </ul>
-<p><strong>Run exonize:</strong></p>
+<p><strong>Run exonize with default parameters:</strong></p>
 <div class="highlight"><pre><span></span><code>exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
        Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
-       --gene-annot-feature gene \
-       --cds-annot-feature CDS \
-       --transcript-annot-feature mRNA \
        --output_prefix Homo_sapiens_chrom_Y \
        --csv
 </code></pre></div>
