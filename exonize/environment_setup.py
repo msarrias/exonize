@@ -115,6 +115,9 @@ class EnvironmentSetup(object):
             sys.exit(1)
 
     def check_software_requirements(self):
+        if os.getenv("CI") == "true":
+            # Skip software checks in CI environment
+            return
         self.check_if_tool_installed(name='sqlite3')
         self.check_if_tool_installed(name='muscle')
         if self.SEARCH_ALL:
