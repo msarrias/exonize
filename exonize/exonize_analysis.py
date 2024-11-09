@@ -181,11 +181,13 @@ class Expansion:
             for coord, node_type in nodes
         ])
         for edge in edges:
-            query_coord, target_coord, mode = edge
+            query_coord, target_coord, mode, tandem = edge
             self.graph.add_edge(
                 u_of_edge=query_coord,
                 v_of_edge=target_coord,
-                mode=mode
+                mode=mode,
+                color='black' if not tandem else 'magenta',
+                width=1 if not tandem else 2,
             )
 
 
@@ -360,11 +362,11 @@ class _PlotHandler:
         self._inter_boundary = 'INTER_BOUNDARY'
         self._intronic = 'INTRONIC'
         self._color_map = {
-            self._partial_insertion: 'blue',
-            self._partial_excision: 'purple',
-            self._full: 'green',
-            self._intronic: 'red',
-            self._inter_boundary: 'orange'
+            self._partial_insertion: '#0072B2',  # dark blue
+            self._partial_excision: '#D55E00',  # burnt orange
+            self._full: '#009E73',  # teal green
+            self._intronic: '#CC79A7',  # reddish pink
+            self._inter_boundary: '#E69F00'  # golden yellow
         }
 
     @staticmethod
@@ -726,6 +728,7 @@ class _ExonizeDBHandler:
         """
         self.db_path = db_path
         self.genes_dict = self.collect_genes(self.fetch_genes_with_exon_dup())
+        self.tandem_pairs_dict = self.fetch_tandem_pairs()
         self.gene_expansions_dict = {}
         self._expansions_nodes = self.fetch_expansions_nodes()
         self._expansions_edges = self.fetch_expansions_edges()
@@ -765,6 +768,33 @@ class _ExonizeDBHandler:
             )
             return cursor.fetchall()
 
+    def fetch_tandem_pairs(
+            self,
+    ) -> dict:
+        exonize_tandem_pairs = {}
+        with sqlite3.connect(self.db_path) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+                SELECT
+                    GeneID,
+                    PredecessorStart,
+                    PredecessorEnd,
+                    SuccessorStart,
+                    SuccessorEnd
+                FROM Expansions_full_tandem
+                WHERE TandemPair=1;
+                """
+            )
+            tandem_pairs = cursor.fetchall()
+        for record in tandem_pairs:
+            gene_id, pred_s, pred_e, succ_s, succ_e = record
+            if gene_id not in exonize_tandem_pairs:
+                exonize_tandem_pairs[gene_id] = set()
+            pair = tuple(sorted((P.open(pred_s, pred_e), P.open(succ_s, succ_e)), key=lambda x: (x.lower, x.upper)))
+            exonize_tandem_pairs[gene_id].add(pair)
+        return exonize_tandem_pairs
+
     @staticmethod
     def collect_genes(
             genes_records: list
@@ -787,6 +817,16 @@ class _ExonizeDBHandler:
                 (P.open(event_start, event_end), mode)
             )
 
+    def check_for_tandemness(
+            self,
+            sorted_pair: tuple,
+            gene_id: str
+    ) -> bool:
+        if gene_id in self.tandem_pairs_dict:
+            if sorted_pair in self.tandem_pairs_dict[gene_id]:
+                return True
+        return False
+
     def collect_expansions_edges(
             self,
             matches_set: set,
@@ -795,9 +835,13 @@ class _ExonizeDBHandler:
             gene_id, q_start, q_end, t_start, t_end, mode = match
             for expansion_id, expansion_atrributes in self.gene_expansions_dict[gene_id].items():
                 node_coordinates = {coordinate for coordinate, _ in expansion_atrributes['nodes']}
-                if P.open(q_start, q_end) and P.open(t_start, t_end) in node_coordinates:
+                sorted_pair = tuple(
+                    sorted((P.open(q_start, q_end), P.open(t_start, t_end)), key=lambda x: (x.lower, x.upper))
+                )
+                if all(coord in node_coordinates for coord in sorted_pair):
+                    is_tandem = self.check_for_tandemness(sorted_pair=sorted_pair, gene_id=gene_id)
                     expansion_atrributes['edges'].append(
-                        (P.open(q_start, q_end), P.open(t_start, t_end), mode)
+                        (P.open(q_start, q_end), P.open(t_start, t_end), mode, is_tandem)
                     )
 
     def fetch_expansions_nodes(
