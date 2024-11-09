@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import sys
 from pathlib import Path
 
 
@@ -80,14 +81,8 @@ class EnvironmentSetup(object):
         self.partial_excision = 'PARTIAL_EXCISION'
         self.inter_boundary = 'INTER_BOUNDARY'
         self.intronic = 'INTRONIC'
-
-        self.check_if_tool_installed('sqlite3')
-        if self.SEARCH_ALL:
-            self.check_if_tool_installed('tblastx')
-            self.check_if_tool_installed('muscle')
-        elif self.LOCAL_SEARCH:
-            self.check_if_tool_installed('muscle')
-
+        self.configure_logger()
+        self.check_software_requirements()
         if not self.output_prefix:
             self.output_prefix = self.gff_file_path.stem
         if self.output_directory_path:
@@ -111,13 +106,19 @@ class EnvironmentSetup(object):
             os.makedirs(self.csv_path, exist_ok=True)
         self.setup_environment()
 
-    @staticmethod
     def check_if_tool_installed(
+            self,
             name: str
     ) -> None:
         if shutil.which(name) is None:
             self.logger.error(f"Error: {name} is not installed or not in your PATH environment variable.")
             sys.exit(1)
+
+    def check_software_requirements(self):
+        self.check_if_tool_installed(name='sqlite3')
+        self.check_if_tool_installed(name='muscle')
+        if self.SEARCH_ALL:
+            self.check_if_tool_installed(name='tblastx')
 
     def configure_logger(self):
         """
@@ -144,4 +145,3 @@ class EnvironmentSetup(object):
             if self.results_database_path.exists():
                 os.remove(self.results_database_path)
         os.makedirs(self.working_directory, exist_ok=True)
-        self.configure_logger()
