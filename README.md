@@ -1,3 +1,6 @@
+[![PyPI version](https://badge.fury.io/py/exonize.svg)](https://badge.fury.io/py/exonize)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=msarrias_exonize&metric=alert_status)](https://sonarcloud.io/dashboard?id=msarrias_exonize)
+
 ```
 ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
 ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
