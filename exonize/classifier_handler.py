@@ -109,20 +109,9 @@ class ClassifierHandler(object):
             n_coding_events: int
     ) -> tuple:
         n_mrnas = len(transcript_counts_list)
-        classification_sums = {
-            category: sum(mrna_count[i] for mrna_count in transcript_counts_list)
-            for i, category in enumerate(['all', 'present', 'abscent', 'neither'])
-        }
-        intersection = None
-        missing_events = [
-            missing_coordinates
-            for *_, missing_coordinates in transcript_counts_list
-            if missing_coordinates
-        ]
-        if missing_events:
-            intersection = self.intersect_tuples(
-                tuples=missing_events
-            )
+        classification_sums = self._calculate_classification_sums(transcript_counts_list)
+        intersection = self._find_intersection(transcript_counts_list)
+
         temp = (
             gene_id,
             id_,
@@ -133,9 +122,53 @@ class ClassifierHandler(object):
             classification_sums['abscent'],
             classification_sums['neither']
         )
+
+        category, exclusive_events = self._determine_category(
+            n_mrnas, n_coding_events, classification_sums, intersection, transcript_counts_list
+        )
+
+        return *temp, category, '_'.join(map(str, exclusive_events)) if exclusive_events else ''
+
+    @staticmethod
+    def _calculate_classification_sums(
+            transcript_counts_list: list
+    ):
+        """Calculate sums for each classification category."""
+        return {
+            category: sum(mrna_count[i] for mrna_count in transcript_counts_list)
+            for i, category in enumerate(['all', 'present', 'abscent', 'neither'])
+        }
+
+    def _find_intersection(
+            self,
+            transcript_counts_list: list
+    ):
+        """Find the intersection of missing events."""
+        missing_events = [
+            missing_coordinates
+            for *_, missing_coordinates in transcript_counts_list
+            if missing_coordinates
+        ]
+        return self.intersect_tuples(tuples=missing_events) if missing_events else None
+
+    @staticmethod
+    def _determine_category(
+            n_mrnas: int,
+            n_coding_events: int,
+            classification_sums: dict,
+            intersection: tuple,
+            transcript_counts_list: list
+    ):
+        """Determine the category and exclusive events based on classification sums and intersection."""
         category = ''
         exclusive_events = None
         N = n_mrnas * n_coding_events
+        missing_events = [
+            missing_coordinates
+            for *_, missing_coordinates in transcript_counts_list
+            if missing_coordinates
+        ]
+
         if classification_sums['all'] == N:
             category = 'OBLIGATE'
         elif classification_sums['neither'] == N:
@@ -156,7 +189,8 @@ class ClassifierHandler(object):
         elif not intersection:
             category = 'EXCLUSIVE'
             exclusive_events = set(missing_events)
-        return *temp, category, '_'.join([str(i) for i in exclusive_events]) if exclusive_events else ''
+
+        return category, exclusive_events
 
     def classify_expansion_interdependence(
             self,
