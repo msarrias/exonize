@@ -95,7 +95,7 @@ Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent co
 
 **Step 2: Visualize the Full Expansion #1 Graph**
 
-To visualize the full expansion, and tandem pairs set the `full_expansion` and `color_tandem_pair_edges` parameters to `True`.
+To visualize the full expansion, and matches between tandem exon pairs set the `full_expansion` and `color_tandem_pair_edges` parameters to `True`.
 
 ```python
 >>> ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(
@@ -111,7 +111,7 @@ To visualize the full expansion, and tandem pairs set the `full_expansion` and `
     </a>
 </div>
 
-We can see that the expansion graph is connected by tandem pairs of duplicated exons.
+We can see that the expansion graph is composed of 15 tandemly duplicated exons.
 
 **Step 3: Visualize All Expansions for DAZ1**
 
