@@ -475,7 +475,7 @@ def test_get_full_event_components(
         exonize_obj,
         gene_graph
 ):
-    gene_graph, targets_reference_coordinates_dictionary = gene_graph
+    gene_graph, _ = gene_graph
     full_expansion_1 = {('gene1', 'FULL', 0, 100, 3, 1), ('gene1', 'FULL', 200, 300, 2, 1),
                         ('gene1', 'FULL', 500, 600, 1, 1), ('gene1', 'FULL', 800, 900, 2, 1)}
     full_expansion_0 = {('gene1', 'FULL', 1800, 2100, 1, 0), ('gene1', 'FULL', 2200, 2350, 1, 0)}

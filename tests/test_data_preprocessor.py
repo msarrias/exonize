@@ -207,7 +207,7 @@ def test_construct_peptide_sequences():
         }
     ]
     expected_peptide_sequence = "MH"  # Expected translation of ATGCATGCAT
-    peptide_sequence, cds_list_tuples = data_container.construct_peptide_sequences(
+    peptide_sequence, _ = data_container.construct_peptide_sequences(
         gene_id="gene1",
         transcript_id="transcript1",
         mrna_sequence=mrna_sequence,
