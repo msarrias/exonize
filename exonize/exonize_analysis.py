@@ -377,7 +377,103 @@ class _PlotHandler:
         }
 
     @staticmethod
+    def large_component_position(
+            component: list,
+            layout_scale: int = 3
+    ):
+        # Sort nodes within the component by their 'lower' and 'upper' coordinates
+        layout = {}
+        sorted_nodes = sorted(component, key=lambda coord: (coord.lower, coord.upper))
+        n = len(sorted_nodes)
+        for i, node in enumerate(sorted_nodes):
+            # Circular layout for larger components
+            angle = 2 * np.pi * i / n
+            layout[node] = (layout_scale * np.cos(angle), layout_scale * np.sin(angle))
+        return layout
+
+    @staticmethod
+    def _separate_large_small_components(components):
+        """Separates large and small components based on their size."""
+        large_components = [comp for comp in components if len(comp) > 2]
+        small_components = [comp for comp in components if len(comp) <= 2]
+        return large_components, small_components
+
+    def _position_large_components(
+            self,
+            large_components: list[list],
+            layout_scale: int = 3
+    ) -> list[dict]:
+        """Generates positions for large components with layout adjustments."""
+        return [self.large_component_position(
+            component=component,
+            layout_scale=layout_scale
+        ) for component in large_components]
+
+    @staticmethod
+    def _handle_two_node_case(
+            gene_graph: nx.MultiGraph,
+    ) -> dict:
+        """Handles the special case when the graph has only two nodes."""
+        nodex, nodey = list(gene_graph.nodes)
+        return {nodex: (0, 0), nodey: (0.2, 0)}
+
+    @staticmethod
+    def _place_large_components(
+            component_positions,
+            position_shift=6
+    ):
+        """Places large components with horizontal shifts."""
+        component_position = {}
+        for event_idx, layout in enumerate(component_positions):
+            for node, position in layout.items():
+                x, y = position
+                component_position[node] = (x + event_idx * position_shift, y)
+        return component_position
+
+    @staticmethod
+    def _get_y_range(
+            component_position: dict
+    ):
+        """Calculates the vertical range (y_min, y_max) of positioned large components."""
+        y_values = [y for _, y in component_position.values()]
+        return (min(y_values), max(y_values)) if y_values else (0, 0)
+
+    @staticmethod
+    def _calculate_small_component_x(
+            component_position: dict,
+            position_shift: int = 6
+    ):
+        """Determines the starting x-position for small components."""
+        last_large_x = max((x for x, _ in component_position.values()), default=0)
+        return last_large_x + position_shift
+
+    @staticmethod
+    def _position_small_components(
+            small_components: list[list],
+            x_position: int,
+            y_min: int,
+            y_max: int
+    ):
+        """Positions small components vertically at a fixed x position with even spacing."""
+        num_small_components = len(small_components)
+        spacing = (y_max - y_min) / (num_small_components - 1) if num_small_components > 1 else 0
+        small_component_positions = {}
+
+        for idx, component in enumerate(small_components):
+            y_position = y_max - idx * spacing
+            if len(component) == 2:
+                # Add a small horizontal offset for two-node components to avoid overlap
+                x, y = component
+                small_component_positions[x] = (x_position - 1, y_position)
+                small_component_positions[y] = (x_position + 1, y_position)
+            else:
+                for node in component:
+                    small_component_positions[node] = (x_position, y_position)
+
+        return small_component_positions
+
     def component_positions(
+            self,
             components: list[list],
             gene_graph: nx.MultiGraph
     ):
@@ -398,62 +494,26 @@ class _PlotHandler:
 
         """
         layout_scale = 2
-        component_positions = []
-        large_components = [comp for comp in components if len(comp) > 2]
-        small_components = [comp for comp in components if len(comp) <= 2]
-        # Generate positions for large components with horizontal shifting
-        for component_idx, component in enumerate(large_components):
-            # Sort nodes within the component by their 'lower' and 'upper' coordinates
-            layout = {}
-            sorted_nodes = sorted(component, key=lambda coord: (coord.lower, coord.upper))
-            n = len(sorted_nodes)
-            for i, node in enumerate(sorted_nodes):
-                # Circular layout for larger components
-                angle = 2 * np.pi * i / n
-                layout[node] = (layout_scale * np.cos(angle), layout_scale * np.sin(angle))
-            component_positions.append(layout)
-        # Set a reduced horizontal shift between large and small components
-        position_shift = layout_scale * 3  # Reduced horizontal shift for a tighter layout
-        component_position = {}
-        # Special case handling for two-node graph
+        large_components, small_components = self._separate_large_small_components(components)
+        component_positions = self._position_large_components(
+            large_components=large_components,
+            layout_scale=layout_scale
+        )
         if len(gene_graph.nodes) == 2:
-            nodex, nodey = list(gene_graph.nodes)
-            component_position[nodex] = (0, 0)
-            component_position[nodey] = (0.2, 0)  # Small offset to avoid overlap
-        else:
-            # Place the large components with horizontal shifts
-            for event_idx, layout in enumerate(component_positions):
-                for node, position in layout.items():
-                    x, y = position
-                    shifted_position = (x + event_idx * position_shift, y)
-                    component_position[node] = shifted_position
-            # Calculate the vertical range (y_min and y_max) based on large component positions
-            if component_position:
-                y_values = [y for x, y in component_position.values()]
-                y_min, y_max = min(y_values), max(y_values)
-            else:
-                y_min, y_max = 0, 0  # Default values if no components are positioned
-            # Determine the starting x-position for small components, to the right of large components
-            last_large_x = max(x for x, y in component_position.values()) if component_position else 0
-            small_component_x = last_large_x + position_shift
-            # Calculate even vertical spacing for small components within the y_min and y_max range
-            num_small_components = len(small_components)
-            if num_small_components > 1:
-                small_component_spacing = (y_max - y_min) / (num_small_components - 1)
-            else:
-                small_component_spacing = 0  # No spacing needed if there's only one component
-            # Position small components vertically at the fixed x position,
-            # with slight offsets for two-node components
-            for idx, component in enumerate(small_components):
-                y_position = y_max - idx * small_component_spacing  # even spacing
-                if len(component) == 2:
-                    # Add a small horizontal offset for two-node components to avoid collapsing
-                    x, y = list(component)
-                    component_position[x] = (small_component_x - 1, y_position)
-                    component_position[y] = (small_component_x + 1, y_position)
-                else:
-                    for node in component:
-                        component_position[node] = (small_component_x, y_position)
+            return self._handle_two_node_case(
+                gene_graph=gene_graph
+            )
+        component_position = self._place_large_components(
+            component_positions=component_positions,
+            position_shift=layout_scale * 3)
+        y_min, y_max = self._get_y_range(component_position)
+        small_component_x = self._calculate_small_component_x(component_position)
+
+        small_component_positions = self._position_small_components(
+            small_components, small_component_x, y_min, y_max
+        )
+        component_position.update(small_component_positions)
+
         return component_position
 
     @staticmethod
