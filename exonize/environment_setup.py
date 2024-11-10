@@ -38,7 +38,6 @@ class EnvironmentSetup(object):
             timeout_database: int,
             cpus_number: int,
     ):
-        self.__FILE_ONLY_INFO = 9
         self.DEBUG_MODE = debug_mode
         self.SOFT_FORCE = soft_force
         self.HARD_FORCE = hard_force
@@ -141,10 +140,8 @@ class EnvironmentSetup(object):
         )
 
     def setup_environment(self):
-        if self.HARD_FORCE:
-            if self.working_directory.exists():
-                shutil.rmtree(self.working_directory)
-        elif self.SOFT_FORCE:
-            if self.results_database_path.exists():
-                os.remove(self.results_database_path)
+        if self.HARD_FORCE and self.working_directory.exists():
+            shutil.rmtree(self.working_directory)
+        elif self.SOFT_FORCE and self.results_database_path.exists():
+            os.remove(self.results_database_path)
         os.makedirs(self.working_directory, exist_ok=True)
