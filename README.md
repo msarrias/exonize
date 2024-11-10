@@ -42,9 +42,11 @@ You should now be able to run `exonize -h`.
 
 `exonize` requires a local installation of:
 
-* [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) (for conducting the local search)
-* [`MUSCLE`](https://www.drive5.com/muscle/) (for conducting the global alignment and correcting the identity of reconciled matches)
-* [`SQLite`](https://www.sqlite.org/download.html) (for storing the search results)
+
+* [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) \[[download link](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)\]: exonize uses the `tblastx` program for conducting the local search.  
+* [`MUSCLE`](https://www.drive5.com/muscle/) \[[download link](https://github.com/rcedgar/muscle/releases)\]: used for conducting the global search and correcting the identity of reconciled matches.  
+* [`SQLite`](https://www.sqlite.org/index.html)[[download link](https://www.sqlite.org/download.html)] : for storing the search results. **_Note:_** If you are a MacOS user, SQLite is installed by default.
+
 
 
 ## Support
