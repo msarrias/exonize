@@ -29,7 +29,7 @@ If you want to analyze the matches directly, these tables contain the raw data:
     | **Global_matches_non_reciprocal**        | Contains all matches identified by aligning pairs of representative<br/> exons using `MUSCLE`. All matches meet the peptide identity and <br/>fraction of aligned position criteria.                                                                                              |
 
 > **Note:**
-> Combining the `Local_matches_non_reciprocal` and `Global_matches_non_reciprocal` tables provides a complete list of all matches identified by `exonize`. When full matches are detected by both methods, they are retained only in the `Local_matches_non_reciprocal` table and omitted from the `Global_matches_non_reciprocal` table.
+> Combining the `Local_matches_non_reciprocal` and `Global_matches_non_reciprocal` tables provides a complete list of all matches identified by `exonize`. When full matches are detected by both methods, they are retained only in the `Global_matches_non_reciprocal` table and omitted from the `Local_matches_non_reciprocal` table.
 
 
 ### Additional files
