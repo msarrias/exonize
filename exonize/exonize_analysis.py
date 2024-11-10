@@ -607,7 +607,7 @@ class _PlotHandler:
             node_colors: list
     ) -> None:
         """Draws the nodes of the graph."""
-        nx.draw_networkx_nodes(graph=graph, pos=component_position, node_color=node_colors, node_size=350)
+        nx.draw_networkx_nodes(G=graph, pos=component_position, node_color=node_colors, node_size=350)
 
     @staticmethod
     def _draw_labels(
