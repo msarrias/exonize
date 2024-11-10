@@ -116,31 +116,27 @@ def test_get_overlap_percentage():
         intv_i=P.open(15, 85),
         intv_j=P.open(10, 100)
     ) == (85 - 15) / (100 - 10)
-    pass
 
 
-def test_compute_identity():
+@pytest.mark.parametrize(
+    "sequence_i, sequence_j, expected_identity",
+    [
+        ("ACGT", "ACGT", 1.0),
+        ("ACGT", "AC-T", 0.75),
+        ("ACGT", "ATAT", 0.5),
+        ("ACGT", "TGCA", 0.0),
+    ]
+)
+def test_compute_identity(sequence_i, sequence_j, expected_identity):
     assert search_engine.compute_identity(
-        sequence_i="ACGT",
-        sequence_j="ACGT"
-    ) == 1.0
-    assert search_engine.compute_identity(
-        sequence_i="ACGT",
-        sequence_j="AC-T"
-    ) == 0.75
-    assert search_engine.compute_identity(
-        sequence_i="ACGT",
-        sequence_j="ATAT"
-    ) == 0.5
-    assert search_engine.compute_identity(
-        sequence_i="ACGT",
-        sequence_j="TGCA"
-    ) == 0.0
+        sequence_i=sequence_i,
+        sequence_j=sequence_j
+    ) == pytest.approx(expected_identity, rel=1e-5)
+
+
+def test_compute_identity_invalid_length():
     with pytest.raises(ValueError):
-        search_engine.compute_identity(
-            sequence_i="ACGT",
-            sequence_j="ACG"
-        )
+        search_engine.compute_identity(sequence_i="ACGT", sequence_j="ACG")
 
 
 def test_reformat_tblastx_frame_strand():
@@ -213,8 +209,8 @@ def test_fetch_pairs_for_global_alignments():
         (P.open(6, 10), 0),
         (P.open(3, 7), 0),
         (P.open(11, 15), 0),
-        (P.open(20,30), 0),
-        (P.open(22,32), 0)
+        (P.open(20, 30), 0),
+        (P.open(22, 32), 0)
     ]
     expected_pairs = {
         (P.open(1, 5), P.open(6, 10)),
