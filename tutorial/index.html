@@ -148,7 +148,7 @@ This tells us that there are matches between 15 exons and 3 intronic regions. </
 </div>
 
 <p><strong>Step 2: Visualize the Full Expansion #1 Graph</strong></p>
-<p>To visualize the full expansion, and tandem pairs set the <code>full_expansion</code> and <code>color_tandem_pair_edges</code> parameters to <code>True</code>.</p>
+<p>To visualize the full expansion, and matches between tandem exon pairs set the <code>full_expansion</code> and <code>color_tandem_pair_edges</code> parameters to <code>True</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
     <span class="n">expansion_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">full_expansion</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -161,7 +161,7 @@ This tells us that there are matches between 15 exons and 3 intronic regions. </
     </a>
 </div>
 
-<p>We can see that the expansion graph is connected by tandem pairs of duplicated exons.</p>
+<p>We can see that the expansion graph is composed of 15 tandemly duplicated exons.</p>
 <p><strong>Step 3: Visualize All Expansions for DAZ1</strong></p>
 <p>You can also display all expansions associated with DAZ1 by ommiting the <code>expansion_id</code> parameter:</p>
 <div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
