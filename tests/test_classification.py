@@ -467,52 +467,6 @@ def create_exonize_test2():
         ('gene2', 3400, 3500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 2900, 3000, '-', '-', '-', 0, 0)
     ]
 
-    test_events = [
-        # FLEXIBLE
-        ('gene1', exonize_obj2.environment.full, 0, 100, 2, None, 0),
-        ('gene1', exonize_obj2.environment.partial_insertion, 300, 400, 1, None, 0),
-        ('gene1', exonize_obj2.environment.intronic, 700, 800, 1, None, 0),
-
-        # FLEXIBLE
-        ('gene1', exonize_obj2.environment.full, 0, 100, 3, None, 1),
-        ('gene1', exonize_obj2.environment.full, 150, 250, 3, None, 1),
-        ('gene1', exonize_obj2.environment.partial_insertion, 300, 400, 2, None, 1),
-        ('gene1', exonize_obj2.environment.intronic, 700, 800, 2, None, 1),
-
-        # OBLIGATE
-        ('gene1', exonize_obj2.environment.full, 600, 700, 2, None, 2),
-        ('gene1', exonize_obj2.environment.full, 900, 1000, 2, None, 2),
-        ('gene1', exonize_obj2.environment.partial_insertion, 1100, 1200, 2, None, 2),
-
-        # EXCLUSIVE
-        ('gene2', exonize_obj2.environment.full, 0, 100, 2, None, 0),
-        ('gene2', exonize_obj2.environment.full, 150, 250, 2, None, 0),
-        ('gene2', exonize_obj2.environment.full, 600, 700, 2, None, 0),
-
-        # EXCLUSIVE
-        ('gene2', exonize_obj2.environment.full, 4000, 4100, 2, None, 1),
-        ('gene2', exonize_obj2.environment.full, 4200, 4300, 2, None, 1),
-        ('gene2', exonize_obj2.environment.full, 4500, 4600, 2, None, 1),
-
-        # OPTIONAL - FLEXIBLE
-        ('gene2', exonize_obj2.environment.full, 1200, 1300, 2, None, 2),
-        ('gene2', exonize_obj2.environment.full, 1400, 1500, 2, None, 2),
-        ('gene2', exonize_obj2.environment.full, 1650, 1750, 2, None, 2),
-
-        # OPTIONAL - EXCLUSIVE
-        ('gene2', exonize_obj2.environment.full, 2100, 2200, 2, None, 3),
-        ('gene2', exonize_obj2.environment.full, 2400, 2500, 2, None, 3),
-        ('gene2', exonize_obj2.environment.full, 2700, 2800, 2, None, 3),
-
-        # OPTIONAL - OBLIGATE
-        ('gene2', exonize_obj2.environment.full, 2900, 3000, 2, None, 4),
-        ('gene2', exonize_obj2.environment.full, 3100, 3200, 2, None, 4),
-        ('gene2', exonize_obj2.environment.full, 3400, 3500, 2, None, 4),
-
-        # NON-CODING
-        ('gene1', exonize_obj2.environment.full, 300, 500, 1, None, 3),
-        ('gene1', exonize_obj2.environment.intronic, 1000, 1200, 1, None, 3),
-    ]
     exonize_obj2.database_interface.insert_matches(
         gene_args_tuple=mock_gene1,
         fragments_tuples_list=fragments_gene1
