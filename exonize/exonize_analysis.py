@@ -550,149 +550,151 @@ class _PlotHandler:
     ):
         """
         Draws a multi-graph of gene expansions.
-
-        Parameters
-        ----------
-        gene_start : int
-            The start position of the gene for labeling purposes.
-        gene_graph : nx.Graph or nx.MultiGraph
-            The graph containing nodes and edges of gene expansions.
-        figure_size : tuple of float, optional
-            The size of the figure in inches. Default is (8.0, 8.0).
-        figure_path : Path, optional
-            The path to save the figure. If None, the figure is not saved.
-        legend : bool, optional
-            Whether to display a legend on the plot. Default is True.
-        color_tandem_pair_edges : bool, optional
-            Color edges between tandem exon nodes. Default is True.
-        connect_overlapping_nodes : bool, optional
-            Whether to draw edges connecting overlapping nodes in the graph. Default is True.
-        full_expansion : bool, optional
-            Whether to show the full expansion graph only. Default is False.
-        tandem_edges_color : str, optional
-            The color to use for tandem pair edges. Default is 'blue'.
         """
         G = gene_graph.copy()
         if full_expansion:
-            self.full_expansion(
-                graph=G
+            self.full_expansion(graph=G)
+
+        if G.number_of_nodes() <= 1:
+            return
+
+        plt.figure(figsize=figure_size)
+
+        node_colors = self._get_node_colors(G)
+        components = list(nx.connected_components(G))
+        node_labels = self._generate_node_labels(G, gene_start)
+        component_position = self.component_positions(components=components, gene_graph=G)
+        label_positions = self._adjust_label_positions(component_position)
+
+        self._draw_nodes(G, component_position, node_colors)
+        self._draw_labels(G, label_positions, node_labels)
+        self._draw_edges(G, component_position, color_tandem_pair_edges, tandem_edges_color)
+
+        if connect_overlapping_nodes:
+            self._draw_overlapping_edges(G, component_position)
+
+        if legend:
+            self._draw_legend(G, color_tandem_pair_edges, tandem_edges_color)
+
+        self._finalize_figure(figure_path)
+
+    def _get_node_colors(
+            self,
+            G: nx.Graph
+    ):
+        """Get colors for each node based on their type."""
+        return [self._color_map[attrib['type']] for _, attrib in G.nodes(data=True)]
+
+    @staticmethod
+    def _generate_node_labels(
+            G: nx.Graph,
+            gene_start: int
+    ):
+        """Generate labels for each node based on their position relative to gene start."""
+        return {node: f'({node.lower - gene_start},{node.upper - gene_start})' for node in G.nodes}
+
+    @staticmethod
+    def _adjust_label_positions(
+            component_position: dict
+    ):
+        """Adjust label positions slightly above each node."""
+        return {node: (x, y + 0.1) for node, (x, y) in component_position.items()}
+
+    @staticmethod
+    def _draw_nodes(
+            G: nx.Graph,
+            component_position: dict,
+            node_colors: list
+    ) -> None:
+        """Draws the nodes of the graph."""
+        nx.draw_networkx_nodes(G=G, pos=component_position, node_color=node_colors, node_size=350)
+
+    @staticmethod
+    def _draw_labels(
+            G: nx.Graph,
+            label_positions: dict,
+            node_labels: dict
+    ):
+        """Draws labels for the nodes in the graph."""
+        nx.draw_networkx_labels(
+            G, label_positions, labels=node_labels, font_size=8,
+            bbox=dict(boxstyle="round,pad=0.3", edgecolor="white", facecolor="white")
+        )
+
+    @staticmethod
+    def _draw_edges(
+            G: nx.Graph,
+            component_position: dict,
+            color_tandem_pair_edges: bool,
+            tandem_edges_color: str
+    ):
+        """Draws the edges of the graph with specified styles and colors."""
+        for source, target, attributes in G.edges(data=True):
+            edge_color = tandem_edges_color if color_tandem_pair_edges and attributes.get('tandem') else 'black'
+            edge_style = attributes.get('style', 'solid')
+            edge_width = attributes.get('width', 1)
+            nx.draw_networkx_edges(
+                G, component_position, edgelist=[(source, target)],
+                edge_color=edge_color, style=edge_style, width=edge_width
             )
-        if G.number_of_nodes() > 1:
-            plt.figure(figsize=figure_size)
-            node_colors = [
-                self._color_map[attrib['type']]
-                for node, attrib in G.nodes(data=True)
-            ]
-            components = list(nx.connected_components(G))
-            node_labels = {
-                node: f'({node.lower - gene_start},{node.upper - gene_start})'
-                for node in G.nodes
-            }
-            component_position = self.component_positions(
-                components=components,
-                gene_graph=G
-            )
-            # Adjust label positions
-            label_positions = {
-                node: (x, y + 0.1)
-                for node, (x, y) in component_position.items()
-            }
-            nx.draw_networkx_nodes(
-                G=G,
-                node_color=node_colors,
-                pos=component_position,
-                node_size=350,
-            )
-            nx.draw_networkx_labels(
-                G,
-                label_positions,
-                labels=node_labels,
-                font_size=8,
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    edgecolor="white",
-                    facecolor="white"
-                )
-            )
-            for edge in G.edges(data=True):
-                source, target, attributes = edge
-                edge_style = attributes.get('style', 'solid')
-                if not color_tandem_pair_edges:
-                    edge_color = 'black'
-                    edge_width = 1
-                else:
-                    edge_color = tandem_edges_color if attributes.get('tandem') else 'black'
-                    edge_width = attributes.get('width', 1)
+
+    def _draw_overlapping_edges(
+            self,
+            G: nx.Graph,
+            component_position: dict
+    ):
+        """Draws edges between overlapping nodes with a dotted red style."""
+        overlapping_nodes = self.fetch_overlapping_nodes(
+            gene_graph=G
+        )
+        for cluster in overlapping_nodes:
+            for nodei, nodej in cluster:
                 nx.draw_networkx_edges(
-                    G,
-                    component_position,
-                    edgelist=[(source, target)],
-                    edge_color=edge_color,
-                    style=edge_style,
-                    width=edge_width
-                )
-            if connect_overlapping_nodes:
-                overlapping_nodes = self.fetch_overlapping_nodes(
-                    gene_graph=G
-                )
-                for cluster in overlapping_nodes:
-                    for pair in cluster:
-                        nodei, nodej = pair
-                        nx.draw_networkx_edges(
-                            G,
-                            component_position,
-                            edgelist=[(nodei, nodej)],
-                            edge_color='red',
-                            style='dotted',
-                            width=2
-                        )
-            if legend:
-                node_attributes = {
-                    attrib['type']
-                    for _, attrib in G.nodes(data=True)
-                }
-                legend_elements = [
-                    mlines.Line2D(
-                        [], [],
-                        color=self._color_map[label],
-                        marker='o',
-                        linestyle='None',
-                        markersize=10,
-                        label=label
-                    )
-                    for label in node_attributes
-                ]
-                if color_tandem_pair_edges:
-                    tandem_legend = mlines.Line2D(
-                        [], [], color=tandem_edges_color, linewidth=2, label='TANDEM'
-                    )
-                    legend_elements.append(tandem_legend)
-
-                # Display the legend
-                plt.legend(
-                    handles=legend_elements,
-                    loc="upper right",
-                    bbox_to_anchor=(1.2, 1),
-                    frameon=False
+                    G, component_position, edgelist=[(nodei, nodej)],
+                    edge_color='red', style='dotted', width=2
                 )
 
-            for spine in plt.gca().spines.values():
-                spine.set_visible(False)
-            if figure_path:
-                plt.savefig(figure_path, bbox_inches='tight')
-            else:
-                plt.show()
+    def _draw_legend(
+            self,
+            G: nx.Graph,
+            color_tandem_pair_edges: bool,
+            tandem_edges_color: str
+    ):
+        """Draws the legend for the graph, showing node types and optional tandem edges."""
+        node_attributes = {attrib['type'] for _, attrib in G.nodes(data=True)}
+        legend_elements = [
+            mlines.Line2D([], [], color=self._color_map[label], marker='o', linestyle='None', markersize=10,
+                          label=label)
+            for label in node_attributes
+        ]
+        if color_tandem_pair_edges:
+            legend_elements.append(
+                mlines.Line2D([], [], color=tandem_edges_color, linewidth=2, label='TANDEM')
+            )
+        plt.legend(handles=legend_elements, loc="upper right", bbox_to_anchor=(1.2, 1), frameon=False)
+
+    @staticmethod
+    def _finalize_figure(
+            figure_path: Path = None
+    ):
+        """Finalizes the figure by saving or displaying it, and hiding spines."""
+        for spine in plt.gca().spines.values():
+            spine.set_visible(False)
+        if figure_path:
+            plt.savefig(figure_path, bbox_inches='tight')
+        else:
+            plt.show()
 
     def fetch_overlapping_nodes(
             self,
-            gene_graph: nx.MultiGraph
+            gene_graph: nx.Graph
     ):
         """
         Identifies and returns overlapping nodes in the gene graph for visualization.
 
         Parameters
         ----------
-        gene_graph : nx.MultiGraph
+        gene_graph : nx.Graph
             The graph containing nodes and edges of gene expansions.
 
         Returns
