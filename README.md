@@ -1,6 +1,3 @@
-[![PyPI version](https://badge.fury.io/py/exonize.svg)](https://badge.fury.io/py/exonize)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=msarrias_exonize&metric=alert_status)](https://sonarcloud.io/dashboard?id=msarrias_exonize)
-
 ```
 ███████╗██╗  ██╗ ██████╗ ███╗   ██╗██╗███████╗███████╗
 ██╔════╝╚██╗██╔╝██╔═══██╗████╗  ██║██║╚══███╔╝██╔════╝
@@ -13,6 +10,9 @@ Christopher Wheat, Department of Zoology, Stockholm University
 Liam M. Longo, Earth-Life Science Institute (ELSI), Institute of Science Tokyo
 Lars Arvestad, Department of Mathematics, Stockholm University
 ```
+
+[![PyPI version](https://badge.fury.io/py/exonize.svg)](https://badge.fury.io/py/exonize)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=msarrias_exonize&metric=alert_status)](https://sonarcloud.io/dashboard?id=msarrias_exonize)
 
 ## Welcome!
 `exonize` is an open-source command-line tool and [Python package](https://pypi.org/project/exonize/) for identifying and classifying coding exon duplications in annotated genomes. `exonize` identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. In addition, `exonize` categorizes the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, the `exonize_analysis` module is available for Python notebooks.
