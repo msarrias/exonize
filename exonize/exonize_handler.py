@@ -24,12 +24,9 @@ from typing import Any, Sequence, Iterator
 from datetime import date, datetime
 import sys
 from pathlib import Path
-# import cProfile
-# import gc
 import time
 import random
 import portion as P
-# from exonize.profiling import get_run_performance_profile
 from exonize.environment_setup import EnvironmentSetup
 from exonize.data_preprocessor import DataPreprocessor
 from exonize.sqlite_handler import SqliteHandler
@@ -189,11 +186,6 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
-            # pr = cProfile.Profile()
-            # pr.enable()
-            # gc.collect()
-            # gc.freeze()
-            # transactions_pks: set[int]
             status: int
             code: int
             forks: int = 0
@@ -201,27 +193,6 @@ Exonize results database:   {self.environment.results_database_path.name}
                     data=unprocessed_gene_ids_list,
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
-                # This part effectively forks a child process, independent of the parent process, and that
-                # will be responsible for processing the genes in the batch, parallel to the other children forked
-                # in the same way during the rest of the loop.
-                # A note to understand why this works: os.fork() returns 0 in the child process, and the PID
-                # of the child process in the parent process. So the parent process always goes to the part
-                # evaluated to True (if os.fork()), and the child process always goes to the part evaluated
-                # to false (0 is evaluated to False).
-                # The parallel part happens because the main parent process will keep along the for loop, and will
-                # fork more children, until the number of children reaches the maximum number of children allowed,
-                # doing nothing else but forking until 'FORKS_NUMBER' is reached.
-                # # Benchmark without any parallel computation:
-                # pr = cProfile.Profile()
-                # pr.enable()
-                # gc.collect()
-                # gc.freeze()
-                # # for gene_id in balanced_batch:
-                # self.search_engine.local_search(list(balanced_batch))
-                # gc.unfreeze()
-                # pr.disable()
-                # get_run_performance_profile(self.PROFILE_PATH, pr)
-                # # Benchmark with parallel computation using os.fork:
                 if os.fork():
                     forks += 1
                     if forks >= self.environment.FORKS_NUMBER:
@@ -254,9 +225,6 @@ Exonize results database:   {self.environment.results_database_path.name}
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-                # gc.unfreeze()
-                # pr.disable()
-                # get_run_performance_profile(self.environment.PROFILE_PATH, pr)
             self.database_interface.insert_percent_query_column_to_fragments()
             matches_list = self.database_interface.query_raw_matches()
             identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
@@ -298,11 +266,6 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Exonizing: this may take a while...'
             )
-            # pr = cProfile.Profile()
-            # pr.enable()
-            # gc.collect()
-            # gc.freeze()
-            # transactions_pks: set[int]
             status: int
             code: int
             forks: int = 0
@@ -330,21 +293,13 @@ Exonize results database:   {self.environment.results_database_path.name}
                         )
                         status = os.EX_SOFTWARE
                     finally:
-                        # This prevents the child process forked above to keep along the for loop upon completion
-                        # of the try/except block. If this was not present, it would resume were it left off, and
-                        # fork in turn its own children, duplicating the work done, and creating a huge mess.
-                        # We do not want that, so we gracefully exit the process when it is done.
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-                # This blocks guarantees that all forked processes will be terminated before proceeding with the rest
             while forks > 0:
                 _, status = os.wait()
                 code = os.waitstatus_to_exitcode(status)
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-                # gc.unfreeze()
-                # pr.disable()
-                # get_run_performance_profile(self.environment.PROFILE_PATH, pr)
             genes_to_update = self.database_interface.query_gene_ids_global_search()
             if self.environment.GLOBAL_SEARCH:
                 self.populate_genes_table()
