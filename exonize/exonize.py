@@ -180,7 +180,6 @@ def argument_parser():
     )
     parser.add_argument(
         '--csv',
-        # metavar='csv-output-prefix',
         action='store_true',
         default=False,
         help='If set, Exonize will output a .zip file with a reduced set of the results in CSV format.'
