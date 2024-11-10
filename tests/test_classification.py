@@ -299,7 +299,7 @@ def test_matches_interdependence_counts():
     with sqlite3.connect(results_db_path) as db:
         cursor = db.cursor()
         cursor.execute(
-            f"""
+            """
             SELECT
              QueryExonStart,
              QueryExonEnd,
