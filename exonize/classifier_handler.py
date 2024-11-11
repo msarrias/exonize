@@ -15,8 +15,8 @@ class ClassifierHandler(object):
         self.search_engine = search_engine
         self.database_interface = search_engine.database_interface
 
-    @staticmethod
     def get_mrna_cds_annotations(
+            self,
             transcript_dictionary: dict,
     ):
         return [
