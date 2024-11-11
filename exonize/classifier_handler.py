@@ -22,7 +22,7 @@ class ClassifierHandler(object):
         return [
             annotation['coordinate']
             for annotation in transcript_dictionary['structure']
-            if annotation['type'] == 'CDS'
+            if annotation['type'] == self.environment.cds_feature
         ]
 
     @staticmethod
