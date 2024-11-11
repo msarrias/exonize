@@ -1,10 +1,12 @@
 import sqlite3
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+from dna_features_viewer import GraphicFeature, GraphicRecord
 import networkx as nx
 import portion as P
 from pathlib import Path
 import numpy as np
+import pickle
 
 
 class Gene:
@@ -37,7 +39,7 @@ class Gene:
         self.strand = strand
         self.chromosome = chromosome
         self.expansions = {}
-        self.plot_handler = _PlotHandler()
+        self._plot_handler = _PlotHandler()
 
     def __getitem__(
             self,
@@ -148,7 +150,7 @@ class Gene:
             graph = self.expansions[expansion_id].graph
         else:
             graph = self.build_gene_graph()
-        self.plot_handler.draw_expansions_multigraph(
+        self._plot_handler.draw_expansions_multigraph(
             gene_start=self.coordinates.lower,
             gene_graph=graph,
             figure_path=figure_path,
@@ -158,6 +160,19 @@ class Gene:
             color_tandem_pair_edges=color_tandem_pair_edges,
             full_expansion=full_expansion,
             tandem_edges_color=tandem_edges_color
+        )
+
+    def draw_gene_structure(self,
+                            expansion_id: int = None,
+                            save_path: Path = None
+                            ):
+        graph = self.expansions[expansion_id].graph
+        self._plot_handler.draw_gene_structure(
+            gene_coord=self.coordinates,
+            strand=self.strand,
+            cds_coords_list=self.gene_cds_coordinates,
+            graph=graph,
+            save_path=save_path
         )
 
 
@@ -216,6 +231,7 @@ class GenomeExpansions:
         self.exonize_db_path = exonize_db_path
         self._genes = {}
         self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
+        self.gene_hierarchy_dictionary = {}
         self.build_expansions()
 
     def __iter__(
@@ -323,6 +339,61 @@ class GenomeExpansions:
                 strand=strand,
                 chromosome=chrom
             )
+
+    @staticmethod
+    def _read_pkl_file(
+            file_path: Path
+    ) -> dict:
+        """
+        read_pkl_file is a function that reads a pickle file and returns
+         the object stored in it.
+        """
+        with open(file_path, 'rb') as handle:
+            read_file = pickle.load(handle)
+        return read_file
+
+    def _fetch_gene_cdss_set(
+            self,
+            gene_id: str,
+            cds_feature: str = 'CDS'
+
+    ) -> list[tuple]:
+        return list(
+            set(
+                annotation['coordinate']
+                for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
+                for annotation in mrna_annotation['structure']
+                if annotation['type'] == cds_feature
+            )
+        )
+
+    def _update_genes_cds_coordinates(
+            self,
+            cds_feature: str = 'CDS'
+    ):
+        """
+        Updates the cds coordinates of the genes in the genome expansions.
+        """
+        for gene in self:
+            gene.gene_cds_coordinates = self._fetch_gene_cdss_set(
+                gene_id=gene.id,
+                cds_feature=cds_feature
+            )
+
+    def parse_gene_hierarchy_dictionary(
+            self,
+            gene_hierarchy_dictionary_path: Path,
+            cds_feature: str = 'CDS'
+    ):
+        if Path.exists(Path(gene_hierarchy_dictionary_path)):
+            self.gene_hierarchy_dictionary = self._read_pkl_file(
+                file_path=gene_hierarchy_dictionary_path
+            )
+            self._update_genes_cds_coordinates(
+                cds_feature=cds_feature
+            )
+        else:
+            print(f"Path {self.gene_hierarchy_dictionary_path} does not exist.")
 
     def build_expansions(self):
         """Constructs the gene expansions from the Exonize database.
@@ -535,6 +606,42 @@ class _PlotHandler:
         ]
         if nodes_to_drop:
             graph.remove_nodes_from(nodes_to_drop)
+
+    def draw_gene_structure(
+            self,
+            gene_coord,
+            strand,
+            cds_coords_list,
+            graph,
+            save_path=None
+    ):
+        features = [
+            GraphicFeature(
+                start=coord.lower - gene_coord.lower,
+                end=coord.upper - gene_coord.lower,
+                strand=strand
+            )
+            for coord in cds_coords_list
+        ]
+        fig, ax = plt.subplots(figsize=(9, 2))
+        record = GraphicRecord(
+            first_index=0,
+            sequence_length=gene_coord.upper - gene_coord.lower,
+            features=features
+        )
+        record.plot(ax=ax)
+        for coord, attribute in graph.nodes(data=True):
+            ax.fill_between(
+                (coord.lower - gene_coord.lower, coord.upper - gene_coord.lower),
+                +1,
+                -10,
+                alpha=.4,
+                color=self._color_map[attribute['type']]
+            )
+        if save_path:
+            plt.savefig(save_path, bbox_inches='tight')
+        else:
+            plt.show()
 
     def draw_expansions_multigraph(
             self,
