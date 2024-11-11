@@ -107,7 +107,6 @@ class ReconcilerHandler(object):
             target_set: set,
             overlapping_coords: dict,
             processed_target: set
-
     ):
         for coordinate in source_set:
             for other_coord, oeval in target_set:
