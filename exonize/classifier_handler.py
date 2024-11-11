@@ -12,6 +12,7 @@ class ClassifierHandler(object):
             search_engine: object
     ):
         self.data_container = search_engine.data_container
+        self.environment = search_engine.environment
         self.search_engine = search_engine
         self.database_interface = search_engine.database_interface
 
@@ -22,7 +23,7 @@ class ClassifierHandler(object):
         return [
             annotation['coordinate']
             for annotation in transcript_dictionary['structure']
-            if annotation['type'] == self.environment.cds_feature
+            if annotation['type'] == self.environment.cds_annot_feature
         ]
 
     @staticmethod
