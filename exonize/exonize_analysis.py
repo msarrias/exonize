@@ -162,10 +162,27 @@ class Gene:
             tandem_edges_color=tandem_edges_color
         )
 
-    def draw_gene_structure(self,
-                            expansion_id: int = None,
-                            save_path: Path = None
-                            ):
+    def draw_gene_structure(
+            self,
+            expansion_id: int = None,
+            save_path: Path = None
+    ):
+        """
+        Visualize the gene structure, highlighting coding exons and expansion events.
+
+        This method uses the dna_features_viewer library to plot the gene structure, showing the locations
+        of coding exons and expansion events within the specified gene. The plot can be saved to a file if
+        `save_path` is provided.
+
+        Args:
+            expansion_id (int, optional): The ID of the expansion to visualize. Defaults to None, in which
+                case the default expansion (if any) will be used.
+            save_path (Path, optional): The file path where the plot will be saved. If not provided, the plot
+                will be displayed but not saved.
+
+        Returns:
+            None
+        """
         graph = self.expansions[expansion_id].graph
         self._plot_handler.draw_gene_structure(
             gene_coord=self.coordinates,
