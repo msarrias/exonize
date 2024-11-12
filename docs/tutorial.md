@@ -6,19 +6,19 @@ This guide will walk you through the basics of using the `exonize_analysis` modu
 ## Example: Human Y chromosome
 
 ### Data representation
-**Step 1: Import the `exonize_analysis` Module**
+**Step 1: Import the `exonize_analysis` module**
 
 ```python
 from exonize import exonize_analysis as exonize
 ```
-**Step 2: Set the Path to the Exonize Results Database**
+**Step 2: Set the path to the exonize results database**
 
 For this example, we’ll use the results database generated for the Y chromosome in the usage [example](https://msarrias.github.io/exonize/usage/#example-human-y-chromosome).
 
 ```python
 db_path='Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_results.db'
 ```
-**Step 3: Create a `GenomeExpansions` Object**
+**Step 3: Create a `GenomeExpansions` object**
 
 Initialize the `GenomeExpansions` object using the specified database.
 
@@ -33,7 +33,7 @@ Now let’s check the number of genes identified with duplication events:
 15
 ```
 
-**Step 4: List Genes with Exon Duplications**
+**Step 4: List genes with exon duplications**
 
 Display some of the gene IDs where exon duplications were found:
 
@@ -42,7 +42,7 @@ Display some of the gene IDs where exon duplications were found:
 ['gene:ENSG00000188120', 'gene:ENSG00000165246', 'gene:ENSG00000205916', 'gene:ENSG00000205944']
 ```
 
-**Step 5: Examine the DAZ1 Gene**
+**Step 5: Examine the DAZ1 gene**
 
 Let’s take a closer look at the [DAZ1](https://en.wikipedia.org/wiki/DAZ1) gene (Ensembl id _gene:ENSG00000205916_). Note that the Gene object will return an interable of `Expansion` objects.
 
@@ -58,7 +58,7 @@ DAZ1 has 6 expansions:
 6
 ```
 
-**Step 6: Inspect Expansion #1**
+**Step 6: Inspect expansion #1**
 
 Check the size of expansion #1:
 
@@ -79,7 +79,7 @@ This tells us that there are matches between 15 exons and 3 intronic regions.
 
 
 ### Plotting
-**Step 1: Visualize the Expansion #1 Graph**
+**Step 1: Visualize expansion #1**
 
 Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:
 
@@ -93,7 +93,33 @@ Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent co
     </a>
 </div>
 
-**Step 2: Visualize the Full Expansion #1 Graph**
+**Step 2: Visualize the gene structure**
+
+The `draw_gene_structure` method uses the `[dna_features_viewer]`(https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/) library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.
+
+First, we need to parse the gene hierarchy dictionary (found in the exonize output directory) to obtain the gene structure:
+
+```python
+>>> ychrom_expansions.parse_gene_hierarchy_dictionary(
+    gene_hierarchy_dictionary_path='Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_gene_hierarchy.pkl'
+)
+```
+Let's now plot the gene's features:
+
+```python
+>>> ychrom_expansions['gene:ENSG00000205916'].draw_gene_structure(
+    expansion_id=1
+)
+```
+<div style="text-align: center;">
+    <a href="https://github.com/msarrias/exonize/blob/main/figures/gene_structure.png" target="_blank">
+        <img src="https://github.com/msarrias/exonize/raw/main/figures/gene_structure.png" alt="gene_structure"  width="500">
+    </a>
+</div>
+
+The dark bars indicate the locations of the gene's coding sequences, while the light bars highlight the locations of the expansion events, colored according to the event mode.
+
+**Step 3: Visualize the full expansion #1**
 
 To visualize the full expansion, and matches between tandem exon pairs set the `full_expansion` and `color_tandem_pair_edges` parameters to `True`.
 
@@ -113,7 +139,7 @@ To visualize the full expansion, and matches between tandem exon pairs set the `
 
 We can see that the expansion graph is composed of 15 tandemly duplicated exons.
 
-**Step 3: Visualize All Expansions for DAZ1**
+**Step 4: Visualize the match graph for DAZ1**
 
 You can also display all expansions associated with DAZ1 by ommiting the `expansion_id` parameter:
 
