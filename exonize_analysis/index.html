@@ -76,6 +76,8 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph">draw_expansions_multigraph</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.draw_gene_structure">draw_gene_structure</a>
+    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions">GenomeExpansions</a>
@@ -788,6 +790,86 @@ Default is True.</p>
               –
               <div class="doc-md-description">
                 <p>The color to use for tandem pair edges. Default is 'blue'.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.Gene.draw_gene_structure" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">draw_gene_structure</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.Gene.draw_gene_structure" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Visualize the gene structure, highlighting coding exons and expansion events.</p>
+<p>This method uses the dna_features_viewer library to plot the gene structure, showing the locations
+of coding exons and expansion events within the specified gene. The plot can be saved to a file if
+<code>save_path</code> is provided.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Parameters:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              <b><code>expansion_id</code></b>
+                  (<code>int</code>, default:
+                      <code>None</code>
+)
+              –
+              <div class="doc-md-description">
+                <p>The ID of the expansion to visualize. Defaults to None, in which
+case the default expansion (if any) will be used.</p>
+              </div>
+            </li>
+            <li>
+              <b><code>save_path</code></b>
+                  (<code><span title="pathlib.Path">Path</span></code>, default:
+                      <code>None</code>
+)
+              –
+              <div class="doc-md-description">
+                <p>The file path where the plot will be saved. If not provided, the plot
+will be displayed but not saved.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              –
+              <div class="doc-md-description">
+                <p>None</p>
               </div>
             </li>
         </ul>
