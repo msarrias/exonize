@@ -95,7 +95,7 @@ Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent co
 
 **Step 2: Visualize the gene structure**
 
-The `draw_gene_structure` method uses the `[dna_features_viewer]`(https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/) library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.
+The `draw_gene_structure` method uses the [dna_features_viewer](https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/) library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.
 
 First, we need to parse the gene hierarchy dictionary (found in the exonize output directory) to obtain the gene structure:
 
