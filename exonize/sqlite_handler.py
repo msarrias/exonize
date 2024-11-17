@@ -79,7 +79,8 @@ class SqliteHandler(object):
             cursor.execute(f"""DROP TABLE IF EXISTS {table_name};""")
 
     def clear_results_database(
-            self
+            self,
+            except_tables: list,
     ) -> None:
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
@@ -95,7 +96,7 @@ class SqliteHandler(object):
             items = cursor.fetchall()
             # Drop each table and view except 'Genes'
             for name, type_ in items:
-                if name not in ['Genes', 'Local_matches']:
+                if name not in except_tables:
                     cursor.execute(f"DROP {type_} IF EXISTS {name};")
 
     def create_genes_table(
