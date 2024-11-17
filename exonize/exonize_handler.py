@@ -239,7 +239,9 @@ Exonize results database:   {self.environment.results_database_path.name}
                 'If you wish to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
-            self.database_interface.clear_results_database()
+            self.database_interface.clear_results_database(
+                except_tables=['Genes', 'Local_matches']
+            )
             self.data_container.initialize_database()
         self.database_interface.create_filtered_full_length_events_view(
             query_overlap_threshold=self.environment.query_coverage_threshold,
@@ -249,6 +251,7 @@ Exonize results database:   {self.environment.results_database_path.name}
     def global_search(
             self
     ):
+        genes_to_update = []
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         processed_gene_ids_list = set(
             self.database_interface.query_gene_ids_global_search()
@@ -301,11 +304,6 @@ Exonize results database:   {self.environment.results_database_path.name}
                 assert code != os.EX_SOFTWARE
                 forks -= 1
             genes_to_update = self.database_interface.query_gene_ids_global_search()
-            if self.environment.GLOBAL_SEARCH:
-                self.populate_genes_table()
-            self.database_interface.update_has_duplicate_genes_table(
-                list_tuples=[(gene,) for gene in genes_to_update]
-            )
         else:
             self.environment.logger.info(
                 'Gobal search has been completed. '
@@ -315,9 +313,16 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Starting reconciliation and classification...'
             )
-            if self.environment.GLOBAL_SEARCH:
-                self.database_interface.clear_results_database()
-                self.data_container.initialize_database()
+        if self.environment.GLOBAL_SEARCH:
+            self.database_interface.clear_results_database(
+                except_tables=['Global_matches_non_reciprocal']
+            )
+            self.data_container.initialize_database()
+            self.populate_genes_table()
+        if genes_to_update:
+            self.database_interface.update_has_duplicate_genes_table(
+                list_tuples=[(gene,) for gene in genes_to_update]
+            )
 
     def populate_genes_table(
             self,
