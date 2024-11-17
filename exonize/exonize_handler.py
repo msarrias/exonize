@@ -239,6 +239,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                 'If you wish to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
+        if self.environment.LOCAL_SEARCH:
             self.database_interface.clear_results_database(
                 except_tables=['Genes', 'Local_matches']
             )
