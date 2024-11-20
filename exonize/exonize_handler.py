@@ -165,25 +165,62 @@ Exonize results database:   {self.environment.results_database_path.name}
             result.add('-'.join(perm))
         return list(result)
 
+    def log_search_progress(
+            self,
+            unprocessed_gene_ids_list,
+            local_search: bool,
+            global_search: bool
+
+    ):
+        search = ''
+        if local_search:
+            search = 'local'
+        elif global_search:
+            search = 'global'
+        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
+        gene_count = len(gene_ids_list)
+        out_message = (
+            f'Resuming {search} search'
+            if len(unprocessed_gene_ids_list) != gene_count
+            else 'Starting {search} search'
+        )
+        self.environment.logger.info(
+            f'{out_message} for {len(unprocessed_gene_ids_list)}/{gene_count} genes'
+        )
+        self.environment.logger.info('Exonizing: this may take a while...')
+
+    def cleanup_and_finalize_local_search(self):
+        """Clear results database and create filtered views."""
+        if self.environment.LOCAL_SEARCH:
+            self.database_interface.clear_results_database(
+                except_tables=['Genes', 'Search_monitor', 'Local_matches']
+            )
+            self.data_container.initialize_database()
+        self.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=self.environment.query_coverage_threshold,
+            evalue_threshold=self.environment.evalue_threshold,
+        )
+
+    def local_search_complete_identity_and_coverage(self):
+        self.database_interface.insert_percent_query_column_to_fragments()
+        matches_list = self.database_interface.query_raw_matches()
+        identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
+            matches_list=matches_list
+        )
+        self.database_interface.insert_identity_and_dna_algns_columns(
+            list_tuples=identity_and_sequence_tuples
+        )
+
     def local_search(
             self
     ):
-        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(
             local_search=True
         )
         if unprocessed_gene_ids_list:
-            gene_count = len(gene_ids_list)
-            out_message = 'Starting local search'
-            if len(unprocessed_gene_ids_list) != gene_count:
-                out_message = 'Resuming local search'
-            self.environment.logger.info(
-                f'{out_message} for'
-                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
-            )
-
-            self.environment.logger.info(
-                'Exonizing: this may take a while...'
+            self.log_search_progress(
+                unprocessed_gene_ids_list=unprocessed_gene_ids_list,
+                local_search=True
             )
             status: int
             code: int
@@ -224,49 +261,26 @@ Exonize results database:   {self.environment.results_database_path.name}
                 assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
                 assert code != os.EX_SOFTWARE
                 forks -= 1
-            self.database_interface.insert_percent_query_column_to_fragments()
-            matches_list = self.database_interface.query_raw_matches()
-            identity_and_sequence_tuples = self.search_engine.get_identity_and_dna_seq_tuples(
-                matches_list=matches_list
-            )
-            self.database_interface.insert_identity_and_dna_algns_columns(
-                list_tuples=identity_and_sequence_tuples
-            )
+            self.local_search_complete_identity_and_coverage()
         else:
             self.environment.logger.info(
                 'Local search has been completed. '
                 'If you wish to re-run the analysis, '
                 'consider using the hard-force/soft-force flag'
             )
-        if self.environment.LOCAL_SEARCH:
-            self.database_interface.clear_results_database(
-                except_tables=['Genes', 'Search_monitor', 'Local_matches']
-            )
-            self.data_container.initialize_database()
-        self.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=self.environment.query_coverage_threshold,
-            evalue_threshold=self.environment.evalue_threshold,
-        )
+        self.cleanup_and_finalize_local_search()
 
     def global_search(
             self
     ):
         genes_to_update = []
-        gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(
             global_search=True
         )
         if unprocessed_gene_ids_list:
-            gene_count = len(gene_ids_list)
-            out_message = 'Starting global search'
-            if len(unprocessed_gene_ids_list) != gene_count:
-                out_message = 'Resuming global search'
-            self.environment.logger.info(
-                f'{out_message} for'
-                f' {len(unprocessed_gene_ids_list)}/{gene_count} genes'
-            )
-            self.environment.logger.info(
-                'Exonizing: this may take a while...'
+            self.log_search_progress(
+                unprocessed_gene_ids_list=unprocessed_gene_ids_list,
+                global_search=True
             )
             status: int
             code: int
