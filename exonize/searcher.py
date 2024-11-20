@@ -355,6 +355,17 @@ class Searcher(object):
                     sys.exit()
             return tblastx_output_dictionary
 
+    def fetch_clusters(
+            self,
+            cds_coordinates_and_frames: list[tuple]
+    ) -> list:
+        return self.data_container.get_overlapping_clusters(
+            target_coordinates_set=set(
+                (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
+                if coordinate.upper - coordinate.lower >= self.environment.min_exon_length),
+            threshold=self.environment.exon_clustering_overlap_threshold
+        )
+
     def get_candidate_cds_coordinates(
             self,
             gene_id: str,
@@ -386,12 +397,7 @@ class Searcher(object):
             gene_id=gene_id
         )
         if cds_coordinates_and_frames:
-            clusters = self.data_container.get_overlapping_clusters(
-                target_coordinates_set=set(
-                    (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
-                    if coordinate.upper - coordinate.lower >= self.environment.min_exon_length),
-                threshold=self.environment.exon_clustering_overlap_threshold
-            )
+            clusters = self.fetch_clusters(cds_coordinates_and_frames=cds_coordinates_and_frames)
             if clusters:
                 representative_cdss = self.data_container.flatten_clusters_representative_exons(
                     cluster_list=clusters,
