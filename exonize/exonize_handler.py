@@ -355,49 +355,75 @@ Exonize results database:   {self.environment.results_database_path.name}
             match_interdependence_tuples.append(match_interdependence_classification)
         return match_interdependence_tuples
 
+    def prepare_reconciliation_data(
+            self,
+            gene_id: str
+    ):
+        global_records_set = set()
+        local_records_set = set()
+        query_coordinates = set()
+        targets_reference_coordinates_dictionary = {}
+
+        if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+            if gene_id in self.local_full_matches_dictionary:
+                local_records_set = self.local_full_matches_dictionary[gene_id]
+                cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
+                    gene_id=gene_id
+                )
+                (query_coordinates,
+                 targets_reference_coordinates_dictionary
+                 ) = self.event_reconciler.align_target_coordinates(
+                    gene_id=gene_id,
+                    local_records_set=local_records_set,
+                    cds_candidates_dictionary=cds_candidates_dictionary
+                )
+        if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+            global_records_set = self.global_full_matches_dictionary.get(gene_id, set())
+
+        return local_records_set, global_records_set, query_coordinates, targets_reference_coordinates_dictionary
+
+    def fetch_tandem_tuples(
+            self,
+            full_events_list: list
+    ) -> list:
+        tandemness_tuples = []
+        if full_events_list:
+            expansions_dictionary = self.event_reconciler.build_expansion_dictionary(
+                records=full_events_list
+            )
+            tandemness_tuples = self.event_reconciler.get_gene_full_events_tandemness_tuples(
+                expansions_dictionary
+            )
+        return tandemness_tuples
+
     def reconcile(
             self,
             genes_list: list,
     ) -> None:
         for gene_id in genes_list:
-            global_records_set = set()
-            local_records_set = set()
-            query_coordinates = set()
-            targets_reference_coordinates_dictionary = {}
-            if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
-                if gene_id in self.local_full_matches_dictionary:
-                    local_records_set = self.local_full_matches_dictionary[gene_id]
-                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
-                        gene_id=gene_id
+            (local_records_set,
+             global_records_set,
+             query_coordinates,
+             targets_reference_coordinates_dictionary
+             ) = self.prepare_reconciliation_data(gene_id=gene_id)
+            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                gene_id=gene_id,
+                local_records_set=local_records_set,
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+            )
+            attempt = False
+            while not attempt:
+                try:
+                    self.database_interface.insert_corrected_target_start_end(
+                        list_tuples=corrected_coordinates_tuples
                     )
-                    (query_coordinates,
-                     targets_reference_coordinates_dictionary
-                     ) = self.event_reconciler.align_target_coordinates(
-                        gene_id=gene_id,
-                        local_records_set=local_records_set,
-                        cds_candidates_dictionary=cds_candidates_dictionary
-                    )
-                    corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-                        gene_id=gene_id,
-                        local_records_set=local_records_set,
-                        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-                    )
-                    attempt = False
-                    while not attempt:
-                        try:
-                            self.database_interface.insert_corrected_target_start_end(
-                                list_tuples=corrected_coordinates_tuples
-                            )
-                            attempt = True
-                        except Exception as e:
-                            if "locked" in str(e):
-                                time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                            else:
-                                self.environment.logger.exception(e)
-                                sys.exit()
-
-            if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
-                global_records_set = self.global_full_matches_dictionary[gene_id]
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
 
             gene_graph = self.event_reconciler.create_events_multigraph(
                 local_records_set=local_records_set,
@@ -413,14 +439,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                 gene_id=gene_id,
                 gene_graph=gene_graph
             )
-            tandemness_tuples = []
-            if full_events_list:
-                expansions_dictionary = self.event_reconciler.build_expansion_dictionary(
-                    records=full_events_list
-                )
-                tandemness_tuples = self.event_reconciler.get_gene_full_events_tandemness_tuples(
-                    expansions_dictionary
-                )
+            tandemness_tuples = self.fetch_tandem_tuples(full_events_list=full_events_list)
             attempt = False
             while not attempt:
                 try:
