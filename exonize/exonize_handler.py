@@ -182,7 +182,7 @@ Exonize results database:   {self.environment.results_database_path.name}
         out_message = (
             f'Resuming {search} search'
             if len(unprocessed_gene_ids_list) != gene_count
-            else 'Starting {search} search'
+            else f'Starting {search} search'
         )
         self.environment.logger.info(
             f'{out_message} for {len(unprocessed_gene_ids_list)}/{gene_count} genes'
