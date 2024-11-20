@@ -169,10 +169,9 @@ Exonize results database:   {self.environment.results_database_path.name}
             self
     ):
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
-        processed_gene_ids_list = set(
-            self.database_interface.query_gene_ids_in_results_database()
+        unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(
+            local_search=True
         )
-        unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
             out_message = 'Starting local search'
@@ -190,7 +189,7 @@ Exonize results database:   {self.environment.results_database_path.name}
             code: int
             forks: int = 0
             for balanced_batch in self.even_batches(
-                    data=unprocessed_gene_ids_list,
+                    data=list(unprocessed_gene_ids_list),
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
                 if os.fork():
@@ -204,7 +203,7 @@ Exonize results database:   {self.environment.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.search_engine.local_search(
+                        self.search_engine.cds_local_search(
                             gene_id_list=list(balanced_batch)
                         )
                     except Exception as exception:
@@ -241,7 +240,7 @@ Exonize results database:   {self.environment.results_database_path.name}
             )
         if self.environment.LOCAL_SEARCH:
             self.database_interface.clear_results_database(
-                except_tables=['Genes', 'Local_matches']
+                except_tables=['Genes', 'Search_monitor', 'Local_matches']
             )
             self.data_container.initialize_database()
         self.database_interface.create_filtered_full_length_events_view(
@@ -254,10 +253,9 @@ Exonize results database:   {self.environment.results_database_path.name}
     ):
         genes_to_update = []
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
-        processed_gene_ids_list = set(
-            self.database_interface.query_gene_ids_global_search()
+        unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(
+            global_search=True
         )
-        unprocessed_gene_ids_list = list(set(gene_ids_list) - processed_gene_ids_list)
         if unprocessed_gene_ids_list:
             gene_count = len(gene_ids_list)
             out_message = 'Starting global search'
@@ -274,7 +272,7 @@ Exonize results database:   {self.environment.results_database_path.name}
             code: int
             forks: int = 0
             for balanced_batch in self.even_batches(
-                    data=unprocessed_gene_ids_list,
+                    data=list(unprocessed_gene_ids_list),
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
                 if os.fork():
@@ -314,27 +312,16 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.environment.logger.info(
                 'Starting reconciliation and classification...'
             )
-        if self.environment.GLOBAL_SEARCH:
-            self.database_interface.clear_results_database(
-                except_tables=['Global_matches_non_reciprocal']
-            )
-            self.data_container.initialize_database()
-            self.populate_genes_table()
+        except_tables = ['Genes', 'Search_monitor', 'Global_matches_non_reciprocal']
+        if self.environment.SEARCH_ALL:
+            except_tables.append('Local_matches')
+        self.database_interface.clear_results_database(except_tables=except_tables)
+        self.data_container.initialize_database()
+
         if genes_to_update:
             self.database_interface.update_has_duplicate_genes_table(
                 list_tuples=[(gene,) for gene in genes_to_update]
             )
-
-    def populate_genes_table(
-            self,
-    ) -> None:
-        tuples_to_insert = [
-            self.search_engine.get_gene_tuple(gene_id=gene_id)
-            for gene_id, gene_dict in self.data_container.gene_hierarchy_dictionary.items()
-        ]
-        self.database_interface.insert_gene_ids_table(
-            gene_args_tuple_list=tuples_to_insert
-        )
 
     def classify_matches_transcript_interdependence(
             self,
