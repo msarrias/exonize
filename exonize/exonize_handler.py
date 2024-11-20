@@ -168,8 +168,8 @@ Exonize results database:   {self.environment.results_database_path.name}
     def log_search_progress(
             self,
             unprocessed_gene_ids_list,
-            local_search: bool,
-            global_search: bool
+            local_search: bool = False,
+            global_search: bool = False
 
     ):
         search = ''
