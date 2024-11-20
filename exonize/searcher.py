@@ -554,14 +554,41 @@ class Searcher(object):
                 local_search=True
             )
 
+    def fetch_pair_sequences_and_coordinates(
+            self,
+            pair: tuple,
+            transcripts_dictionary: dict
+    ):
+        coord_i, coord_j = pair
+        seqs_i = self.data_container.recover_prot_dna_seq(
+            cds_coordinate=coord_i,
+            transcript_dict=transcripts_dictionary
+        )
+        seqs_j = self.data_container.recover_prot_dna_seq(
+            cds_coordinate=coord_j,
+            transcript_dict=transcripts_dictionary
+        )
+        return coord_i, coord_j, seqs_i, seqs_j
+
+    @staticmethod
+    def validate_frames(
+            seqs_i: list,
+            seqs_j: list
+    ):
+        # a cds can have multiple frames, which might result in
+        # different peptide sequences, we account for all cases, so that
+        # we expect as many alignments as the number of frames
+        return all([
+            len(seqs) == len(set([frames for *_, frames in seqs]))
+            for seqs in [seqs_i, seqs_j]
+        ])
+
     def cds_global_search(
             self,
             genes_list: list[str]
     ):
         for gene_id in genes_list:
             retain_pairs = set()
-            gene_chrom = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
-            gene_strand = self.data_container.gene_hierarchy_dictionary[gene_id]['strand']
             cds_frame_tuples_list = self.fetch_representative_exons_frame_tuples(gene_id=gene_id)
             gene_pairs = self.fetch_pairs_for_global_alignments(
                 cds_list=cds_frame_tuples_list
@@ -572,22 +599,11 @@ class Searcher(object):
                 self.environment.logger.warning(f"{gene_id}: {str(e)}")
                 continue
             for pair in gene_pairs:
-                coord_i, coord_j = pair
-                seqs_i = self.data_container.recover_prot_dna_seq(
-                    cds_coordinate=coord_i,
-                    transcript_dict=transcripts_dictionary
+                coord_i, coord_j, seqs_i, seqs_j = self.fetch_pair_sequences_and_coordinates(
+                    pair=pair,
+                    transcripts_dictionary=transcripts_dictionary
                 )
-                seqs_j = self.data_container.recover_prot_dna_seq(
-                    cds_coordinate=coord_j,
-                    transcript_dict=transcripts_dictionary
-                )
-                # a cds can have multiple frames, which might result in
-                # different peptide sequences, we account for all cases, so that
-                # we expect as many alignments as the number of frames
-                if not all([
-                    len(seqs) == len(set([frames for *_, frames in seqs]))
-                    for seqs in [seqs_i, seqs_j]
-                ]):
+                if not self.validate_frames(seqs_i=seqs_i, seqs_j=seqs_j):
                     print('check here', pair)
                 else:
                     for seq_i in seqs_i:
@@ -615,7 +631,9 @@ class Searcher(object):
                                     if (identp >= self.environment.peptide_identity_threshold and
                                             align_pos_fract < perc_indels):
                                         retain_pairs.add((
-                                            gene_id, gene_chrom, gene_strand,
+                                            gene_id,
+                                            self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
+                                            self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
                                             coord_i.lower, coord_i.upper,
                                             coord_j.lower, coord_j.upper,
                                             prev_frame_i, frame_i,
