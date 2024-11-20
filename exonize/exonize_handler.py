@@ -401,30 +401,43 @@ Exonize results database:   {self.environment.results_database_path.name}
             genes_list: list,
     ) -> None:
         for gene_id in genes_list:
-            (local_records_set,
-             global_records_set,
-             query_coordinates,
-             targets_reference_coordinates_dictionary
-             ) = self.prepare_reconciliation_data(gene_id=gene_id)
-            corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
-                gene_id=gene_id,
-                local_records_set=local_records_set,
-                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
-            )
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_corrected_target_start_end(
-                        list_tuples=corrected_coordinates_tuples
+            global_records_set = set()
+            local_records_set = set()
+            query_coordinates = set()
+            targets_reference_coordinates_dictionary = {}
+            if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+                if gene_id in self.local_full_matches_dictionary:
+                    local_records_set = self.local_full_matches_dictionary[gene_id]
+                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
+                        gene_id=gene_id
                     )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
-
+                    (query_coordinates,
+                     targets_reference_coordinates_dictionary
+                     ) = self.event_reconciler.align_target_coordinates(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        cds_candidates_dictionary=cds_candidates_dictionary
+                    )
+                    corrected_coordinates_tuples = self.event_reconciler.get_matches_corrected_coordinates_and_identity(
+                        gene_id=gene_id,
+                        local_records_set=local_records_set,
+                        targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+                    )
+                    attempt = False
+                    while not attempt:
+                        try:
+                            self.database_interface.insert_corrected_target_start_end(
+                                list_tuples=corrected_coordinates_tuples
+                            )
+                            attempt = True
+                        except Exception as e:
+                            if "locked" in str(e):
+                                time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                            else:
+                                self.environment.logger.exception(e)
+                                sys.exit()
+            if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+                global_records_set = self.global_full_matches_dictionary[gene_id]
             gene_graph = self.event_reconciler.create_events_multigraph(
                 local_records_set=local_records_set,
                 global_records_set=global_records_set,
@@ -474,9 +487,6 @@ Exonize results database:   {self.environment.results_database_path.name}
     def events_reconciliation(
             self,
     ):
-        self.environment.logger.info(
-            'Starting reconciliation and classification...'
-        )
         genes_to_process = set()
         if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
             self.database_interface.create_non_reciprocal_fragments_table()
@@ -649,6 +659,7 @@ Exonize results database:   {self.environment.results_database_path.name}
             self.global_search()
         else:
             self.local_search()
+        self.environment.logger.info('Starting reconciliation and classification...')
         self.environment.logger.info('Reconciling local matches')
         self.events_reconciliation()
         self.environment.logger.info('Classifying events')
