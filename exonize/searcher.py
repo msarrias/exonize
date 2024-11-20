@@ -504,6 +504,7 @@ class Searcher(object):
     def fetch_cds_dna_sequence(
             self,
             cds_coordinate: P.Interval,
+            gene_id: str
     ):
         chromosome = self.data_container.gene_hierarchy_dictionary[gene_id]['chrom']
         return str(
@@ -541,7 +542,7 @@ class Searcher(object):
                 for cds_coordinate in cds_coordinates_dictionary['candidates_cds_coordinates']:
                     # note that we are not accounting for the frame at this stage, that will be part of
                     # the filtering step (since tblastx alignments account for 3 frames)
-                    cds_dna_sequence = self.fetch_cds_dna_sequence(cds_coordinate=cds_coordinate)
+                    cds_dna_sequence = self.fetch_cds_dna_sequence(cds_coordinate=cds_coordinate, gene_id=gene_id)
                     cds_frame = cds_coordinates_dictionary['cds_frame_dict'][cds_coordinate]
                     tblastx_o = self.align_cds(
                         gene_id=gene_id,
