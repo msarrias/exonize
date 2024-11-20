@@ -640,7 +640,7 @@ class _PlotHandler:
             )
             for coord in cds_coords_list
         ]
-        fig, ax = plt.subplots(figsize=(9, 2))
+        _, ax = plt.subplots(figsize=(9, 2))
         record = GraphicRecord(
             first_index=0,
             sequence_length=gene_coord.upper - gene_coord.lower,
