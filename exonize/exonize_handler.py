@@ -189,17 +189,27 @@ Exonize results database:   {self.environment.results_database_path.name}
         )
         self.environment.logger.info('Exonizing: this may take a while...')
 
-    def cleanup_and_finalize_local_search(self):
-        """Clear results database and create filtered views."""
+    def log_completed_search(
+            self,
+            local_search: bool = False,
+            global_search: bool = False):
+        search = ''
+        if local_search:
+            search = 'Local'
+        elif global_search:
+            search = 'Global'
+        self.environment.logger.info(
+            f'{search} search has been completed. '
+            'If you wish to re-run the analysis, '
+            'consider using the hard-force/soft-force flag'
+        )
+
+    def cleanup_local_search(self):
         if self.environment.LOCAL_SEARCH:
             self.database_interface.clear_results_database(
                 except_tables=['Genes', 'Search_monitor', 'Local_matches']
             )
             self.data_container.initialize_database()
-        self.database_interface.create_filtered_full_length_events_view(
-            query_overlap_threshold=self.environment.query_coverage_threshold,
-            evalue_threshold=self.environment.evalue_threshold,
-        )
 
     def local_search_complete_identity_and_coverage(self):
         self.database_interface.insert_percent_query_column_to_fragments()
@@ -240,13 +250,9 @@ Exonize results database:   {self.environment.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.search_engine.cds_local_search(
-                            gene_id_list=list(balanced_batch)
-                        )
+                        self.search_engine.cds_local_search(gene_id_list=list(balanced_batch))
                     except Exception as exception:
-                        self.environment.logger.exception(
-                            str(exception)
-                        )
+                        self.environment.logger.exception(str(exception))
                         status = os.EX_SOFTWARE
                     finally:
                         # This prevents the child process forked above to keep along the for loop upon completion
@@ -263,12 +269,19 @@ Exonize results database:   {self.environment.results_database_path.name}
                 forks -= 1
             self.local_search_complete_identity_and_coverage()
         else:
-            self.environment.logger.info(
-                'Local search has been completed. '
-                'If you wish to re-run the analysis, '
-                'consider using the hard-force/soft-force flag'
-            )
-        self.cleanup_and_finalize_local_search()
+            self.log_completed_search(local_search=True)
+        self.cleanup_local_search()
+        self.database_interface.create_filtered_full_length_events_view(
+            query_overlap_threshold=self.environment.query_coverage_threshold,
+            evalue_threshold=self.environment.evalue_threshold,
+        )
+
+    def cleanup_global_search(self):
+        except_tables = ['Genes', 'Search_monitor', 'Global_matches_non_reciprocal']
+        if self.environment.SEARCH_ALL:
+            except_tables.append('Local_matches')
+        self.database_interface.clear_results_database(except_tables=except_tables)
+        self.data_container.initialize_database()
 
     def global_search(
             self
@@ -300,13 +313,9 @@ Exonize results database:   {self.environment.results_database_path.name}
                 else:
                     status = os.EX_OK
                     try:
-                        self.search_engine.cds_global_search(
-                            genes_list=list(balanced_batch)
-                        )
+                        self.search_engine.cds_global_search(genes_list=list(balanced_batch))
                     except Exception as exception:
-                        self.environment.logger.exception(
-                            str(exception)
-                        )
+                        self.environment.logger.exception(str(exception))
                         status = os.EX_SOFTWARE
                     finally:
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
@@ -318,20 +327,8 @@ Exonize results database:   {self.environment.results_database_path.name}
                 forks -= 1
             genes_to_update = self.database_interface.query_gene_ids_global_search()
         else:
-            self.environment.logger.info(
-                'Gobal search has been completed. '
-                'If you wish to re-run the analysis, '
-                'consider using the hard-force/soft-force flag'
-            )
-            self.environment.logger.info(
-                'Starting reconciliation and classification...'
-            )
-        except_tables = ['Genes', 'Search_monitor', 'Global_matches_non_reciprocal']
-        if self.environment.SEARCH_ALL:
-            except_tables.append('Local_matches')
-        self.database_interface.clear_results_database(except_tables=except_tables)
-        self.data_container.initialize_database()
-
+            self.log_completed_search(global_search=True)
+        self.cleanup_global_search()
         if genes_to_update:
             self.database_interface.update_has_duplicate_genes_table(
                 list_tuples=[(gene,) for gene in genes_to_update]
@@ -341,7 +338,6 @@ Exonize results database:   {self.environment.results_database_path.name}
             self,
             non_reciprocal_coding_matches_list: list
     ) -> list[tuple]:
-        # Classify matches based on the mode and interdependence
         match_interdependence_tuples = []
         for match in non_reciprocal_coding_matches_list:
             (gene_id,
@@ -459,6 +455,9 @@ Exonize results database:   {self.environment.results_database_path.name}
     def events_reconciliation(
             self,
     ):
+        self.environment.logger.info(
+            'Starting reconciliation and classification...'
+        )
         genes_to_process = set()
         if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
             self.database_interface.create_non_reciprocal_fragments_table()
@@ -580,8 +579,6 @@ Exonize results database:   {self.environment.results_database_path.name}
          for the last one whose size is the remainder of the division of
         the length of 'data' by 'number_of_batches'.
         """
-        # We round up to the upper integer value to guarantee that there
-        # will be 'number_of_batches' batches
         even_batch_size = (len(data) // number_of_batches) + 1
         for batch_number in range(number_of_batches):
             batch_start_index = batch_number * even_batch_size
