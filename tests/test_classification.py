@@ -150,7 +150,7 @@ def create_exonize_test1():
             }
         }
     }
-    mock_gene0 = ['gene_0', 'X', '+', len(gene_hierarchy_dictionary['gene_0']['mRNAs']), 0, 2500]
+    mock_gene0 = ('gene_0', 'X', '+', len(gene_hierarchy_dictionary['gene_0']['mRNAs']), 0, 2500)
     fragments_gene0 = [
         ('gene_0', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1300, 1500, '-', '-', '-', 0, 0),
         ('gene_0', 400, 500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 850, 950, '-', '-', '-', 0, 0),
@@ -160,7 +160,7 @@ def create_exonize_test1():
         ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 1750, 1850, '-', '-', '-', 0, 0),
         ('gene_0', 600, 700, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 100, 2200, 2300, '-', '-', '-', 0, 0)
     ]
-    mock_gene1 = ['gene_1', 'Y', '+', len(gene_hierarchy_dictionary['gene_1']['mRNAs']), 0, 3000]
+    mock_gene1 = ('gene_1', 'Y', '+', len(gene_hierarchy_dictionary['gene_1']['mRNAs']), 0, 3000)
     fragments_gene1 = [
         ('gene_1', 1, 200, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1200, 1400, '-', '-', '-', 0, 0),
         ('gene_1', 1200, 1400, 0, 0, '+', 0, '+', 0, 0, 1e-5, 200, 1, 200, 1, 200, '-', '-', '-', 0, 0),
@@ -176,14 +176,16 @@ def create_exonize_test1():
         ('gene_1', 1420, 1460, 0, 0, '+', 0, '+', 0, 0, 1e-5, 40, 1, 40, 1080, 1120, '-', '-', '-', 0, 0),
         ('gene_1', 1750, 1900, 0, 0, '+', 0, '+', 0, 0, 1e-5, 150, 1, 150, 1210, 1360, '-', '-', '-', 0, 0)
     ]
+    genes = [mock_gene0, mock_gene1]
     exonize_obj.data_container.initialize_database()
     exonize_obj.database_interface.insert_matches(
-        gene_args_tuple=mock_gene1,
         fragments_tuples_list=fragments_gene1
     )
     exonize_obj.database_interface.insert_matches(
-        gene_args_tuple=mock_gene0,
         fragments_tuples_list=fragments_gene0
+    )
+    exonize_obj.database_interface.insert_gene_ids_table(
+        gene_args_tuple_list=genes
     )
     exonize_obj.event_classifier.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary
     matches_list = exonize_obj.database_interface.query_raw_matches()
@@ -422,9 +424,9 @@ def create_exonize_test2():
                 }
             }
         }}
-    mock_gene1 = ['gene1', 'Y', '+',
+    mock_gene1 = ('gene1', 'Y', '+',
                   len(gene_hierarchy_dictionary_expansions_test['gene1']['mRNAs']),
-                  0, 1500]
+                  0, 1500)
     fragments_gene1 = [
         ('gene1', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 300, 400, '-', '-', '-', 0, 0),
         ('gene1', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 700, 800, '-', '-', '-', 0, 0),
@@ -438,9 +440,9 @@ def create_exonize_test2():
         ('gene1', 900, 1000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 600, 700, '-', '-', '-', 0, 0),
         ('gene1', 900, 1000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 1100, 1200, '-', '-', '-', 0, 0),
     ]
-    mock_gene2 = ['gene2', 'X', '+',
+    mock_gene2 = ('gene2', 'X', '+',
                   len(gene_hierarchy_dictionary_expansions_test['gene2']['mRNAs']),
-                  0, 4600]
+                  0, 4600)
     fragments_gene2 = [
         ('gene2', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 150, 250, '-', '-', '-', 0, 0),
         ('gene2', 0, 100, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 600, 700, '-', '-', '-', 0, 0),
@@ -466,14 +468,15 @@ def create_exonize_test2():
         ('gene2', 2900, 3000, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 3400, 3500, '-', '-', '-', 0, 0),
         ('gene2', 3400, 3500, 0, 0, '+', 0, '+', 0, 0, 1e-5, 100, 0, 100, 2900, 3000, '-', '-', '-', 0, 0)
     ]
-
+    genes = [mock_gene1, mock_gene2]
     exonize_obj2.database_interface.insert_matches(
-        gene_args_tuple=mock_gene1,
         fragments_tuples_list=fragments_gene1
     )
     exonize_obj2.database_interface.insert_matches(
-        gene_args_tuple=mock_gene2,
         fragments_tuples_list=fragments_gene2
+    )
+    exonize_obj2.database_interface.insert_gene_ids_table(
+        gene_args_tuple_list=genes
     )
     exonize_obj2.data_container.gene_hierarchy_dictionary = gene_hierarchy_dictionary_expansions_test
     matches_list2 = exonize_obj2.database_interface.query_raw_matches()
