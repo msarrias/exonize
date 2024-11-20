@@ -525,7 +525,7 @@ class ReconcilerHandler(object):
         event_reduced_fragments_list = list()
         skip_pair = list()
         for event in events_list:
-            _, _, node_start, node_end, *_, event_id = event
+            _, _, node_start, node_end, *_, _ = event
             for adjacent_node, adjacent_edges in gene_graph[(node_start - gene_start, node_end - gene_start)].items():
                 pair = {(node_start - gene_start, node_end - gene_start), adjacent_node}
                 if pair not in skip_pair:
@@ -633,7 +633,7 @@ class ReconcilerHandler(object):
         query_coordinates = set()
         min_e_values = {}
         for record in local_records_set:
-            fragment_id, gene_id, cds_start, cds_end, target_start, target_end, evalue = record
+            _, _, cds_start, cds_end, target_start, target_end, evalue = record
             target_coordinate = P.open(target_start, target_end)
             query_coordinates.add(P.open(cds_start, cds_end))
             if target_coordinate not in min_e_values or evalue < min_e_values[target_coordinate]:
@@ -688,7 +688,6 @@ class ReconcilerHandler(object):
             )
             target = target[frame:adjusted_end]
             trans_target = target.translate()
-            n_stop_codons = str(trans_target).count('*')
             alignment = self.search_engine.perform_msa(
                 query=trans_query,
                 target=trans_target
@@ -699,14 +698,13 @@ class ReconcilerHandler(object):
                 sequence_j=alignseq2
             )
             target_sequence_frames_translations.append(
-                (prot_identity, frame, target, trans_target, n_stop_codons)
+                (prot_identity, frame, target, trans_target)
             )
         # we want the frame that gives us the highest identity alignment
         (corrected_prot_perc_id,
          corrected_frame,
          target,
-         trans_target,
-         n_stop_codons
+         trans_target
          ) = max(target_sequence_frames_translations, key=lambda x: x[0])
         alignment = self.search_engine.perform_msa(
             query=query,
