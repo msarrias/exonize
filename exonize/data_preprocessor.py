@@ -429,14 +429,50 @@ class DataPreprocessor(object):
 
     def initialize_database(self):
         self.database_interface.create_genes_table()
+        if self.database_interface.check_if_empty_table(table_name='Genes'):
+            self.populate_genes_table()
+            self.database_interface.populate_search_monitor_table()
         self.database_interface.create_expansions_table()
         if not self.environment.GLOBAL_SEARCH and not self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
             self.database_interface.create_global_search_table()
         elif self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
+            self.database_interface.clear_search_monitor_table(local_search=True)
         else:
             self.database_interface.create_global_search_table()
+            self.database_interface.clear_search_monitor_table(global_search=True)
+
+    def get_gene_tuple(
+            self,
+            gene_id: str
+    ) -> tuple:
+        """
+        get_gene_tuple is a function that given a gene_id,
+         returns a tuple with the following structure:
+        (gene_id, chromosome, strand, start_coord,
+        end_coord, 1 if it has a duplication event 0 otherwise)
+        """
+        gene_coordinate = self.gene_hierarchy_dictionary[gene_id]['coordinate']
+        return (
+            gene_id,
+            self.gene_hierarchy_dictionary[gene_id]['chrom'],
+            self.gene_hierarchy_dictionary[gene_id]['strand'],
+            len(self.gene_hierarchy_dictionary[gene_id]['mRNAs']),
+            gene_coordinate.lower,
+            gene_coordinate.upper
+        )
+
+    def populate_genes_table(
+            self
+    ) -> None:
+        tuples_to_insert = [
+            self.get_gene_tuple(gene_id=gene_id)
+            for gene_id, gene_dict in self.gene_hierarchy_dictionary.items()
+        ]
+        self.database_interface.insert_gene_ids_table(
+            gene_args_tuple_list=tuples_to_insert
+        )
 
     def prepare_data(
             self,
