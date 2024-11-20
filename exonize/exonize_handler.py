@@ -355,33 +355,6 @@ Exonize results database:   {self.environment.results_database_path.name}
             match_interdependence_tuples.append(match_interdependence_classification)
         return match_interdependence_tuples
 
-    def prepare_reconciliation_data(
-            self,
-            gene_id: str
-    ):
-        global_records_set = set()
-        local_records_set = set()
-        query_coordinates = set()
-        targets_reference_coordinates_dictionary = {}
-
-        if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
-            if gene_id in self.local_full_matches_dictionary:
-                local_records_set = self.local_full_matches_dictionary[gene_id]
-                cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
-                    gene_id=gene_id
-                )
-                (query_coordinates,
-                 targets_reference_coordinates_dictionary
-                 ) = self.event_reconciler.align_target_coordinates(
-                    gene_id=gene_id,
-                    local_records_set=local_records_set,
-                    cds_candidates_dictionary=cds_candidates_dictionary
-                )
-        if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
-            global_records_set = self.global_full_matches_dictionary.get(gene_id, set())
-
-        return local_records_set, global_records_set, query_coordinates, targets_reference_coordinates_dictionary
-
     def fetch_tandem_tuples(
             self,
             full_events_list: list
