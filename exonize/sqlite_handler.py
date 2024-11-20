@@ -37,6 +37,17 @@ class SqliteHandler(object):
                 for other_table_name in cursor.fetchall()
             )
 
+    def check_if_empty_table(
+        self,
+        table_name: str,
+    ) -> bool:
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            return cursor.fetchone()[0] == 0
+
     def check_if_column_in_table_exists(
         self,
         table_name: str,
@@ -67,6 +78,19 @@ class SqliteHandler(object):
                 if self.check_if_column_in_table_exists(table_name=table_name, column_name=column_name):
                     cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN '{column_name}';")
                 cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN '{column_name}' {column_type};")
+
+    def drop_column_from_table(
+        self,
+        table_name: str,
+        column_name: str,
+    ) -> None:
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            if self.check_if_table_exists(table_name=table_name):
+                if self.check_if_column_in_table_exists(table_name=table_name, column_name=column_name):
+                    cursor.execute(f"ALTER TABLE {table_name} DROP COLUMN '{column_name}';")
 
     def drop_table(
             self,
@@ -119,6 +143,14 @@ class SqliteHandler(object):
             """
                            )
             cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Search_monitor (
+                GeneID VARCHAR(100) PRIMARY KEY,
+                Global BINARY(1) DEFAULT 0,
+                Local BINARY(1) DEFAULT 0
+            );
+            """
+                           )
 
     def create_expansions_table(
         self,
@@ -544,10 +576,61 @@ class SqliteHandler(object):
                 """
                 )
 
+    def clear_search_monitor_table(
+            self,
+            local_search: bool = False,
+            global_search: bool = False
+    ):
+        column_name = ""
+        if local_search:
+            column_name = "Global"
+        elif global_search:
+            column_name = "Local"
+
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            query = f"UPDATE Search_monitor SET {column_name} = 0"
+            cursor.execute(query)
+
+    def update_search_monitor_table(
+            self,
+            gene_id: str,
+            local_search: bool = False,
+            global_search: bool = False
+    ):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            if local_search:
+                insert_gene_table_param = """
+                UPDATE Search_monitor SET Local=1 where GeneID=?
+                """
+            elif global_search:
+                insert_gene_table_param = """
+                UPDATE Search_monitor SET Global=1 where GeneID=?
+                """
+            cursor.execute(insert_gene_table_param, (gene_id,))
+
+    def populate_search_monitor_table(
+            self
+    ):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+                INSERT INTO Search_monitor (GeneID) SELECT GeneID FROM Genes;
+                """
+            )
+
     def insert_gene_ids_table(
             self,
             gene_args_tuple: tuple = None,
-            gene_args_tuple_list: list = None,
+            gene_args_tuple_list: list = None
     ) -> None:
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
@@ -571,7 +654,6 @@ class SqliteHandler(object):
 
     def insert_matches(
         self,
-        gene_args_tuple: tuple,
         fragments_tuples_list: list,
     ) -> None:
         insert_matches_table_param = """
@@ -600,23 +682,12 @@ class SqliteHandler(object):
         )
         VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        insert_gene_table_param = """
-        INSERT INTO Genes (
-            GeneID,
-            GeneChrom,
-            GeneStrand,
-            TranscriptCount,
-            GeneStart,
-            GeneEnd
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        """
+
         with contextlib.closing(
             sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database)
         ) as db:
             with db:
                 with contextlib.closing(db.cursor()) as cursor:
-                    cursor.execute(insert_gene_table_param, gene_args_tuple)
                     cursor.executemany(
                         insert_matches_table_param, fragments_tuples_list
                     )
@@ -696,6 +767,12 @@ class SqliteHandler(object):
     def create_non_reciprocal_fragments_table(
             self,
     ) -> None:
+        self.drop_table(table_name="Local_matches_non_reciprocal")
+        if not self.check_if_table_exists(table_name='Matches_full_length'):
+            self.create_filtered_full_length_events_view(
+                query_overlap_threshold=self.environment.query_coverage_threshold,
+                evalue_threshold=self.environment.evalue_threshold
+            )
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
@@ -1019,15 +1096,23 @@ class SqliteHandler(object):
                 expansions_dictionary[gene_id][expansion_id].append(P.open(event_start, event_end))
             return expansions_dictionary
 
-    def query_gene_ids_in_results_database(
+    def query_to_process_gene_ids(
         self,
-    ) -> list:
+        local_search: bool = False,
+        global_search: bool = False
+    ) -> set:
+        column_name = ''
+        if local_search:
+            column_name = 'Local'
+        elif global_search:
+            column_name = 'Global'
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
-            cursor.execute("SELECT GeneID FROM Genes")
-            return [record[0] for record in cursor.fetchall()]
+            cursor.execute(f"""SELECT GeneID FROM Search_monitor WHERE {column_name}=0""")
+            gene_ids = cursor.fetchall()
+            return {record[0] for record in gene_ids} if gene_ids else {}
 
     def query_gene_ids_global_search(
             self,
