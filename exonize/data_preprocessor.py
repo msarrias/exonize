@@ -238,6 +238,33 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
+    def handle_reruns(self):
+        if self.database_interface.check_if_table_exists(table_name='Parameter_monitor'):
+            if not self.database_interface.check_if_empty_table(table_name='Parameter_monitor'):
+                (sb, fb, l, c_e,
+                 t_e, e, t_s, c_t,
+                 t_p, t_i, t_a) = self.database_interface.query_parameter_monitor_table()
+                if (self.environment.sequence_base != sb
+                        or self.environment.frame_base != fb
+                        or self.environment.min_exon_length != l
+                        or self.environment.exon_clustering_overlap_threshold != c_e):
+                    self.database_interface.clear_results_database(
+                        except_tables=['Parameter_monitor']
+                    )
+                if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+                    if self.environment.evalue_threshold < e:
+                        self.database_interface.drop_table(table_name='Local_search')
+                        self.database_interface.clear_search_monitor_table(global_search=True)
+                if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+                    if (self.environment.fraction_of_aligned_positions != t_a
+                            or self.environment.peptide_identity_threshold != t_i
+                            or self.environment.pair_coverage_threshold != t_p):
+                        self.database_interface.drop_table(table_name='Global_search')
+                        self.database_interface.clear_search_monitor_table(local_search=True)
+                self.database_interface.update_parameter_monitor()
+            else:
+                self.database_interface.insert_parameter_monitor()
+
     def create_gene_hierarchy_dictionary(
             self,
     ) -> None:
@@ -430,6 +457,7 @@ class DataPreprocessor(object):
     def initialize_database(self):
         self.database_interface.create_genes_table()
         self.database_interface.create_monitoring_tables()
+        self.handle_reruns()
         if self.database_interface.check_if_empty_table(table_name='Genes'):
             self.populate_genes_table()
             self.database_interface.populate_search_monitor_table()
