@@ -85,7 +85,7 @@ This tells us that there are matches between 15 exons and 3 intronic regions.
 
 
 ### Plotting
-**Step 1: Visualize expansion #1**
+**Step 1: Visualize the expansion**
 
 Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:
 
@@ -123,7 +123,7 @@ ychrom_expansions['gene:ENSG00000205916'].draw_gene_structure(expansion_id=expan
 
 The dark bars indicate the locations of the gene's coding sequences, while the light bars highlight the locations of the expansion events, colored according to the event mode.
 
-**Step 3: Visualize the full expansion #1**
+**Step 3: Visualize the full expansion**
 
 To visualize the full expansion, and matches between tandem exon pairs set the `full_expansion` and `color_tandem_pair_edges` parameters to `True`.
 
