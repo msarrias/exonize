@@ -9,6 +9,214 @@ import numpy as np
 import pickle
 
 
+class ExpansionsContainer:
+    """A container for managing gene expansions across an entire genome.
+
+    Attributes:
+        exonize_db_path (str): The file path to the Exonize database.
+    """
+    def __init__(
+            self,
+            exonize_db_path: str
+    ):
+        """Initializes a ExpansionsContainer instance and builds ExpansionsContainer from the database.
+
+        Args:
+            exonize_db_path (str): The file path to the Exonize database.
+        """
+        self.exonize_db_path = exonize_db_path
+        self._genes = {}
+        self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
+        self.gene_hierarchy_dictionary = {}
+        self.build_expansions()
+
+    def __iter__(
+            self
+    ) -> iter:
+        """Returns an iterator over the Gene objects.
+
+        Returns:
+            iter: An iterator yielding each Gene object.
+
+        Examples:
+            >>> for gene in expansions_container:
+            ...     print(gene)
+        """
+        return iter(self._genes.values())
+
+    def __contains__(
+            self,
+            n: str
+    ) -> bool:
+        """Checks if a gene ID exists in the ExpansionsContainer.
+
+        Args:
+            n (str): The gene ID to check for existence.
+
+        Returns:
+            bool: True if the gene ID exists, False otherwise.
+
+        Examples:
+            >>> "GENE123" in expansions_container
+            True
+        """
+        return n in self._genes
+
+    def __getitem__(
+            self,
+            gene_id: str
+    ) -> Gene:
+        """Retrieves a Gene object by gene ID.
+
+        Args:
+            gene_id (str): The ID of the gene to retrieve.
+
+        Returns:
+            Gene: The Gene object associated with the specified gene ID.
+
+        Examples:
+            >>> gene = expansions_container["GENE123"]
+            >>> print(gene)
+            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
+        """
+        return self._genes[gene_id]
+
+    def __len__(
+            self
+    ) -> int:
+        """Returns the number of genes in the ExpansionsContainer.
+
+        Returns:
+            int: The number of genes in the ExpansionsContainer.
+
+        Examples:
+            >>> len(expansions_container)
+            18
+        """
+        return len(self._genes)
+
+    @property
+    def genes(
+            self
+    ) -> list:
+        """Returns a list of gene IDs.
+
+        Returns:
+            list: A list of gene IDs in the ExpansionsContainer.
+
+        Examples:
+            >>> expansions_container.genes
+            ['GENE123', 'GENE456', 'GENE789']
+        """
+        return list(self._genes.keys())
+
+    def _add_gene(
+            self,
+            gene_id: str
+    ) -> Gene:
+        """Adds a Gene object to the genome based on the provided gene ID.
+
+        Args:
+            gene_id (str): The unique identifier for the gene.
+
+        Returns:
+            Gene: The Gene object that was added.
+
+        Examples:
+            >>> gene = expansions_container.add_gene("GENE123")
+            >>> print(gene)
+            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
+        """
+        if gene_id not in self._genes:
+            chrom, strand, start, end = self._db_handler.genes_dict[gene_id]
+            return Gene(
+                gene_id=gene_id,
+                coordinates=P.open(start, end),
+                strand=strand,
+                chromosome=chrom
+            )
+
+    @staticmethod
+    def _read_pkl_file(
+            file_path: Path
+    ) -> dict:
+        """
+        read_pkl_file is a function that reads a pickle file and returns
+         the object stored in it.
+        """
+        with open(file_path, 'rb') as handle:
+            read_file = pickle.load(handle)
+        return read_file
+
+    def _fetch_gene_cdss_set(
+            self,
+            gene_id: str,
+            cds_feature: str = 'CDS'
+
+    ) -> list[tuple]:
+        return list(
+            set(
+                annotation['coordinate']
+                for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
+                for annotation in mrna_annotation['structure']
+                if annotation['mode'] == cds_feature
+            )
+        )
+
+    def _update_genes_cds_coordinates(
+            self,
+            cds_feature: str = 'CDS'
+    ):
+        """
+        Updates the cds coordinates of the genes in the expansion container.
+        """
+        for gene in self:
+            gene.gene_cds_coordinates = self._fetch_gene_cdss_set(
+                gene_id=gene.id,
+                cds_feature=cds_feature
+            )
+
+    def parse_gene_hierarchy_dictionary(
+            self,
+            gene_hierarchy_dictionary_path: Path,
+            cds_feature: str = 'CDS'
+    ):
+        if Path.exists(Path(gene_hierarchy_dictionary_path)):
+            self.gene_hierarchy_dictionary = self._read_pkl_file(
+                file_path=gene_hierarchy_dictionary_path
+            )
+            self._update_genes_cds_coordinates(
+                cds_feature=cds_feature
+            )
+        else:
+            print(f"Path {self.gene_hierarchy_dictionary_path} does not exist.")
+
+    def build_expansions(self):
+        """Constructs the gene expansions from the Exonize database.
+
+        This method initializes each Gene object and populates its expansions based on data from
+        the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.
+
+        Examples:
+            >>> expansions_container.build_expansions()
+            >>> print(len(expansions_container))
+            18
+        """
+        for gene_id, non_reciprocal_matches in self._db_handler.gene_expansions_dict.items():
+            self._genes[gene_id] = self._add_gene(
+                gene_id=gene_id
+            )
+            for expansion_id, data in non_reciprocal_matches.items():
+                nodes = data['nodes']
+                edges = data['edges']
+                expansion = Expansion(
+                    expansion_id=expansion_id,
+                    nodes=nodes,
+                    edges=edges
+                )
+                self._genes[gene_id].expansions[expansion_id] = expansion
+
+
 class Gene:
     """Gene class is a container for gene expansion graphs.
 
@@ -228,214 +436,6 @@ class Expansion:
                 tandem=tandem,
                 width=1 if not tandem else 2,
             )
-
-
-class GenomeExpansions:
-    """A container for managing gene expansions across an entire genome.
-
-    Attributes:
-        exonize_db_path (str): The file path to the Exonize database.
-    """
-    def __init__(
-            self,
-            exonize_db_path: str
-    ):
-        """Initializes a GenomeExpansions instance and builds expansions from the database.
-
-        Args:
-            exonize_db_path (str): The file path to the Exonize database.
-        """
-        self.exonize_db_path = exonize_db_path
-        self._genes = {}
-        self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
-        self.gene_hierarchy_dictionary = {}
-        self.build_expansions()
-
-    def __iter__(
-            self
-    ) -> iter:
-        """Returns an iterator over the Gene objects.
-
-        Returns:
-            iter: An iterator yielding each Gene object.
-
-        Examples:
-            >>> for gene in genome_expansions:
-            ...     print(gene)
-        """
-        return iter(self._genes.values())
-
-    def __contains__(
-            self,
-            n: str
-    ) -> bool:
-        """Checks if a gene ID exists in the GenomeExpansions.
-
-        Args:
-            n (str): The gene ID to check for existence.
-
-        Returns:
-            bool: True if the gene ID exists, False otherwise.
-
-        Examples:
-            >>> "GENE123" in genome_expansions
-            True
-        """
-        return n in self._genes
-
-    def __getitem__(
-            self,
-            gene_id: str
-    ) -> Gene:
-        """Retrieves a Gene object by gene ID.
-
-        Args:
-            gene_id (str): The ID of the gene to retrieve.
-
-        Returns:
-            Gene: The Gene object associated with the specified gene ID.
-
-        Examples:
-            >>> gene = genome_expansions["GENE123"]
-            >>> print(gene)
-            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
-        """
-        return self._genes[gene_id]
-
-    def __len__(
-            self
-    ) -> int:
-        """Returns the number of genes in the GenomeExpansions.
-
-        Returns:
-            int: The number of genes in the GenomeExpansions.
-
-        Examples:
-            >>> len(genome_expansions)
-            18
-        """
-        return len(self._genes)
-
-    @property
-    def genes(
-            self
-    ) -> list:
-        """Returns a list of gene IDs.
-
-        Returns:
-            list: A list of gene IDs in the GenomeExpansions.
-
-        Examples:
-            >>> genome_expansions.genes
-            ['GENE123', 'GENE456', 'GENE789']
-        """
-        return list(self._genes.keys())
-
-    def _add_gene(
-            self,
-            gene_id: str
-    ) -> Gene:
-        """Adds a Gene object to the genome based on the provided gene ID.
-
-        Args:
-            gene_id (str): The unique identifier for the gene.
-
-        Returns:
-            Gene: The Gene object that was added.
-
-        Examples:
-            >>> gene = genome_expansions.add_gene("GENE123")
-            >>> print(gene)
-            <Gene GENE123 with 0 expansions (iterable of expansion graphs)>
-        """
-        if gene_id not in self._genes:
-            chrom, strand, start, end = self._db_handler.genes_dict[gene_id]
-            return Gene(
-                gene_id=gene_id,
-                coordinates=P.open(start, end),
-                strand=strand,
-                chromosome=chrom
-            )
-
-    @staticmethod
-    def _read_pkl_file(
-            file_path: Path
-    ) -> dict:
-        """
-        read_pkl_file is a function that reads a pickle file and returns
-         the object stored in it.
-        """
-        with open(file_path, 'rb') as handle:
-            read_file = pickle.load(handle)
-        return read_file
-
-    def _fetch_gene_cdss_set(
-            self,
-            gene_id: str,
-            cds_feature: str = 'CDS'
-
-    ) -> list[tuple]:
-        return list(
-            set(
-                annotation['coordinate']
-                for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
-                for annotation in mrna_annotation['structure']
-                if annotation['mode'] == cds_feature
-            )
-        )
-
-    def _update_genes_cds_coordinates(
-            self,
-            cds_feature: str = 'CDS'
-    ):
-        """
-        Updates the cds coordinates of the genes in the genome expansions.
-        """
-        for gene in self:
-            gene.gene_cds_coordinates = self._fetch_gene_cdss_set(
-                gene_id=gene.id,
-                cds_feature=cds_feature
-            )
-
-    def parse_gene_hierarchy_dictionary(
-            self,
-            gene_hierarchy_dictionary_path: Path,
-            cds_feature: str = 'CDS'
-    ):
-        if Path.exists(Path(gene_hierarchy_dictionary_path)):
-            self.gene_hierarchy_dictionary = self._read_pkl_file(
-                file_path=gene_hierarchy_dictionary_path
-            )
-            self._update_genes_cds_coordinates(
-                cds_feature=cds_feature
-            )
-        else:
-            print(f"Path {self.gene_hierarchy_dictionary_path} does not exist.")
-
-    def build_expansions(self):
-        """Constructs the gene expansions from the Exonize database.
-
-        This method initializes each Gene object and populates its expansions based on data from
-        the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.
-
-        Examples:
-            >>> genome_expansions.build_expansions()
-            >>> print(len(genome_expansions))
-            18
-        """
-        for gene_id, non_reciprocal_matches in self._db_handler.gene_expansions_dict.items():
-            self._genes[gene_id] = self._add_gene(
-                gene_id=gene_id
-            )
-            for expansion_id, data in non_reciprocal_matches.items():
-                nodes = data['nodes']
-                edges = data['edges']
-                expansion = Expansion(
-                    expansion_id=expansion_id,
-                    nodes=nodes,
-                    edges=edges
-                )
-                self._genes[gene_id].expansions[expansion_id] = expansion
 
 
 class _PlotHandler:
