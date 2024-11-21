@@ -60,6 +60,24 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer">ExpansionsContainer</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.genes">genes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.__contains__">__contains__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.__getitem__">__getitem__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.__init__">__init__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.__iter__">__iter__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.__len__">__len__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.ExpansionsContainer.build_expansions">build_expansions</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.Gene">Gene</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.__getitem__">__getitem__</a>
@@ -77,24 +95,6 @@
     <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.draw_expansions_multigraph">draw_expansions_multigraph</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.Gene.draw_gene_structure">draw_gene_structure</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions">GenomeExpansions</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.genes">genes</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__contains__">__contains__</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__getitem__">__getitem__</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__init__">__init__</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__iter__">__iter__</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.__len__">__len__</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#exonize.exonize_analysis.GenomeExpansions.build_expansions">build_expansions</a>
     </li>
         </ul>
     </li>
@@ -266,6 +266,422 @@
     </tr>
   </tbody>
 </table>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="exonize.exonize_analysis.ExpansionsContainer" class="doc doc-heading">
+            <code>ExpansionsContainer</code>
+
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+        <p>A container for managing gene expansions across an entire genome.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Attributes:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              <b><code>exonize_db_path</code></b>
+                  (<code>str</code>)
+              –
+              <div class="doc-md-description">
+                <p>The file path to the Exonize database.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.genes" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">genes</span><span class="p">:</span> <span class="nb">list</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.genes" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns a list of gene IDs.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+<b><code>list</code></b>(                  <code>list</code>
+)              –
+              <div class="doc-md-description">
+                <p>A list of gene IDs in the ExpansionsContainer.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">expansions_container</span><span class="o">.</span><span class="n">genes</span>
+<span class="go">[&#39;GENE123&#39;, &#39;GENE456&#39;, &#39;GENE789&#39;]</span>
+</code></pre></div>
+    </div>
+
+</div>
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.__contains__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__contains__</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.__contains__" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Checks if a gene ID exists in the ExpansionsContainer.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Parameters:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              <b><code>n</code></b>
+                  (<code>str</code>)
+              –
+              <div class="doc-md-description">
+                <p>The gene ID to check for existence.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+<b><code>bool</code></b>(                  <code>bool</code>
+)              –
+              <div class="doc-md-description">
+                <p>True if the gene ID exists, False otherwise.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;GENE123&quot;</span> <span class="ow">in</span> <span class="n">expansions_container</span>
+<span class="go">True</span>
+</code></pre></div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.__getitem__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">gene_id</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.__getitem__" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Retrieves a Gene object by gene ID.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Parameters:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              <b><code>gene_id</code></b>
+                  (<code>str</code>)
+              –
+              <div class="doc-md-description">
+                <p>The ID of the gene to retrieve.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+<b><code>Gene</code></b>(                  <code><a class="autorefs autorefs-internal" title="exonize.exonize_analysis.Gene" href="#exonize.exonize_analysis.Gene">Gene</a></code>
+)              –
+              <div class="doc-md-description">
+                <p>The Gene object associated with the specified gene ID.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">gene</span> <span class="o">=</span> <span class="n">expansions_container</span><span class="p">[</span><span class="s2">&quot;GENE123&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
+<span class="go">&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
+</code></pre></div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">exonize_db_path</span><span class="p">)</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initializes a ExpansionsContainer instance and builds ExpansionsContainer from the database.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Parameters:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+              <b><code>exonize_db_path</code></b>
+                  (<code>str</code>)
+              –
+              <div class="doc-md-description">
+                <p>The file path to the Exonize database.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.__iter__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__iter__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.__iter__" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns an iterator over the Gene objects.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+<b><code>iter</code></b>(                  <code>iter</code>
+)              –
+              <div class="doc-md-description">
+                <p>An iterator yielding each Gene object.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">expansions_container</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
+</code></pre></div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.__len__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__len__</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.__len__" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns the number of genes in the ExpansionsContainer.</p>
+
+
+<table class="field-list">
+  <colgroup>
+    <col class="field-name" />
+    <col class="field-body" />
+  </colgroup>
+  <tbody valign="top">
+    <tr class="field">
+      <th class="field-name">Returns:</th>
+      <td class="field-body">
+        <ul class="first simple">
+            <li>
+<b><code>int</code></b>(                  <code>int</code>
+)              –
+              <div class="doc-md-description">
+                <p>The number of genes in the ExpansionsContainer.</p>
+              </div>
+            </li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">expansions_container</span><span class="p">)</span>
+<span class="go">18</span>
+</code></pre></div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="exonize.exonize_analysis.ExpansionsContainer.build_expansions" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">build_expansions</span><span class="p">()</span></code>
+
+<a href="#exonize.exonize_analysis.ExpansionsContainer.build_expansions" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Constructs the gene expansions from the Exonize database.</p>
+<p>This method initializes each Gene object and populates its expansions based on data from
+the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.</p>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">expansions_container</span><span class="o">.</span><span class="n">build_expansions</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">expansions_container</span><span class="p">))</span>
+<span class="go">18</span>
+</code></pre></div>
+
     </div>
 
 </div>
@@ -877,422 +1293,6 @@ will be displayed but not saved.</p>
     </tr>
   </tbody>
 </table>
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="exonize.exonize_analysis.GenomeExpansions" class="doc doc-heading">
-            <code>GenomeExpansions</code>
-
-
-<a href="#exonize.exonize_analysis.GenomeExpansions" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents ">
-
-
-        <p>A container for managing gene expansions across an entire genome.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Attributes:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-              <b><code>exonize_db_path</code></b>
-                  (<code>str</code>)
-              –
-              <div class="doc-md-description">
-                <p>The file path to the Exonize database.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.genes" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">genes</span><span class="p">:</span> <span class="nb">list</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.genes" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Returns a list of gene IDs.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Returns:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-<b><code>list</code></b>(                  <code>list</code>
-)              –
-              <div class="doc-md-description">
-                <p>A list of gene IDs in the GenomeExpansions.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">genome_expansions</span><span class="o">.</span><span class="n">genes</span>
-<span class="go">[&#39;GENE123&#39;, &#39;GENE456&#39;, &#39;GENE789&#39;]</span>
-</code></pre></div>
-    </div>
-
-</div>
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.__contains__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__contains__</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.__contains__" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Checks if a gene ID exists in the GenomeExpansions.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Parameters:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-              <b><code>n</code></b>
-                  (<code>str</code>)
-              –
-              <div class="doc-md-description">
-                <p>The gene ID to check for existence.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Returns:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-<b><code>bool</code></b>(                  <code>bool</code>
-)              –
-              <div class="doc-md-description">
-                <p>True if the gene ID exists, False otherwise.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;GENE123&quot;</span> <span class="ow">in</span> <span class="n">genome_expansions</span>
-<span class="go">True</span>
-</code></pre></div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.__getitem__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">gene_id</span><span class="p">)</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.__getitem__" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Retrieves a Gene object by gene ID.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Parameters:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-              <b><code>gene_id</code></b>
-                  (<code>str</code>)
-              –
-              <div class="doc-md-description">
-                <p>The ID of the gene to retrieve.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Returns:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-<b><code>Gene</code></b>(                  <code><a class="autorefs autorefs-internal" title="exonize.exonize_analysis.Gene" href="#exonize.exonize_analysis.Gene">Gene</a></code>
-)              –
-              <div class="doc-md-description">
-                <p>The Gene object associated with the specified gene ID.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">gene</span> <span class="o">=</span> <span class="n">genome_expansions</span><span class="p">[</span><span class="s2">&quot;GENE123&quot;</span><span class="p">]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
-<span class="go">&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
-</code></pre></div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">exonize_db_path</span><span class="p">)</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Initializes a GenomeExpansions instance and builds expansions from the database.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Parameters:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-              <b><code>exonize_db_path</code></b>
-                  (<code>str</code>)
-              –
-              <div class="doc-md-description">
-                <p>The file path to the Exonize database.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.__iter__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__iter__</span><span class="p">()</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.__iter__" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Returns an iterator over the Gene objects.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Returns:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-<b><code>iter</code></b>(                  <code>iter</code>
-)              –
-              <div class="doc-md-description">
-                <p>An iterator yielding each Gene object.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">genome_expansions</span><span class="p">:</span>
-<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
-</code></pre></div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.__len__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__len__</span><span class="p">()</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.__len__" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Returns the number of genes in the GenomeExpansions.</p>
-
-
-<table class="field-list">
-  <colgroup>
-    <col class="field-name" />
-    <col class="field-body" />
-  </colgroup>
-  <tbody valign="top">
-    <tr class="field">
-      <th class="field-name">Returns:</th>
-      <td class="field-body">
-        <ul class="first simple">
-            <li>
-<b><code>int</code></b>(                  <code>int</code>
-)              –
-              <div class="doc-md-description">
-                <p>The number of genes in the GenomeExpansions.</p>
-              </div>
-            </li>
-        </ul>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">genome_expansions</span><span class="p">)</span>
-<span class="go">18</span>
-</code></pre></div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="exonize.exonize_analysis.GenomeExpansions.build_expansions" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">build_expansions</span><span class="p">()</span></code>
-
-<a href="#exonize.exonize_analysis.GenomeExpansions.build_expansions" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Constructs the gene expansions from the Exonize database.</p>
-<p>This method initializes each Gene object and populates its expansions based on data from
-the Exonize database. Each expansion consists of nodes and edges, forming a graph for each gene.</p>
-
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">genome_expansions</span><span class="o">.</span><span class="n">build_expansions</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">genome_expansions</span><span class="p">))</span>
-<span class="go">18</span>
-</code></pre></div>
-
     </div>
 
 </div>

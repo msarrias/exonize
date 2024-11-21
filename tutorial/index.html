@@ -96,50 +96,53 @@
 <h2 id="example-human-y-chromosome">Example: Human Y chromosome<a class="headerlink" href="#example-human-y-chromosome" title="Permanent link">&para;</a></h2>
 <h3 id="data-representation">Data representation<a class="headerlink" href="#data-representation" title="Permanent link">&para;</a></h3>
 <p><strong>Step 1: Import the <code>exonize_analysis</code> module</strong></p>
-<p><div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">exonize</span> <span class="kn">import</span> <span class="n">exonize_analysis</span> <span class="k">as</span> <span class="n">exonize</span>
+<p><div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">exonize.exonize_analysis</span> <span class="kn">import</span> <span class="n">ExpansionsContainer</span>
 </code></pre></div>
 <strong>Step 2: Set the path to the exonize results database</strong></p>
 <p>For this example, we’ll use the results database generated for the Y chromosome in the usage <a href="https://msarrias.github.io/exonize/usage/#example-human-y-chromosome">example</a>.</p>
 <p><div class="highlight"><pre><span></span><code><span class="n">db_path</span><span class="o">=</span><span class="s1">&#39;Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_results.db&#39;</span>
 </code></pre></div>
-<strong>Step 3: Create a <code>GenomeExpansions</code> object</strong></p>
-<p>Initialize the <code>GenomeExpansions</code> object using the specified database.</p>
-<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span> <span class="o">=</span> <span class="n">exonize</span><span class="o">.</span><span class="n">GenomeExpansions</span><span class="p">(</span><span class="n">exonize_db_path</span><span class="o">=</span><span class="n">db_path</span><span class="p">)</span>
+<strong>Step 3: Create an <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer"><code>ExpansionsContainer</code></a> object</strong> </p>
+<p>Initialize the <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer"><code>ExpansionsContainer</code></a> object using the specified database. This class is particularly useful for performing specific gene lookups and accessing their expansions. Its attributes consist of <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Gene"><code>Gene</code></a> objects composed by <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion"><code>Expansion</code></a> graphs.</p>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span> <span class="o">=</span> <span class="n">ExpansionsContainer</span><span class="p">(</span><span class="n">exonize_db_path</span><span class="o">=</span><span class="n">db_path</span><span class="p">)</span>
 </code></pre></div>
 <p>Now let’s check the number of genes identified with duplication events:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">)</span>
 <span class="mi">15</span>
 </code></pre></div>
 <p><strong>Step 4: List genes with exon duplications</strong></p>
 <p>Display some of the gene IDs where exon duplications were found:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:])</span>
-<span class="p">[</span><span class="s1">&#39;gene:ENSG00000188120&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000165246&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000205944&#39;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">genes</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
+<span class="p">[</span><span class="s1">&#39;gene:ENSG00000292357&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000165246&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000012817&#39;</span><span class="p">,</span> <span class="s1">&#39;gene:ENSG00000244395&#39;</span><span class="p">]</span>
 </code></pre></div>
 <p><strong>Step 5: Examine the DAZ1 gene</strong></p>
-<p>Let’s take a closer look at the <a href="https://en.wikipedia.org/wiki/DAZ1">DAZ1</a> gene (Ensembl id <em>gene:ENSG00000205916</em>). Note that the Gene object will return an interable of <code>Expansion</code> objects.</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span>
+<p>Let’s take a closer look at the <a href="https://en.wikipedia.org/wiki/DAZ1">DAZ1</a> gene (Ensembl ID: <em>gene:ENSG00000205916</em>).
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span>
 <span class="o">&lt;</span><span class="n">Gene</span> <span class="n">gene</span><span class="p">:</span><span class="n">ENSG00000205916</span> <span class="k">with</span> <span class="mi">6</span> <span class="n">expansions</span> <span class="p">(</span><span class="n">iterable</span> <span class="n">of</span> <span class="n">expansion</span> <span class="n">graphs</span><span class="p">)</span><span class="o">&gt;</span>
 </code></pre></div>
+Note that the <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Gene"><code>Gene</code></a> object is an iterable of <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion"><code>Expansion</code></a> objects, where each <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion"><code>Expansion</code></a> is a NetworkX graph structure encoding the expansions. You can find more details about the attributes of these graph structures in the <a href="https://networkx.org/documentation/stable/reference/classes/graph.html">NetworkX documentation</a>.</p>
 <p>DAZ1 has 6 expansions:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">])</span>
 <span class="mi">6</span>
 </code></pre></div>
-<p><strong>Step 6: Inspect expansion #1</strong></p>
-<p>Check the size of expansion #1:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+<p><strong>Step 6: Inspect the largest expansion</strong></p>
+<div class="highlight"><pre><span></span><code><span class="n">expansion_id</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+</code></pre></div>
+<p>Check the size:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">len</span><span class="p">(</span><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">][</span><span class="n">expansion_id</span><span class="p">])</span>
 <span class="mi">18</span>
 </code></pre></div>
-<p>This output shows that an exon in DAZ1 duplicated 18 times. Now, let’s look at the types of these duplications:</p>
-<p><div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">attrib</span> <span class="ow">in</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">type_counts</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">types</span><span class="p">)}</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">type_counts</span>
+<p>This output indicates that DAZ1 contains 18 copies of an exon. Now, let’s look at the mode of these duplications:</p>
+<p><div class="highlight"><pre><span></span><code><span class="n">mode</span> <span class="o">=</span> <span class="p">[</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mode&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">attrib</span> <span class="ow">in</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">][</span><span class="n">expansion_id</span><span class="p">]</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+<span class="n">mode_counts</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">mode</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">mode</span><span class="p">)}</span>
+<span class="n">mode_counts</span>
 <span class="p">{</span><span class="s1">&#39;FULL&#39;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s1">&#39;INTRONIC&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
 </code></pre></div>
 This tells us that there are matches between 15 exons and 3 intronic regions. </p>
 <h3 id="plotting">Plotting<a class="headerlink" href="#plotting" title="Permanent link">&para;</a></h3>
 <p><strong>Step 1: Visualize expansion #1</strong></p>
 <p>Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">)</span>
 </code></pre></div>
 <div style="text-align: center;">
     <a href="https://github.com/msarrias/exonize/blob/main/figures/DAZ1_expansion1.png" target="_blank">
@@ -148,16 +151,14 @@ This tells us that there are matches between 15 exons and 3 intronic regions. </
 </div>
 
 <p><strong>Step 2: Visualize the gene structure</strong></p>
-<p>The <code>draw_gene_structure</code> method uses the <code>[dna_features_viewer]</code>(https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/) library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.</p>
-<p>First, we need to parse the gene hierarchy dictionary (found in the exonize output directory) to obtain the gene structure:</p>
-<p><div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">parse_gene_hierarchy_dictionary</span><span class="p">(</span>
+<p>The <code>draw_gene_structure</code> method uses the <a href="https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/">dna_features_viewer</a> library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.</p>
+<p>First, we need to parse the gene hierarchy dictionary, which can be found in the Exonize output directory. This step is necessary, since information about the arrangement of the exons within the genes is not stored in the output database.</p>
+<p><div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">parse_gene_hierarchy_dictionary</span><span class="p">(</span>
     <span class="n">gene_hierarchy_dictionary_path</span><span class="o">=</span><span class="s1">&#39;Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_gene_hierarchy.pkl&#39;</span>
 <span class="p">)</span>
 </code></pre></div>
 Let's now plot the gene's features:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_gene_structure</span><span class="p">(</span>
-    <span class="n">expansion_id</span><span class="o">=</span><span class="mi">1</span>
-<span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_gene_structure</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">)</span>
 </code></pre></div>
 <div style="text-align: center;">
     <a href="https://github.com/msarrias/exonize/blob/main/figures/gene_structure.png" target="_blank">
@@ -168,8 +169,8 @@ Let's now plot the gene's features:</p>
 <p>The dark bars indicate the locations of the gene's coding sequences, while the light bars highlight the locations of the expansion events, colored according to the event mode.</p>
 <p><strong>Step 3: Visualize the full expansion #1</strong></p>
 <p>To visualize the full expansion, and matches between tandem exon pairs set the <code>full_expansion</code> and <code>color_tandem_pair_edges</code> parameters to <code>True</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
-    <span class="n">expansion_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
+    <span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">,</span>
     <span class="n">full_expansion</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">color_tandem_pair_edges</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
@@ -183,7 +184,7 @@ Let's now plot the gene's features:</p>
 <p>We can see that the expansion graph is composed of 15 tandemly duplicated exons.</p>
 <p><strong>Step 4: Visualize the match graph for DAZ1</strong></p>
 <p>You can also display all expansions associated with DAZ1 by ommiting the <code>expansion_id</code> parameter:</p>
-<div class="highlight"><pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
     <span class="n">full_expansion</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">color_tandem_pair_edges</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
