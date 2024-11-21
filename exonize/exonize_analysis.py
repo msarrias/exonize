@@ -216,7 +216,7 @@ class Expansion:
         self.graph = nx.Graph()
         self.graph.id = expansion_id
         self.graph.add_nodes_from([
-            (coord, {"type": node_type})
+            (coord, {"mode": node_type})
             for coord, node_type in nodes
         ])
         for edge in edges:
@@ -380,7 +380,7 @@ class GenomeExpansions:
                 annotation['coordinate']
                 for mrna_annotation in self.gene_hierarchy_dictionary[gene_id]['mRNAs'].values()
                 for annotation in mrna_annotation['structure']
-                if annotation['type'] == cds_feature
+                if annotation['mode'] == cds_feature
             )
         )
 
@@ -609,7 +609,7 @@ class _PlotHandler:
             graph: nx.Graph,
     ) -> None:
         """
-        Removes nodes from the graph that are not labled as 'FULL' type.
+        Removes nodes from the graph that are not labled as 'FULL' mode.
 
         Parameters
         ----------
@@ -619,7 +619,7 @@ class _PlotHandler:
         nodes_to_drop = [
             node
             for node in graph.nodes
-            if graph.nodes[node].get('type') != 'FULL'
+            if graph.nodes[node].get('mode') != 'FULL'
         ]
         if nodes_to_drop:
             graph.remove_nodes_from(nodes_to_drop)
@@ -653,7 +653,7 @@ class _PlotHandler:
                 +1,
                 -10,
                 alpha=.4,
-                color=self._color_map[attribute['type']]
+                color=self._color_map[attribute['mode']]
             )
         if save_path:
             plt.savefig(save_path, bbox_inches='tight')
@@ -706,8 +706,8 @@ class _PlotHandler:
             self,
             graph: nx.Graph
     ):
-        """Get colors for each node based on their type."""
-        return [self._color_map[attrib['type']] for _, attrib in graph.nodes(data=True)]
+        """Get colors for each node based on their mode."""
+        return [self._color_map[attrib['mode']] for _, attrib in graph.nodes(data=True)]
 
     @staticmethod
     def _generate_node_labels(
@@ -785,7 +785,7 @@ class _PlotHandler:
             tandem_edges_color: str
     ):
         """Draws the legend for the graph, showing node types and optional tandem edges."""
-        node_attributes = {attrib['type'] for _, attrib in graph.nodes(data=True)}
+        node_attributes = {attrib['mode'] for _, attrib in graph.nodes(data=True)}
         legend_elements = [
             mlines.Line2D([], [], color=self._color_map[label], marker='o', linestyle='None', markersize=10,
                           label=label)
@@ -963,7 +963,7 @@ class _ExonizeDBHandler:
                 SELECT
                     name
                 FROM sqlite_master
-                WHERE type='table' AND name='{table_name}';
+                WHERE mode='table' AND name='{table_name}';
                 """
             )
             return cursor.fetchone() is not None
