@@ -984,6 +984,14 @@ class SqliteHandler(object):
             """
             cursor.executemany(insert_full_length_event_table_param, tuples_list)
 
+    def query_parameter_monitor_table(self,):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("SELECT * FROM Parameter_monitor")
+            return cursor.fetchone()
+
     def query_full_length_events(
             self,
             gene_id: str = None
