@@ -227,10 +227,10 @@ class SqliteHandler(object):
                 PRIMARY KEY (ExpansionID, GeneID)
             );"""
                            )
-            cursor.execute("""
+            cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS Expansions_full (
                 GeneID VARCHAR(100),
-                Mode TEXT CHECK(Mode IN ('FULL')),
+                Mode TEXT CHECK(Mode IN ('{self.environment.full}')),
                 EventStart INTEGER NOT NULL,
                 EventEnd INTEGER NOT NULL,
                 EventDegree INTEGER NOT NULL,
