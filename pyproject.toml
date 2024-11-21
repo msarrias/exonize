@@ -12,7 +12,7 @@ authors = [
 maintainers = [
     {name = "Lars Arvestad", email = "arve@math.su.se"}
 ]
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
     "gffutils",
     "portion",
