@@ -161,6 +161,8 @@ class SqliteHandler(object):
                )
             cursor.execute("""
              CREATE TABLE IF NOT EXISTS Parameter_monitor (
+             sb INTEGER NOT NULL, /* sequence base */
+             fb INTEGER NOT NULL, /* frame base */
              l INTEGER NOT NULL, /* exon length threshold */
              c_e REAL NOT NULL, /* exon clustering threshold */
              t_e REAL, /* Local search: query coverage threshold */
