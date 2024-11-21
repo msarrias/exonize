@@ -114,28 +114,6 @@ class Exonize(object):
         self.event_reconciler = ReconcilerHandler(
             search_engine=self.search_engine
             )
-        self.exonize_pipeline_settings = f"""
-Exonize - settings
---------------------------------
-Date:                         {date.today()}
-python version:               {sys.version}
-cpu count:                    {self.environment.FORKS_NUMBER}
---------------------------------
-Indentifier:                  {self.environment.output_prefix}
-GFF file:                     {gff_file_path}
-Genome file:                  {genome_file_path}
---------------------------------
-tblastx e-value threshold:     {evalue_threshold}
-Query coverage threshold:      {query_coverage_threshold}
-Exon clustering threshold:     {exon_clustering_overlap_threshold}
-Targets clustering threshold:  {targets_clustering_overlap_threshold}
-Self-hit threshold:            {self_hit_threshold}
-Min exon length (bps):         {min_exon_length}
-Fraction of aligned positions: {fraction_of_aligned_positions}
-Peptide identity threshold:    {peptide_identity_threshold}
---------------------------------
-Exonize results database:   {self.environment.results_database_path.name}
-        """
 
     def generate_unique_events_list(
             self,
@@ -564,7 +542,7 @@ Exonize results database:   {self.environment.results_database_path.name}
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         runtime_hours = round((datetime.now() - self.tic).total_seconds() / 3600, 2)
         with open(self.environment.log_file_name, 'w') as f:
-            f.write(self.exonize_pipeline_settings)
+            f.write(self.environment.exonize_pipeline_settings)
             f.write(
                 f'\nRuntime (hours):              {runtime_hours}'
                 f'\nNumber of processed genes:    {len(gene_ids_list)}'
