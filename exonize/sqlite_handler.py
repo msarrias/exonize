@@ -175,6 +175,76 @@ class SqliteHandler(object):
              )
              """)
 
+    def update_parameter_monitor(
+            self,
+    ):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            UPDATE Parameter_monitor
+            SET sb=?,
+                fb=?,
+                l=?,
+                c_e=?,
+                t_e=?,
+                e=?,
+                t_s=?,
+                c_t=?,
+                t_p=?,
+                t_i=?,
+                t_a=?
+            """, (
+                self.environment.sequence_base,
+                self.environment.frame_base,
+                self.environment.min_exon_length,
+                self.environment.exon_clustering_overlap_threshold,
+                self.environment.query_coverage_threshold,
+                self.environment.evalue_threshold,
+                self.environment.self_hit_threshold,
+                self.environment.targets_clustering_overlap_threshold,
+                self.environment.pair_coverage_threshold,
+                self.environment.peptide_identity_threshold,
+                self.environment.fraction_of_aligned_positions
+            ))
+
+    def insert_parameter_monitor(
+            self,
+    ):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            INSERT INTO Parameter_monitor (
+                sb,
+                fb,
+                l,
+                c_e,
+                t_e,
+                e,
+                t_s,
+                c_t,
+                t_p,
+                t_i,
+                t_a
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                self.environment.sequence_base,
+                self.environment.frame_base,
+                self.environment.min_exon_length,
+                self.environment.exon_clustering_overlap_threshold,
+                self.environment.query_coverage_threshold,
+                self.environment.evalue_threshold,
+                self.environment.self_hit_threshold,
+                self.environment.targets_clustering_overlap_threshold,
+                self.environment.pair_coverage_threshold,
+                self.environment.peptide_identity_threshold,
+                self.environment.fraction_of_aligned_positions
+            ))
+
     def create_expansions_table(
         self,
     ) -> None:
