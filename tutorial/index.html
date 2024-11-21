@@ -140,7 +140,7 @@ Note that the <a href="https://msarrias.github.io/exonize/exonize_analysis/#exon
 </code></pre></div>
 This tells us that there are matches between 15 exons and 3 intronic regions. </p>
 <h3 id="plotting">Plotting<a class="headerlink" href="#plotting" title="Permanent link">&para;</a></h3>
-<p><strong>Step 1: Visualize expansion #1</strong></p>
+<p><strong>Step 1: Visualize the expansion</strong></p>
 <p>Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:</p>
 <div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">)</span>
 </code></pre></div>
@@ -167,7 +167,7 @@ Let's now plot the gene's features:</p>
 </div>
 
 <p>The dark bars indicate the locations of the gene's coding sequences, while the light bars highlight the locations of the expansion events, colored according to the event mode.</p>
-<p><strong>Step 3: Visualize the full expansion #1</strong></p>
+<p><strong>Step 3: Visualize the full expansion</strong></p>
 <p>To visualize the full expansion, and matches between tandem exon pairs set the <code>full_expansion</code> and <code>color_tandem_pair_edges</code> parameters to <code>True</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">draw_expansions_multigraph</span><span class="p">(</span>
     <span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">,</span>
