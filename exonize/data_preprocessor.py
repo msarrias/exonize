@@ -429,6 +429,7 @@ class DataPreprocessor(object):
 
     def initialize_database(self):
         self.database_interface.create_genes_table()
+        self.database_interface.create_monitoring_tables()
         if self.database_interface.check_if_empty_table(table_name='Genes'):
             self.populate_genes_table()
             self.database_interface.populate_search_monitor_table()
