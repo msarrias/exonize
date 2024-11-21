@@ -158,7 +158,7 @@ class SqliteHandler(object):
                 Local BINARY(1) DEFAULT 0
             );
             """
-               )
+                           )
             cursor.execute("""
              CREATE TABLE IF NOT EXISTS Parameter_monitor (
              sb INTEGER NOT NULL, /* sequence base */
