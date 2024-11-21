@@ -21,7 +21,7 @@
 import os
 from itertools import permutations
 from typing import Any, Sequence, Iterator
-from datetime import date, datetime
+from datetime import datetime
 import sys
 from pathlib import Path
 import time
@@ -202,9 +202,7 @@ class Exonize(object):
     def local_search(
             self
     ):
-        unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(
-            local_search=True
-        )
+        unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(local_search=True)
         if unprocessed_gene_ids_list:
             self.log_search_progress(
                 unprocessed_gene_ids_list=unprocessed_gene_ids_list,
@@ -343,7 +341,7 @@ class Exonize(object):
                 records=full_events_list
             )
             tandemness_tuples = self.event_reconciler.get_gene_full_events_tandemness_tuples(
-                expansions_dictionary
+                expansions_dictionary=expansions_dictionary
             )
         return tandemness_tuples
 
@@ -483,13 +481,9 @@ class Exonize(object):
             assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
             assert code != os.EX_SOFTWARE
             forks -= 1
-        self.database_interface.drop_table(
-            table_name='Matches_full_length'
-        )
+        self.database_interface.drop_table(table_name='Matches_full_length')
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
-        self.database_interface.update_has_duplicate_genes_table(
-            list_tuples=genes_with_duplicates
-        )
+        self.database_interface.update_has_duplicate_genes_table(list_tuples=genes_with_duplicates)
 
     def transcript_interdependence_classification(
             self
@@ -525,8 +519,7 @@ class Exonize(object):
                 table_identifier_column='LocalFragmentID'
             )
         # EXPANSION INTERDEPENDENCE CLASSIFICATION
-        expansions_dictionary = self.database_interface.query_coding_expansion_events(
-        )
+        expansions_dictionary = self.database_interface.query_coding_expansion_events()
         expansion_interdependence_tuples = self.event_classifier.classify_expansion_interdependence(
             expansions_dictionary=expansions_dictionary
         )
