@@ -30,7 +30,7 @@ ychrom_expansions = ExpansionsContainer(exonize_db_path=db_path)
 Now let’s check the number of genes identified with duplication events:
 
 ```python
->>> len(ychrom_expansions)
+len(ychrom_expansions)
 15
 ```
 
@@ -39,15 +39,15 @@ Now let’s check the number of genes identified with duplication events:
 Display some of the gene IDs where exon duplications were found:
 
 ```python
->>> print(ychrom_expansions.genes[:4])
-['gene:ENSG00000188120', 'gene:ENSG00000165246', 'gene:ENSG00000205916', 'gene:ENSG00000205944']
+print(ychrom_expansions.genes[:4])
+['gene:ENSG00000292357', 'gene:ENSG00000165246', 'gene:ENSG00000012817', 'gene:ENSG00000244395']
 ```
 
 **Step 5: Examine the DAZ1 gene**
 
 Let’s take a closer look at the [DAZ1](https://en.wikipedia.org/wiki/DAZ1) gene (Ensembl ID: _gene:ENSG00000205916_).
 ```python
->>> ychrom_expansions['gene:ENSG00000205916']
+ychrom_expansions['gene:ENSG00000205916']
 <Gene gene:ENSG00000205916 with 6 expansions (iterable of expansion graphs)>
 ```
 Note that the [`Gene`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Gene) object is an iterable of [`Expansion`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion) objects, where each [`Expansion`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion) is a NetworkX graph structure encoding the expansions. You can find more details about the attributes of these graph structures in the [NetworkX documentation](https://networkx.org/documentation/stable/reference/classes/graph.html).
@@ -56,25 +56,29 @@ Note that the [`Gene`](https://msarrias.github.io/exonize/exonize_analysis/#exon
 DAZ1 has 6 expansions:
 
 ```python
->>> len(ychrom_expansions['gene:ENSG00000205916'])
+len(ychrom_expansions['gene:ENSG00000205916'])
 6
 ```
 
-**Step 6: Inspect expansion #1**
-
-Check the size of the largest expansion, in this case would be expansion #1:
+**Step 6: Inspect the largest expansion**
 
 ```python
->>> len(ychrom_expansions['gene:ENSG00000205916'][1])
+expansion_id = max(ychrom_expansions['gene:ENSG00000205916'], key=len).id
+```
+
+Check the size:
+
+```python
+len(ychrom_expansions['gene:ENSG00000205916'][expansion_id])
 18
 ```
 
 This output indicates that DAZ1 contains 18 copies of an exon. Now, let’s look at the mode of these duplications:
 
 ```python
->>> mode = [attrib.get('mode') for node, attrib in ychrom_expansions['gene:ENSG00000205916'][1].nodes(data=True)]
->>> mode_counts = {t: mode.count(t) for t in set(mode)}
->>> mode_counts
+mode = [attrib.get('mode') for node, attrib in ychrom_expansions['gene:ENSG00000205916'][expansion_id].nodes(data=True)]
+mode_counts = {t: mode.count(t) for t in set(mode)}
+mode_counts
 {'FULL': 15, 'INTRONIC': 3}
 ```
 This tells us that there are matches between 15 exons and 3 intronic regions. 
@@ -86,7 +90,7 @@ This tells us that there are matches between 15 exons and 3 intronic regions.
 Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:
 
 ```python
->>> ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(expansion_id=1)
+ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(expansion_id=expansion_id)
 ```
 
 <div style="text-align: center;">
@@ -102,16 +106,14 @@ The `draw_gene_structure` method uses the [dna_features_viewer](https://edinburg
 First, we need to parse the gene hierarchy dictionary, which can be found in the Exonize output directory. This step is necessary, since information about the arrangement of the exons within the genes is not stored in the output database.
 
 ```python
->>> ychrom_expansions.parse_gene_hierarchy_dictionary(
+ychrom_expansions.parse_gene_hierarchy_dictionary(
     gene_hierarchy_dictionary_path='Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_gene_hierarchy.pkl'
 )
 ```
 Let's now plot the gene's features:
 
 ```python
->>> ychrom_expansions['gene:ENSG00000205916'].draw_gene_structure(
-    expansion_id=1
-)
+ychrom_expansions['gene:ENSG00000205916'].draw_gene_structure(expansion_id=expansion_id)
 ```
 <div style="text-align: center;">
     <a href="https://github.com/msarrias/exonize/blob/main/figures/gene_structure.png" target="_blank">
@@ -126,8 +128,8 @@ The dark bars indicate the locations of the gene's coding sequences, while the l
 To visualize the full expansion, and matches between tandem exon pairs set the `full_expansion` and `color_tandem_pair_edges` parameters to `True`.
 
 ```python
->>> ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(
-    expansion_id=1,
+ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(
+    expansion_id=expansion_id,
     full_expansion=True,
     color_tandem_pair_edges=True
 )
@@ -146,7 +148,7 @@ We can see that the expansion graph is composed of 15 tandemly duplicated exons.
 You can also display all expansions associated with DAZ1 by ommiting the `expansion_id` parameter:
 
 ```python
->>> ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(
+ychrom_expansions['gene:ENSG00000205916'].draw_expansions_multigraph(
     full_expansion=True,
     color_tandem_pair_edges=True
 )
