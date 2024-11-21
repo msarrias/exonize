@@ -80,6 +80,7 @@ class EnvironmentSetup(object):
         self.partial_excision = 'PARTIAL_EXCISION'
         self.inter_boundary = 'INTER_BOUNDARY'
         self.intronic = 'INTRONIC'
+        self.exonize_pipeline_settings = ''
         self.configure_logger()
         self.check_software_requirements()
         if not self.output_prefix:
@@ -104,6 +105,53 @@ class EnvironmentSetup(object):
         if self.CSV:
             os.makedirs(self.csv_path, exist_ok=True)
         self.setup_environment()
+        self.base_settings()
+
+    def base_settings(
+            self
+    ):
+        # Base settings shared across all modes
+        base_settings = f"""
+                Exonize - settings
+                --------------------------------
+                Date:                         {date.today()}
+                Python version:               {sys.version}
+                CPU count:                    {self.FORKS_NUMBER}
+                --------------------------------
+                Identifier:                   {self.output_prefix}
+                GFF file:                     {self.gff_file_path}
+                Genome file:                  {self.genome_file_path}
+                Exon clustering threshold:    {self.exon_clustering_overlap_threshold}
+                Min exon length (bps):        {self.min_exon_length}
+                Exonize results database:     {self.results_database_path.name}
+                --------------------------------
+                """
+        # Specific parameters for each mode
+        local_search_params = f"""
+                 LOCAL SEARCH - PARAMETERS
+                --------------------------------
+                tblastx e-value threshold:     {self.evalue_threshold}
+                Query coverage threshold:      {self.query_coverage_threshold}
+                Targets clustering threshold:  {self.targets_clustering_overlap_threshold}
+                Self-hit threshold:            {self.self_hit_threshold}
+                """
+
+        global_search_params = f"""
+                 GLOBAL SEARCH - PARAMETERS
+                --------------------------------
+                Fraction of aligned positions: {self.fraction_of_aligned_positions}
+                Peptide identity threshold:    {self.peptide_identity_threshold}
+                Pair coverage threshold:       {self.pair_coverage_threshold}
+                """
+        # Assemble the settings based on the search modes
+        if self.SEARCH_ALL:
+            self.exonize_pipeline_settings = (
+                    base_settings + local_search_params + global_search_params
+            )
+        elif self.GLOBAL_SEARCH:
+            self.exonize_pipeline_settings = base_settings + global_search_params
+        elif self.LOCAL_SEARCH:
+            self.exonize_pipeline_settings = base_settings + local_search_params
 
     def check_if_tool_installed(
             self,
