@@ -9,7 +9,7 @@ This guide will walk you through the basics of using the `exonize_analysis` modu
 **Step 1: Import the `exonize_analysis` module**
 
 ```python
-from exonize import exonize_analysis as exonize
+from exonize.exonize_analysis import ExpansionsContainer
 ```
 **Step 2: Set the path to the exonize results database**
 
@@ -18,12 +18,13 @@ For this example, we’ll use the results database generated for the Y chromosom
 ```python
 db_path='Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_results.db'
 ```
-**Step 3: Create a `GenomeExpansions` object**
+**Step 3: Create an [`ExpansionsContainer`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer) object** 
 
-Initialize the `GenomeExpansions` object using the specified database.
+Initialize the [`ExpansionsContainer`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer) object using the specified database. This class is particularly useful for performing specific gene lookups and accessing their expansions. Its attributes consist of [`Gene`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Gene) objects composed by [`Expansion`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion) graphs.
+
 
 ```python
-ychrom_expansions = exonize.GenomeExpansions(exonize_db_path=db_path)
+ychrom_expansions = ExpansionsContainer(exonize_db_path=db_path)
 ```
 
 Now let’s check the number of genes identified with duplication events:
@@ -38,18 +39,19 @@ Now let’s check the number of genes identified with duplication events:
 Display some of the gene IDs where exon duplications were found:
 
 ```python
->>> print(ychrom_expansions.genes[-4:])
+>>> print(ychrom_expansions.genes[:4])
 ['gene:ENSG00000188120', 'gene:ENSG00000165246', 'gene:ENSG00000205916', 'gene:ENSG00000205944']
 ```
 
 **Step 5: Examine the DAZ1 gene**
 
-Let’s take a closer look at the [DAZ1](https://en.wikipedia.org/wiki/DAZ1) gene (Ensembl id _gene:ENSG00000205916_). Note that the Gene object will return an interable of `Expansion` objects.
-
+Let’s take a closer look at the [DAZ1](https://en.wikipedia.org/wiki/DAZ1) gene (Ensembl ID: _gene:ENSG00000205916_).
 ```python
 >>> ychrom_expansions['gene:ENSG00000205916']
 <Gene gene:ENSG00000205916 with 6 expansions (iterable of expansion graphs)>
 ```
+Note that the [`Gene`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Gene) object is an iterable of [`Expansion`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion) objects, where each [`Expansion`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.Expansion) is a NetworkX graph structure encoding the expansions. You can find more details about the attributes of these graph structures in the [NetworkX documentation](https://networkx.org/documentation/stable/reference/classes/graph.html).
+
 
 DAZ1 has 6 expansions:
 
@@ -60,19 +62,19 @@ DAZ1 has 6 expansions:
 
 **Step 6: Inspect expansion #1**
 
-Check the size of expansion #1:
+Check the size of the largest expansion, in this case would be expansion #1:
 
 ```python
 >>> len(ychrom_expansions['gene:ENSG00000205916'][1])
 18
 ```
 
-This output shows that an exon in DAZ1 duplicated 18 times. Now, let’s look at the types of these duplications:
+This output indicates that DAZ1 contains 18 copies of an exon. Now, let’s look at the mode of these duplications:
 
 ```python
->>> types = [attrib.get('type') for node, attrib in ychrom_expansions['gene:ENSG00000205916'][1].nodes(data=True)]
->>> type_counts = {t: types.count(t) for t in set(types)}
->>> type_counts
+>>> mode = [attrib.get('mode') for node, attrib in ychrom_expansions['gene:ENSG00000205916'][1].nodes(data=True)]
+>>> mode_counts = {t: mode.count(t) for t in set(mode)}
+>>> mode_counts
 {'FULL': 15, 'INTRONIC': 3}
 ```
 This tells us that there are matches between 15 exons and 3 intronic regions. 
@@ -97,7 +99,7 @@ Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent co
 
 The `draw_gene_structure` method uses the [dna_features_viewer](https://edinburgh-genome-foundry.github.io/DnaFeaturesViewer/) library to illustrate the positions of expansion events within the gene, along with the coding exons it comprises.
 
-First, we need to parse the gene hierarchy dictionary (found in the exonize output directory) to obtain the gene structure:
+First, we need to parse the gene hierarchy dictionary, which can be found in the Exonize output directory. This step is necessary, since information about the arrangement of the exons within the genes is not stored in the output database.
 
 ```python
 >>> ychrom_expansions.parse_gene_hierarchy_dictionary(
