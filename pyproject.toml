@@ -2,17 +2,16 @@
 name = "exonize"
 description = "A tool for finding duplicated exons in annotated genomes"
 authors = [
-    {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
-    {name = "Liam Longo"},
+    {name = "Marina Herrera Sarrias"},
     {name = "Christopher Wheat"},
+    {name = "Liam Longo"},
     {name = "Lars Arvestad"},
 
 ]
-maintainers = [ 
-    {name = "Marina Herrera Sarrias", email = "marina.sarrias@math.su.se"},
+maintainers = [
     {name = "Lars Arvestad", email = "arve@math.su.se"}
 ]
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
     "gffutils",
     "portion",
