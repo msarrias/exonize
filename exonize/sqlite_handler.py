@@ -143,6 +143,14 @@ class SqliteHandler(object):
             """
                            )
             cursor.execute("""CREATE INDEX IF NOT EXISTS Genes_idx ON Genes (GeneID);""")
+
+    def create_monitoring_tables(
+            self,
+    ):
+        with sqlite3.connect(
+            self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Search_monitor (
                 GeneID VARCHAR(100) PRIMARY KEY,
@@ -150,7 +158,20 @@ class SqliteHandler(object):
                 Local BINARY(1) DEFAULT 0
             );
             """
-                           )
+               )
+            cursor.execute("""
+             CREATE TABLE IF NOT EXISTS Parameter_monitor (
+             l INTEGER NOT NULL, /* exon length threshold */
+             c_e REAL NOT NULL, /* exon clustering threshold */
+             t_e REAL, /* Local search: query coverage threshold */
+             e REAL, /* Local search: e-value threshold */
+             t_s REAL, /* Local search: self-match threshold */
+             c_t REAL, /* Local search: target clustering threshold */
+             t_p REAL, /* Global search: exon pair coverage threshold */
+             t_i REAL, /* Global search: aa alignment identity threshold */
+             t_a REAL /* Global search: fraction of aligned positions */
+             )
+             """)
 
     def create_expansions_table(
         self,
