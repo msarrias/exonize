@@ -1,5 +1,6 @@
 [project]
 name = "exonize"
+readme = "README.md"
 description = "A tool for finding duplicated exons in annotated genomes"
 authors = [
     {name = "Marina Herrera Sarrias"},
