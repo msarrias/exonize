@@ -19,7 +19,8 @@ dependencies = [
     "biopython",
     "networkx",
     "matplotlib",
-    "pandas"
+    "pandas",
+    "dna_features_viewer"
 ]
 [build-system]
 requires = ["setuptools"]

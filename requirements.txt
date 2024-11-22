@@ -4,3 +4,4 @@ biopython
 matplotlib
 pandas
 networkx
+dna_features_viewer
