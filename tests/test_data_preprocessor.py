@@ -8,6 +8,8 @@ import pytest
 exonize_obj = Exonize(
     gff_file_path=Path('mock_gff.gff3'),
     genome_file_path=Path('mock_genome.fa'),
+    pdb_ids_mapping_db_path=Path('mock_pdb_ids_mapping.db'),
+    pdb_structures_path=Path('mock_pdb_structures'),
     gene_annot_feature='gene',
     cds_annot_feature='CDS',
     transcript_annot_feature='mRNA',
