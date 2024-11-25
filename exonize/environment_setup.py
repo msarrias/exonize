@@ -169,15 +169,25 @@ Peptide identity threshold:    {self.peptide_identity_threshold}
 Pair coverage threshold:       {self.pair_coverage_threshold}
 --------------------------------
 """
+        structural_search_params = f"""
+ STRUCTURAL SEARCH - PARAMETERS
+--------------------------------
+PLDDT threshold:               {self.plddt_threshold}
+RMSD threshold:                {self.RMSD_threshold}
+TM-score threshold:            {self.TM_score_threshold}
+--------------------------------
+"""
         # Assemble the settings based on the search modes
         if self.SEARCH_ALL:
             self.exonize_pipeline_settings = (
                     base_settings + local_search_params + global_search_params
             )
-        elif self.GLOBAL_SEARCH:
+        elif self.GLOBAL_SEARCH and not self.SEARCH_ALL:
             self.exonize_pipeline_settings = base_settings + global_search_params
-        elif self.LOCAL_SEARCH:
+        elif self.LOCAL_SEARCH and not self.SEARCH_ALL:
             self.exonize_pipeline_settings = base_settings + local_search_params
+        if self.STRUCTURAL_SEARCH:
+            self.exonize_pipeline_settings += structural_search_params
 
     def check_if_tool_installed(
             self,
