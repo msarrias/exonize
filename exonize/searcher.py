@@ -554,7 +554,7 @@ class Searcher(object):
     def perform_tm_alignment(
             pair: tuple,
             pdb_sequence: str,
-            coords_array: np.array()
+            coords_array: np.ndarray
     ):
         x, y = pair
         coords1, seq1 = coords_array[x.lower: x.upper], pdb_sequence[x.lower: x.upper]
