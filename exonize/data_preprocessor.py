@@ -25,6 +25,9 @@ class DataPreprocessor(object):
         self.genome_database = None
         self.genome_dictionary = dict()
         self.gene_hierarchy_dictionary = dict()
+        if self.environment.STRUCTURAL_SEARCH:
+            self.pdb_structures_isoform_mapping = self.database_interface.query_pdb_structures_isoform_mapping()
+            self.pdb_chains_dictionary = self.database_interface.query_pdb_chains()
 
     @staticmethod
     def dump_pkl_file(
