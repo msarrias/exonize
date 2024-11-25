@@ -75,6 +75,7 @@ class Exonize(object):
         self.tic = datetime.now()
         self.local_full_matches_dictionary = {}
         self.global_full_matches_dictionary = {}
+        self.structural_full_matches_dictionary = {}
 
         self.environment = EnvironmentSetup(
             genome_file_path=genome_file_path,
@@ -400,9 +401,10 @@ class Exonize(object):
         for gene_id in genes_list:
             global_records_set = set()
             local_records_set = set()
+            structural_records_set = set()
             query_coordinates = set()
             targets_reference_coordinates_dictionary = {}
-            if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+            if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
                 if gene_id in self.local_full_matches_dictionary:
                     local_records_set = self.local_full_matches_dictionary[gene_id]
                     cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
@@ -433,13 +435,16 @@ class Exonize(object):
                             else:
                                 self.environment.logger.exception(e)
                                 sys.exit()
-            if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+            if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
                 global_records_set = self.global_full_matches_dictionary[gene_id]
+            if self.environment.STRUCTURAL_SEARCH:
+                structural_records_set = self.structural_full_matches_dictionary[gene_id]
             gene_graph = self.event_reconciler.create_events_multigraph(
+                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+                query_local_coordinates_set=query_coordinates,
                 local_records_set=local_records_set,
                 global_records_set=global_records_set,
-                query_local_coordinates_set=query_coordinates,
-                targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
+                structural_records_set=structural_records_set
             )
             (gene_events_list,
              non_reciprocal_fragment_ids_list,
@@ -465,7 +470,7 @@ class Exonize(object):
                     else:
                         self.environment.logger.exception(e)
                         sys.exit()
-            if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+            if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not SEARCH_ALL):
                 attempt = False
                 while not attempt:
                     try:
@@ -487,16 +492,18 @@ class Exonize(object):
         status: int
         forks: int = 0
         genes_to_process = set()
-        if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+        if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
             self.database_interface.create_non_reciprocal_fragments_table()
             local_full_matches_list = self.database_interface.query_full_length_events()
             self.local_full_matches_dictionary = self.event_reconciler.get_gene_events_dictionary(
                 local_full_matches_list=local_full_matches_list
             )
             genes_to_process = genes_to_process.union(set(self.local_full_matches_dictionary.keys()))
-        if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
             self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
             genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
+        if self.environment.STRUCTURAL_SEARCH:
+            self.structural_full_matches_dictionary = self.database_interface.query_structural_cds_events()
         for balanced_batch in self.even_batches(
                 data=list(genes_to_process),
                 number_of_batches=self.environment.FORKS_NUMBER,
@@ -628,12 +635,14 @@ class Exonize(object):
         """
         self.environment.logger.info(f'Running Exonize for: {self.environment.output_prefix}')
         self.data_container.prepare_data()
+        if self.environment.STRUCTURAL_SEARCH:
+            self.structural_search()
         if self.environment.SEARCH_ALL:
             self.local_search()
             self.global_search()
-        elif self.environment.GLOBAL_SEARCH:
+        elif not self.environment.SEARCH_ALL and self.environment.GLOBAL_SEARCH:
             self.global_search()
-        else:
+        elif not self.environment.SEARCH_ALL and self.environment.LOCAL_SEARCH:
             self.local_search()
         self.environment.logger.info('Starting reconciliation and classification...')
         self.environment.logger.info('Reconciling local matches')
