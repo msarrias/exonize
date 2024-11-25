@@ -408,6 +408,32 @@ class SqliteHandler(object):
             """
                            )
 
+    def create_structural_matches_table(
+        self,
+    ) -> None:
+        with sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Structural_matches_non_reciprocal (
+                StructuralFragmentID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GeneID VARCHAR(100) NOT NULL,
+                TranscriptID VARCHAR(100) NOT NULL,
+                GeneChrom VARCHAR(100) NOT NULL,
+                GeneStrand VARCHAR(1) NOT NULL,
+                QueryExonStart INTEGER NOT NULL,
+                QueryExonEnd INTEGER NOT NULL,
+                TargetExonStart INTEGER NOT NULL,
+                TargetExonEnd INTEGER NOT NULL,
+                DNAAlignIdentity REAL NOT NULL,
+                ProtAlignIdentity REAL NOT NULL,
+                Avg_pLDDT_query REAL NOT NULL,
+                Avg_pLDDT_target REAL NOT NULL,
+                TM_norm_score_query REAL NOT NULL,
+                TM_norm_score_target REAL NOT NULL,
+                RMSD REAL NOT NULL
+                );
+            """)
+
     def create_filtered_full_length_events_view(
         self,
         query_overlap_threshold: float,
@@ -1053,6 +1079,62 @@ class SqliteHandler(object):
                 WHERE {table_identifier_column}=?
             """
             cursor.executemany(insert_full_length_event_table_param, tuples_list)
+
+    def insert_structural_matches(
+            self,
+            matches
+    ):
+        query = """
+        INSERT INTO Structural_matches_non_reciprocal (
+            GeneID,
+            TranscriptID,
+            GeneChrom,
+            GeneStrand, 
+            QueryExonStart,
+            QueryExonEnd,
+            TargetExonStart,
+            TargetExonEnd,
+            DNAAlignIdentity,
+            ProtAlignIdentity, 
+            Avg_pLDDT_query,
+            Avg_pLDDT_target, 
+            TM_norm_score_query,
+            TM_norm_score_target,
+            RMSD
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """
+        with sqlite3.connect(self.environment.results_database_path) as db:
+            cursor = db.cursor()
+            cursor.executemany(query, matches)
+            db.commit()
+
+    def query_uniprot_transcripts(self):
+        with sqlite3.connect(self.environment.pdb_ids_mapping_db_path) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                d.gene_stable_id AS gene_stable_id,
+                tm.transcript_id,
+                d.canonical,
+                tm.uniprot_swiss_prot_id AS uniprot_swiss_prot_id,
+                tm.isoform AS isoform,
+                pdb.n_chains,
+                pdb.average_plddt
+            FROM transcript_uniprot_isoform_mapping AS tm
+            JOIN ensembl_genes_and_transcripts AS d 
+                ON d.transcript_stable_id = tm.transcript_id
+            JOIN pdb_structures_description AS pdb 
+                ON pdb.uniprot_swiss_prot_id = tm.uniprot_swiss_prot_id 
+                AND pdb.isoform = tm.isoform
+            ORDER BY gene_stable_id, isoform;
+            """
+                           )
+            records = cursor.fetchall()
+            records_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+            for record in records:
+                gene_id, trans, _, uniprotid, isoform, *_ = record
+                records_dict[f'gene:{gene_id}'][uniprotid][isoform].append(f'transcript:{trans}')
+            return records_dict
 
     def query_parameter_monitor_table(self,):
         with sqlite3.connect(
