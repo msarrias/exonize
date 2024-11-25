@@ -28,6 +28,7 @@ class DataPreprocessor(object):
         if self.environment.STRUCTURAL_SEARCH:
             self.pdb_structures_isoform_mapping = self.database_interface.query_pdb_structures_isoform_mapping()
             self.pdb_chains_dictionary = self.database_interface.query_pdb_chains()
+            self.structural_search_cdss_to_query = self.fetch_structural_queried_cdss()
 
     @staticmethod
     def dump_pkl_file(
@@ -366,6 +367,19 @@ class DataPreprocessor(object):
                     )
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
+    def fetch_structural_queried_cdss(self):
+        structural_events_dict = self.database_interface.query_structural_cds_events()
+        transcript_cdss_to_query = {}
+        for gene_id, cds_list in structural_events_dict.items():
+            gene_start = self.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
+            temp = set()
+            for cds in cds_list:
+                gene_id, qs, qe, ts, te = cds
+                temp.add(P.open(qs + gene_start, qe + gene_start))
+                temp.add(P.open(ts + gene_start, te + gene_start))
+            transcript_cdss_to_query[gene_id] = temp
+        return transcript_cdss_to_query
+
     def fetch_gene_cdss_set(
             self,
             gene_id: str
@@ -379,14 +393,25 @@ class DataPreprocessor(object):
             )
         )
 
-    @staticmethod
     def flatten_clusters_representative_exons(
-            cluster_list: list
+            self,
+            cluster_list: list,
+            gene_id: str
     ) -> list:
-        return [
-            cluster[0][0] if len(cluster) == 1 else min(cluster, key=lambda x: x[0].upper - x[0].lower)[0]
-            for cluster in cluster_list
-        ]
+        set_representative_exons = set()
+        for cluster in cluster_list:
+            if len(cluster) == 1:
+                set_representative_exons.add(cluster[0][0])
+            elif self.environment.STRUCTURAL_SEARCH:
+                if gene_id in self.structural_search_cdss_to_query:
+                    candidates = [cds for cds in self.structural_search_cdss_to_query[gene_id] if cds in cluster]
+                    if candidates:
+                        set_representative_exons.add(candidates[0])
+                else:
+                    set_representative_exons.add(min(cluster, key=lambda x: x[0].upper - x[0].lower)[0])
+            else:
+                set_representative_exons.add(min(cluster, key=lambda x: x[0].upper - x[0].lower)[0])
+        return list(set_representative_exons)
 
     def get_overlapping_clusters(
             self,
