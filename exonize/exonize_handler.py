@@ -203,7 +203,10 @@ class Exonize(object):
     def cleanup_local_search(self):
         if self.environment.LOCAL_SEARCH:
             self.database_interface.clear_results_database(
-                except_tables=['Genes', 'Search_monitor', 'Local_matches']
+                except_tables=['Genes',
+                               'Search_monitor',
+                               'Local_matches',
+                               'Structural_matches_non_reciprocal']
             )
             self.data_container.initialize_database()
 
@@ -217,49 +220,29 @@ class Exonize(object):
             list_tuples=identity_and_sequence_tuples
         )
 
-    def handle_forked_process(
-            self,
-            forks: int
-    ):
-        code: int
-        forks += 1
-        if forks >= self.environment.FORKS_NUMBER:
-            _, status = os.wait()
-            code = os.waitstatus_to_exitcode(status)
-            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-            assert code != os.EX_SOFTWARE
-            forks -= 1
-            return forks
-
-    @staticmethod
-    def terminate_forked_processes(
-            forks: int
-    ) -> None:
-        while forks > 0:
-            _, status = os.wait()
-            code = os.waitstatus_to_exitcode(status)
-            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
-            assert code != os.EX_SOFTWARE
-            forks -= 1
-
     def local_search(
             self
     ):
-        status: int
-
-        forks: int = 0
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(local_search=True)
         if unprocessed_gene_ids_list:
             self.log_search_progress(
                 unprocessed_gene_ids_list=unprocessed_gene_ids_list,
                 local_search=True
             )
+            status: int
+            forks: int = 0
             for balanced_batch in self.even_batches(
                     data=list(unprocessed_gene_ids_list),
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
                 if os.fork():
-                    forks = self.handle_forked_process(forks=forks)
+                    forks += 1
+                    if forks >= self.environment.FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
                 else:
                     status = os.EX_OK
                     try:
@@ -273,9 +256,13 @@ class Exonize(object):
                         # fork in turn its own children, duplicating the work done, and creating a huge mess.
                         # We do not want that, so we gracefully exit the process when it is done.
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-            # terminate_forked_processes guarantees that all forked processes
-            # will be terminated before proceeding with the rest
-            self.terminate_forked_processes(forks=forks)
+            # guarantees that all forked processes will be terminated before proceeding with the rest
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
             self.local_search_complete_identity_and_coverage()
         else:
             self.log_completed_search(local_search=True)
@@ -286,7 +273,9 @@ class Exonize(object):
         )
 
     def cleanup_global_search(self):
-        except_tables = ['Genes', 'Search_monitor', 'Global_matches_non_reciprocal']
+        except_tables = ['Genes', 'Search_monitor',
+                         'Global_matches_non_reciprocal',
+                         'Structural_matches_non_reciprocal']
         if self.environment.SEARCH_ALL:
             except_tables.append('Local_matches')
         self.database_interface.clear_results_database(except_tables=except_tables)
@@ -295,8 +284,6 @@ class Exonize(object):
     def global_search(
             self
     ):
-        status: int
-        forks: int = 0
         genes_to_update = []
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(global_search=True)
         if unprocessed_gene_ids_list:
@@ -304,12 +291,20 @@ class Exonize(object):
                 unprocessed_gene_ids_list=unprocessed_gene_ids_list,
                 global_search=True
             )
+            status: int
+            forks: int = 0
             for balanced_batch in self.even_batches(
                     data=list(unprocessed_gene_ids_list),
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
                 if os.fork():
-                    forks = self.handle_forked_process(forks=forks)
+                    forks += 1
+                    if forks >= self.environment.FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
                 else:
                     status = os.EX_OK
                     try:
@@ -319,7 +314,12 @@ class Exonize(object):
                         status = os.EX_SOFTWARE
                     finally:
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-            self.terminate_forked_processes(forks=forks)
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
             genes_to_update = self.database_interface.query_gene_ids_global_search()
         else:
             self.log_completed_search(global_search=True)
@@ -332,20 +332,26 @@ class Exonize(object):
     def structural_search(
             self
     ):
-        status: int
-        forks: int = 0
-        unprocessed_gene_ids_list = self.database_interface.gene_hierarchy_dictionary.keys()
+        unprocessed_gene_ids_list = self.data_container.gene_hierarchy_dictionary.keys()
         if unprocessed_gene_ids_list:
             self.log_search_progress(
                 unprocessed_gene_ids_list=unprocessed_gene_ids_list,
                 structural_search=True
             )
+            status: int
+            forks: int = 0
             for balanced_batch in self.even_batches(
                     data=list(unprocessed_gene_ids_list),
                     number_of_batches=self.environment.FORKS_NUMBER,
             ):
                 if os.fork():
-                    forks = self.handle_forked_process(forks=forks)
+                    forks += 1
+                    if forks >= self.environment.FORKS_NUMBER:
+                        _, status = os.wait()
+                        code = os.waitstatus_to_exitcode(status)
+                        assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                        assert code != os.EX_SOFTWARE
+                        forks -= 1
                 else:
                     status = os.EX_OK
                     try:
@@ -355,7 +361,12 @@ class Exonize(object):
                         status = os.EX_SOFTWARE
                     finally:
                         os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
-            self.terminate_forked_processes(forks=forks)
+            while forks > 0:
+                _, status = os.wait()
+                code = os.waitstatus_to_exitcode(status)
+                assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                assert code != os.EX_SOFTWARE
+                forks -= 1
         else:
             self.log_completed_search(structural_search=True)
 
@@ -489,8 +500,6 @@ class Exonize(object):
     def events_reconciliation(
             self,
     ):
-        status: int
-        forks: int = 0
         genes_to_process = set()
         if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
             self.database_interface.create_non_reciprocal_fragments_table()
@@ -504,12 +513,20 @@ class Exonize(object):
             genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
         if self.environment.STRUCTURAL_SEARCH:
             self.structural_full_matches_dictionary = self.database_interface.query_structural_cds_events()
+        status: int
+        forks: int = 0
         for balanced_batch in self.even_batches(
                 data=list(genes_to_process),
                 number_of_batches=self.environment.FORKS_NUMBER,
         ):
             if os.fork():
-                forks = self.handle_forked_process(forks=forks)
+                forks += 1
+                if forks >= self.environment.FORKS_NUMBER:
+                    _, status = os.wait()
+                    code = os.waitstatus_to_exitcode(status)
+                    assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+                    assert code != os.EX_SOFTWARE
+                    forks -= 1
             else:
                 status = os.EX_OK
                 try:
@@ -519,7 +536,12 @@ class Exonize(object):
                     status = os.EX_SOFTWARE
                 finally:
                     os._exit(status)
-        self.terminate_forked_processes(forks=forks)
+        while forks > 0:
+            _, status = os.wait()
+            code = os.waitstatus_to_exitcode(status)
+            assert code in (os.EX_OK, os.EX_TEMPFAIL, os.EX_SOFTWARE)
+            assert code != os.EX_SOFTWARE
+            forks -= 1
         self.database_interface.drop_table(table_name='Matches_full_length')
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
         self.database_interface.update_has_duplicate_genes_table(list_tuples=genes_with_duplicates)
@@ -637,6 +659,7 @@ class Exonize(object):
         self.data_container.prepare_data()
         if self.environment.STRUCTURAL_SEARCH:
             self.structural_search()
+            self.data_container.structural_search_cdss_to_query = self.data_container.fetch_structural_queried_cdss()
         if self.environment.SEARCH_ALL:
             self.local_search()
             self.global_search()
