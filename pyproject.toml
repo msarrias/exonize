@@ -20,7 +20,8 @@ dependencies = [
     "networkx",
     "matplotlib",
     "pandas",
-    "dna_features_viewer"
+    "dna_features_viewer",
+    "tmtools"
 ]
 [build-system]
 requires = ["setuptools"]
