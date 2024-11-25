@@ -157,14 +157,16 @@ class Exonize(object):
             self,
             unprocessed_gene_ids_list,
             local_search: bool = False,
-            global_search: bool = False
-
+            global_search: bool = False,
+            structural_search: bool = False
     ):
         search = ''
         if local_search:
             search = 'local'
         elif global_search:
             search = 'global'
+        elif structural_search:
+            search = 'structural'
         gene_ids_list = list(self.data_container.gene_hierarchy_dictionary.keys())
         gene_count = len(gene_ids_list)
         out_message = (
@@ -180,12 +182,15 @@ class Exonize(object):
     def log_completed_search(
             self,
             local_search: bool = False,
-            global_search: bool = False):
+            global_search: bool = False,
+            structural_search: bool = False):
         search = ''
         if local_search:
             search = 'Local'
         elif global_search:
             search = 'Global'
+        elif structural_search:
+            search = 'Structural'
         self.environment.logger.info(
             f'{search} search has been completed. '
             'If you wish to re-run the analysis, '
@@ -213,6 +218,7 @@ class Exonize(object):
             self,
             forks: int
     ):
+        code: int
         forks += 1
         if forks >= self.environment.FORKS_NUMBER:
             _, status = os.wait()
@@ -237,7 +243,7 @@ class Exonize(object):
             self
     ):
         status: int
-        code: int
+
         forks: int = 0
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(local_search=True)
         if unprocessed_gene_ids_list:
@@ -287,7 +293,6 @@ class Exonize(object):
             self
     ):
         status: int
-        code: int
         forks: int = 0
         genes_to_update = []
         unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(global_search=True)
@@ -320,6 +325,36 @@ class Exonize(object):
             self.database_interface.update_has_duplicate_genes_table(
                 list_tuples=[(gene,) for gene in genes_to_update]
             )
+
+    def structural_search(
+            self
+    ):
+        status: int
+        forks: int = 0
+        unprocessed_gene_ids_list = self.database_interface.gene_hierarchy_dictionary.keys()
+        if unprocessed_gene_ids_list:
+            self.log_search_progress(
+                unprocessed_gene_ids_list=unprocessed_gene_ids_list,
+                structural_search=True
+            )
+            for balanced_batch in self.even_batches(
+                    data=list(unprocessed_gene_ids_list),
+                    number_of_batches=self.environment.FORKS_NUMBER,
+            ):
+                if os.fork():
+                    forks = self.handle_forked_process(forks=forks)
+                else:
+                    status = os.EX_OK
+                    try:
+                        self.search_engine.cds_structural_search(gene_id_list=list(balanced_batch))
+                    except Exception as exception:
+                        self.environment.logger.exception(str(exception))
+                        status = os.EX_SOFTWARE
+                    finally:
+                        os._exit(status)  # https://docs.python.org/3/library/os.html#os._exit
+            self.terminate_forked_processes(forks=forks)
+        else:
+            self.log_completed_search(structural_search=True)
 
     def classify_matches_transcript_interdependence(
             self,
@@ -448,7 +483,6 @@ class Exonize(object):
             self,
     ):
         status: int
-        code: int
         forks: int = 0
         genes_to_process = set()
         if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
