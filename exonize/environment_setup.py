@@ -108,11 +108,15 @@ class EnvironmentSetup(object):
         self.log_file_name = self.working_directory / f"{self.output_prefix}.log"
         self.PROFILE_PATH = self.working_directory / 'cProfile_dump_stats.dmp'
 
-        if self.pdb_structures_path.exists():
-            self.pdb_files = {
-                self.pdb_structures_path / Path(file) for file in os.listdir(self.pdb_structures_path)
-                if 'AF' in file
-            }
+        if self.STRUCTURAL_SEARCH:
+            if self.pdb_structures_path.exists():
+                self.pdb_files = {
+                    self.pdb_structures_path / Path(file) for file in os.listdir(self.pdb_structures_path)
+                    if 'AF' in file
+                }
+            else:
+                self.logger.error(f"Error: Path to PDB structures does not exist: {self.pdb_structures_path}")
+                sys.exit(1)
         # Derived attributes that depend on initial parameters
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
         self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'
