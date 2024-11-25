@@ -185,13 +185,19 @@ def argument_parser():
         '--global-search',
         action='store_true',
         default=False,
-        help='Exonize will perform a global search only.'
+        help='Exonize will perform a global search'
     )
     parser.add_argument(
         '--local-search',
         action='store_true',
         default=False,
-        help='Exonize will perform a local search only.'
+        help='Exonize will perform a local search'
+    )
+    parser.add_argument(
+        '--structural-search',
+        action='store_true',
+        default=False,
+        help='Exonize will perform a structural search'
     )
     parser.add_argument(
         '--debug',
@@ -284,6 +290,7 @@ def main():
         soft_force=args.soft_force,
         hard_force=args.hard_force,
         global_search=args.global_search,
+        structural_search=args.structural_search,
         local_search=args.local_search,
         sleep_max_seconds=args.sleep_max_seconds,
         cpus_number=args.cpus_number,
