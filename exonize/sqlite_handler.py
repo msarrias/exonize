@@ -1375,6 +1375,31 @@ class SqliteHandler(object):
                 global_search_dict[record[0]].append(record)
             return global_search_dict
 
+    def query_structural_cds_events(
+            self,
+    ) -> dict:
+        with sqlite3.connect(
+                self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.execute(
+                """
+            SELECT
+                f.GeneID,
+                f.QueryExonStart - g.GeneStart,
+                f.QueryExonEnd - g.GeneStart,
+                f.TargetExonStart - g.GeneStart,
+                f.TargetExonEnd - g.GeneStart
+            FROM Structural_matches_non_reciprocal AS f
+            JOIN Genes AS g ON g.GeneID= f.GeneID
+            """
+            )
+            records = cursor.fetchall()
+            structural_search_dict = defaultdict(list)
+            for record in records:
+                structural_search_dict[record[0]].append(record)
+            return structural_search_dict
+
     def export_all_tables_to_csv(
             self,
             output_dir: Path
