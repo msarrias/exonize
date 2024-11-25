@@ -593,14 +593,14 @@ class Searcher(object):
     ):
         dnaseq_x, protseq_x = self.recover_transcript_prot_dna_seq(
             cds_coordinate=coords_x,
-            seqs_dict=cds_transcript_dict['CDSs']
+            seqs_dict=cds_transcript_dict
         )
         dnaseq_y, protseq_y = self.recover_transcript_prot_dna_seq(
             cds_coordinate=coords_y,
-            seqs_dict=cds_transcript_dict['CDSs']
+            seqs_dict=cds_transcript_dict
         )
-        align_dna = self.search_engine.perform_msa(dnaseq_x, dnaseq_y)
-        align_prot = self.search_engine.perform_msa(protseq_x, protseq_y)
+        align_dna = self.perform_msa(dnaseq_x, dnaseq_y)
+        align_prot = self.perform_msa(protseq_x, protseq_y)
         return self.get_alignment_identity(alignment=align_dna), self.get_alignment_identity(alignment=align_prot)
 
     def fetch_structural_match_tuple(
@@ -627,8 +627,8 @@ class Searcher(object):
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
             dna_coords_x.lower, dna_coords_x.upper, dna_coords_y.lower, dna_coords_y.upper,
             align_id_dna, align_id_prot,
-            round(np.mean(pldtt_seq[x.lower:x.upper]), 3),
-            round(np.mean(pldtt_seq[y.lower:y.upper]), 3),
+            round(float(np.mean(pldtt_seq[x.lower:x.upper])), 3),
+            round(float(np.mean(pldtt_seq[y.lower:y.upper])), 3),
             round(tmresult.tm_norm_chain1, 3),
             round(tmresult.tm_norm_chain2, 3),
             round(tmresult.rmsd, 3)
@@ -640,30 +640,27 @@ class Searcher(object):
             coordinates_list: list[P.Interval]
     ):
         return [
-            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_th)
+            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
             for coord in coordinates_list
-            if coord and coord.upper - coord.lower >= self.min_exon_length // 3
+            if coord and coord.upper - coord.lower >= self.environment.min_exon_length // 3
         ]
 
-    def insert_structural_matches(
+    def attempt_insert_structural_matches(
             self,
-            gene_id: str,
             tuples_to_insert: list[tuple]):
         attempt = False
-        if tuples_to_insert:
-            while not attempt:
-                try:
-                    self.database_interface.insert_structural_matches(
-                        gene_id=gene_id,
-                        tuples_list=tuples_to_insert
-                    )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+        while not attempt:
+            try:
+                self.database_interface.insert_structural_matches(
+                    matches=tuples_to_insert
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
 
     def get_pldtt_sequence(
             self,
@@ -683,16 +680,16 @@ class Searcher(object):
             if gene_id in self.data_container.pdb_structures_isoform_mapping:
                 for uniprot_id, isoform_dict in self.data_container.pdb_structures_isoform_mapping[gene_id].items():
                     if len(isoform_dict) == 1:
-                        isoform_id, transcript_list = next(iter(self.isoform_dict[gene_id].items()))
+                        isoform_id, transcript_list = next(iter(isoform_dict.items()))
                         transcript_id = transcript_list[0]
                         transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
                         prot_coords_to_dna = self.fetch_cds_prot_coords(
-                            transcripts_dictionary=transcripts_dictionary[gene_id]
+                            transcripts_dictionary=transcripts_dictionary[transcript_id]
                         )
                         # this is the protein sequence we constructed from the CDS
                         trans_seq = transcripts_dictionary[transcript_id]['pepSeq']
                         trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
-                        pdb_file = self.environment.alphafold_db_path / f'AF-{uniprot_id}-{isoform_id}-model_v4.pdb'
+                        pdb_file = self.environment.pdb_structures_path / f'AF-{uniprot_id}-{isoform_id}-model_v4.pdb'
                         if pdb_file in self.environment.pdb_files:
                             structure = get_structure(pdb_file)
                             chain = next(structure.get_chains())
@@ -735,10 +732,10 @@ class Searcher(object):
                                         matched_pairs.append(
                                             tuple_to_insert
                                         )
-                self.insert_structural_matches(
-                    gene_id=gene_id,
-                    tuples_to_insert=matched_pairs
-                )
+                if matched_pairs:
+                    self.attempt_insert_structural_matches(
+                        tuples_to_insert=matched_pairs
+                    )
 
     def cds_local_search(
             self,
