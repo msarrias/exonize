@@ -402,6 +402,7 @@ class Searcher(object):
             if clusters:
                 representative_cdss = self.data_container.flatten_clusters_representative_exons(
                     cluster_list=clusters,
+                    gene_id=gene_id
                 )
                 representative_cds_frame_dictionary = dict()
                 for cds_coordinate, frame in cds_coordinates_and_frames:
@@ -525,7 +526,9 @@ class Searcher(object):
         )
 
     @staticmethod
-    def fetch_cds_prot_coords(transcripts_dictionary: dict):
+    def fetch_cds_prot_coords(
+            transcripts_dictionary: dict
+    ):
         prot_coords_to_dna = {}
 
         start = 0
