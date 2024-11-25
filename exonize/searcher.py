@@ -9,12 +9,16 @@ import sys
 import tempfile
 from pathlib import Path
 import time
+import numpy as np
 import portion as P
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
 from Bio import AlignIO
+from PyQt5.sip import array
+from tmtools.io import get_structure, get_residue_data
+from tmtools.testing import get_pdb_path
 
 
 class Searcher(object):
@@ -67,10 +71,8 @@ class Searcher(object):
             sequence_j: str
     ) -> float:
         """
-        Compute the identity between two sequences
-        (seq_1 and seq_2) using the Hamming distance method.
+        Hamming distance
         """
-        # Calculate the Hamming distance and return it
         if len(sequence_i) != len(sequence_j):
             raise ValueError('Undefined for sequences of unequal length')
         return round(sum(i == j for i, j in zip(sequence_i, sequence_j)) / len(sequence_j), 3)
@@ -523,6 +525,180 @@ class Searcher(object):
                 gene_coordinate.lower:gene_coordinate.upper])
         )
 
+    @staticmethod
+    def fetch_cds_prot_coords(transcripts_dictionary: dict):
+        prot_coords_to_dna = {}
+
+        start = 0
+        for cds, cdsdict in transcripts_dictionary['CDSs'].items():
+            aa_sequence = cdsdict[-1]
+            if cdsdict[0] == 0:
+                prot_coords_to_dna[P.open(0, len(aa_sequence))] = cds
+            else:
+                prot_coords_to_dna[P.open(start, start + len(aa_sequence))] = cds
+            start += len(aa_sequence)
+        return prot_coords_to_dna
+
+    @staticmethod
+    def check_cds_pldtt_contraint(
+            pldtt_seq: list[float],
+            coord: P.Interval,
+            threshold: float
+    ) -> [P.Interval, None]:
+        if pldtt_seq and np.mean(pldtt_seq[coord.lower:coord.upper]) > threshold:
+            return coord
+
+    @staticmethod
+    def perform_tm_alignment(
+            pair: tuple,
+            pdb_sequence: str,
+            coords_array: np.array()
+    ):
+        x, y = pair
+        coords1, seq1 = coords_array[x.lower: x.upper], pdb_sequence[x.lower: x.upper]
+        coords2, seq2 = coords_array[y.lower: y.upper], pdb_sequence[y.lower: y.upper]
+        # Perform alignment
+        return tm_align(coords1, coords2, seq1, seq2)
+
+    @staticmethod
+    def recover_transcript_prot_dna_seq(
+            cds_coordinate: P.Interval,
+            seqs_dict: dict
+    ):
+        n, frame, dna_align, prot_align = seqs_dict[cds_coordinate]
+        previous_frame = seqs_dict[list(seqs_dict.keys())[n - 1]][1]
+        dna_align = dna_align[previous_frame:len(dna_align) - frame]
+        if frame > 0:
+            prot_align = prot_align[:-1]
+        return dna_align, prot_align
+
+    def get_alignment_identity(
+            self,
+            alignment
+    ):
+        if alignment:
+            align_di, align_dj = alignment
+            return self.compute_identity(
+                sequence_i=align_di,
+                sequence_j=align_dj
+            )
+
+    def fetch_structural_match_identity(
+            self,
+            coords_x: P.Interval,
+            coords_y: P.Interval,
+            cds_transcript_dict: dict
+    ):
+        dnaseq_x, protseq_x = self.recover_transcript_prot_dna_seq(
+            cds_coordinate=coords_x,
+            seqs_dict=cds_transcript_dict['CDSs']
+        )
+        dnaseq_y, protseq_y = self.recover_transcript_prot_dna_seq(
+            cds_coordinate=coords_y,
+            seqs_dict=cds_transcript_dict['CDSs']
+        )
+        align_dna = self.search_engine.perform_msa(dnaseq_x, dnaseq_y)
+        align_prot = self.search_engine.perform_msa(protseq_x, protseq_y)
+        return self.get_alignment_identity(alignment=align_dna), self.get_alignment_identity(alignment=align_prot)
+
+    def fetch_structural_match_tuple(
+            self,
+            gene_id: str,
+            transcript_id: str,
+            pair: tuple,
+            dna_coords_x: P.Interval,
+            dna_coords_y: P.Interval,
+            transcripts_dictionary: dict,
+            pldtt_seq: list[float],
+            tmresult: object
+    ) -> tuple:
+        x, y = pair
+        align_id_dna, align_id_prot = self.fetch_structural_match_identity(
+            coords_x=dna_coords_x,
+            coords_y=dna_coords_y,
+            cds_transcript_dict=transcripts_dictionary[transcript_id]['CDSs']
+        )
+        return (
+            gene_id,
+            transcript_id,
+            self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
+            self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
+            dna_coords_x.lower, dna_coords_x.upper, dna_coords_y.lower, dna_coords_y.upper,
+            align_id_dna, align_id_prot,
+            round(np.mean(pldtt_seq[x.lower:x.upper]), 3),
+            round(np.mean(pldtt_seq[y.lower:y.upper]), 3),
+            round(tmresult.tm_norm_chain1, 3),
+            round(tmresult.tm_norm_chain2, 3),
+            round(tmresult.rmsd, 3)
+        )
+
+    def cds_structural_search(
+            self,
+            gene_id_list: list[str],
+    ) -> None:
+        for gene_id in gene_id_list:
+            if len(self.isoform_dict[gene_id]) == 1:
+                isoform_id, transcript_list = next(iter(self.isoform_dict[gene_id].items()))
+                transcript_id = transcript_list[0]
+                transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
+                prot_coords_to_dna = self.fetch_cds_prot_coords(transcripts_dictionary=transcripts_dictionary[gene_id])
+                trans_seq = transcripts_dictionary[transcript_id]['pepSeq']  # this is the protein sequence we constructed
+                trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
+                pdb_file = self.environment.alphafold_db_path / f'AF-{uniprot_id}-{isoform}-model_v4.pdb'
+                if pdb_file in self.environment.pdb_files:
+                    structure = get_structure(pdb_file)
+                    chain = next(structure.get_chains())
+                    # these are the alphafold protein coordinates and sequence that was folded
+                    coords, seq = get_residue_data(chain=chain)
+                    if len(trans_seq) == len(seq):  # sanity check
+                        pldtt_seq = chains_dict[trimmed_id][uniprot_id][isoform][chain.id]['plddt']
+                        candidate_cdss = [
+                            self.check_cds_pldtt_contraint(pldtt_seq, coord, self.environment.plddt_th)
+                            for coord in prot_coords_to_dna.keys()
+                            if coord and coord.upper - coord.lower >= self.min_exon_length // 3
+                        ]
+                        pairs = self.fetch_pairs_for_alignments(
+                            [(candidate, None) for candidate in candidate_cdss if candidate])
+                        for pair in pairs:
+                            x, y = pair
+                            dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
+                            structure_alignment = self.perform_tm_alignment(
+                                pair=pair,
+                                pdb_sequence=seq,
+                                coords_array=coords
+                            )
+                            if (structure_alignment.tm_norm_chain1 > self.environment.TM_score_threshold and
+                                    structure_alignment.tm_norm_chain2 > self.environment.TM_score_threshold and
+                                    structure_alignment.rmsd < self.environment.RMSD_threshold):
+                                tuple_to_insert = self.fetch_structural_match_tuple(
+                                    gene_id=gene_id,
+                                    transcript_id=transcript_id,
+                                    pair=pair,
+                                    dna_coords_x=dna_coords_x,
+                                    dna_coords_y=dna_coords_y,
+                                    transcripts_dictionary=transcripts_dictionary,
+                                    pldtt_seq=pldtt_seq,
+                                    tmresult=structure_alignment
+                                )
+                                matched_pairs.append(
+                                    tuple_to_insert
+                                )
+            attempt = False
+            if matched_pairs:
+                while not attempt:
+                    try:
+                        self.database_interface.insert_structural_matches(
+                            gene_id=gene_id,
+                            tuples_list=matched_pairs
+                        )
+                        attempt = True
+                    except Exception as e:
+                        if "locked" in str(e):
+                            time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                        else:
+                            self.environment.logger.exception(e)
+                            sys.exit()
+
     def cds_local_search(
             self,
             gene_id_list: list[str],
@@ -609,7 +785,7 @@ class Searcher(object):
         for gene_id in genes_list:
             retain_pairs = set()
             cds_frame_tuples_list = self.fetch_representative_exons_frame_tuples(gene_id=gene_id)
-            gene_pairs = self.fetch_pairs_for_global_alignments(
+            gene_pairs = self.fetch_pairs_for_alignments(
                 cds_list=cds_frame_tuples_list
             )
             try:
@@ -816,7 +992,7 @@ class Searcher(object):
         short, long = sorted([intvi.upper - intvi.lower, intvj.upper - intvj.lower])
         return short / long
 
-    def fetch_pairs_for_global_alignments(
+    def fetch_pairs_for_alignments(
             self,
             cds_list: list[tuple]
     ) -> set:
