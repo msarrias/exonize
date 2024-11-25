@@ -306,44 +306,53 @@ class ReconcilerHandler(object):
             targets_reference_coordinates_dictionary: dict,
             global_records_set: set,
             query_local_coordinates_set: set,
+            structural_records_set: set
     ):
-        target_coordinates_set = set([
+        def extract_cds_coordinates(records_set: set):
+            return {
+                P.open(cds_start, cds_end)
+                for record in records_set
+                for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
+            }
+
+        target_coordinates_set = {
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
-        ])
-        global_cds_coordinates_set = {
-            P.open(cds_start, cds_end)
-            for record in global_records_set
-            for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
         }
-        return set([
+
+        global_cds_coordinates_set = extract_cds_coordinates(global_records_set)
+        structural_cds_coordinates_set = extract_cds_coordinates(structural_records_set)
+
+        union_cds_coordinates = query_local_coordinates_set.union(
+            global_cds_coordinates_set, structural_cds_coordinates_set
+        )
+        return {
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, self.environment.full)
-                  for coordinate in query_local_coordinates_set.union(global_cds_coordinates_set)],
+                *[(coordinate, self.environment.full) for coordinate in union_cds_coordinates],
                 *target_coordinates_set
             ]
-        ])
+        }
 
     @staticmethod
     def find_query_cds_global_matches(
-            global_records_set_pairs_set: set,
+            pairs_set: set,
             cds_coordinate: P.Interval
     ):
         return [
-                global_pair
-                for global_pair in global_records_set_pairs_set
-                if cds_coordinate in global_pair
+                pair
+                for pair in pairs_set
+                if cds_coordinate in pair
             ]
 
     def find_local_match_in_global_matches(
             self,
-            global_candidates: list,
+            candidates: list,
             cds_coordinate: P.Interval,
             reference_coordinate: P.Interval,
     ):
-        for global_candidate in global_candidates:
-            query_gc, target_gc = global_candidate
+        for candidate in candidates:
+            query_gc, target_gc = candidate
             if cds_coordinate == query_gc:
                 target = target_gc
             else:
@@ -355,26 +364,36 @@ class ReconcilerHandler(object):
                     or target.contains(reference_coordinate)):
                 return target
 
+    @staticmethod
+    def create_pairs_set(
+            records_set: set
+    ):
+        return {
+            tuple(sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)),
+                         key=lambda x: (x.lower, x.upper)))
+            for _, cds_start, cds_end, target_start, target_end in records_set
+        }
+
     def create_events_multigraph(
             self,
             targets_reference_coordinates_dictionary: dict,
             query_local_coordinates_set: set,
             local_records_set: set,
             global_records_set: set,
+            structural_records_set: set
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         set_of_nodes = self.get_expansion_nodes(
             global_records_set=global_records_set,
             query_local_coordinates_set=query_local_coordinates_set,
+            structural_records_set=structural_records_set,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
         gene_graph.add_nodes_from(
             [node_coordinate for node_coordinate, _ in set_of_nodes]
         )
-        global_records_set_pairs_set = set(tuple(
-            sorted((P.open(cds_start, cds_end), P.open(target_start, target_end)),
-                   key=lambda x: (x.lower, x.upper))
-        ) for _, cds_start, cds_end, target_start, target_end in global_records_set)
+        global_records_set_pairs_set = self.create_pairs_set(records_set=global_records_set)
+        structural_records_set_pairs_set = self.create_pairs_set(records_set=structural_records_set)
         drop_nodes = []
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
@@ -386,12 +405,12 @@ class ReconcilerHandler(object):
             target_coordinate = P.open(target_start, target_end)
             reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
-            global_candidates = self.find_query_cds_global_matches(
-                global_records_set_pairs_set=global_records_set_pairs_set,
+            cds_candidates = self.find_query_cds_global_matches(
+                pairs_set=global_records_set_pairs_set.union(structural_records_set_pairs_set),
                 cds_coordinate=cds_coordinate
             )
             global_target = self.find_local_match_in_global_matches(
-                global_candidates=global_candidates,
+                candidates=cds_candidates,
                 cds_coordinate=cds_coordinate,
                 reference_coordinate=reference_coordinate
             )
@@ -408,13 +427,12 @@ class ReconcilerHandler(object):
                     query=(cds_start, cds_end),
                     evalue=evalue,
                     mode=mode,
-                    search='local',
                     color='black',
                     width=2
                 )
         gene_graph.remove_nodes_from(drop_nodes)
-        # GLOBAL ALIGNMENT MATCHES
-        for pair in global_records_set_pairs_set:
+        # GLOBAL AND STRUCTURAL ALIGNMENT MATCHES
+        for pair in global_records_set_pairs_set.union(structural_records_set_pairs_set):
             cds_coordinate, target_coordinate = pair
             gene_graph.add_edge(
                 u_for_edge=(cds_coordinate.lower, cds_coordinate.upper),
@@ -425,7 +443,6 @@ class ReconcilerHandler(object):
                 query=(cds_coordinate.lower, cds_coordinate.upper),
                 evalue=None,
                 mode=self.environment.full,
-                search='global',
                 color='black',
                 width=2
             )
