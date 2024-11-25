@@ -36,6 +36,7 @@ class EnvironmentSetup(object):
             TM_score_threshold: float,
             global_search: bool,
             local_search: bool,
+            structural_search: bool,
             hard_force: bool,
             soft_force: bool,
             debug_mode: bool,
@@ -50,7 +51,8 @@ class EnvironmentSetup(object):
         self.FORKS_NUMBER = cpus_number
         self.GLOBAL_SEARCH = global_search
         self.LOCAL_SEARCH = local_search
-        self.SEARCH_ALL = not self.GLOBAL_SEARCH and not self.LOCAL_SEARCH
+        self.STRUCTURAL_SEARCH = structural_search
+        self.SEARCH_ALL = True if self.GLOBAL_SEARCH == self.LOCAL_SEARCH else False
         self.CSV = csv
 
         self.gff_file_path = gff_file_path
