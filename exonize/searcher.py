@@ -16,9 +16,8 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Blast import NCBIXML
 from Bio import AlignIO
-from PyQt5.sip import array
 from tmtools.io import get_structure, get_residue_data
-from tmtools.testing import get_pdb_path
+from tmtools import tm_align
 
 
 class Searcher(object):
@@ -632,72 +631,93 @@ class Searcher(object):
             round(tmresult.rmsd, 3)
         )
 
+    def get_candidate_cds_for_structural_search(
+            self,
+            plddt_seq: list[float],
+            coordinates_list: list[P.Interval]
+    ):
+        return [
+            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_th)
+            for coord in coordinates_list
+            if coord and coord.upper - coord.lower >= self.min_exon_length // 3
+        ]
+
+    def insert_structural_matches(
+            self,
+            gene_id: str,
+            tuples_to_insert: list[tuple]):
+        attempt = False
+        if matched_pairs:
+            while not attempt:
+                try:
+                    self.database_interface.insert_structural_matches(
+                        gene_id=gene_id,
+                        tuples_list=tuples_to_insert
+                    )
+                    attempt = True
+                except Exception as e:
+                    if "locked" in str(e):
+                        time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                    else:
+                        self.environment.logger.exception(e)
+                        sys.exit()
+
     def cds_structural_search(
             self,
             gene_id_list: list[str],
     ) -> None:
         for gene_id in gene_id_list:
-            if len(self.isoform_dict[gene_id]) == 1:
-                isoform_id, transcript_list = next(iter(self.isoform_dict[gene_id].items()))
-                transcript_id = transcript_list[0]
-                transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
-                prot_coords_to_dna = self.fetch_cds_prot_coords(transcripts_dictionary=transcripts_dictionary[gene_id])
-                trans_seq = transcripts_dictionary[transcript_id]['pepSeq']  # this is the protein sequence we constructed
-                trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
-                pdb_file = self.environment.alphafold_db_path / f'AF-{uniprot_id}-{isoform}-model_v4.pdb'
-                if pdb_file in self.environment.pdb_files:
-                    structure = get_structure(pdb_file)
-                    chain = next(structure.get_chains())
-                    # these are the alphafold protein coordinates and sequence that was folded
-                    coords, seq = get_residue_data(chain=chain)
-                    if len(trans_seq) == len(seq):  # sanity check
-                        pldtt_seq = chains_dict[trimmed_id][uniprot_id][isoform][chain.id]['plddt']
-                        candidate_cdss = [
-                            self.check_cds_pldtt_contraint(pldtt_seq, coord, self.environment.plddt_th)
-                            for coord in prot_coords_to_dna.keys()
-                            if coord and coord.upper - coord.lower >= self.min_exon_length // 3
-                        ]
-                        pairs = self.fetch_pairs_for_alignments(
-                            [(candidate, None) for candidate in candidate_cdss if candidate])
-                        for pair in pairs:
-                            x, y = pair
-                            dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
-                            structure_alignment = self.perform_tm_alignment(
-                                pair=pair,
-                                pdb_sequence=seq,
-                                coords_array=coords
+            for uniprot_id, isoform_dict in self.isoform_dict[gene_id].items():
+                if len(isoform_dict) == 1:
+                    isoform_id, transcript_list = next(iter(self.isoform_dict[gene_id].items()))
+                    transcript_id = transcript_list[0]
+                    transcripts_dictionary = self.data_container.get_transcript_seqs_dict(gene_id=gene_id)
+                    prot_coords_to_dna = self.fetch_cds_prot_coords(transcripts_dictionary=transcripts_dictionary[gene_id])
+                    # this is the protein sequence we constructed from the CDS
+                    trans_seq = transcripts_dictionary[transcript_id]['pepSeq']
+                    trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
+                    pdb_file = self.environment.alphafold_db_path / f'AF-{uniprot_id}-{isoform}-model_v4.pdb'
+                    if pdb_file in self.environment.pdb_files:
+                        structure = get_structure(pdb_file)
+                        chain = next(structure.get_chains())
+                        # these are the alphafold protein coordinates and sequence that was folded
+                        coords, seq = get_residue_data(chain=chain)
+                        if len(trans_seq) == len(seq):  # sanity check
+                            pldtt_seq = chains_dict[trimmed_id][uniprot_id][isoform][chain.id]['plddt']
+                            candidate_cdss = self.get_candidate_cds_for_structural_search(
+                                plddt_seq=pldtt_seq,
+                                coordinates_list=list(prot_coords_to_dna.keys())
                             )
-                            if (structure_alignment.tm_norm_chain1 > self.environment.TM_score_threshold and
-                                    structure_alignment.tm_norm_chain2 > self.environment.TM_score_threshold and
-                                    structure_alignment.rmsd < self.environment.RMSD_threshold):
-                                tuple_to_insert = self.fetch_structural_match_tuple(
-                                    gene_id=gene_id,
-                                    transcript_id=transcript_id,
+                            pairs = self.fetch_pairs_for_alignments(
+                                [(candidate, None) for candidate in candidate_cdss if candidate])
+                            for pair in pairs:
+                                x, y = pair
+                                dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
+                                structure_alignment = self.perform_tm_alignment(
                                     pair=pair,
-                                    dna_coords_x=dna_coords_x,
-                                    dna_coords_y=dna_coords_y,
-                                    transcripts_dictionary=transcripts_dictionary,
-                                    pldtt_seq=pldtt_seq,
-                                    tmresult=structure_alignment
+                                    pdb_sequence=seq,
+                                    coords_array=coords
                                 )
-                                matched_pairs.append(
-                                    tuple_to_insert
-                                )
-            attempt = False
-            if matched_pairs:
-                while not attempt:
-                    try:
-                        self.database_interface.insert_structural_matches(
-                            gene_id=gene_id,
-                            tuples_list=matched_pairs
-                        )
-                        attempt = True
-                    except Exception as e:
-                        if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                        else:
-                            self.environment.logger.exception(e)
-                            sys.exit()
+                                if (structure_alignment.tm_norm_chain1 > self.environment.TM_score_threshold and
+                                        structure_alignment.tm_norm_chain2 > self.environment.TM_score_threshold and
+                                        structure_alignment.rmsd < self.environment.RMSD_threshold):
+                                    tuple_to_insert = self.fetch_structural_match_tuple(
+                                        gene_id=gene_id,
+                                        transcript_id=transcript_id,
+                                        pair=pair,
+                                        dna_coords_x=dna_coords_x,
+                                        dna_coords_y=dna_coords_y,
+                                        transcripts_dictionary=transcripts_dictionary,
+                                        pldtt_seq=pldtt_seq,
+                                        tmresult=structure_alignment
+                                    )
+                                    matched_pairs.append(
+                                        tuple_to_insert
+                                    )
+            self.insert_structural_matches(
+                gene_id=gene_id,
+                tuples_to_insert=matched_pairs
+            )
 
     def cds_local_search(
             self,
