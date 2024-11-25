@@ -14,6 +14,8 @@ class EnvironmentSetup(object):
             genome_file_path: Path,
             gff_file_path: Path,
             output_directory_path: Path,
+            pdb_ids_mapping_db_path: Path,
+            pdb_structures_path: Path,
             output_prefix: str,
             gene_annot_feature: str,
             cds_annot_feature: str,
@@ -29,6 +31,9 @@ class EnvironmentSetup(object):
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
             self_hit_threshold: float,
+            plddt_threshold: float,
+            RMSD_threshold: float,
+            TM_score_threshold: float,
             global_search: bool,
             local_search: bool,
             hard_force: bool,
@@ -51,6 +56,8 @@ class EnvironmentSetup(object):
         self.gff_file_path = gff_file_path
         self.genome_file_path = genome_file_path
         self.output_directory_path = output_directory_path
+        self.pdb_ids_mapping_db_path = pdb_ids_mapping_db_path
+        self.pdb_structures_path = pdb_structures_path
         self.output_prefix = output_prefix
 
         # Search criteria parameters
@@ -65,6 +72,11 @@ class EnvironmentSetup(object):
         self.pair_coverage_threshold = pair_coverage_threshold
         self.sequence_base = sequence_base
         self.frame_base = frame_base
+
+        # structural search flags
+        self.plddt_threshold = plddt_threshold
+        self.RMSD_threshold = RMSD_threshold
+        self.TM_score_threshold = TM_score_threshold
 
         # other
         self.sleep_max_seconds = sleep_max_seconds
@@ -94,6 +106,11 @@ class EnvironmentSetup(object):
         self.log_file_name = self.working_directory / f"{self.output_prefix}.log"
         self.PROFILE_PATH = self.working_directory / 'cProfile_dump_stats.dmp'
 
+        if self.pdb_structures_path.exists():
+            self.pdb_files = {
+                self.pdb_structures_path / Path(file) for file in os.listdir(self.pdb_structures_path)
+                if 'AF' in file
+            }
         # Derived attributes that depend on initial parameters
         self.genome_database_path = self.working_directory / f'{self.output_prefix}_genome_annotations.db'
         self.protein_database_path = self.working_directory / f'{self.output_prefix}_protein.db'

@@ -47,6 +47,18 @@ def argument_parser():
     )
     # Optional Arguments for GFF annotations
     parser.add_argument(
+        '--pdb_ids_mapping_db_path',
+        default=None,
+        type=Path,
+        help='Path to the PDB IDs mapping database.'
+    )
+    parser.add_argument(
+        '--pdb_structures_path',
+        default=None,
+        type=Path,
+        help='Path to the PDB structures.'
+    )
+    parser.add_argument(
         '-gfeat',
         '--gene-annot-feature',
         default='gene',
@@ -141,6 +153,27 @@ def argument_parser():
         type=float,
         help='Local search peptide identity threshold. Default is 0.4.'
     )
+    parser.add_argument(
+        '-plddt_th',
+        '--plddt-threshold',
+        default=0.7,
+        type=float,
+        help='Structural search pLDDT (per-residue measure of local confidence) threshold. Default is 0.7.'
+    )
+    parser.add_argument(
+        '-RMSD_th',
+        '--RMSD-threshold',
+        default=0.2,
+        type=float,
+        help='Structural search RMSD (Root Mean Square Deviation) threshold. Default is 0.2.'
+    )
+    parser.add_argument(
+        '-tms_th',
+        '--TM-score-threshold',
+        default=0.5,
+        type=float,
+        help='Normalized TM-score threshold. Default is 0.5.'
+    )
 
     # Optional Arguments for Flags
     parser.add_argument(
@@ -226,6 +259,8 @@ def main():
     exonize_obj = Exonize(
         gff_file_path=args.gff_file_path,
         genome_file_path=args.genome_file_path,
+        pdb_ids_mapping_db_path=args.pdb_ids_mapping_db_path,
+        pdb_structures_path=args.pdb_structures_path,
         gene_annot_feature=args.gene_annot_feature,
         cds_annot_feature=args.cds_annot_feature,
         transcript_annot_feature=args.transcript_annot_feature,
@@ -240,6 +275,9 @@ def main():
         pair_coverage_threshold=args.pair_coverage_threshold,
         fraction_of_aligned_positions=args.fraction_of_aligned_positions,
         peptide_identity_threshold=args.peptide_identity_threshold,
+        plddt_threshold=args.plddt_threshold,
+        RMSD_threshold=args.RMSD_threshold,
+        TM_score_threshold=args.TM_score_threshold,
         output_prefix=args.output_prefix,
         csv=args.csv,
         enable_debug=args.debug,
