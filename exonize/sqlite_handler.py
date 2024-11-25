@@ -1089,15 +1089,15 @@ class SqliteHandler(object):
             GeneID,
             TranscriptID,
             GeneChrom,
-            GeneStrand, 
+            GeneStrand,
             QueryExonStart,
             QueryExonEnd,
             TargetExonStart,
             TargetExonEnd,
             DNAAlignIdentity,
-            ProtAlignIdentity, 
+            ProtAlignIdentity,
             Avg_pLDDT_query,
-            Avg_pLDDT_target, 
+            Avg_pLDDT_target,
             TM_norm_score_query,
             TM_norm_score_target,
             RMSD
@@ -1114,19 +1114,16 @@ class SqliteHandler(object):
         with sqlite3.connect(self.environment.pdb_ids_mapping_db_path) as db:
             cursor = db.cursor()
             cursor.execute("""
-            SELECT 
+            SELECT
                 d.gene_stable_id AS gene_stable_id,
                 tm.transcript_id,
-                d.canonical,
                 tm.uniprot_swiss_prot_id AS uniprot_swiss_prot_id,
-                tm.isoform AS isoform,
-                pdb.n_chains,
-                pdb.average_plddt
+                tm.isoform AS isoform
             FROM transcript_uniprot_isoform_mapping AS tm
-            JOIN ensembl_genes_and_transcripts AS d 
+            JOIN ensembl_genes_and_transcripts AS d
                 ON d.transcript_stable_id = tm.transcript_id
-            JOIN pdb_structures_description AS pdb 
-                ON pdb.uniprot_swiss_prot_id = tm.uniprot_swiss_prot_id 
+            JOIN pdb_structures_description AS pdb
+                ON pdb.uniprot_swiss_prot_id = tm.uniprot_swiss_prot_id
                 AND pdb.isoform = tm.isoform
             ORDER BY gene_stable_id, isoform;
             """
@@ -1134,7 +1131,7 @@ class SqliteHandler(object):
             records = cursor.fetchall()
             records_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
             for record in records:
-                gene_id, trans, _, uniprotid, isoform, *_ = record
+                gene_id, trans, uniprotid, isoform = record
                 records_dict[f'gene:{gene_id}'][uniprotid][isoform].append(f'transcript:{trans}')
             return records_dict
 
@@ -1142,7 +1139,7 @@ class SqliteHandler(object):
         with sqlite3.connect(self.environment.pdb_ids_mapping_db_path) as db:
             cursor = db.cursor()
             cursor.execute("""
-            SELECT 
+            SELECT
                 d.gene_stable_id AS gene_stable_id,
                 tm.uniprot_swiss_prot_id AS uniprot_swiss_prot_id,
                 tm.isoform AS isoform,
@@ -1150,13 +1147,13 @@ class SqliteHandler(object):
                 seq.chain_amino_acid_sequence,
                 plddt.residue_plddt_by_position
             FROM transcript_uniprot_isoform_mapping AS tm
-            JOIN ensembl_genes_and_transcripts AS d 
+            JOIN ensembl_genes_and_transcripts AS d
                 ON d.transcript_stable_id = tm.transcript_id
-            JOIN pdb_structures_chain_sequence AS seq 
-                ON seq.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id 
+            JOIN pdb_structures_chain_sequence AS seq
+                ON seq.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id
                 AND seq.isoform=tm.isoform
-            JOIN pdb_structures_chain_plddt AS plddt 
-            ON plddt.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id 
+            JOIN pdb_structures_chain_plddt AS plddt
+            ON plddt.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id
                 AND plddt.isoform=tm.isoform
             ORDER BY gene_stable_id, isoform;
             """
