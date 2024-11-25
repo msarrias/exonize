@@ -1108,7 +1108,9 @@ class SqliteHandler(object):
             cursor.executemany(query, matches)
             db.commit()
 
-    def query_uniprot_transcripts(self):
+    def query_pdb_structures_isoform_mapping(
+            self
+    ):
         with sqlite3.connect(self.environment.pdb_ids_mapping_db_path) as db:
             cursor = db.cursor()
             cursor.execute("""
@@ -1135,6 +1137,40 @@ class SqliteHandler(object):
                 gene_id, trans, _, uniprotid, isoform, *_ = record
                 records_dict[f'gene:{gene_id}'][uniprotid][isoform].append(f'transcript:{trans}')
             return records_dict
+
+    def query_pdb_chains(self):
+        with sqlite3.connect(self.environment.pdb_ids_mapping_db_path) as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            SELECT 
+                d.gene_stable_id AS gene_stable_id,
+                tm.uniprot_swiss_prot_id AS uniprot_swiss_prot_id,
+                tm.isoform AS isoform,
+                seq.chain_id,
+                seq.chain_amino_acid_sequence,
+                plddt.residue_plddt_by_position
+            FROM transcript_uniprot_isoform_mapping AS tm
+            JOIN ensembl_genes_and_transcripts AS d 
+                ON d.transcript_stable_id = tm.transcript_id
+            JOIN pdb_structures_chain_sequence AS seq 
+                ON seq.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id 
+                AND seq.isoform=tm.isoform
+            JOIN pdb_structures_chain_plddt AS plddt 
+            ON plddt.uniprot_swiss_prot_id=tm.uniprot_swiss_prot_id 
+                AND plddt.isoform=tm.isoform
+            ORDER BY gene_stable_id, isoform;
+            """
+                           )
+            chains = cursor.fetchall()
+            pdb_chains_dictionary = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'aa': '', 'plddt': []}))))
+            for record in chains:
+                gene_id, uniprotid, isoform, chain_id, aminoseq, plddt_seq = record
+                gene_id = f'gene:{gene_id}'
+                plddt_seq = [float(i) for i in plddt_seq.rsplit('_')]
+                pdb_chains_dictionary[gene_id][uniprotid][isoform][chain_id]['aa'] = aminoseq
+                pdb_chains_dictionary[gene_id][uniprotid][isoform][chain_id]['plddt'] = plddt_seq
+            return pdb_chains_dictionary
 
     def query_parameter_monitor_table(self,):
         with sqlite3.connect(
