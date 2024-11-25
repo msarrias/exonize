@@ -647,7 +647,7 @@ class Searcher(object):
             gene_id: str,
             tuples_to_insert: list[tuple]):
         attempt = False
-        if matched_pairs:
+        if tuples_to_insert:
             while not attempt:
                 try:
                     self.database_interface.insert_structural_matches(
