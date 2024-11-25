@@ -28,7 +28,7 @@ class DataPreprocessor(object):
         if self.environment.STRUCTURAL_SEARCH:
             self.pdb_structures_isoform_mapping = self.database_interface.query_pdb_structures_isoform_mapping()
             self.pdb_chains_dictionary = self.database_interface.query_pdb_chains()
-            self.structural_search_cdss_to_query = self.fetch_structural_queried_cdss()
+            self.structural_search_cdss_to_query = None
 
     @staticmethod
     def dump_pkl_file(
