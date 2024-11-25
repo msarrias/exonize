@@ -68,6 +68,7 @@ class Exonize(object):
             hard_force: bool = False,
             global_search: bool = False,
             local_search: bool = False,
+            structural_search: bool = False,
             sleep_max_seconds: int = 60,
             timeout_database: int = 160
     ):
@@ -101,6 +102,7 @@ class Exonize(object):
             TM_score_threshold=TM_score_threshold,
             global_search=global_search,
             local_search=local_search,
+            structural_search=structural_search,
             hard_force=hard_force,
             soft_force=soft_force,
             debug_mode=enable_debug,
