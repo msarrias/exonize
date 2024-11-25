@@ -490,15 +490,17 @@ class DataPreprocessor(object):
             self.populate_genes_table()
             self.database_interface.populate_search_monitor_table()
         self.database_interface.create_expansions_table()
-        if not self.environment.GLOBAL_SEARCH and not self.environment.LOCAL_SEARCH:
+        if self.environment.SEARCH_ALL:
             self.database_interface.create_local_search_table()
             self.database_interface.create_global_search_table()
-        elif self.environment.LOCAL_SEARCH:
+        elif self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL:
             self.database_interface.create_local_search_table()
             self.database_interface.clear_search_monitor_table(local_search=True)
-        else:
+        elif self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL:
             self.database_interface.create_global_search_table()
             self.database_interface.clear_search_monitor_table(global_search=True)
+        if self.environment.STRUCTURAL_SEARCH:
+            self.database_interface.create_structural_matches_table()
 
     def get_gene_tuple(
             self,
