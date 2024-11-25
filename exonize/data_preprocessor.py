@@ -255,11 +255,11 @@ class DataPreprocessor(object):
                     self.database_interface.clear_results_database(
                         except_tables=['Parameter_monitor']
                     )
-                if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+                if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
                     if self.environment.evalue_threshold < e:
                         self.database_interface.drop_table(table_name='Local_search')
                         self.database_interface.clear_search_monitor_table(global_search=True)
-                if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+                if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
                     if (self.environment.fraction_of_aligned_positions != t_a
                             or self.environment.peptide_identity_threshold != t_i
                             or self.environment.pair_coverage_threshold != t_p):
