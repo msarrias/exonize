@@ -159,15 +159,15 @@ def test_get_candidate_cds_coordinates():
         P.open(7311, 7442): '0_2'
     }
 
-    res_a_ii = [
+    res_a_ii = {
         P.open(0, 127),
         P.open(4545, 4682),
         P.open(6460, 6589),
         P.open(7311, 7442)
-    ]
+    }
     blast_res_a = search_engine.get_candidate_cds_coordinates('gene_1')
     assert blast_res_a['cds_frame_dict'] == res_a_i
-    assert blast_res_a['candidates_cds_coordinates'] == res_a_ii
+    assert set(blast_res_a['candidates_cds_coordinates'] ) == res_a_ii
 
 
 def test_fetch_dna_sequence():
@@ -204,7 +204,7 @@ def test_fetch_dna_sequence():
     assert sequence == "GCATGCAT"  # Trimmed sequence
 
 
-def test_fetch_pairs_for_global_alignments():
+def test_fetch_pairs_for_alignments():
     # should be done on candidate cdss
     cds_list = [
         (P.open(1, 5), 0),
@@ -220,4 +220,4 @@ def test_fetch_pairs_for_global_alignments():
         (P.open(3, 7), P.open(11, 15)),
         (P.open(6, 10), P.open(11, 15))
     }
-    assert search_engine.fetch_pairs_for_global_alignments(cds_list=cds_list) == expected_pairs
+    assert search_engine.fetch_pairs_for_alignments(cds_list=cds_list) == expected_pairs

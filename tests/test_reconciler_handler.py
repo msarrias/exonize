@@ -11,6 +11,8 @@ def exonize_obj():
     return Exonize(
         gff_file_path=Path('mock_gff.gff3'),
         genome_file_path=Path('mock_genome.fa'),
+        pdb_ids_mapping_db_path=Path('mock_pdb_ids_mapping.db'),
+        pdb_structures_path=Path('mock_pdb_structures'),
         gene_annot_feature='gene',
         cds_annot_feature='CDS',
         transcript_annot_feature='mRNA',
@@ -87,7 +89,8 @@ def gene_graph(exonize_obj):
         targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
         query_local_coordinates_set=query_coords,
         local_records_set=local_records_set,
-        global_records_set=global_records_set
+        global_records_set=global_records_set,
+        structural_records_set=set()
     )
     return gene_graph, targets_reference_coordinates_dictionary
 
@@ -288,7 +291,7 @@ def test_find_query_cds_global_matches(
     res = [(P.open(1800, 2100), P.open(2200, 2300)),
            (P.open(2500, 2600), P.open(1800, 2100))]
     assert exonize_obj.event_reconciler.find_query_cds_global_matches(
-        global_records_set_pairs_set=global_records_set,
+        pairs_set=global_records_set,
         cds_coordinate=cds_coordinate,
     ) == res
 
@@ -302,17 +305,17 @@ def test_find_local_match_in_global_matches(
         (P.open(2500, 2600), P.open(1800, 2100))
     ]
     assert P.open(2200, 2300) == exonize_obj.event_reconciler.find_local_match_in_global_matches(
-        global_candidates=global_coordinates,
+        candidates=global_coordinates,
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2200, 2300)
     )
     assert P.open(2200, 2300) == exonize_obj.event_reconciler.find_local_match_in_global_matches(
-        global_candidates=global_coordinates,
+        candidates=global_coordinates,
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2210, 2305)
     )
     assert P.open(2200, 2300) == exonize_obj.event_reconciler.find_local_match_in_global_matches(
-        global_candidates=global_coordinates,
+        candidates=global_coordinates,
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2190, 2305)
     )

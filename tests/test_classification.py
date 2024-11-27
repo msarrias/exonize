@@ -13,6 +13,8 @@ def create_exonize_test1():
     exonize_obj = Exonize(
         gff_file_path=Path('mock_gff.gff3'),
         genome_file_path=Path('mock_genome.fa'),
+        pdb_ids_mapping_db_path=Path('mock_pdb_ids_mapping.db'),
+        pdb_structures_path=Path('mock_pdb_structures'),
         gene_annot_feature='gene',
         cds_annot_feature='CDS',
         transcript_annot_feature='mRNA',
@@ -331,6 +333,8 @@ def create_exonize_test2():
     exonize_obj2 = Exonize(
         gff_file_path=Path('mock_gff.gff3'),
         genome_file_path=Path('mock_genome.fa'),
+        pdb_structures_path=Path('mock_pdb'),
+        pdb_ids_mapping_db_path=Path('mock_pdb_ids.db'),
         gene_annot_feature='gene',
         cds_annot_feature='CDS',
         transcript_annot_feature='mRNA',
@@ -510,6 +514,7 @@ def create_exonize_test2():
         gene_graph = exonize_obj2.event_reconciler.create_events_multigraph(
             local_records_set=tblastx_records_set,
             global_records_set=set(),
+            structural_records_set=set(),
             query_local_coordinates_set=query_coordinates,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
