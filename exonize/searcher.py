@@ -676,8 +676,8 @@ class Searcher(object):
             gene_id_list: list[str],
     ) -> None:
         for gene_id in gene_id_list:
-            matched_pairs = []
             if gene_id in self.data_container.pdb_structures_isoform_mapping:
+                matched_pairs = []
                 for uniprot_id, isoform_dict in self.data_container.pdb_structures_isoform_mapping[gene_id].items():
                     if len(isoform_dict) == 1:
                         isoform_id, transcript_list = next(iter(isoform_dict.items()))
