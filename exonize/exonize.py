@@ -114,7 +114,7 @@ def argument_parser():
     parser.add_argument(
         '-te',
         '--query-coverage-threshold',
-        default=0.9,
+        default=0.8,
         type=float,
         help='query coverage threshold. Default is 0.9.'
     )
@@ -163,7 +163,7 @@ def argument_parser():
     parser.add_argument(
         '-RMSD_th',
         '--RMSD-threshold',
-        default=0.2,
+        default=2,
         type=float,
         help='Structural search RMSD (Root Mean Square Deviation) threshold. Default is 0.2.'
     )
