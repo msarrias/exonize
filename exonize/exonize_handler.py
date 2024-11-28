@@ -58,7 +58,7 @@ class Exonize(object):
             targets_clustering_overlap_threshold: float = 0.9,
             pair_coverage_threshold: float = 0.9,
             fraction_of_aligned_positions: float = 0.9,
-            peptide_identity_threshold: float = 0.9,
+            peptide_identity_threshold: float = 0.4,
             plddt_threshold: float = 0.7,
             RMSD_threshold: float = 2,
             TM_score_threshold: float = 0.5,
@@ -203,10 +203,12 @@ class Exonize(object):
     def cleanup_local_search(self):
         if self.environment.LOCAL_SEARCH:
             self.database_interface.clear_results_database(
-                except_tables=['Genes',
-                               'Search_monitor',
-                               'Local_matches',
-                               'Structural_matches_non_reciprocal']
+                except_tables=[
+                    'Genes',
+                    'Search_monitor',
+                    'Local_matches',
+                    'Structural_matches_non_reciprocal'
+                ]
             )
             self.data_container.initialize_database()
 
@@ -273,9 +275,11 @@ class Exonize(object):
         )
 
     def cleanup_global_search(self):
-        except_tables = ['Genes', 'Search_monitor',
-                         'Global_matches_non_reciprocal',
-                         'Structural_matches_non_reciprocal']
+        except_tables = [
+            'Genes', 'Search_monitor',
+            'Global_matches_non_reciprocal',
+            'Structural_matches_non_reciprocal'
+        ]
         if self.environment.SEARCH_ALL:
             except_tables.append('Local_matches')
         self.database_interface.clear_results_database(except_tables=except_tables)
