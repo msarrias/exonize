@@ -517,6 +517,7 @@ class Exonize(object):
             genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
         if self.environment.STRUCTURAL_SEARCH:
             self.structural_full_matches_dictionary = self.database_interface.query_structural_cds_events()
+            genes_to_process = genes_to_process.union(set(self.structural_full_matches_dictionary.keys()))
         status: int
         forks: int = 0
         for balanced_batch in self.even_batches(
