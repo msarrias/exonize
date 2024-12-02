@@ -299,6 +299,26 @@ class SqliteHandler(object):
                 PRIMARY KEY (ExpansionID, GeneID)
             );"""
                            )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Full_non_reciprocal_matches (
+                GeneID VARCHAR(100),
+                QueryStart INTEGER NOT NULL,
+                QueryEnd INTEGER NOT NULL,
+                TargetStart INTEGER NOT NULL,
+                TargetEnd INTEGER NOT NULL,
+                LocalFind BINARY(1) DEFAULT 0,
+                GlobalFind BINARY(1) DEFAULT 0,
+                StructuralFind BINARY(1) DEFAULT 0,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (
+                    GeneID,
+                    QueryStart,
+                    QueryEnd,
+                    TargetStart,
+                    TargetEnd
+                    )
+                    );"""
+                           )
             cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS Expansions_full (
                 GeneID VARCHAR(100),
@@ -639,6 +659,27 @@ class SqliteHandler(object):
             """,
                 list_tuples,
             )
+
+    def insert_full_non_reciprocal_matches(
+            self,
+            list_tuples: list
+    ):
+        with sqlite3.connect(
+                self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
+            cursor = db.cursor()
+            cursor.executemany("""
+            INSERT INTO Full_non_reciprocal_matches (
+                GeneID,
+                QueryStart,
+                QueryEnd,
+                TargetStart,
+                TargetEnd,
+                LocalFind,
+                GlobalFind,
+                StructuralFind  
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, list_tuples)
 
     def update_has_duplicate_genes_table(
             self,
