@@ -400,10 +400,7 @@ class Searcher(object):
         if cds_coordinates_and_frames:
             clusters = self.fetch_clusters(cds_coordinates_and_frames=cds_coordinates_and_frames)
             if clusters:
-                representative_cdss = self.data_container.flatten_clusters_representative_exons(
-                    cluster_list=clusters,
-                    gene_id=gene_id
-                )
+                representative_cdss = self.data_container.flatten_clusters_representative_exons(cluster_list=clusters)
                 representative_cds_frame_dictionary = dict()
                 for cds_coordinate, frame in cds_coordinates_and_frames:
                     if cds_coordinate in representative_cdss:
