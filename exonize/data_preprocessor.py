@@ -28,7 +28,6 @@ class DataPreprocessor(object):
         if self.environment.STRUCTURAL_SEARCH:
             self.pdb_structures_isoform_mapping = self.database_interface.query_pdb_structures_isoform_mapping()
             self.pdb_chains_dictionary = self.database_interface.query_pdb_chains()
-            self.structural_search_cdss_to_query = None
 
     @staticmethod
     def dump_pkl_file(
@@ -393,25 +392,14 @@ class DataPreprocessor(object):
             )
         )
 
+    @staticmethod
     def flatten_clusters_representative_exons(
-            self,
             cluster_list: list,
-            gene_id: str
     ) -> list:
-        set_representative_exons = set()
-        for cluster in cluster_list:
-            if len(cluster) == 1:
-                set_representative_exons.add(cluster[0][0])
-            elif self.environment.STRUCTURAL_SEARCH:
-                if gene_id in self.structural_search_cdss_to_query:
-                    candidates = [cds for cds in self.structural_search_cdss_to_query[gene_id] if cds in cluster]
-                    if candidates:
-                        set_representative_exons.add(candidates[0])
-                else:
-                    set_representative_exons.add(min(cluster, key=lambda x: x[0].upper - x[0].lower)[0])
-            else:
-                set_representative_exons.add(min(cluster, key=lambda x: x[0].upper - x[0].lower)[0])
-        return list(set_representative_exons)
+        return [
+            cluster[0][0] if len(cluster) == 1 else min(cluster, key=lambda x: x[0].upper - x[0].lower)[0]
+            for cluster in cluster_list
+        ]
 
     def get_overlapping_clusters(
             self,
