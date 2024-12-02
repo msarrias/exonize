@@ -305,8 +305,7 @@ class ReconcilerHandler(object):
             self,
             targets_reference_coordinates_dictionary: dict,
             global_records_set: set,
-            query_local_coordinates_set: set,
-            structural_records_set: set
+            query_local_coordinates_set: set
     ):
         def extract_cds_coordinates(records_set: set):
             return {
@@ -314,18 +313,12 @@ class ReconcilerHandler(object):
                 for record in records_set
                 for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
             }
-
         target_coordinates_set = {
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
         }
-
         global_cds_coordinates_set = extract_cds_coordinates(global_records_set)
-        structural_cds_coordinates_set = extract_cds_coordinates(structural_records_set)
-
-        union_cds_coordinates = query_local_coordinates_set.union(
-            global_cds_coordinates_set, structural_cds_coordinates_set
-        )
+        union_cds_coordinates = query_local_coordinates_set.union(global_cds_coordinates_set)
         return {
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
@@ -380,20 +373,17 @@ class ReconcilerHandler(object):
             query_local_coordinates_set: set,
             local_records_set: set,
             global_records_set: set,
-            structural_records_set: set
     ) -> nx.MultiGraph:
         gene_graph = nx.MultiGraph()
         set_of_nodes = self.get_expansion_nodes(
             global_records_set=global_records_set,
             query_local_coordinates_set=query_local_coordinates_set,
-            structural_records_set=structural_records_set,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )
         gene_graph.add_nodes_from(
             [node_coordinate for node_coordinate, _ in set_of_nodes]
         )
         global_records_set_pairs_set = self.create_pairs_set(records_set=global_records_set)
-        structural_records_set_pairs_set = self.create_pairs_set(records_set=structural_records_set)
         drop_nodes = []
         for node in set_of_nodes:
             node_coordinate, coordinate_type = node
@@ -406,7 +396,7 @@ class ReconcilerHandler(object):
             reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
             cds_candidates = self.find_query_cds_global_matches(
-                pairs_set=global_records_set_pairs_set.union(structural_records_set_pairs_set),
+                pairs_set=global_records_set_pairs_set,
                 cds_coordinate=cds_coordinate
             )
             global_target = self.find_local_match_in_global_matches(
@@ -431,8 +421,8 @@ class ReconcilerHandler(object):
                     width=2
                 )
         gene_graph.remove_nodes_from(drop_nodes)
-        # GLOBAL AND STRUCTURAL ALIGNMENT MATCHES
-        for pair in global_records_set_pairs_set.union(structural_records_set_pairs_set):
+        # GLOBAL ALIGNMENT MATCHES
+        for pair in global_records_set_pairs_set:
             cds_coordinate, target_coordinate = pair
             gene_graph.add_edge(
                 u_for_edge=(cds_coordinate.lower, cds_coordinate.upper),
@@ -576,6 +566,105 @@ class ReconcilerHandler(object):
                  expansion_id_counter)
                 for node, attrib in undirected_subgraph.nodes(data=True)
                 if undirected_subgraph.degree(node) > 0]
+
+    def fetch_global_full_matches_dict(self):
+        matches_dictionary = {}
+        matches = self.database_interface.query_non_reciprocal_coding_matches()
+        for match in matches:
+            gene_id, _, qs, qe, ts, te = match
+            if gene_id not in matches_dictionary:
+                matches_dictionary[gene_id] = []
+            matches_dictionary[gene_id].append((gene_id, qs, qe, ts, te))
+        return matches_dictionary
+
+    def find_structural_overlap(self, pair, structural_pairs):
+        oq, ot = pair
+        candidate = [
+            (q, t)
+            for q, t in structural_pairs
+            if all(self.data_container.min_perc_overlap(query, target) >= self.environment.query_coverage_threshold
+                   for query, target in [(q, oq), (t, ot)])
+        ]
+        if candidate:
+            return candidate.pop()
+
+    def gene_full_non_reciprocal_fragments(
+            self
+    ) -> list[tuple]:
+        def sort_pairs(dictionary: dict) -> dict:
+            new_dict = {}
+            for key, events_list in dictionary.items():
+                new_dict[key] = {
+                    tuple(sorted((P.open(qs, qe), P.open(ts, te)), key=lambda x: (x.lower, x.upper)))
+                    for _, qs, qe, ts, te in events_list
+                }
+            return new_dict
+
+        global_non_reciprocal_full_matches = {}
+        local_non_reciprocal_full_matches = {}
+        structural_non_reciprocal_full_matches = {}
+        genes_to_process = set()
+        tuples_to_insert = []
+
+        if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
+            global_non_reciprocal_full_matches = sort_pairs(
+                dictionary=self.fetch_global_full_matches_dict()
+            )
+            global_non_reciprocal_full_matches = sort_pairs(
+                dictionary=global_non_reciprocal_full_matches
+            )
+            genes_to_process = genes_to_process.union(set(global_non_reciprocal_full_matches.keys()))
+        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
+            local_non_reciprocal_full_matches = sort_pairs(
+                dictionary=self.database_interface.query_global_cds_events()
+            )
+            genes_to_process = genes_to_process.union(set(local_non_reciprocal_full_matches.keys()))
+        if self.environment.STRUCTURAL_SEARCH:
+            structural_non_reciprocal_full_matches = sort_pairs(
+                dictionary=self.database_interface.query_structural_cds_events()
+            )
+            genes_to_process = genes_to_process.union(set(structural_non_reciprocal_full_matches.keys()))
+        for gene_id in genes_to_process:
+            global_records_set = set()
+            local_records_set = set()
+            structural_records_set = set()
+            if gene_id in global_non_reciprocal_full_matches:
+                global_records_set = global_non_reciprocal_full_matches[gene_id]
+            if gene_id in local_non_reciprocal_full_matches:
+                local_records_set = local_non_reciprocal_full_matches[gene_id]
+            if gene_id in structural_non_reciprocal_full_matches:
+                structural_records_set = structural_non_reciprocal_full_matches[gene_id]
+            union_of_events = global_records_set.union(local_records_set)
+            for event in union_of_events:
+                structural_candidate = self.find_structural_overlap(
+                    pair=event, structural_pairs=structural_records_set
+                )
+                if structural_candidate:
+                    structural_records_set = structural_records_set - set(structural_candidate)
+                query, target = event
+                tuples_to_insert.append((
+                    gene_id,
+                    query.lower,
+                    query.upper,
+                    target.lower,
+                    target.upper,
+                    1 if event in local_records_set else 0,
+                    1 if event in global_records_set else 0,
+                    1 if structural_candidate else 0
+                ))
+            for event in structural_records_set:
+                query, target = event
+                tuples_to_insert.append((
+                    gene_id,
+                    query.lower,
+                    query.upper,
+                    target.lower,
+                    target.upper,
+                    0,
+                    0,
+                    1
+                ))
+        return tuples_to_insert
 
     def get_reconciled_graph_and_expansion_events_tuples(
             self,
