@@ -89,8 +89,7 @@ def gene_graph(exonize_obj):
         targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
         query_local_coordinates_set=query_coords,
         local_records_set=local_records_set,
-        global_records_set=global_records_set,
-        structural_records_set=set()
+        global_records_set=global_records_set
     )
     return gene_graph, targets_reference_coordinates_dictionary
 

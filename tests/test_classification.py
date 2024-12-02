@@ -514,7 +514,6 @@ def create_exonize_test2():
         gene_graph = exonize_obj2.event_reconciler.create_events_multigraph(
             local_records_set=tblastx_records_set,
             global_records_set=set(),
-            structural_records_set=set(),
             query_local_coordinates_set=query_coordinates,
             targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
         )

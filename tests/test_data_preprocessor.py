@@ -60,7 +60,6 @@ def test_resolve_overlaps_between_coordinates():
 
     assert set(data_container.flatten_clusters_representative_exons(
         cluster_list=clusters,
-        gene_id='gene_1',
     )) == set(res_a)
 
     cds_overlapping_threshold = 0.3
@@ -76,8 +75,8 @@ def test_resolve_overlaps_between_coordinates():
     )
 
     assert set(data_container.flatten_clusters_representative_exons(
-        cluster_list=clusters,
-        gene_id='')
+        cluster_list=clusters
+    )
     ) == set(res_b)
 
     cds_overlapping_threshold = 0.001
@@ -92,8 +91,8 @@ def test_resolve_overlaps_between_coordinates():
     )
 
     assert set(data_container.flatten_clusters_representative_exons(
-        cluster_list=clusters,
-        gene_id='')
+        cluster_list=clusters
+    )
     ) == set(res_c)
 
 
