@@ -409,6 +409,84 @@ class Exonize(object):
             )
         return tandemness_tuples
 
+    def populate_expansions_table(
+            self,
+            gene_events_list: list,
+            full_events_list: list,
+            tandemness_tuples: list
+    ) -> None:
+        attempt = False
+        while not attempt:
+            try:
+                self.database_interface.insert_expansion_table(
+                    list_tuples=gene_events_list,
+                    list_tuples_full=full_events_list,
+                    list_tuples_tandemness=tandemness_tuples,
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
+
+    def populate_global_non_reciprocal_matches_table(
+            self,
+            non_reciprocal_fragment_ids_list: list,
+            gene_id: str
+    ) -> None:
+        attempt = False
+        while not attempt:
+            try:
+                self.database_interface.insert_in_non_reciprocal_fragments_table(
+                    fragment_ids_list=non_reciprocal_fragment_ids_list,
+                    gene_id=gene_id
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
+
+    def insert_corrected_target_start_end(
+           self,
+           corrected_coordinates_tuples: list
+    ):
+        attempt = False
+        while not attempt:
+            try:
+                self.database_interface.insert_corrected_target_start_end(
+                    list_tuples=corrected_coordinates_tuples
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
+
+    def insert_full_non_reciprocal_matches(
+           self,
+           list_tuples: list
+    ):
+        attempt = False
+        while not attempt:
+            try:
+                self.database_interface.insert_full_non_reciprocal_matches(
+                    list_tuples=list_tuples
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
+
     def reconcile(
             self,
             genes_list: list,
@@ -416,18 +494,14 @@ class Exonize(object):
         for gene_id in genes_list:
             global_records_set = set()
             local_records_set = set()
-            structural_records_set = set()
             query_coordinates = set()
             targets_reference_coordinates_dictionary = {}
             if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
                 if gene_id in self.local_full_matches_dictionary:
                     local_records_set = self.local_full_matches_dictionary[gene_id]
-                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(
-                        gene_id=gene_id
-                    )
+                    cds_candidates_dictionary = self.search_engine.get_candidate_cds_coordinates(gene_id=gene_id)
                     (query_coordinates,
-                     targets_reference_coordinates_dictionary
-                     ) = self.event_reconciler.align_target_coordinates(
+                     targets_reference_coordinates_dictionary) = self.event_reconciler.align_target_coordinates(
                         gene_id=gene_id,
                         local_records_set=local_records_set,
                         cds_candidates_dictionary=cds_candidates_dictionary
@@ -437,29 +511,15 @@ class Exonize(object):
                         local_records_set=local_records_set,
                         targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary
                     )
-                    attempt = False
-                    while not attempt:
-                        try:
-                            self.database_interface.insert_corrected_target_start_end(
-                                list_tuples=corrected_coordinates_tuples
-                            )
-                            attempt = True
-                        except Exception as e:
-                            if "locked" in str(e):
-                                time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                            else:
-                                self.environment.logger.exception(e)
-                                sys.exit()
+                    self.insert_corrected_target_start_end(corrected_coordinates_tuples=corrected_coordinates_tuples)
+
             if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
                 global_records_set = self.global_full_matches_dictionary[gene_id]
-            if self.environment.STRUCTURAL_SEARCH:
-                structural_records_set = self.structural_full_matches_dictionary[gene_id]
             gene_graph = self.event_reconciler.create_events_multigraph(
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
                 query_local_coordinates_set=query_coordinates,
                 local_records_set=local_records_set,
                 global_records_set=global_records_set,
-                structural_records_set=structural_records_set
             )
             (gene_events_list,
              non_reciprocal_fragment_ids_list,
@@ -470,36 +530,16 @@ class Exonize(object):
                 gene_graph=gene_graph
             )
             tandemness_tuples = self.fetch_tandem_tuples(full_events_list=full_events_list)
-            attempt = False
-            while not attempt:
-                try:
-                    self.database_interface.insert_expansion_table(
-                        list_tuples=gene_events_list,
-                        list_tuples_full=full_events_list,
-                        list_tuples_tandemness=tandemness_tuples,
-                    )
-                    attempt = True
-                except Exception as e:
-                    if "locked" in str(e):
-                        time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                    else:
-                        self.environment.logger.exception(e)
-                        sys.exit()
+            self.populate_expansions_table(
+                gene_events_list=gene_events_list,
+                full_events_list=full_events_list,
+                tandemness_tuples=tandemness_tuples
+            )
             if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
-                attempt = False
-                while not attempt:
-                    try:
-                        self.database_interface.insert_in_non_reciprocal_fragments_table(
-                            fragment_ids_list=non_reciprocal_fragment_ids_list,
-                            gene_id=gene_id
-                        )
-                        attempt = True
-                    except Exception as e:
-                        if "locked" in str(e):
-                            time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
-                        else:
-                            self.environment.logger.exception(e)
-                            sys.exit()
+                self.populate_global_non_reciprocal_matches_table(
+                    non_reciprocal_fragment_ids_list=non_reciprocal_fragment_ids_list,
+                    gene_id=gene_id
+                )
 
     def events_reconciliation(
             self,
@@ -515,9 +555,6 @@ class Exonize(object):
         if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
             self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
             genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
-        if self.environment.STRUCTURAL_SEARCH:
-            self.structural_full_matches_dictionary = self.database_interface.query_structural_cds_events()
-            genes_to_process = genes_to_process.union(set(self.structural_full_matches_dictionary.keys()))
         status: int
         forks: int = 0
         for balanced_batch in self.even_batches(
@@ -550,6 +587,8 @@ class Exonize(object):
         self.database_interface.drop_table(table_name='Matches_full_length')
         genes_with_duplicates = self.database_interface.query_genes_with_duplicated_cds()
         self.database_interface.update_has_duplicate_genes_table(list_tuples=genes_with_duplicates)
+        full_events_search_method_tuples = self.event_reconciler.gene_full_non_reciprocal_fragments()
+        self.insert_full_non_reciprocal_matches(list_tuples=full_events_search_method_tuples)
 
     def transcript_interdependence_classification(
             self
@@ -664,7 +703,6 @@ class Exonize(object):
         self.data_container.prepare_data()
         if self.environment.STRUCTURAL_SEARCH:
             self.structural_search()
-            self.data_container.structural_search_cdss_to_query = self.data_container.fetch_structural_queried_cdss()
         if self.environment.SEARCH_ALL:
             self.local_search()
             self.global_search()
