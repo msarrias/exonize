@@ -678,7 +678,7 @@ class SqliteHandler(object):
                 TargetEnd,
                 LocalFind,
                 GlobalFind,
-                StructuralFind  
+                StructuralFind
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, list_tuples)
 
