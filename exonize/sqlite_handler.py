@@ -450,7 +450,8 @@ class SqliteHandler(object):
                 Avg_pLDDT_target REAL NOT NULL,
                 TM_norm_score_query REAL NOT NULL,
                 TM_norm_score_target REAL NOT NULL,
-                RMSD REAL NOT NULL
+                RMSD REAL NOT NULL,
+                UNIQUE (GeneID, TranscriptID, QueryExonStart, QueryExonEnd, TargetExonStart, TargetExonEnd)
                 );
             """)
 
