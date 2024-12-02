@@ -567,7 +567,7 @@ class ReconcilerHandler(object):
                 for node, attrib in undirected_subgraph.nodes(data=True)
                 if undirected_subgraph.degree(node) > 0]
 
-    def fetch_global_full_matches_dict(self):
+    def fetch_local_full_matches_dict(self):
         matches_dictionary = {}
         matches = self.database_interface.query_non_reciprocal_coding_matches()
         for match in matches:
@@ -607,18 +607,15 @@ class ReconcilerHandler(object):
         tuples_to_insert = []
 
         if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
-            global_non_reciprocal_full_matches = sort_pairs(
-                dictionary=self.fetch_global_full_matches_dict()
-            )
-            global_non_reciprocal_full_matches = sort_pairs(
-                dictionary=global_non_reciprocal_full_matches
-            )
-            genes_to_process = genes_to_process.union(set(global_non_reciprocal_full_matches.keys()))
-        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
             local_non_reciprocal_full_matches = sort_pairs(
-                dictionary=self.database_interface.query_global_cds_events()
+                dictionary=self.fetch_local_full_matches_dict()
             )
             genes_to_process = genes_to_process.union(set(local_non_reciprocal_full_matches.keys()))
+        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
+            global_non_reciprocal_full_matches = sort_pairs(
+                dictionary=self.database_interface.query_global_cds_events()
+            )
+            genes_to_process = genes_to_process.union(set(global_non_reciprocal_full_matches.keys()))
         if self.environment.STRUCTURAL_SEARCH:
             structural_non_reciprocal_full_matches = sort_pairs(
                 dictionary=self.database_interface.query_structural_cds_events()
@@ -640,7 +637,7 @@ class ReconcilerHandler(object):
                     pair=event, structural_pairs=structural_records_set
                 )
                 if structural_candidate:
-                    structural_records_set = structural_records_set - set(structural_candidate)
+                    structural_records_set = structural_records_set - {structural_candidate}
                 query, target = event
                 tuples_to_insert.append((
                     gene_id,
