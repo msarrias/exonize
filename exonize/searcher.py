@@ -605,6 +605,7 @@ class Searcher(object):
             gene_id: str,
             transcript_id: str,
             pair: tuple,
+            prot_coords_to_dna: dict,
             transcripts_dictionary: dict,
             pldtt_seq: list[float],
             tmresult: object
@@ -718,6 +719,7 @@ class Searcher(object):
                                             gene_id=gene_id,
                                             transcript_id=transcript_id,
                                             pair=pair,
+                                            prot_coords_to_dna=prot_coords_to_dna,
                                             transcripts_dictionary=transcripts_dictionary,
                                             pldtt_seq=pldtt_seq,
                                             tmresult=structure_alignment
