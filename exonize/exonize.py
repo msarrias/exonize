@@ -156,7 +156,7 @@ def argument_parser():
     parser.add_argument(
         '-plddt_th',
         '--plddt-threshold',
-        default=0.7,
+        default=70,
         type=float,
         help='Structural search pLDDT (per-residue measure of local confidence) threshold. Default is 0.7.'
     )
