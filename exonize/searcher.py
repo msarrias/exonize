@@ -605,13 +605,12 @@ class Searcher(object):
             gene_id: str,
             transcript_id: str,
             pair: tuple,
-            dna_coords_x: P.Interval,
-            dna_coords_y: P.Interval,
             transcripts_dictionary: dict,
             pldtt_seq: list[float],
             tmresult: object
     ) -> tuple:
         x, y = pair
+        dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
         align_id_dna, align_id_prot = self.fetch_structural_match_identity(
             coords_x=dna_coords_x,
             coords_y=dna_coords_y,
@@ -623,6 +622,7 @@ class Searcher(object):
             self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
             dna_coords_x.lower, dna_coords_x.upper, dna_coords_y.lower, dna_coords_y.upper,
+            x.lower, x.upper, y.lower, y.upper,
             align_id_dna, align_id_prot,
             round(float(np.mean(pldtt_seq[x.lower:x.upper])), 3),
             round(float(np.mean(pldtt_seq[y.lower:y.upper])), 3),
@@ -706,8 +706,6 @@ class Searcher(object):
                                 pairs = self.fetch_pairs_for_alignments(
                                     [(candidate, None) for candidate in candidate_cdss if candidate])
                                 for pair in pairs:
-                                    x, y = pair
-                                    dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
                                     structure_alignment = self.perform_tm_alignment(
                                         pair=pair,
                                         pdb_sequence=seq,
@@ -720,8 +718,6 @@ class Searcher(object):
                                             gene_id=gene_id,
                                             transcript_id=transcript_id,
                                             pair=pair,
-                                            dna_coords_x=dna_coords_x,
-                                            dna_coords_y=dna_coords_y,
                                             transcripts_dictionary=transcripts_dictionary,
                                             pldtt_seq=pldtt_seq,
                                             tmresult=structure_alignment

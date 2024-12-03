@@ -444,6 +444,10 @@ class SqliteHandler(object):
                 QueryExonEnd INTEGER NOT NULL,
                 TargetExonStart INTEGER NOT NULL,
                 TargetExonEnd INTEGER NOT NULL,
+                QueryExonStartmRNA INTEGER NOT NULL,
+                QueryExonEndmRNA INTEGER NOT NULL,
+                TargetExonStartmRNA INTEGER NOT NULL,
+                TargetExonEndmRNA INTEGER NOT NULL,
                 DNAAlignIdentity REAL NOT NULL,
                 ProtAlignIdentity REAL NOT NULL,
                 Avg_pLDDT_query REAL NOT NULL,
@@ -1136,6 +1140,10 @@ class SqliteHandler(object):
             QueryExonEnd,
             TargetExonStart,
             TargetExonEnd,
+            QueryExonStartmRNA,
+            QueryExonEndmRNA,
+            TargetExonStartmRNA,
+            TargetExonEndmRNA,
             DNAAlignIdentity,
             ProtAlignIdentity,
             Avg_pLDDT_query,
@@ -1143,7 +1151,7 @@ class SqliteHandler(object):
             TM_norm_score_query,
             TM_norm_score_target,
             RMSD
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         with sqlite3.connect(self.environment.results_database_path) as db:
             cursor = db.cursor()
