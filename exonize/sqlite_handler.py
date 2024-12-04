@@ -455,6 +455,7 @@ class SqliteHandler(object):
                 TM_norm_score_query REAL NOT NULL,
                 TM_norm_score_target REAL NOT NULL,
                 RMSD REAL NOT NULL,
+                TandemPair BINARY(1) DEFAULT 0,
                 UNIQUE (GeneID, TranscriptID, QueryExonStart, QueryExonEnd, TargetExonStart, TargetExonEnd)
                 );
             """)
@@ -1150,8 +1151,9 @@ class SqliteHandler(object):
             Avg_pLDDT_target,
             TM_norm_score_query,
             TM_norm_score_target,
-            RMSD
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            RMSD,
+            TandemPair
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         with sqlite3.connect(self.environment.results_database_path) as db:
             cursor = db.cursor()
