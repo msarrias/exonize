@@ -163,7 +163,7 @@ def argument_parser():
     parser.add_argument(
         '-RMSD_th',
         '--RMSD-threshold',
-        default=2,
+        default=1,
         type=float,
         help='Structural search RMSD (Root Mean Square Deviation) threshold. Default is 0.2.'
     )
@@ -174,7 +174,6 @@ def argument_parser():
         type=float,
         help='Normalized TM-score threshold. Default is 0.5.'
     )
-
     # Optional Arguments for Flags
     parser.add_argument(
         '-op',
