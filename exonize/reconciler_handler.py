@@ -908,27 +908,6 @@ class ReconcilerHandler(object):
         return query_coordinates, targets_reference_coordinates_dictionary
 
     @staticmethod
-    def is_tandem_pair(
-            coord_i: P.interval,
-            coord_j: P.interval,
-            sorted_cds_intervals_dictionary: dict
-    ):
-        first_exon = [
-            exon_number
-            for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
-            if coord_i in exon_coords_clust
-        ]
-        if len(first_exon) > 1:
-            raise ValueError('More than one exon found')
-        else:
-            exon_number = first_exon.pop()
-            if coord_j in sorted_cds_intervals_dictionary[exon_number]:
-                return 2  # overlapping query/target coordinates
-            elif coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
-                return 1
-            return 0
-
-    @staticmethod
     def build_expansion_dictionary(
             records: list
     ) -> dict:
@@ -947,17 +926,9 @@ class ReconcilerHandler(object):
     ):
         tuples_to_insert = []
         for gene, full_expansions in expansions_dictionary.items():
-            list_cds = sorted(
-                list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene))),
-                key=lambda x: (x.lower, x.upper)
+            next_dict = self.search_engine.fetch_ordered_cds_clusters(
+                gene_id=gene
             )
-            overlapping_cds = sorted([
-                sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
-                for cluster in self.data_container.get_overlapping_clusters([(i, 0) for i in list_cds], 0)],
-                key=lambda x: (x[0].lower, x[0].upper))
-            next_dict = {
-                exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
-            }
             for expansion_id, events_list in full_expansions.items():
                 coords_pairs = [
                     (coordinate, events_list[index + 1])
@@ -970,7 +941,7 @@ class ReconcilerHandler(object):
                      coord_i.upper,
                      coord_j.lower,
                      coord_j.upper,
-                     self.is_tandem_pair(
+                     self.search_engine.is_tandem_pair(
                          coord_i=coord_i,
                          coord_j=coord_j,
                          sorted_cds_intervals_dictionary=next_dict
