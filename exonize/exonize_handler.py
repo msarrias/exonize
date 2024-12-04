@@ -206,8 +206,7 @@ class Exonize(object):
                 except_tables=[
                     'Genes',
                     'Search_monitor',
-                    'Local_matches',
-                    'Structural_matches_non_reciprocal'
+                    'Local_matches'
                 ]
             )
             self.data_container.initialize_database()
@@ -277,8 +276,7 @@ class Exonize(object):
     def cleanup_global_search(self):
         except_tables = [
             'Genes', 'Search_monitor',
-            'Global_matches_non_reciprocal',
-            'Structural_matches_non_reciprocal'
+            'Global_matches_non_reciprocal'
         ]
         if self.environment.SEARCH_ALL:
             except_tables.append('Local_matches')
