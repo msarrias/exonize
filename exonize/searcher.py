@@ -617,6 +617,7 @@ class Searcher(object):
             coords_y=dna_coords_y,
             cds_transcript_dict=transcripts_dictionary[transcript_id]['CDSs']
         )
+        next_dict = self.fetch_ordered_cds_clusters(gene_id=gene_id)
         return (
             gene_id,
             transcript_id,
@@ -629,7 +630,12 @@ class Searcher(object):
             round(float(np.mean(pldtt_seq[y.lower:y.upper])), 3),
             round(tmresult.tm_norm_chain1, 3),
             round(tmresult.tm_norm_chain2, 3),
-            round(tmresult.rmsd, 3)
+            round(tmresult.rmsd, 3),
+            self.is_tandem_pair(
+                coord_i=dna_coords_x,
+                coord_j=dna_coords_y,
+                sorted_cds_intervals_dictionary=next_dict
+            )
         )
 
     def get_candidate_cds_for_structural_search(
@@ -1053,3 +1059,43 @@ class Searcher(object):
                     if coord in candidate_cdss['candidates_cds_coordinates']
                     ]
         return []
+
+    @staticmethod
+    def is_tandem_pair(
+            coord_i: P.interval,
+            coord_j: P.interval,
+            sorted_cds_intervals_dictionary: dict
+    ):
+        first_exon = [
+            exon_number
+            for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
+            if coord_i in exon_coords_clust
+        ]
+        if len(first_exon) > 1:
+            raise ValueError('More than one exon found')
+        else:
+            exon_number = first_exon.pop()
+            if coord_j in sorted_cds_intervals_dictionary[exon_number]:
+                return 2  # overlapping query/target coordinates
+            elif coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
+                return 1
+            return 0
+
+    def fetch_ordered_cds_clusters(
+            self,
+            gene_id: str
+    ) -> dict:
+        list_cds = sorted(
+            list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene_id=gene_id))),
+            key=lambda x: (x.lower, x.upper)
+        )
+        overlapping_cds = sorted([
+            sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
+            for cluster in self.data_container.get_overlapping_clusters(
+                target_coordinates_set=[(i, 0) for i in list_cds],
+                threshold=0
+            )],
+            key=lambda x: (x[0].lower, x[0].upper))
+        return {
+            exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
+        }
