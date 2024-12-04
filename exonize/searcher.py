@@ -610,7 +610,7 @@ class Searcher(object):
             pldtt_seq: list[float],
             tmresult: object
     ) -> tuple:
-        x, y = pair
+        x, y = sorted(pair, key=lambda c: (c.lower, c.upper))
         dna_coords_x, dna_coords_y = prot_coords_to_dna[x], prot_coords_to_dna[y]
         align_id_dna, align_id_prot = self.fetch_structural_match_identity(
             coords_x=dna_coords_x,
