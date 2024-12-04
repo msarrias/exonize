@@ -206,7 +206,8 @@ class Exonize(object):
                 except_tables=[
                     'Genes',
                     'Search_monitor',
-                    'Local_matches'
+                    'Local_matches',
+                    'Structural_matches_non_reciprocal'
                 ]
             )
             self.data_container.initialize_database()
@@ -276,7 +277,8 @@ class Exonize(object):
     def cleanup_global_search(self):
         except_tables = [
             'Genes', 'Search_monitor',
-            'Global_matches_non_reciprocal'
+            'Global_matches_non_reciprocal',
+            'Structural_matches_non_reciprocal'
         ]
         if self.environment.SEARCH_ALL:
             except_tables.append('Local_matches')
@@ -560,14 +562,11 @@ class Exonize(object):
                 )
             if self.environment.STRUCTURAL_SEARCH:
                 structural_records_set = self.structural_full_matches_dictionary[gene_id]
-                structural_records_set_pairs_set = self.event_reconciler.create_pairs_set(
-                    records_set=structural_records_set
-                )
                 combined_gene_graph = self.event_reconciler.create_events_multigraph(
                     targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
                     query_local_coordinates_set=query_coordinates,
                     local_records_set=local_records_set,
-                    global_records_set=global_records_set.union(structural_records_set_pairs_set)
+                    global_records_set=global_records_set.union(structural_records_set)
                 )
                 *_, full_combined_events_list = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
                     targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
