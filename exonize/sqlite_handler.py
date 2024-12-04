@@ -1490,9 +1490,10 @@ class SqliteHandler(object):
             """
             )
             records = cursor.fetchall()
-            global_search_dict = defaultdict(list)
+            global_search_dict = defaultdict(set)
             for record in records:
-                global_search_dict[record[0]].append(record)
+                gene_id, *_ = record
+                global_search_dict[gene_id].add(record)
             return global_search_dict
 
     def query_structural_cds_events(
@@ -1515,9 +1516,10 @@ class SqliteHandler(object):
             """
             )
             records = cursor.fetchall()
-            structural_search_dict = defaultdict(list)
+            structural_search_dict = defaultdict(set)
             for record in records:
-                structural_search_dict[record[0]].append(record)
+                gene_id, *_ = record
+                structural_search_dict[gene_id].add(record)
             return structural_search_dict
 
     def export_all_tables_to_csv(
