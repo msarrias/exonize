@@ -335,6 +335,25 @@ class SqliteHandler(object):
                     )
             );"""
                            )
+            cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS Combined_expansions_full (
+                GeneID VARCHAR(100),
+                Mode TEXT CHECK(Mode IN ('{self.environment.full}')),
+                EventStart INTEGER NOT NULL,
+                EventEnd INTEGER NOT NULL,
+                EventDegree INTEGER NOT NULL,
+                ExpansionID INTEGER NOT NULL,
+                SequenceSearchFind BINARY(1) DEFAULT 0,
+                StructuralSearchFind BINARY(1) DEFAULT 0,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                PRIMARY KEY (
+                    GeneID,
+                    EventStart,
+                    EventEnd,
+                    ExpansionID
+                    )
+            );"""
+                           )
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Expansions_full_tandem (
                 PairID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,6 +364,28 @@ class SqliteHandler(object):
                 SuccessorStart INTEGER NOT NULL,
                 SuccessorEnd INTEGER NOT NULL,
                 TandemPair BINARY(1) DEFAULT 0,
+                FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
+                UNIQUE (
+                    GeneID,
+                    PredecessorStart,
+                    PredecessorEnd,
+                    SuccessorStart,
+                    SuccessorEnd
+                    )
+            );"""
+                           )
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Combined_expansions_full_tandem (
+                PairID INTEGER PRIMARY KEY AUTOINCREMENT,
+                GeneID VARCHAR(100),
+                ExpansionID INTEGER NOT NULL,
+                PredecessorStart INTEGER NOT NULL,
+                PredecessorEnd INTEGER NOT NULL,
+                SuccessorStart INTEGER NOT NULL,
+                SuccessorEnd INTEGER NOT NULL,
+                TandemPair BINARY(1) DEFAULT 0,
+                SequenceSearchFind BINARY(1) DEFAULT 0,
+                StructuralSearchFind BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                 UNIQUE (
                     GeneID,
@@ -855,6 +896,43 @@ class SqliteHandler(object):
                     cursor.executemany(
                         insert_matches_table_param, fragments_tuples_list
                     )
+
+    def insert_structural_sequence_expansions_table(
+            self,
+            list_tuples_full: list,
+            list_tuples_tandemness: list
+    ) -> None:
+        insert_gene_full_table_param = """
+        INSERT INTO Combined_expansions_full (
+            GeneID,
+            Mode,
+            EventStart,
+            EventEnd,
+            EventDegree,
+            ExpansionID,
+            SequenceSearchFind,
+            StructuralSearchFind
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        insert_gene_full_tandemness_table_param = """
+        INSERT INTO Combined_expansions_full_tandem (
+            GeneID,
+            ExpansionID,
+            PredecessorStart,
+            PredecessorEnd,
+            SuccessorStart,
+            SuccessorEnd,
+            TandemPair,
+            SequenceSearchFind,
+            StructuralSearchFind
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        with sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database) as db:
+            cursor = db.cursor()
+            cursor.executemany(insert_gene_full_table_param, list_tuples_full)
+            cursor.executemany(insert_gene_full_tandemness_table_param, list_tuples_tandemness)
 
     def insert_expansion_table(
             self,
