@@ -657,7 +657,6 @@ class ReconcilerHandler(object):
                     target.lower,
                     target.upper,
                     0,
-                    0,
                     1
                 ))
         return tuples_to_insert
