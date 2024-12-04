@@ -645,8 +645,7 @@ class ReconcilerHandler(object):
                     query.upper,
                     target.lower,
                     target.upper,
-                    1 if event in local_records_set else 0,
-                    1 if event in global_records_set else 0,
+                    1 if event in local_records_set or event in global_records_set else 0,
                     1 if structural_candidate else 0
                 ))
             for event in structural_records_set:

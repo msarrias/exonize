@@ -306,9 +306,8 @@ class SqliteHandler(object):
                 QueryEnd INTEGER NOT NULL,
                 TargetStart INTEGER NOT NULL,
                 TargetEnd INTEGER NOT NULL,
-                LocalFind BINARY(1) DEFAULT 0,
-                GlobalFind BINARY(1) DEFAULT 0,
-                StructuralFind BINARY(1) DEFAULT 0,
+                SequenceSearchFind BINARY(1) DEFAULT 0,
+                StructuralSearchFind BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                 PRIMARY KEY (
                     GeneID,
@@ -681,10 +680,9 @@ class SqliteHandler(object):
                 QueryEnd,
                 TargetStart,
                 TargetEnd,
-                LocalFind,
-                GlobalFind,
-                StructuralFind
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                SequenceSearchFind,
+                StructuralSearchFind
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """, list_tuples)
 
     def update_has_duplicate_genes_table(
