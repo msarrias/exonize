@@ -431,6 +431,26 @@ class Exonize(object):
                     self.environment.logger.exception(e)
                     sys.exit()
 
+    def populate_combined_expansions_table(
+            self,
+            full_events_list: list,
+            tandemness_tuples: list
+    ) -> None:
+        attempt = False
+        while not attempt:
+            try:
+                self.database_interface.insert_structural_sequence_expansions_table(
+                    list_tuples_full=full_events_list,
+                    list_tuples_tandemness=tandemness_tuples,
+                )
+                attempt = True
+            except Exception as e:
+                if "locked" in str(e):
+                    time.sleep(random.randrange(start=0, stop=self.environment.sleep_max_seconds))
+                else:
+                    self.environment.logger.exception(e)
+                    sys.exit()
+
     def populate_global_non_reciprocal_matches_table(
             self,
             non_reciprocal_fragment_ids_list: list,
@@ -540,6 +560,28 @@ class Exonize(object):
                     non_reciprocal_fragment_ids_list=non_reciprocal_fragment_ids_list,
                     gene_id=gene_id
                 )
+            if self.environment.STRUCTURAL_SEARCH:
+                structural_records_set = self.structural_full_matches_dictionary[gene_id]
+                structural_records_set_pairs_set = self.event_reconciler.create_pairs_set(
+                    records_set=structural_records_set
+                )
+                combined_gene_graph = self.event_reconciler.create_events_multigraph(
+                    targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+                    query_local_coordinates_set=query_coordinates,
+                    local_records_set=local_records_set,
+                    global_records_set=global_records_set.union(structural_records_set_pairs_set)
+                )
+                *_, full_combined_events_list = self.event_reconciler.get_reconciled_graph_and_expansion_events_tuples(
+                    targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
+                    gene_id=gene_id,
+                    gene_graph=combined_gene_graph
+                )
+                combined_tandemness_tuples = self.fetch_tandem_tuples(full_events_list=full_combined_events_list)
+                self.populate_combined_expansions_table(
+                    full_events_list=full_combined_events_list,
+                    tandemness_tuples=combined_tandemness_tuples
+
+                )
 
     def events_reconciliation(
             self,
@@ -555,6 +597,9 @@ class Exonize(object):
         if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
             self.global_full_matches_dictionary = self.database_interface.query_global_cds_events()
             genes_to_process = genes_to_process.union(set(self.global_full_matches_dictionary.keys()))
+        if self.environment.STRUCTURAL_SEARCH:
+            self.structural_full_matches_dictionary = self.database_interface.query_structural_cds_events()
+            genes_to_process = genes_to_process.union(set(self.structural_full_matches_dictionary.keys()))
         status: int
         forks: int = 0
         for balanced_batch in self.even_batches(

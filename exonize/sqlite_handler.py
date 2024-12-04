@@ -343,8 +343,6 @@ class SqliteHandler(object):
                 EventEnd INTEGER NOT NULL,
                 EventDegree INTEGER NOT NULL,
                 ExpansionID INTEGER NOT NULL,
-                SequenceSearchFind BINARY(1) DEFAULT 0,
-                StructuralSearchFind BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                 PRIMARY KEY (
                     GeneID,
@@ -384,8 +382,6 @@ class SqliteHandler(object):
                 SuccessorStart INTEGER NOT NULL,
                 SuccessorEnd INTEGER NOT NULL,
                 TandemPair BINARY(1) DEFAULT 0,
-                SequenceSearchFind BINARY(1) DEFAULT 0,
-                StructuralSearchFind BINARY(1) DEFAULT 0,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
                 UNIQUE (
                     GeneID,
@@ -909,11 +905,9 @@ class SqliteHandler(object):
             EventStart,
             EventEnd,
             EventDegree,
-            ExpansionID,
-            SequenceSearchFind,
-            StructuralSearchFind
+            ExpansionID
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """
         insert_gene_full_tandemness_table_param = """
         INSERT INTO Combined_expansions_full_tandem (
@@ -923,11 +917,9 @@ class SqliteHandler(object):
             PredecessorEnd,
             SuccessorStart,
             SuccessorEnd,
-            TandemPair,
-            SequenceSearchFind,
-            StructuralSearchFind
-            )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            TandemPair
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         with sqlite3.connect(self.environment.results_database_path, timeout=self.environment.timeout_database) as db:
             cursor = db.cursor()
