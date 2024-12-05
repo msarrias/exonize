@@ -567,14 +567,15 @@ class ReconcilerHandler(object):
                 for node, attrib in undirected_subgraph.nodes(data=True)
                 if undirected_subgraph.degree(node) > 0]
 
-    def fetch_local_full_matches_dict(self):
+    def fetch_local_full_matches_dict(self) -> dict:
         matches_dictionary = {}
         matches = self.database_interface.query_non_reciprocal_coding_matches()
         for match in matches:
             gene_id, _, qs, qe, ts, te = match
+            start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
             if gene_id not in matches_dictionary:
                 matches_dictionary[gene_id] = []
-            matches_dictionary[gene_id].append((gene_id, qs, qe, ts, te))
+            matches_dictionary[gene_id].append((gene_id, qs-start, qe-start, ts-start, te-start))
         return matches_dictionary
 
     def find_structural_overlap(self, pair, structural_pairs):
@@ -622,6 +623,7 @@ class ReconcilerHandler(object):
             )
             genes_to_process = genes_to_process.union(set(structural_non_reciprocal_full_matches.keys()))
         for gene_id in genes_to_process:
+            start = self.data_container.gene_hierarchy_dictionary[gene_id]['coordinate'].lower
             global_records_set = set()
             local_records_set = set()
             structural_records_set = set()
@@ -641,10 +643,10 @@ class ReconcilerHandler(object):
                 query, target = event
                 tuples_to_insert.append((
                     gene_id,
-                    query.lower,
-                    query.upper,
-                    target.lower,
-                    target.upper,
+                    query.lower + start,
+                    query.upper + start,
+                    target.lower + start,
+                    target.upper + start,
                     1 if event in local_records_set or event in global_records_set else 0,
                     1 if structural_candidate else 0
                 ))
@@ -652,10 +654,10 @@ class ReconcilerHandler(object):
                 query, target = event
                 tuples_to_insert.append((
                     gene_id,
-                    query.lower,
-                    query.upper,
-                    target.lower,
-                    target.upper,
+                    query.lower + start,
+                    query.upper + start,
+                    target.lower + start,
+                    target.upper + start,
                     0,
                     1
                 ))
