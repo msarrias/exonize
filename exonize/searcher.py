@@ -677,6 +677,13 @@ class Searcher(object):
     ):
         return self.data_container.pdb_chains_dictionary[gene_id][uniprot_id][isoform_id][chain_id]['plddt']
 
+    def check_alignment_constraints(self, structure_alignment):
+        return (
+                structure_alignment.tm_norm_chain1 >= self.environment.TM_score_threshold and
+                structure_alignment.tm_norm_chain2 >= self.environment.TM_score_threshold and
+                structure_alignment.rmsd <= self.environment.RMSD_threshold
+        )
+
     def cds_structural_search(
             self,
             gene_id_list: list[str],
@@ -696,7 +703,8 @@ class Searcher(object):
                             # this is the protein sequence we constructed from the CDS
                             trans_seq = transcripts_dictionary[transcript_id]['pepSeq']
                             trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
-                            pdb_file = self.environment.pdb_structures_path / f'AF-{uniprot_id}-{isoform_id}-model_v4.pdb'
+                            pdb_id = f'AF-{uniprot_id}-{isoform_id}-model_v4.pdb'
+                            pdb_file = self.environment.pdb_structures_path / pdb_id
                             if pdb_file in self.environment.pdb_files:
                                 structure = get_structure(pdb_file)
                                 chain = next(structure.get_chains())
@@ -721,9 +729,7 @@ class Searcher(object):
                                             pdb_sequence=seq,
                                             coords_array=coords
                                         )
-                                        if (structure_alignment.tm_norm_chain1 >= self.environment.TM_score_threshold and
-                                                structure_alignment.tm_norm_chain2 >= self.environment.TM_score_threshold and
-                                                structure_alignment.rmsd <= self.environment.RMSD_threshold):
+                                        if self.check_alignment_constraints(structure_alignment=structure_alignment):
                                             tuple_to_insert = self.fetch_structural_match_tuple(
                                                 gene_id=gene_id,
                                                 transcript_id=transcript_id,
