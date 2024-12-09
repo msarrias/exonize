@@ -116,7 +116,7 @@ def argument_parser():
         '--query-coverage-threshold',
         default=0.8,
         type=float,
-        help='query coverage threshold. Default is 0.9.'
+        help='query coverage threshold. Default is 0.8.'
     )
     parser.add_argument(
         '-ce',
