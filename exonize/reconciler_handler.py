@@ -627,6 +627,7 @@ class ReconcilerHandler(object):
             global_records_set = set()
             local_records_set = set()
             structural_records_set = set()
+            found_structural_match = set()
             if gene_id in global_non_reciprocal_full_matches:
                 global_records_set = global_non_reciprocal_full_matches[gene_id]
             if gene_id in local_non_reciprocal_full_matches:
@@ -639,7 +640,7 @@ class ReconcilerHandler(object):
                     pair=event, structural_pairs=structural_records_set
                 )
                 if structural_candidate:
-                    structural_records_set = structural_records_set - {structural_candidate}
+                    found_structural_match.add(structural_candidate)
                 query, target = event
                 tuples_to_insert.append((
                     gene_id,
@@ -650,6 +651,7 @@ class ReconcilerHandler(object):
                     1 if event in local_records_set or event in global_records_set else 0,
                     1 if structural_candidate else 0
                 ))
+            structural_records_set = structural_records_set - {found_structural_match}
             for event in structural_records_set:
                 query, target = event
                 tuples_to_insert.append((
