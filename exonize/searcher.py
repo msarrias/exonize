@@ -717,12 +717,13 @@ class Searcher(object):
                                         isoform_id=isoform_id,
                                         chain_id=chain.id
                                     )
-                                    candidate_cdss = self.get_candidate_cds_for_structural_search(
-                                        plddt_seq=pldtt_seq,
-                                        coordinates_list=list(prot_coords_to_dna.keys())
-                                    )
+                                    # candidate_cdss = self.get_candidate_cds_for_structural_search(
+                                    #     plddt_seq=pldtt_seq,
+                                    #     coordinates_list=list(prot_coords_to_dna.keys())
+                                    # )
                                     pairs = self.fetch_pairs_for_alignments(
-                                        [(candidate, None) for candidate in list(prot_coords_to_dna.keys()) if candidate])
+                                        [(candidate, None)
+                                         for candidate in list(prot_coords_to_dna.keys()) if candidate])
                                     for pair in pairs:
                                         structure_alignment = self.perform_tm_alignment(
                                             pair=pair,
