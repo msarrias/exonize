@@ -646,7 +646,7 @@ class Searcher(object):
             coordinates_list: list[P.Interval]
     ):
         return [
-            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
+            coord  # self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
             for coord in coordinates_list
             if coord and coord.upper - coord.lower >= self.environment.min_exon_length // 3
         ]
@@ -717,13 +717,13 @@ class Searcher(object):
                                         isoform_id=isoform_id,
                                         chain_id=chain.id
                                     )
-                                    # candidate_cdss = self.get_candidate_cds_for_structural_search(
-                                    #     plddt_seq=pldtt_seq,
-                                    #     coordinates_list=list(prot_coords_to_dna.keys())
-                                    # )
+                                    candidate_cdss = self.get_candidate_cds_for_structural_search(
+                                        plddt_seq=pldtt_seq,
+                                        coordinates_list=list(prot_coords_to_dna.keys())
+                                    )
                                     pairs = self.fetch_pairs_for_alignments(
                                         [(candidate, None)
-                                         for candidate in list(prot_coords_to_dna.keys()) if candidate])
+                                         for candidate in candidate_cdss if candidate])
                                     for pair in pairs:
                                         structure_alignment = self.perform_tm_alignment(
                                             pair=pair,
