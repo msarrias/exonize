@@ -722,26 +722,26 @@ class Searcher(object):
                                         coordinates_list=list(prot_coords_to_dna.keys())
                                     )
                                     pairs = self.fetch_pairs_for_alignments(
-                                        [(candidate, None) for candidate in candidate_cdss if candidate])
+                                        [(candidate, None) for candidate in list(prot_coords_to_dna.keys()) if candidate])
                                     for pair in pairs:
                                         structure_alignment = self.perform_tm_alignment(
                                             pair=pair,
                                             pdb_sequence=seq,
                                             coords_array=coords
                                         )
-                                        if self.check_alignment_constraints(structure_alignment=structure_alignment):
-                                            tuple_to_insert = self.fetch_structural_match_tuple(
-                                                gene_id=gene_id,
-                                                transcript_id=transcript_id,
-                                                pair=pair,
-                                                prot_coords_to_dna=prot_coords_to_dna,
-                                                transcripts_dictionary=transcripts_dictionary,
-                                                pldtt_seq=pldtt_seq,
-                                                tmresult=structure_alignment
-                                            )
-                                            matched_pairs.append(
-                                                tuple_to_insert
-                                            )
+                                        # if self.check_alignment_constraints(structure_alignment=structure_alignment):
+                                        tuple_to_insert = self.fetch_structural_match_tuple(
+                                            gene_id=gene_id,
+                                            transcript_id=transcript_id,
+                                            pair=pair,
+                                            prot_coords_to_dna=prot_coords_to_dna,
+                                            transcripts_dictionary=transcripts_dictionary,
+                                            pldtt_seq=pldtt_seq,
+                                            tmresult=structure_alignment
+                                        )
+                                        matched_pairs.append(
+                                            tuple_to_insert
+                                        )
                                     if matched_pairs:
                                         found = True
                 if matched_pairs:
