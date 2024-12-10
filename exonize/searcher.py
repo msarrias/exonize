@@ -646,7 +646,7 @@ class Searcher(object):
             coordinates_list: list[P.Interval]
     ):
         return [
-            coord  # self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
+            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
             for coord in coordinates_list
             if coord and coord.upper - coord.lower >= self.environment.min_exon_length // 3
         ]
@@ -679,9 +679,9 @@ class Searcher(object):
 
     def check_alignment_constraints(self, structure_alignment):
         return (
-                structure_alignment.tm_norm_chain1 >= self.environment.TM_score_threshold and
-                structure_alignment.tm_norm_chain2 >= self.environment.TM_score_threshold and
-                structure_alignment.rmsd <= self.environment.RMSD_threshold
+                structure_alignment.tm_norm_chain1 > self.environment.TM_score_threshold and
+                structure_alignment.tm_norm_chain2 > self.environment.TM_score_threshold and
+                structure_alignment.rmsd < self.environment.RMSD_threshold
         )
 
     def cds_structural_search(
@@ -730,19 +730,19 @@ class Searcher(object):
                                             pdb_sequence=seq,
                                             coords_array=coords
                                         )
-                                        # if self.check_alignment_constraints(structure_alignment=structure_alignment):
-                                        tuple_to_insert = self.fetch_structural_match_tuple(
-                                            gene_id=gene_id,
-                                            transcript_id=transcript_id,
-                                            pair=pair,
-                                            prot_coords_to_dna=prot_coords_to_dna,
-                                            transcripts_dictionary=transcripts_dictionary,
-                                            pldtt_seq=pldtt_seq,
-                                            tmresult=structure_alignment
-                                        )
-                                        matched_pairs.append(
-                                            tuple_to_insert
-                                        )
+                                        if self.check_alignment_constraints(structure_alignment=structure_alignment):
+                                            tuple_to_insert = self.fetch_structural_match_tuple(
+                                                gene_id=gene_id,
+                                                transcript_id=transcript_id,
+                                                pair=pair,
+                                                prot_coords_to_dna=prot_coords_to_dna,
+                                                transcripts_dictionary=transcripts_dictionary,
+                                                pldtt_seq=pldtt_seq,
+                                                tmresult=structure_alignment
+                                            )
+                                            matched_pairs.append(
+                                                tuple_to_insert
+                                            )
                                     if matched_pairs:
                                         found = True
                 if matched_pairs:
