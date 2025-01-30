@@ -60,6 +60,8 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#data-representation">Data representation</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#extracting-sequence-data">Extracting sequence data</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#plotting">Plotting</a>
     </li>
         </ul>
@@ -139,6 +141,47 @@ Note that the <a href="https://msarrias.github.io/exonize/exonize_analysis/#exon
 <span class="p">{</span><span class="s1">&#39;FULL&#39;</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s1">&#39;INTRONIC&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
 </code></pre></div>
 This tells us that there are matches between 15 exons and 3 intronic regions. </p>
+<h3 id="extracting-sequence-data">Extracting sequence data<a class="headerlink" href="#extracting-sequence-data" title="Permanent link">&para;</a></h3>
+<p><strong>Step 1: Extract the sequence of the largest expansion</strong></p>
+<p>If you haven't already, we need to parse the gene hierarchy dictionary which can be found in the Exonize output directory.</p>
+<p><div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">parse_gene_hierarchy_dictionary</span><span class="p">(</span>
+    <span class="n">gene_hierarchy_dictionary_path</span><span class="o">=</span><span class="s1">&#39;Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_gene_hierarchy.pkl&#39;</span>
+<span class="p">)</span>
+</code></pre></div>
+Now we need to parse the sequence data used for running exonize. </p>
+<p><div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="o">.</span><span class="n">read_genome</span><span class="p">(</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="s1">&#39;Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz&#39;</span>
+<span class="p">)</span>
+</code></pre></div>
+Use the <code>write_expansion_sequences</code> method of the  <a href="https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer"><code>Gene</code></a> object to write event sequences in FASTA format for a specified expansion. Set the <code>full_expansion</code> parameter to <code>True</code> if you wish to include only full events. If the <code>output_path</code> parameter is not specified, the file will be saved in the current directory with the filename <code>&lt;gene_id&gt;_expansion_&lt;expansion_id&gt;.fa</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">ychrom_expansions</span><span class="p">[</span><span class="s1">&#39;gene:ENSG00000205916&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">write_expansion_sequences</span><span class="p">(</span>
+    <span class="n">expansion_id</span><span class="o">=</span><span class="n">expansion_id</span><span class="p">,</span>
+    <span class="n">full_expansion</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The head of the file should look something like this.</p>
+<div class="highlight"><pre><span></span><code>&gt;<span class="o">(</span><span class="m">24886148</span>,24886220<span class="o">)</span>
+GCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+&gt;<span class="o">(</span><span class="m">24859665</span>,24859737<span class="o">)</span>
+CCATTTCCTGCTTATCCAAGATCACCATTTCAGGTCACTGCTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+&gt;<span class="o">(</span><span class="m">24895687</span>,24895759<span class="o">)</span>
+GCATTTCCTGCTTATCCAAATTCAGCAGTTCAGGTCACCACTGGATATCAGTTCCATGTA
+TACAATTACCAG
+&gt;<span class="o">(</span><span class="m">24898107</span>,24898176<span class="o">)</span>
+TATCCTACTTATCCAAATTCACCAGGTCAGGTCACCACTGGGTGTCAGTTGCCTGTATGT
+AATTATCAG
+&gt;<span class="o">(</span><span class="m">24873975</span>,24874047<span class="o">)</span>
+GCATTTCCTGCTTATCCAAATTCACCAGTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TACAATTATCAG
+&gt;<span class="o">(</span><span class="m">24893302</span>,24893374<span class="o">)</span>
+GCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+&gt;<span class="o">(</span><span class="m">24864445</span>,24864517<span class="o">)</span>
+CCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACTGCTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+</code></pre></div>
 <h3 id="plotting">Plotting<a class="headerlink" href="#plotting" title="Permanent link">&para;</a></h3>
 <p><strong>Step 1: Visualize the expansion</strong></p>
 <p>Now, let’s visualize the expansion graph for the DAZ1 gene. Nodes represent coordinates and edges indicate matches found between them:</p>
