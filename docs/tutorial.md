@@ -83,6 +83,58 @@ mode_counts
 ```
 This tells us that there are matches between 15 exons and 3 intronic regions. 
 
+### Extracting sequence data
+
+**Step 1: Extract the sequence of the largest expansion**
+
+If you haven't already, we need to parse the gene hierarchy dictionary which can be found in the Exonize output directory.
+
+```python
+ychrom_expansions.parse_gene_hierarchy_dictionary(
+    gene_hierarchy_dictionary_path='Homo_sapiens_chrom_Y_exonize/Homo_sapiens_chrom_Y_gene_hierarchy.pkl'
+)
+```
+Now we need to parse the sequence data used for running exonize. 
+
+```python
+ychrom_expansions.read_genome(
+    file_path='Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz'
+)
+```
+Use the `write_expansion_sequences` method of the  [`Gene`](https://msarrias.github.io/exonize/exonize_analysis/#exonize.exonize_analysis.ExpansionsContainer) object to write event sequences in FASTA format for a specified expansion. Set the `full_expansion` parameter to `True` if you wish to include only full events. If the `output_path` parameter is not specified, the file will be saved in the current directory with the filename `<gene_id>_expansion_<expansion_id>.fa`.
+
+```python
+ychrom_expansions['gene:ENSG00000205916'].write_expansion_sequences(
+    expansion_id=expansion_id,
+    full_expansion=True
+)
+```
+
+The head of the file should look something like this.
+
+```bash
+>(24886148,24886220)
+GCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+>(24859665,24859737)
+CCATTTCCTGCTTATCCAAGATCACCATTTCAGGTCACTGCTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+>(24895687,24895759)
+GCATTTCCTGCTTATCCAAATTCAGCAGTTCAGGTCACCACTGGATATCAGTTCCATGTA
+TACAATTACCAG
+>(24898107,24898176)
+TATCCTACTTATCCAAATTCACCAGGTCAGGTCACCACTGGGTGTCAGTTGCCTGTATGT
+AATTATCAG
+>(24873975,24874047)
+GCATTTCCTGCTTATCCAAATTCACCAGTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TACAATTATCAG
+>(24893302,24893374)
+GCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACCACTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+>(24864445,24864517)
+CCATTTCCTGCTTATCCAAGTTCACCATTTCAGGTCACTGCTGGATATCAGTTGCCTGTA
+TATAATTATCAG
+```
 
 ### Plotting
 **Step 1: Visualize the expansion**
