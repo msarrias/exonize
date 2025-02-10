@@ -265,6 +265,12 @@ class DataPreprocessor(object):
             else:
                 self.database_interface.insert_parameter_monitor()
 
+    def _check_mrna_structure(self, structure_list):
+        return bool(structure_list) and any(
+            annotation['type'] == self.environment.cds_annot_feature
+            for annotation in structure_list
+        )
+
     def create_gene_hierarchy_dictionary(
             self,
     ) -> None:
@@ -361,11 +367,8 @@ class DataPreprocessor(object):
                         list_dictionaries=mrna_transcripts_list,
                         reverse=reverse,
                     )
-                    # we want coding transcripts
-                    if mrna_structure and any(
-                            annotation['type'] == self.environment.cds_annot_feature
-                            for annotation in mrna_structure
-                    ):
+                    # we want coding transcripts only
+                    if self._check_mrna_structure(mrna_structure):
                         mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = mrna_structure
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
