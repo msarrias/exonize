@@ -361,7 +361,11 @@ class DataPreprocessor(object):
                         list_dictionaries=mrna_transcripts_list,
                         reverse=reverse,
                     )
-                    if mrna_structure:
+                    # we want coding transcripts
+                    if mrna_structure and any(
+                            annotation['type'] == self.environment.cds_annot_feature
+                            for annotation in mrna_structure
+                    ):
                         mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = mrna_structure
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
