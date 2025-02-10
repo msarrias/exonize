@@ -237,7 +237,7 @@ class DataPreprocessor(object):
                 f"There was an error reading the genome file: {e}"
             )
             sys.exit()
-    
+
     def _check_basic_rerun_conditions(
             self,
             sequence_base: int,
@@ -248,12 +248,12 @@ class DataPreprocessor(object):
                 or self.environment.frame_base != frame_base
                 or self.environment.min_exon_length != min_exon_length
                 or self.environment.exon_clustering_overlap_threshold != exon_clustering_overlap_threshold)
-    
+
     def _action_local_search(self, evalue_threshold: float):
         if self.environment.evalue_threshold < evalue_threshold:
             self.database_interface.drop_table(table_name='Local_search')
             self.database_interface.clear_search_monitor_table(global_search=True)
-    
+
     def _action_global_search(
             self,
             fraction_of_aligned_positions: float,
@@ -265,7 +265,7 @@ class DataPreprocessor(object):
                 or self.environment.pair_coverage_threshold != pair_coverage_threshold):
             self.database_interface.drop_table(table_name='Global_search')
             self.database_interface.clear_search_monitor_table(local_search=True)
-            
+
     def handle_reruns(self):
         if self.database_interface.check_if_table_exists(table_name='Parameter_monitor'):
             if not self.database_interface.check_if_empty_table(table_name='Parameter_monitor'):
@@ -286,7 +286,6 @@ class DataPreprocessor(object):
                         peptide_identity_threshold=t_i,
                         pair_coverage_threshold=t_p
                     )
-                    
                 self.database_interface.update_parameter_monitor()
             else:
                 self.database_interface.insert_parameter_monitor()
@@ -361,11 +360,6 @@ class DataPreprocessor(object):
                 )
                 for mrna_annot in mrna_transcripts:
                     mrna_coordinate = P.open(mrna_annot.start - self.environment.sequence_base, mrna_annot.end)
-                    mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
-                        coordinate=mrna_coordinate,
-                        strand=gene.strand,
-                        structure=list()
-                    )
                     mrna_transcripts_list = list()
                     for child in self.genome_database.children(
                             mrna_annot.id,
@@ -395,7 +389,11 @@ class DataPreprocessor(object):
                     )
                     # we want coding transcripts only
                     if self._check_mrna_structure(mrna_structure):
-                        mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = mrna_structure
+                        mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
+                            coordinate=mrna_coordinate,
+                            strand=gene.strand,
+                            structure=mrna_structure
+                        )
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
     def fetch_gene_cdss_set(
