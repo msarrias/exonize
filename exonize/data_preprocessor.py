@@ -357,10 +357,12 @@ class DataPreprocessor(object):
                     # DNA sequence is represented meaning that translation starts
                     # from the last CDS
                     reverse = self.reverse_sequence_bool(gene_strand=gene.strand)
-                    mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(
+                    mrna_structure = self.sort_list_intervals_dict(
                         list_dictionaries=mrna_transcripts_list,
                         reverse=reverse,
                     )
+                    if mrna_structure:
+                        mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = mrna_structure
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
     def fetch_gene_cdss_set(
