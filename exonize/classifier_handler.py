@@ -53,7 +53,6 @@ class ClassifierHandler(object):
             return missing_coordinates[0]
         return missing_coordinates if missing_coordinates else ''
 
-
     def get_coding_events_transcript_counts(
             self,
             gene_id: str,
@@ -123,7 +122,7 @@ class ClassifierHandler(object):
         if exclusive_events:
             temp_list_events = [tuple(event) if len(event) > 1 else list(event).pop() for event in exclusive_events]
             exclusive_events_str = '_'.join(map(str, temp_list_events))
-        
+
         return *temp, category, exclusive_events_str
 
     @staticmethod
@@ -135,7 +134,6 @@ class ClassifierHandler(object):
             category: sum(mrna_count[i] for mrna_count in transcript_counts_list)
             for i, category in enumerate(['all', 'present', 'abscent', 'neither'])
         }
-
 
     @staticmethod
     def _find_related_items(item, list_items):
@@ -161,7 +159,7 @@ class ClassifierHandler(object):
             frozenset(set(coding_events_coordinates) - set(missing_events))
             for *_, missing_events in transcript_counts_list
             # we exclude the case where all events are missing
-            if set(coding_events_coordinates) - set(missing_events) != set(coding_events_coordinates) 
+            if set(coding_events_coordinates) - set(missing_events) != set(coding_events_coordinates)
         }
         intersection = [item for item in exclusive_candidates if self._find_related_items(item, exclusive_candidates)]
         if classification_sums['all'] == N:
@@ -184,6 +182,8 @@ class ClassifierHandler(object):
         elif not intersection:
             category = 'EXCLUSIVE'
             exclusive_events = exclusive_candidates
+        else:
+            category = '-'
 
         return category, exclusive_events
 
