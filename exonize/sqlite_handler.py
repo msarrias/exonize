@@ -293,7 +293,8 @@ class SqliteHandler(object):
                                         'FLEXIBLE',
                                         'OPTIONAL_FLEXIBLE',
                                         'OPTIONAL_EXCLUSIVE',
-                                        'OPTIONAL_OBLIGATE'
+                                        'OPTIONAL_OBLIGATE',
+                                        '-'
                  )),
                 ExclusiveEvents TEXT,
                 FOREIGN KEY (GeneID) REFERENCES Genes(GeneID),
