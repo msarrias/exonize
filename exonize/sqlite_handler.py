@@ -260,7 +260,8 @@ class SqliteHandler(object):
                                         '{self.environment.partial_insertion}',
                                         '{self.environment.partial_excision}',
                                         '{self.environment.intronic}',
-                                        '{self.environment.inter_boundary}'
+                                        '{self.environment.inter_boundary}',
+                                        '-'
                  )),
                 EventStart INTEGER NOT NULL,
                 EventEnd INTEGER NOT NULL,
