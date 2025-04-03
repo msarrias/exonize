@@ -62,7 +62,7 @@ class DataPreprocessor(object):
         """
         return sorted(
             list_dictionaries,
-            key=lambda x: (x['coordinate'].lower, x['coordinate']),
+            key=lambda x: (x['coordinate'].lower, x['coordinate'].upper),
             reverse=reverse
         )
 
@@ -629,7 +629,9 @@ class DataPreprocessor(object):
             mrna_peptide_sequence += cds_peptide_sequence
             start_coord = end_coord
             frame_cds = frame_next_cds
-            transcript_dict[P.open(start, end)] = [coord_idx, frame_cds, cds_dna_sequence, cds_peptide_sequence]
+            transcript_dict[P.open(start, end)] = [
+                coord_idx, int(cds_dictionary['frame']), cds_dna_sequence, cds_peptide_sequence
+            ]
         return mrna_peptide_sequence, transcript_dict
 
     @staticmethod
