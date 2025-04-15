@@ -630,7 +630,7 @@ class DataPreprocessor(object):
             start_coord = end_coord
             frame_cds = frame_next_cds
             transcript_dict[P.open(start, end)] = [
-                coord_idx, int(cds_dictionary['frame']), cds_dna_sequence, cds_peptide_sequence
+                coord_idx, int(frame_cds), cds_dna_sequence, cds_peptide_sequence
             ]
         return mrna_peptide_sequence, transcript_dict
 
