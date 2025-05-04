@@ -362,7 +362,7 @@ class Searcher(object):
         return self.data_container.get_overlapping_clusters(
             target_coordinates_set=set(
                 (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
-                if coordinate.upper - coordinate.lower >= self.environment.min_exon_length),
+                if (coordinate.upper - coordinate.lower + 1) >= self.environment.min_exon_length),
             threshold=self.environment.exon_clustering_overlap_threshold
         )
 
