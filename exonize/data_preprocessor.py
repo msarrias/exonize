@@ -91,6 +91,12 @@ class DataPreprocessor(object):
         return 0.0
 
     @staticmethod
+    def interval_length(
+            interval: P.Interval
+    ):
+        return interval.upper - interval.lower + 1
+
+    @staticmethod
     def reverse_sequence_bool(
             gene_strand: str,
     ) -> bool:
