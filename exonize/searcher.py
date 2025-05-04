@@ -106,9 +106,9 @@ class Searcher(object):
     ):
         muscle_command = [
             "muscle",
-            "-in",
+            "-align",
             seq_file_path,
-            "-out",
+            "-output",
             output_file_path
         ]
         subprocess.run(
