@@ -42,6 +42,6 @@ Requirements
 `exonize` requires a local installation of:
 
 * [`BLAST+`](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) \[[download link](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)\]: exonize uses the `tblastx` program for conducting the local search.  
-* [`MUSCLE`](https://www.drive5.com/muscle/) \[[download link](https://github.com/rcedgar/muscle/releases)\]: used for conducting the global search and correcting the identity of reconciled matches.  
-* [`SQLite`](https://www.sqlite.org/index.html)[[download link](https://www.sqlite.org/download.html)] : for storing the search results. **_Note:_** If you are a MacOS user, SQLite is included by default.
+* [`MUSCLE (v.5.3)`](https://www.drive5.com/muscle/) \[[download link](https://github.com/rcedgar/muscle/releases)\]: used for conducting the global search and correcting the identity of reconciled matches.  
+* [`SQLite`](https://www.sqlite.org/index.html)[[download link](https://www.sqlite.org/download.html)] : for storing the search results. **_Note:_** On macOS, SQLite is pre-installed by default.
 

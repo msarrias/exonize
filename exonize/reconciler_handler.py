@@ -789,7 +789,7 @@ class ReconcilerHandler(object):
         )
         gene_cds_set = set(
             coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-            if coord.upper - coord.lower >= self.environment.min_exon_length
+            if self.data_container.interval_length(coord) >= self.environment.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(

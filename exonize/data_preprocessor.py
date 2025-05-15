@@ -62,7 +62,7 @@ class DataPreprocessor(object):
         """
         return sorted(
             list_dictionaries,
-            key=lambda x: (x['coordinate'].lower, x['coordinate']),
+            key=lambda x: (x['coordinate'].lower, x['coordinate'].upper),
             reverse=reverse
         )
 
@@ -89,6 +89,12 @@ class DataPreprocessor(object):
             longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
             return round(intersection_span / longest_length, 3)
         return 0.0
+
+    @staticmethod
+    def interval_length(
+            interval: P.Interval
+    ):
+        return interval.upper - interval.lower + 1
 
     @staticmethod
     def reverse_sequence_bool(
@@ -629,7 +635,9 @@ class DataPreprocessor(object):
             mrna_peptide_sequence += cds_peptide_sequence
             start_coord = end_coord
             frame_cds = frame_next_cds
-            transcript_dict[P.open(start, end)] = [coord_idx, frame_cds, cds_dna_sequence, cds_peptide_sequence]
+            transcript_dict[P.open(start, end)] = [
+                coord_idx, int(frame_cds), cds_dna_sequence, cds_peptide_sequence
+            ]
         return mrna_peptide_sequence, transcript_dict
 
     @staticmethod

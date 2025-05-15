@@ -106,9 +106,9 @@ class Searcher(object):
     ):
         muscle_command = [
             "muscle",
-            "-in",
+            "-align",
             seq_file_path,
-            "-out",
+            "-output",
             output_file_path
         ]
         subprocess.run(
@@ -362,7 +362,7 @@ class Searcher(object):
         return self.data_container.get_overlapping_clusters(
             target_coordinates_set=set(
                 (coordinate, None) for coordinate, frame in cds_coordinates_and_frames
-                if coordinate.upper - coordinate.lower >= self.environment.min_exon_length),
+                if self.data_container.interval_length(coordinate) >= self.environment.min_exon_length),
             threshold=self.environment.exon_clustering_overlap_threshold
         )
 
