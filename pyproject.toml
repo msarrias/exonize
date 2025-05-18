@@ -22,11 +22,11 @@ dependencies = [
     "pandas"
 ]
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
 exonize = "exonize.exonize:main"
 
-[tool.setuptools]
-packages = ['exonize']
+[tool.setuptools.packages.find]
+where = ["."]
