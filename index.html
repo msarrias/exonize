@@ -99,7 +99,7 @@ Liam M. Longo, Earth-Life Science Institute, Institute of Science Tokyo
 Lars Arvestad, Department of Mathematics, Stockholm University
 </code></pre></div>
 <h1 id="welcome">Welcome!<a class="headerlink" href="#welcome" title="Permanent link">&para;</a></h1>
-<p><code>exonize</code> is an open-source command-line tool and <a href="https://pypi.org/project/exonize/">Python package</a> for identifying and classifying coding exon duplications in annotated genomes. <code>exonize</code> identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. In addition, <code>exonize</code> categorizes the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, the <code>exonize_analysis</code> module is available for Python notebooks.</p>
+<p><code>exonize</code> is an open-source command-line tool and <a href="https://pypi.org/project/exonize/">Python package</a> for identifying and classifying coding exon duplications in annotated genomes. <code>exonize</code> identifies full exon duplications using local and global alignment methods and implements a graph-based framework to handle clusters of exons formed by repetitive duplication events. <code>exonize</code> introduces a classification schema to categorize the interdependence between duplicated exons (or groups of exons) across transcripts. For data parsing and downstream analysis, we introduce <code>exonize_analysis</code> a Python module within the <code>exonize</code> package.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <p>You are best off installing <code>exonize</code> from <a href="https://pypi.org/project/Exonize/1.0/">PyPI.org</a> using</p>
 <div class="highlight"><pre><span></span><code>pip install exonize
@@ -114,9 +114,9 @@ pip install .
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p><code>exonize</code> requires a local installation of:</p>
 <ul>
-<li><a href="https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html"><code>BLAST+</code></a> [<a href="https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/">download link</a>]: exonize uses the <code>tblastx</code> program for conducting the local search.  </li>
-<li><a href="https://www.drive5.com/muscle/"><code>MUSCLE</code></a> [<a href="https://github.com/rcedgar/muscle/releases">download link</a>]: used for conducting the global search and correcting the identity of reconciled matches.  </li>
-<li><a href="https://www.sqlite.org/index.html"><code>SQLite</code></a>[<a href="https://www.sqlite.org/download.html">download link</a>] : for storing the search results. <strong><em>Note:</em></strong> If you are a MacOS user, SQLite is included by default.</li>
+<li><a href="https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html"><code>BLAST+</code></a> [<a href="https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/">download link</a>]  </li>
+<li><a href="https://www.drive5.com/muscle/"><code>MUSCLE (v.5.3)</code></a> [<a href="https://github.com/rcedgar/muscle/releases">download link</a>]  </li>
+<li><a href="https://www.sqlite.org/index.html"><code>SQLite</code></a>[<a href="https://www.sqlite.org/download.html">download link</a>]</li>
 </ul>
               
             </div>
@@ -169,5 +169,5 @@ pip install .
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2025-01-30 16:19:09.141626+00:00
+Build Date UTC : 2025-05-18 17:16:55.040675+00:00
 -->

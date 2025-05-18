@@ -110,19 +110,19 @@
 <tbody>
 <tr>
 <td><strong>Expansions</strong></td>
-<td>Contains all groups of duplicates (expansions) found<br/> found. Each record represents a node in the<br/> expansion graph, created by combining local and (or) <br/>global matches.</td>
+<td>Each record represents a node in an expansion graph,<br/> created by combining local and (or) global matches.</td>
 </tr>
 <tr>
 <td><strong>Expansions_full</strong></td>
-<td>Includes expansions formed by full-mode events only.</td>
+<td>Reduced version of <code>Expansions_full</code> containing only <br/>expansion graphs constructed from full-length matches.</td>
 </tr>
 <tr>
 <td><strong>Expansions_full_tandem</strong></td>
-<td>Represents pairs of consecutive full events within<br/> an expansion, indicating whether they are in tandem <br/>or not.</td>
+<td>Arranges the nodes of expansions in <code>Expansions_full</code>,<br/> in consecutive pairs, indicating whether they are in tandem.</td>
 </tr>
 <tr>
 <td><strong>Expansions_transcript_interdependence</strong></td>
-<td>Classifies transcript interdependence for each expansion <br/>in the <code>Expansions_full</code> table.</td>
+<td>Transcript interdependence classifications for expansions in <br/><code>Expansions_full</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -142,11 +142,11 @@
 </tr>
 <tr>
 <td><strong>Local_matches</strong></td>
-<td>Contains all matches found by querying representative <br/>exons against the genes within which they are situated.<br/> These are raw, unfiltered matches found using BLAST.</td>
+<td>Contains all matches found by querying representative exons<br/> against the genes within which they are situated. These are raw,<br/> unfiltered matches found using BLAST.</td>
 </tr>
 <tr>
 <td><strong>Local_matches_non_reciprocal</strong></td>
-<td>This table is a filtered version of <code>Local_matches</code>, containing only <br/>non-reciprocal and reconciled matches identified in the <br/>BLAST local search. These matches meet the search criteria,<br/> including query coverage, in-frame alignment, <br/>and significant non-overlapping.</td>
+<td>Filtered version of <code>Local_matches</code>, containing only non-reciprocal <br/>and reconciled matches identified in the  local search. These matches <br/>meet the query coverage, in-frame alignment, and significant<br/> non-overlapping search criteria.</td>
 </tr>
 <tr>
 <td><strong>Global_matches_non_reciprocal</strong></td>
@@ -156,7 +156,7 @@
 </table>
 <blockquote>
 <p><strong>Note:</strong>
-Combining the <code>Local_matches_non_reciprocal</code> and <code>Global_matches_non_reciprocal</code> tables provides a complete list of all matches identified by <code>exonize</code>. When full matches are detected by both methods, they are retained only in the <code>Global_matches_non_reciprocal</code> table and omitted from the <code>Local_matches_non_reciprocal</code> table.</p>
+Combining the <code>Local_matches_non_reciprocal</code> and <code>Global_matches_non_reciprocal</code> tables provides a complete list of all matches identified by <code>exonize</code>. When full-length matches are detected by both methods, they are retained only in the <code>Global_matches_non_reciprocal</code> table and omitted from the <code>Local_matches_non_reciprocal</code> table.</p>
 </blockquote>
 <h3 id="additional-files">Additional files<a class="headerlink" href="#additional-files" title="Permanent link">&para;</a></h3>
 <ul>

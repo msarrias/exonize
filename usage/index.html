@@ -90,7 +90,7 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
-<p>Exonize requires two positional arguments that can be followed by optional arguments. </p>
+<p>Exonize requires two positional arguments followed by optional arguments. </p>
 <div class="highlight"><pre><span></span><code>exonize &lt;gff_file_path&gt; &lt;genome_file_path&gt; [OPTIONS]
 </code></pre></div>
 <h2 id="required-arguments">Required Arguments<a class="headerlink" href="#required-arguments" title="Permanent link">&para;</a></h2>
@@ -110,10 +110,10 @@
 <li><code>[-ts]</code>: Self-hit overlap threshold. <strong>Default</strong>: <code>0.5</code>.</li>
 <li><code>[-te]</code>: Minimum query coverage cut-off. <strong>Default</strong>: <code>0.9</code>.</li>
 <li><code>[-ce]</code>: Overlap threshold for constructing the set of representative exons. <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ct]</code>: Overlap threshold for target coordinate reconciliation (local BLAST search param). <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-tp]</code>: Minimum length coverage between the query and target (global MUSCL search param). <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ta]</code>: Threshold for the fraction of aligned positions (global MUSCL search param). <strong>Default</strong>: <code>0.9</code>.</li>
-<li><code>[-ti]</code>: Peptide identity threshold  (global MUSCL search param). <strong>Default</strong>: <code>0.4</code>.</li>
+<li><code>[-ct]</code>: Overlap threshold for target coordinate reconciliation (local search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-tp]</code>: Minimum length coverage between the query and target (global search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-ta]</code>: Threshold for the fraction of aligned positions (global search param). <strong>Default</strong>: <code>0.9</code>.</li>
+<li><code>[-ti]</code>: Peptide identity threshold  (global search param). <strong>Default</strong>: <code>0.4</code>.</li>
 <li><code>[-op]</code>: Search identifier. <strong>Default</strong>: The stem of the annotations file.</li>
 <li><code>[-cn]</code>: Number of CPUs to use. <strong>Default</strong>: The available CPU count.</li>
 <li><code>[-odp]</code>: Path to the output directory. <strong>Default</strong>: The current directory.</li>
@@ -145,7 +145,7 @@ source fetch_data.sh
 <li>If you installed the package via <code>pip</code>, you can download the script here: <a href="https://github.com/msarrias/exonize/blob/main/test_human_chrom_Y/fetch_data.sh"><code>fetch_data.sh</code></a>.</li>
 </ul>
 <p><strong>Run exonize with default parameters:</strong></p>
-<div class="highlight"><pre><span></span><code>exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
+<div class="highlight"><pre><span></span><code>exonize Homo_sapiens.GRCh38.114.chromosome.Y.gff3 \
        Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
        --output_prefix Homo_sapiens_chrom_Y \
        --csv
