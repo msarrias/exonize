@@ -18,7 +18,7 @@ Welcome!
 
 Installation
 ---------------------
-You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
+You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/exonize/) using
 
 ```
 pip install exonize
