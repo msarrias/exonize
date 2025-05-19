@@ -4,7 +4,6 @@ import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
 from pathlib import Path
-import pytest
 
 
 def create_exonize_test1():
@@ -208,6 +207,7 @@ def cleanup_test_dbs():
         path = Path(db_path)
         if path.exists():
             path.unlink()
+    shutil.rmtree("mock_specie_exonize", ignore_errors=True)
 
 
 def test_representative_cdss():
