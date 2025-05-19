@@ -4,6 +4,7 @@ import sqlite3
 from exonize.exonize_handler import Exonize
 import shutil
 from pathlib import Path
+import pytest
 
 
 def create_exonize_test1():
@@ -200,6 +201,13 @@ def create_exonize_test1():
     exonize_obj.events_reconciliation()
     exonize_obj.transcript_interdependence_classification()
     return exonize_obj, results_db_path
+
+
+def cleanup_test_dbs():
+    for db_path in ["mock_results.db", "mock_results2.db"]:
+        path = Path(db_path)
+        if path.exists():
+            path.unlink()
 
 
 def test_representative_cdss():
@@ -550,7 +558,7 @@ def test_expansion_transcript_interdependence_classification():
          str(i)
          for i in (
              P.open(600, 700),
-             tuple((P.open(150, 250),P.open(0, 100)))
+             tuple((P.open(150, 250), P.open(0, 100)))
          )
      ])),
     ('gene2', 1, 3, 3, 0, 3, 6, 0, 'EXCLUSIVE',
@@ -662,3 +670,4 @@ def test_expansion_full_events_tandemness():
         )
         records = cursor.fetchall()
         assert set(records) == set(exp_full_events_tandemness)
+        cleanup_test_dbs()
