@@ -2,6 +2,7 @@
 name = "exonize"
 readme = "README.md"
 description = "A tool for finding duplicated exons in annotated genomes"
+license = { file = "LICENSE" }
 authors = [
     {name = "Marina Herrera Sarrias"},
     {name = "Christopher Wheat"},
@@ -13,8 +14,6 @@ maintainers = [
     {name = "Lars Arvestad", email = "arve@math.su.se"}
 ]
 version = "1.1.2"
-
-license = { file = "LICENSE" }
 
 dependencies = [
     "gffutils",
