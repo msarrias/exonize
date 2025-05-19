@@ -6,3 +6,4 @@ build/
 
 # python caches
 **/__pycache__/
+/mkdocs.yml
