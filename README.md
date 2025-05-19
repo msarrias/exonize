@@ -23,7 +23,7 @@ Please see the [Documentation](https://msarrias.github.io/exonize/) for a full u
 
 ## Installation
 
-You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/Exonize/1.0/) using
+You are best off installing `exonize` from [PyPI.org](https://pypi.org/project/exonize/) using
 
 ```bash
 pip install exonize
