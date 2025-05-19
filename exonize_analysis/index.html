@@ -150,6 +150,7 @@
 
 
 
+
   <div class="doc doc-children">
 
 
@@ -207,6 +208,7 @@
 
 
 
+
   <div class="doc doc-children">
 
 
@@ -243,7 +245,7 @@
         <ul class="first simple">
             <li>
               <b><code>expansion_id</code></b>
-                  (<code>int</code>)
+                  (<code><span title="int">int</span></code>)
               –
               <div class="doc-md-description">
                 <p>The unique identifier for the expansion.</p>
@@ -270,6 +272,7 @@
     </tr>
   </tbody>
 </table>
+
     </div>
 
 </div>
@@ -311,7 +314,7 @@
         <ul class="first simple">
             <li>
               <b><code>exonize_db_path</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The file path to the Exonize database.</p>
@@ -322,6 +325,7 @@
     </tr>
   </tbody>
 </table>
+
 
 
 
@@ -343,7 +347,7 @@
 
 
 <h3 id="exonize.exonize_analysis.ExpansionsContainer.genes" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">genes</span><span class="p">:</span> <span class="nb">list</span></code>
+            <code class="highlight language-python"><span class="n">genes</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-property"><code>property</code></small>
@@ -368,7 +372,7 @@
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>list</code></b>(                  <code>list</code>
+<b><code>list</code></b>(                  <code><span title="list">list</span></code>
 )              –
               <div class="doc-md-description">
                 <p>A list of gene IDs in the ExpansionsContainer.</p>
@@ -384,6 +388,7 @@
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">expansions_container</span><span class="o">.</span><span class="n">genes</span>
 <span class="go">[&#39;GENE123&#39;, &#39;GENE456&#39;, &#39;GENE789&#39;]</span>
 </code></pre></div>
+
     </div>
 
 </div>
@@ -416,7 +421,7 @@
         <ul class="first simple">
             <li>
               <b><code>n</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The gene ID to check for existence.</p>
@@ -439,7 +444,7 @@
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>bool</code></b>(                  <code>bool</code>
+<b><code>bool</code></b>(                  <code><span title="bool">bool</span></code>
 )              –
               <div class="doc-md-description">
                 <p>True if the gene ID exists, False otherwise.</p>
@@ -455,6 +460,7 @@
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;GENE123&quot;</span> <span class="ow">in</span> <span class="n">expansions_container</span>
 <span class="go">True</span>
 </code></pre></div>
+
 
     </div>
 
@@ -486,7 +492,7 @@
         <ul class="first simple">
             <li>
               <b><code>gene_id</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The ID of the gene to retrieve.</p>
@@ -509,7 +515,7 @@
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>Gene</code></b>(                  <code><a class="autorefs autorefs-internal" title="exonize.exonize_analysis.Gene" href="#exonize.exonize_analysis.Gene">Gene</a></code>
+<b><code>Gene</code></b>(                  <code><a class="autorefs autorefs-internal" title="Gene (exonize.exonize_analysis.Gene)" href="#exonize.exonize_analysis.Gene">Gene</a></code>
 )              –
               <div class="doc-md-description">
                 <p>The Gene object associated with the specified gene ID.</p>
@@ -526,6 +532,7 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
 <span class="go">&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;</span>
 </code></pre></div>
+
 
     </div>
 
@@ -557,7 +564,7 @@
         <ul class="first simple">
             <li>
               <b><code>exonize_db_path</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The file path to the Exonize database.</p>
@@ -568,6 +575,7 @@
     </tr>
   </tbody>
 </table>
+
     </div>
 
 </div>
@@ -597,7 +605,7 @@
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>iter</code></b>(                  <code>iter</code>
+<b><code>iter</code></b>(                  <code><span title="iter">iter</span></code>
 )              –
               <div class="doc-md-description">
                 <p>An iterator yielding each Gene object.</p>
@@ -613,6 +621,7 @@
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">expansions_container</span><span class="p">:</span>
 <span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
 </code></pre></div>
+
 
     </div>
 
@@ -643,7 +652,7 @@
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>int</code></b>(                  <code>int</code>
+<b><code>int</code></b>(                  <code><span title="int">int</span></code>
 )              –
               <div class="doc-md-description">
                 <p>The number of genes in the ExpansionsContainer.</p>
@@ -659,6 +668,7 @@
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">expansions_container</span><span class="p">)</span>
 <span class="go">18</span>
 </code></pre></div>
+
 
     </div>
 
@@ -685,6 +695,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">expansions_container</span><span class="p">))</span>
 <span class="go">18</span>
 </code></pre></div>
+
 
     </div>
 
@@ -734,6 +745,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
 <span class="go">)</span>
 </code></pre></div>
 
+
     </div>
 
 </div>
@@ -775,7 +787,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
         <ul class="first simple">
             <li>
               <b><code>id</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The unique identifier for the gene.</p>
@@ -791,7 +803,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>strand</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The DNA strand ('+' or '-') on which the gene is located.</p>
@@ -799,7 +811,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>chromosome</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The chromosome on which the gene is located.</p>
@@ -807,7 +819,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>expansions</code></b>
-                  (<code>dict</code>)
+                  (<code><span title="dict">dict</span></code>)
               –
               <div class="doc-md-description">
                 <p>A dictionary where keys are expansion IDs and values are expansion objects.</p>
@@ -818,6 +830,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     </tr>
   </tbody>
 </table>
+
 
 
 
@@ -862,7 +875,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
         <ul class="first simple">
             <li>
               <b><code>expansion_id</code></b>
-                  (<code>int</code>)
+                  (<code><span title="int">int</span></code>)
               –
               <div class="doc-md-description">
                 <p>The ID of the expansion to retrieve.</p>
@@ -901,6 +914,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">gene</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># Retrieves the expansion graph for expansion ID 1</span>
 </code></pre></div>
 
+
     </div>
 
 </div>
@@ -931,7 +945,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
         <ul class="first simple">
             <li>
               <b><code>gene_id</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The unique identifier for the gene.</p>
@@ -947,7 +961,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>strand</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The DNA strand ('+' or '-') on which the gene is located.</p>
@@ -955,7 +969,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>chromosome</code></b>
-                  (<code>str</code>)
+                  (<code><span title="str">str</span></code>)
               –
               <div class="doc-md-description">
                 <p>The chromosome on which the gene is located.</p>
@@ -966,6 +980,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     </tr>
   </tbody>
 </table>
+
     </div>
 
 </div>
@@ -995,7 +1010,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>iterator</code></b>(                  <code>iter</code>
+<b><code>iterator</code></b>(                  <code><span title="iter">iter</span></code>
 )              –
               <div class="doc-md-description">
                 <p>An iterator yielding each expansion graph.</p>
@@ -1011,6 +1026,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">graph</span> <span class="ow">in</span> <span class="n">gene</span><span class="p">:</span>
 <span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
 </code></pre></div>
+
 
     </div>
 
@@ -1041,7 +1057,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>int</code></b>(                  <code>int</code>
+<b><code>int</code></b>(                  <code><span title="int">int</span></code>
 )              –
               <div class="doc-md-description">
                 <p>The number of expansions.</p>
@@ -1057,6 +1073,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
 <span class="go">0</span>
 </code></pre></div>
+
 
     </div>
 
@@ -1087,7 +1104,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
       <td class="field-body">
         <ul class="first simple">
             <li>
-<b><code>str</code></b>(                  <code>str</code>
+<b><code>str</code></b>(                  <code><span title="str">str</span></code>
 )              –
               <div class="doc-md-description">
                 <p>A string describing the gene's ID and number of expansions.</p>
@@ -1103,6 +1120,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="nb">repr</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
 <span class="go">&#39;&lt;Gene GENE123 with 0 expansions (iterable of expansion graphs)&gt;&#39;</span>
 </code></pre></div>
+
 
     </div>
 
@@ -1151,6 +1169,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">combined_graph</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span>
 </code></pre></div>
 
+
     </div>
 
 </div>
@@ -1181,7 +1200,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
         <ul class="first simple">
             <li>
               <b><code>expansion_id</code></b>
-                  (<code>int</code>, default:
+                  (<code><span title="int">int</span></code>, default:
                       <code>None</code>
 )
               –
@@ -1211,7 +1230,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>legend</code></b>
-                  (<code>bool</code>, default:
+                  (<code><span title="bool">bool</span></code>, default:
                       <code>True</code>
 )
               –
@@ -1221,7 +1240,7 @@ the Exonize database. Each expansion consists of nodes and edges, forming a grap
             </li>
             <li>
               <b><code>connect_overlapping_nodes</code></b>
-                  (<code>bool</code>, default:
+                  (<code><span title="bool">bool</span></code>, default:
                       <code>False</code>
 )
               –
@@ -1232,7 +1251,7 @@ Default is True.</p>
             </li>
             <li>
               <b><code>color_tandem_pair_edges</code></b>
-                  (<code>bool</code>, default:
+                  (<code><span title="bool">bool</span></code>, default:
                       <code>False</code>
 )
               –
@@ -1242,7 +1261,7 @@ Default is True.</p>
             </li>
             <li>
               <b><code>full_expansion</code></b>
-                  (<code>bool</code>, default:
+                  (<code><span title="bool">bool</span></code>, default:
                       <code>False</code>
 )
               –
@@ -1252,7 +1271,7 @@ Default is True.</p>
             </li>
             <li>
               <b><code>tandem_edges_color</code></b>
-                  (<code>str</code>, default:
+                  (<code><span title="str">str</span></code>, default:
                       <code>&#39;blue&#39;</code>
 )
               –
@@ -1265,6 +1284,7 @@ Default is True.</p>
     </tr>
   </tbody>
 </table>
+
     </div>
 
 </div>
@@ -1298,7 +1318,7 @@ of coding exons and expansion events within the specified gene. The plot can be 
         <ul class="first simple">
             <li>
               <b><code>expansion_id</code></b>
-                  (<code>int</code>, default:
+                  (<code><span title="int">int</span></code>, default:
                       <code>None</code>
 )
               –
@@ -1345,6 +1365,7 @@ will be displayed but not saved.</p>
     </tr>
   </tbody>
 </table>
+
     </div>
 
 </div>
@@ -1375,7 +1396,7 @@ will be displayed but not saved.</p>
         <ul class="first simple">
             <li>
               <b><code>expansion_id</code></b>
-                  (<code>int</code>)
+                  (<code><span title="int">int</span></code>)
               –
               <div class="doc-md-description">
                 <p>The ID of the expansion.</p>
@@ -1394,7 +1415,7 @@ will be saved in the current directory with the name format <gene_id><em>expansi
             </li>
             <li>
               <b><code>full_expansion</code></b>
-                  (<code>bool</code>, default:
+                  (<code><span title="bool">bool</span></code>, default:
                       <code>False</code>
 )
               –
@@ -1433,6 +1454,7 @@ will be saved in the current directory with the name format <gene_id><em>expansi
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">expansions_container</span><span class="p">[</span><span class="s2">&quot;GENE123&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">write_expansion_sequences</span><span class="p">(</span><span class="n">expansion_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">full_expansion</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
+
 
     </div>
 
