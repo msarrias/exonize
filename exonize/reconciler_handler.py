@@ -850,8 +850,13 @@ class ReconcilerHandler(object):
             )
             overlapping_cds = sorted([
                 sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
-                for cluster in self.data_container.get_overlapping_clusters([(i, 0) for i in list_cds], 0)],
-                key=lambda x: (x[0].lower, x[0].upper))
+                for cluster in self.data_container.get_overlapping_clusters(
+                    target_coordinates_set=[(i, 0) for i in list_cds],
+                    threshold=0
+                )
+            ],
+                key=lambda x: (x[0].lower, x[0].upper)
+            )
             next_dict = {
                 exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
             }
