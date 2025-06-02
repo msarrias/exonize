@@ -309,12 +309,12 @@ def test_find_local_match_in_global_matches(
         reference_coordinate=P.open(2200, 2300)
     )
     assert P.open(2200, 2300) == exonize_obj.event_reconciler.find_local_match_in_global_matches(
-        candidates=global_coordinates,
+        global_candidates=global_coordinates,
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2210, 2305)
     )
     assert P.open(2200, 2300) == exonize_obj.event_reconciler.find_local_match_in_global_matches(
-        candidates=global_coordinates,
+        global_candidates=global_coordinates,
         cds_coordinate=cds_coordinate,
         reference_coordinate=P.open(2190, 2305)
     )
