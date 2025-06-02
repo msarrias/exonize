@@ -2,7 +2,7 @@
 Usage
 ============
 
-Exonize requires two positional arguments that can be followed by optional arguments. 
+Exonize requires two positional arguments followed by optional arguments. 
 
 ```
 exonize <gff_file_path> <genome_file_path> [OPTIONS]
@@ -26,10 +26,10 @@ Optional Arguments
 - `[-ts]`: Self-hit overlap threshold. **Default**: `0.5`.
 - `[-te]`: Minimum query coverage cut-off. **Default**: `0.9`.
 - `[-ce]`: Overlap threshold for constructing the set of representative exons. **Default**: `0.9`.
-- `[-ct]`: Overlap threshold for target coordinate reconciliation (local BLAST search param). **Default**: `0.9`.
-- `[-tp]`: Minimum length coverage between the query and target (global MUSCL search param). **Default**: `0.9`.
-- `[-ta]`: Threshold for the fraction of aligned positions (global MUSCL search param). **Default**: `0.9`.
-- `[-ti]`: Peptide identity threshold  (global MUSCL search param). **Default**: `0.4`.
+- `[-ct]`: Overlap threshold for target coordinate reconciliation (local search param). **Default**: `0.9`.
+- `[-tp]`: Minimum length coverage between the query and target (global search param). **Default**: `0.9`.
+- `[-ta]`: Threshold for the fraction of aligned positions (global search param). **Default**: `0.9`.
+- `[-ti]`: Peptide identity threshold  (global search param). **Default**: `0.4`.
 - `[-op]`: Search identifier. **Default**: The stem of the annotations file.
 - `[-cn]`: Number of CPUs to use. **Default**: The available CPU count.
 - `[-odp]`: Path to the output directory. **Default**: The current directory.
@@ -67,7 +67,7 @@ source fetch_data.sh
 **Run exonize with default parameters:**
 
 ```
-exonize Homo_sapiens.GRCh38.111.chromosome.Y.gff3 \
+exonize Homo_sapiens.GRCh38.114.chromosome.Y.gff3 \
        Homo_sapiens.GRCh38.dna.chromosome.Y.fa.gz \
        --output_prefix Homo_sapiens_chrom_Y \
        --csv

@@ -305,47 +305,45 @@ class ReconcilerHandler(object):
             self,
             targets_reference_coordinates_dictionary: dict,
             global_records_set: set,
-            query_local_coordinates_set: set
+            query_local_coordinates_set: set,
     ):
-        def extract_cds_coordinates(records_set: set):
-            return {
-                P.open(cds_start, cds_end)
-                for record in records_set
-                for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
-            }
-        target_coordinates_set = {
+        target_coordinates_set = set([
             (reference['reference'], reference['mode'])
             for reference in targets_reference_coordinates_dictionary.values()
+        ])
+        global_cds_coordinates_set = {
+            P.open(cds_start, cds_end)
+            for record in global_records_set
+            for cds_start, cds_end in [(record[1], record[2]), (record[3], record[4])]
         }
-        global_cds_coordinates_set = extract_cds_coordinates(global_records_set)
-        union_cds_coordinates = query_local_coordinates_set.union(global_cds_coordinates_set)
-        return {
+        return set([
             ((node_coordinate.lower, node_coordinate.upper), coordinate_type)
             for node_coordinate, coordinate_type in [
-                *[(coordinate, self.environment.full) for coordinate in union_cds_coordinates],
+                *[(coordinate, self.environment.full)
+                  for coordinate in query_local_coordinates_set.union(global_cds_coordinates_set)],
                 *target_coordinates_set
             ]
-        }
+        ])
 
     @staticmethod
     def find_query_cds_global_matches(
-            pairs_set: set,
+            global_records_set_pairs_set: set,
             cds_coordinate: P.Interval
     ):
         return [
-                pair
-                for pair in pairs_set
-                if cds_coordinate in pair
+                global_pair
+                for global_pair in global_records_set_pairs_set
+                if cds_coordinate in global_pair
             ]
 
     def find_local_match_in_global_matches(
             self,
-            candidates: list,
+            global_candidates: list,
             cds_coordinate: P.Interval,
             reference_coordinate: P.Interval,
     ):
-        for candidate in candidates:
-            query_gc, target_gc = candidate
+        for global_candidate in global_candidates:
+            query_gc, target_gc = global_candidate
             if cds_coordinate == query_gc:
                 target = target_gc
             else:
@@ -395,12 +393,12 @@ class ReconcilerHandler(object):
             target_coordinate = P.open(target_start, target_end)
             reference_coordinate = targets_reference_coordinates_dictionary[target_coordinate]['reference']
             mode = targets_reference_coordinates_dictionary[target_coordinate]['mode']
-            cds_candidates = self.find_query_cds_global_matches(
-                pairs_set=global_records_set_pairs_set,
+            global_candidates = self.find_query_cds_global_matches(
+                global_records_set_pairs_set=global_records_set_pairs_set,
                 cds_coordinate=cds_coordinate
             )
             global_target = self.find_local_match_in_global_matches(
-                candidates=cds_candidates,
+                global_candidates=global_candidates,
                 cds_coordinate=cds_coordinate,
                 reference_coordinate=reference_coordinate
             )
@@ -417,6 +415,7 @@ class ReconcilerHandler(object):
                     query=(cds_start, cds_end),
                     evalue=evalue,
                     mode=mode,
+                    search='local',
                     color='black',
                     width=2
                 )
@@ -433,6 +432,7 @@ class ReconcilerHandler(object):
                 query=(cds_coordinate.lower, cds_coordinate.upper),
                 evalue=None,
                 mode=self.environment.full,
+                search='global',
                 color='black',
                 width=2
             )
@@ -894,7 +894,7 @@ class ReconcilerHandler(object):
         )
         gene_cds_set = set(
             coord for coord, frame in self.data_container.fetch_gene_cdss_set(gene_id=gene_id)
-            if coord.upper - coord.lower >= self.environment.min_exon_length
+            if self.data_container.interval_length(coord) >= self.environment.min_exon_length
         )
         gene_cds_set = set(
             self.center_and_sort_cds_coordinates(
@@ -908,6 +908,27 @@ class ReconcilerHandler(object):
             gene_cds_set=gene_cds_set
         )
         return query_coordinates, targets_reference_coordinates_dictionary
+
+    @staticmethod
+    def is_tandem_pair(
+            coord_i: P.interval,
+            coord_j: P.interval,
+            sorted_cds_intervals_dictionary: dict
+    ):
+        first_exon = [
+            exon_number
+            for exon_number, exon_coords_clust in sorted_cds_intervals_dictionary.items()
+            if coord_i in exon_coords_clust
+        ]
+        if len(first_exon) > 1:
+            raise ValueError('More than one exon found')
+        else:
+            exon_number = first_exon.pop()
+            if coord_j in sorted_cds_intervals_dictionary[exon_number]:
+                return 2  # overlapping query/target coordinates
+            elif coord_j in sorted_cds_intervals_dictionary[exon_number + 1]:
+                return 1
+            return 0
 
     @staticmethod
     def build_expansion_dictionary(
@@ -928,9 +949,22 @@ class ReconcilerHandler(object):
     ):
         tuples_to_insert = []
         for gene, full_expansions in expansions_dictionary.items():
-            next_dict = self.search_engine.fetch_ordered_cds_clusters(
-                gene_id=gene
+            list_cds = sorted(
+                list(set(coord for coord, _ in self.data_container.fetch_gene_cdss_set(gene))),
+                key=lambda x: (x.lower, x.upper)
             )
+            overlapping_cds = sorted([
+                sorted([coord for coord, _ in cluster], key=lambda x: (x.lower, x.upper))
+                for cluster in self.data_container.get_overlapping_clusters(
+                    target_coordinates_set=[(i, 0) for i in list_cds],
+                    threshold=0
+                )
+            ],
+                key=lambda x: (x[0].lower, x[0].upper)
+            )
+            next_dict = {
+                exon_idx: exon_cluster for exon_idx, exon_cluster in enumerate(overlapping_cds)
+            }
             for expansion_id, events_list in full_expansions.items():
                 coords_pairs = [
                     (coordinate, events_list[index + 1])
@@ -943,7 +977,7 @@ class ReconcilerHandler(object):
                      coord_i.upper,
                      coord_j.lower,
                      coord_j.upper,
-                     self.search_engine.is_tandem_pair(
+                     self.is_tandem_pair(
                          coord_i=coord_i,
                          coord_j=coord_j,
                          sorted_cds_intervals_dictionary=next_dict

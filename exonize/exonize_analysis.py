@@ -7,6 +7,10 @@ import portion as P
 from pathlib import Path
 import numpy as np
 import pickle
+import gzip
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
 
 
 class Gene:
@@ -192,6 +196,65 @@ class Gene:
             save_path=save_path
         )
 
+    def write_expansion_sequences(
+            self,
+            expansion_id: int,
+            output_path: Path = None,
+            full_expansion: bool = False,
+
+    ):
+        """
+        Writes the sequences of the expansion events to a FASTA file.
+
+        Args:
+            expansion_id (int, optional): The ID of the expansion.
+            output_path (Path, optional): The file path where the FASTA file will be saved. If not provided, the file
+                will be saved in the current directory with the name format <gene_id>_expansion_<expansion_id>.fa name.
+            full_expansion (bool, optional): Whether to include full events only. Default is False.
+
+        Returns:
+            None
+
+        Examples:
+            >>> expansions_container["GENE123"].write_expansion_sequences(expansion_id=0, full_expansion=True)
+        """
+        graph = self.expansions[expansion_id].graph
+        graph = graph.copy()
+        if full_expansion:
+            self.full_expansion(graph=graph)
+        sequences = self._fetch_events_sequences(graph=graph)
+        if not output_path:
+            output_path = Path(f"{self.id}_expansion_{expansion_id}.fa")
+        self._dump_fasta_file(
+            out_file_path=output_path,
+            sequence_dictionary=sequences
+        )
+
+    def _fetch_events_sequences(
+            self,
+            graph: nx.Graph,
+    ):
+        gene_start = self.coordinates.lower
+        expansion_sequences_dictionary = {
+            coordinate: self.sequence[coordinate.lower - gene_start:coordinate.upper - gene_start]
+            for coordinate in graph.nodes
+        }
+        return expansion_sequences_dictionary
+
+    @staticmethod
+    def _dump_fasta_file(
+            out_file_path: Path,
+            sequence_dictionary: dict,
+    ) -> None:
+        with open(out_file_path, "w") as handle:
+            for annotation_id, annotation_sequence in sequence_dictionary.items():
+                record = SeqRecord(
+                    Seq(annotation_sequence),
+                    id=str(annotation_id),
+                    description=''
+                )
+                SeqIO.write(record, handle, "fasta")
+
 
 class Expansion:
     """
@@ -249,6 +312,7 @@ class ExpansionsContainer:
         self._genes = {}
         self._db_handler = _ExonizeDBHandler(self.exonize_db_path)
         self.gene_hierarchy_dictionary = {}
+        self.genome_dictionary = {}
         self.build_expansions()
 
     def __iter__(
@@ -369,6 +433,27 @@ class ExpansionsContainer:
             read_file = pickle.load(handle)
         return read_file
 
+    @staticmethod
+    def _read_genome_file(
+            file_path: Path
+    ) -> dict:
+        """
+        read_genome_file is a function that reads a genome file and returns
+         the object stored in it.
+        """
+        genome_dictionary = {}
+        if Path(file_path).suffix == '.gz':
+            with gzip.open(file_path, mode='rt') as genome_file:  # 'rt' for textmode
+                parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                for record in parsed_genome:
+                    genome_dictionary[record.id] = str(record.seq)
+        else:
+            with open(file_path, mode='r') as genome_file:
+                parsed_genome = SeqIO.parse(genome_file, 'fasta')
+                for record in parsed_genome:
+                    genome_dictionary[record.id] = str(record.seq)
+        return genome_dictionary
+
     def _fetch_gene_cdss_set(
             self,
             gene_id: str,
@@ -397,6 +482,14 @@ class ExpansionsContainer:
                 cds_feature=cds_feature
             )
 
+    def _update_gene_sequence(
+            self
+    ):
+        if self.genome_dictionary:
+            for gene in self:
+                start, end = gene.coordinates.lower, gene.coordinates.upper
+                gene.sequence = self.genome_dictionary[gene.chromosome][start:end]
+
     def parse_gene_hierarchy_dictionary(
             self,
             gene_hierarchy_dictionary_path: Path,
@@ -411,6 +504,31 @@ class ExpansionsContainer:
             )
         else:
             print(f"Path {self.gene_hierarchy_dictionary_path} does not exist.")
+
+    def read_genome(
+            self,
+            file_path: Path
+    ):
+        """Reads the genome file and stores it in the genome dictionary.
+
+        Args:
+            file_path (Path): FASTA file or Compressed FASTA file containing the genome sequence.
+
+        Examples:
+            >>> gene = expansions_container.read_genome(
+            file_path='genome.fa.gz'
+            )
+        """
+        if Path.exists(Path(file_path)):
+            self.genome_dictionary = self._read_genome_file(
+                file_path=file_path
+            )
+            if self.genome_dictionary:
+                self._update_gene_sequence()
+        else:
+            print(
+                f"Path {self.file_path} does not exist or is not a valid file."
+            )
 
     def build_expansions(self):
         """Constructs the gene expansions from the Exonize database.
@@ -938,8 +1056,8 @@ class _ExonizeDBHandler:
         """
         Initializes an _ExonizeDBHandler instance, fetching genes and expansions from the database.
 
-        Parameters
-        ----------
+        Args:
+
         db_path : str
             Path to the SQLite database file.
         """

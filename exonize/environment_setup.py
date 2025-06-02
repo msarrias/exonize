@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import sys
+import subprocess
 from pathlib import Path
 from datetime import date
 
@@ -191,18 +192,33 @@ TM-score threshold:            {self.TM_score_threshold}
 
     def check_if_tool_installed(
             self,
-            name: str
+            name: str,
+            version: str = None,
     ) -> None:
         if shutil.which(name) is None:
-            self.logger.error(f"Error: {name} is not installed or not in your PATH environment variable.")
+            self.logger.error(
+                f"Error: {name} is not installed or not in your PATH environment variable."
+            )
             sys.exit(1)
+        else:
+            if version:
+                program_version = subprocess.run(
+                    [name, '--version'],
+                    capture_output=True,
+                    text=True
+                )
+                if version not in program_version.stdout.strip():
+                    self.logger.error(
+                        f"Error: {name} version {version} is not installed, please upgrade/install it."
+                    )
+                    sys.exit(1)
 
     def check_software_requirements(self):
         if os.getenv("CI") == "true":
             # Skip software checks in CI environment
             return
         self.check_if_tool_installed(name='sqlite3')
-        self.check_if_tool_installed(name='muscle')
+        self.check_if_tool_installed(name='muscle', version='5.3')
         if self.SEARCH_ALL:
             self.check_if_tool_installed(name='tblastx')
 

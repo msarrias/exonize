@@ -65,7 +65,7 @@ class DataPreprocessor(object):
         """
         return sorted(
             list_dictionaries,
-            key=lambda x: (x['coordinate'].lower, x['coordinate']),
+            key=lambda x: (x['coordinate'].lower, x['coordinate'].upper),
             reverse=reverse
         )
 
@@ -92,6 +92,12 @@ class DataPreprocessor(object):
             longest_length = max(get_interval_length(intv_i), get_interval_length(intv_j))
             return round(intersection_span / longest_length, 3)
         return 0.0
+
+    @staticmethod
+    def interval_length(
+            interval: P.Interval
+    ):
+        return interval.upper - interval.lower + 1
 
     @staticmethod
     def reverse_sequence_bool(
@@ -241,32 +247,63 @@ class DataPreprocessor(object):
             )
             sys.exit()
 
+    def _check_basic_rerun_conditions(
+            self,
+            sequence_base: int,
+            frame_base: int,
+            min_exon_length: int,
+            exon_clustering_overlap_threshold: float):
+        return (self.environment.sequence_base != sequence_base
+                or self.environment.frame_base != frame_base
+                or self.environment.min_exon_length != min_exon_length
+                or self.environment.exon_clustering_overlap_threshold != exon_clustering_overlap_threshold)
+
+    def _action_local_search(self, evalue_threshold: float):
+        if self.environment.evalue_threshold < evalue_threshold:
+            self.database_interface.drop_table(table_name='Local_search')
+            self.database_interface.clear_search_monitor_table(global_search=True)
+
+    def _action_global_search(
+            self,
+            fraction_of_aligned_positions: float,
+            peptide_identity_threshold: float,
+            pair_coverage_threshold: float
+    ):
+        if (self.environment.fraction_of_aligned_positions != fraction_of_aligned_positions
+                or self.environment.peptide_identity_threshold != peptide_identity_threshold
+                or self.environment.pair_coverage_threshold != pair_coverage_threshold):
+            self.database_interface.drop_table(table_name='Global_search')
+            self.database_interface.clear_search_monitor_table(local_search=True)
+
     def handle_reruns(self):
         if self.database_interface.check_if_table_exists(table_name='Parameter_monitor'):
             if not self.database_interface.check_if_empty_table(table_name='Parameter_monitor'):
                 (sb, fb, l, c_e,
                  t_e, e, t_s, c_t,
                  t_p, t_i, t_a) = self.database_interface.query_parameter_monitor_table()
-                if (self.environment.sequence_base != sb
-                        or self.environment.frame_base != fb
-                        or self.environment.min_exon_length != l
-                        or self.environment.exon_clustering_overlap_threshold != c_e):
+                if self._check_basic_rerun_conditions(sb, fb, l, c_e):
                     self.database_interface.clear_results_database(
                         except_tables=['Parameter_monitor']
                     )
-                if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL):
-                    if self.environment.evalue_threshold < e:
-                        self.database_interface.drop_table(table_name='Local_search')
-                        self.database_interface.clear_search_monitor_table(global_search=True)
-                if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
-                    if (self.environment.fraction_of_aligned_positions != t_a
-                            or self.environment.peptide_identity_threshold != t_i
-                            or self.environment.pair_coverage_threshold != t_p):
-                        self.database_interface.drop_table(table_name='Global_search')
-                        self.database_interface.clear_search_monitor_table(local_search=True)
+                if self.environment.SEARCH_ALL or self.environment.LOCAL_SEARCH:
+                    self._action_local_search(
+                        evalue_threshold=e
+                    )
+                if self.environment.SEARCH_ALL or self.environment.GLOBAL_SEARCH:
+                    self._action_global_search(
+                        fraction_of_aligned_positions=t_a,
+                        peptide_identity_threshold=t_i,
+                        pair_coverage_threshold=t_p
+                    )
                 self.database_interface.update_parameter_monitor()
             else:
                 self.database_interface.insert_parameter_monitor()
+
+    def _check_mrna_structure(self, structure_list):
+        return bool(structure_list) and any(
+            annotation['type'] == self.environment.cds_annot_feature
+            for annotation in structure_list
+        )
 
     def create_gene_hierarchy_dictionary(
             self,
@@ -332,11 +369,6 @@ class DataPreprocessor(object):
                 )
                 for mrna_annot in mrna_transcripts:
                     mrna_coordinate = P.open(mrna_annot.start - self.environment.sequence_base, mrna_annot.end)
-                    mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
-                        coordinate=mrna_coordinate,
-                        strand=gene.strand,
-                        structure=list()
-                    )
                     mrna_transcripts_list = list()
                     for child in self.genome_database.children(
                             mrna_annot.id,
@@ -360,10 +392,17 @@ class DataPreprocessor(object):
                     # DNA sequence is represented meaning that translation starts
                     # from the last CDS
                     reverse = self.reverse_sequence_bool(gene_strand=gene.strand)
-                    mrna_dictionary['mRNAs'][mrna_annot.id]['structure'] = self.sort_list_intervals_dict(
+                    mrna_structure = self.sort_list_intervals_dict(
                         list_dictionaries=mrna_transcripts_list,
                         reverse=reverse,
                     )
+                    # we want coding transcripts only
+                    if self._check_mrna_structure(mrna_structure):
+                        mrna_dictionary['mRNAs'][mrna_annot.id] = dict(
+                            coordinate=mrna_coordinate,
+                            strand=gene.strand,
+                            structure=mrna_structure
+                        )
                 self.gene_hierarchy_dictionary[gene.id] = mrna_dictionary
 
     def fetch_structural_queried_cdss(self):
@@ -394,7 +433,7 @@ class DataPreprocessor(object):
 
     @staticmethod
     def flatten_clusters_representative_exons(
-            cluster_list: list,
+            cluster_list: list
     ) -> list:
         return [
             cluster[0][0] if len(cluster) == 1 else min(cluster, key=lambda x: x[0].upper - x[0].lower)[0]
@@ -478,13 +517,13 @@ class DataPreprocessor(object):
             self.populate_genes_table()
             self.database_interface.populate_search_monitor_table()
         self.database_interface.create_expansions_table()
-        if self.environment.SEARCH_ALL:
+        if not self.environment.GLOBAL_SEARCH and not self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
             self.database_interface.create_global_search_table()
-        elif self.environment.LOCAL_SEARCH and not self.environment.SEARCH_ALL:
+        elif self.environment.LOCAL_SEARCH:
             self.database_interface.create_local_search_table()
             self.database_interface.clear_search_monitor_table(local_search=True)
-        elif self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL:
+        else:
             self.database_interface.create_global_search_table()
             self.database_interface.clear_search_monitor_table(global_search=True)
         if self.environment.STRUCTURAL_SEARCH:
@@ -614,7 +653,9 @@ class DataPreprocessor(object):
             mrna_peptide_sequence += cds_peptide_sequence
             start_coord = end_coord
             frame_cds = frame_next_cds
-            transcript_dict[P.open(start, end)] = [coord_idx, frame_cds, cds_dna_sequence, cds_peptide_sequence]
+            transcript_dict[P.open(start, end)] = [
+                coord_idx, int(frame_cds), cds_dna_sequence, cds_peptide_sequence
+            ]
         return mrna_peptide_sequence, transcript_dict
 
     @staticmethod

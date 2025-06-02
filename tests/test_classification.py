@@ -204,6 +204,14 @@ def create_exonize_test1():
     return exonize_obj, results_db_path
 
 
+def cleanup_test_dbs():
+    for db_path in ["mock_results.db", "mock_results2.db"]:
+        path = Path(db_path)
+        if path.exists():
+            path.unlink()
+    shutil.rmtree("mock_specie_exonize", ignore_errors=True)
+
+
 def test_representative_cdss():
     exonize_obj, _ = create_exonize_test1()
     representative_cds_gene_0 = {
@@ -398,7 +406,6 @@ def create_exonize_test2():
                         {'coordinate': P.open(3100, 3200), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(3400, 3500), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(4000, 4100), 'type': 'CDS', 'frame': 0},
-                        {'coordinate': P.open(4200, 4300), 'type': 'CDS', 'frame': 0},
 
                     ]
                 },
@@ -409,8 +416,7 @@ def create_exonize_test2():
                         {'coordinate': P.open(2900, 3000), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(3100, 3200), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(3400, 3500), 'type': 'CDS', 'frame': 0},
-                        {'coordinate': P.open(4000, 4100), 'type': 'CDS', 'frame': 0},
-                        {'coordinate': P.open(4500, 4600), 'type': 'CDS', 'frame': 0},
+                        {'coordinate': P.open(4200, 4300), 'type': 'CDS', 'frame': 0}
 
                     ]
                 },
@@ -422,7 +428,6 @@ def create_exonize_test2():
                         {'coordinate': P.open(1400, 1500), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(1650, 1750), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(2700, 2800), 'type': 'CDS', 'frame': 0},
-                        {'coordinate': P.open(4200, 4300), 'type': 'CDS', 'frame': 0},
                         {'coordinate': P.open(4500, 4600), 'type': 'CDS', 'frame': 0},
                     ]
                 }
@@ -547,34 +552,34 @@ def create_exonize_test2():
     return exonize_obj2, results_db_path2
 
 
-def test_expansion_transcript_iterdependence_classification():
+def test_expansion_transcript_interdependence_classification():
     _, results_db_path2 = create_exonize_test2()
     expected_expansions_classification = [
-        ('gene1', 1, 3, 2, 4, 1, 1, 0, 'FLEXIBLE', ''),  # n x (k + 1) = 3 x (1 + 1) = 6
-        ('gene1', 2, 3, 2, 6, 0, 0, 0, 'OBLIGATE', ''),
-        ('gene2', 0, 3, 3, 0, 5, 4, 0, 'EXCLUSIVE',
-         '_'.join([
-             str(i)
-             for i in (
-                 P.open(600, 700),
-                 tuple((P.open(0, 100), P.open(150, 250)))
-             )
-         ])),
-        ('gene2', 1, 3, 3, 0, 6, 3, 0, 'EXCLUSIVE',
-         '_'.join([str(i) for i in
-                   (P.open(4500, 4600),
-                    P.open(4200, 4300),
-                    P.open(4000, 4100))
-                   ])),
-        ('gene2', 2, 3, 3, 3, 1, 2, 3, 'OPTIONAL_FLEXIBLE', ''),
-        ('gene2', 3, 3, 3, 0, 3, 3, 3, 'OPTIONAL_EXCLUSIVE',
-         '_'.join([str(i) for i
-                   in (P.open(2700, 2800),
-                       (P.open(2100, 2200),
-                        P.open(2400, 2500)))
-                   ])),
-        ('gene2', 4, 3, 3, 6, 0, 0, 3, 'OPTIONAL_OBLIGATE', ''),
-    ]
+    ('gene1', 1, 3, 2, 4, 1, 1, 0, 'FLEXIBLE', ''),  # n x (k + 1) = 3 x (1 + 1) = 6
+    ('gene1', 2, 3, 2, 6, 0, 0, 0, 'OBLIGATE', ''),
+    ('gene2', 0, 3, 3, 0, 5, 4, 0, 'EXCLUSIVE',
+     '_'.join([
+         str(i)
+         for i in (
+             P.open(600, 700),
+             tuple((P.open(150, 250), P.open(0, 100)))
+         )
+     ])),
+    ('gene2', 1, 3, 3, 0, 3, 6, 0, 'EXCLUSIVE',
+     '_'.join([str(i) for i in
+               (P.open(4200, 4300),
+                P.open(4500, 4600),
+                P.open(4000, 4100)
+               )
+               ])),
+    ('gene2', 2, 3, 3, 3, 1, 2, 3, 'OPTIONAL_FLEXIBLE', ''),
+    ('gene2', 3, 3, 3, 0, 3, 3, 3, 'OPTIONAL_EXCLUSIVE',
+     '_'.join([str(i) for i
+               in ((P.open(2400, 2500),
+                    P.open(2100, 2200)), P.open(2700, 2800))
+               ])),
+    ('gene2', 4, 3, 3, 6, 0, 0, 3, 'OPTIONAL_OBLIGATE', ''),
+]
     with sqlite3.connect(results_db_path2) as db:
         cursor = db.cursor()
         cursor.execute(
@@ -669,3 +674,4 @@ def test_expansion_full_events_tandemness():
         )
         records = cursor.fetchall()
         assert set(records) == set(exp_full_events_tandemness)
+        cleanup_test_dbs()

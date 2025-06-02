@@ -32,7 +32,7 @@ def exonize_ascii_art_logo() -> None:
 
 def argument_parser():
     parser = argparse.ArgumentParser(
-        description='Exonize: A tool for discovering exon duplications.'
+        description='exonize: A tool for discovering exon duplications.'
     )
     # Required Arguments
     parser.add_argument(
@@ -220,7 +220,7 @@ def argument_parser():
         '--csv',
         action='store_true',
         default=False,
-        help='If set, Exonize will output a .zip file with a reduced set of the results in CSV format.'
+        help='If set, exonize will output a .zip file with a reduced set of the results in CSV format.'
     )
     # Optional Arguments for Numerical Values and Thresholds
     parser.add_argument(
