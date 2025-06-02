@@ -290,7 +290,7 @@ def test_find_query_cds_global_matches(
     res = [(P.open(1800, 2100), P.open(2200, 2300)),
            (P.open(2500, 2600), P.open(1800, 2100))]
     assert exonize_obj.event_reconciler.find_query_cds_global_matches(
-        pairs_set=global_records_set,
+        global_records_set_pairs_set=global_records_set,
         cds_coordinate=cds_coordinate,
     ) == res
 
