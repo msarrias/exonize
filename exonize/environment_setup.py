@@ -218,7 +218,7 @@ TM-score threshold:            {self.TM_score_threshold}
             # Skip software checks in CI environment
             return
         self.check_if_tool_installed(name='sqlite3')
-        self.check_if_tool_installed(name='muscle', version='5.3')
+        self.check_if_tool_installed(name='muscle', version='5')
         if self.SEARCH_ALL:
             self.check_if_tool_installed(name='tblastx')
 
