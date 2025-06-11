@@ -478,6 +478,7 @@ class SqliteHandler(object):
                 TranscriptID VARCHAR(100) NOT NULL,
                 GeneChrom VARCHAR(100) NOT NULL,
                 GeneStrand VARCHAR(1) NOT NULL,
+                AlignmentLength INTEGER NOT NULL,
                 QueryExonStart INTEGER NOT NULL,
                 QueryExonEnd INTEGER NOT NULL,
                 TargetExonStart INTEGER NOT NULL,
@@ -1207,6 +1208,7 @@ class SqliteHandler(object):
             TranscriptID,
             GeneChrom,
             GeneStrand,
+            AlignmentLength,
             QueryExonStart,
             QueryExonEnd,
             TargetExonStart,
@@ -1223,7 +1225,7 @@ class SqliteHandler(object):
             TM_norm_score_target,
             RMSD,
             TandemPair
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         with sqlite3.connect(self.environment.results_database_path) as db:
             cursor = db.cursor()

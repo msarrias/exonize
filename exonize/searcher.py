@@ -625,6 +625,7 @@ class Searcher(object):
             transcript_id,
             self.data_container.gene_hierarchy_dictionary[gene_id]['chrom'],
             self.data_container.gene_hierarchy_dictionary[gene_id]['strand'],
+            len(tmresult.seqxA),
             dna_coords_x.lower, dna_coords_x.upper, dna_coords_y.lower, dna_coords_y.upper,
             x.lower, x.upper, y.lower, y.upper,
             align_id_dna, align_id_prot,
