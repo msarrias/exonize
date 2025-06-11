@@ -144,7 +144,7 @@ def argument_parser():
         '--fraction-of-aligned-positions',
         default=0.9,
         type=float,
-        help='Local search fraction of aligned positions threshold. Default is 0.9.'
+        help='Fraction of aligned positions threshold. Default is 0.9.'
     )
     parser.add_argument(
         '-ti',
@@ -152,6 +152,13 @@ def argument_parser():
         default=0.4,
         type=float,
         help='Local search peptide identity threshold. Default is 0.4.'
+    )
+    parser.add_argument(
+        '-le',
+        '--min-exon-length-structural-search',
+        default=75,
+        type=int,
+        help='Minimum exon length. Default is 75.'
     )
     parser.add_argument(
         '-plddt_th',
@@ -280,6 +287,7 @@ def main():
         pair_coverage_threshold=args.pair_coverage_threshold,
         fraction_of_aligned_positions=args.fraction_of_aligned_positions,
         peptide_identity_threshold=args.peptide_identity_threshold,
+        min_exon_length_structural_search=args.min_exon_length_structural_search,
         plddt_threshold=args.plddt_threshold,
         RMSD_threshold=args.RMSD_threshold,
         TM_score_threshold=args.TM_score_threshold,

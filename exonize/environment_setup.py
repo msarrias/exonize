@@ -32,6 +32,7 @@ class EnvironmentSetup(object):
             targets_clustering_overlap_threshold: float,
             query_coverage_threshold: float,
             self_hit_threshold: float,
+            min_exon_length_structural_search: int,
             plddt_threshold: float,
             RMSD_threshold: float,
             TM_score_threshold: float,
@@ -77,6 +78,7 @@ class EnvironmentSetup(object):
         self.frame_base = frame_base
 
         # structural search flags
+        self.min_exon_length_structural_search = min_exon_length_structural_search
         self.plddt_threshold = plddt_threshold
         self.RMSD_threshold = RMSD_threshold
         self.TM_score_threshold = TM_score_threshold

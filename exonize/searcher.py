@@ -649,7 +649,7 @@ class Searcher(object):
         return [
             self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
             for coord in coordinates_list
-            if coord and coord.upper - coord.lower >= 25  # self.environment.min_exon_length // 3
+            if coord and coord.upper - coord.lower >= self.environment.min_exon_length_structural_search // 3
         ]
 
     def attempt_insert_structural_matches(
