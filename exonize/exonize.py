@@ -158,7 +158,7 @@ def argument_parser():
         '--min-exon-length-structural-search',
         default=75,
         type=int,
-        help='Minimum exon length. Default is 75.'
+        help='Minimum exon length for structural search. Default is 75.'
     )
     parser.add_argument(
         '-plddt_th',
