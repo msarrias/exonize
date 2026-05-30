@@ -59,7 +59,23 @@ If you need help with `exonize`, contact us! To report a bug or request a new fe
 ## Citation
 
 If you use `exonize` in a publication, please cite:
-```
-TBA
+
+> Herrera Sarrias M, Wheat CW, Longo LM, Arvestad L. *Exonize: a tool for finding and classifying exon duplications in annotated genomes*. Bioinformatics Advances. 2025;5(1):vbaf177. https://doi.org/10.1093/bioadv/vbaf177
+
+<details>
+<summary>BibTeX</summary>
+
+```bibtex
+@article{herrera_sarrias_2025_exonize,
+    author = {Herrera Sarrias, Marina and Wheat, Christopher W and Longo, Liam M and Arvestad, Lars},
+    title = {Exonize: a tool for finding and classifying exon duplications in annotated genomes},
+    journal = {Bioinformatics Advances},
+    volume = {5},
+    number = {1},
+    pages = {vbaf177},
+    year = {2025},
+    doi = {10.1093/bioadv/vbaf177}
+}
 ```
 
+</details>
