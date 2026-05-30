@@ -539,12 +539,12 @@ class Searcher(object):
         return prot_coords_to_dna
 
     @staticmethod
-    def check_cds_pldtt_contraint(
-            pldtt_seq: list[float],
+    def check_cds_plddt_contraint(
+            plddt_seq: list[float],
             coord: P.Interval,
             threshold: float
     ) -> [P.Interval, None]:
-        if pldtt_seq and np.mean(pldtt_seq[coord.lower:coord.upper]) > threshold:
+        if plddt_seq and np.mean(plddt_seq[coord.lower:coord.upper]) > threshold:
             return coord
 
     @staticmethod
@@ -607,7 +607,7 @@ class Searcher(object):
             pair: tuple,
             prot_coords_to_dna: dict,
             transcripts_dictionary: dict,
-            pldtt_seq: list[float],
+            plddt_seq: list[float],
             tmresult: object
     ) -> tuple:
         x, y = pair
@@ -629,8 +629,8 @@ class Searcher(object):
             dna_coords_x.lower, dna_coords_x.upper, dna_coords_y.lower, dna_coords_y.upper,
             x.lower, x.upper, y.lower, y.upper,
             align_id_dna, align_id_prot,
-            round(float(np.mean(pldtt_seq[x.lower:x.upper])), 3),
-            round(float(np.mean(pldtt_seq[y.lower:y.upper])), 3),
+            round(float(np.mean(plddt_seq[x.lower:x.upper])), 3),
+            round(float(np.mean(plddt_seq[y.lower:y.upper])), 3),
             round(tmresult.tm_norm_chain1, 3),
             round(tmresult.tm_norm_chain2, 3),
             round(tmresult.rmsd, 3),
@@ -647,7 +647,7 @@ class Searcher(object):
             coordinates_list: list[P.Interval]
     ):
         return [
-            self.check_cds_pldtt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
+            self.check_cds_plddt_contraint(plddt_seq, coord, self.environment.plddt_threshold)
             for coord in coordinates_list
             if coord and coord.upper - coord.lower >= self.environment.min_exon_length_structural_search // 3
         ]
@@ -669,7 +669,7 @@ class Searcher(object):
                     self.environment.logger.exception(e)
                     sys.exit()
 
-    def get_pldtt_sequence(
+    def get_plddt_sequence(
             self,
             gene_id: str,
             uniprot_id: str,
@@ -712,14 +712,14 @@ class Searcher(object):
                                 # these are the alphafold protein coordinates and sequence that was folded
                                 coords, seq = get_residue_data(chain=chain)
                                 if len(trans_seq) == len(seq):  # sanity check
-                                    pldtt_seq = self.get_pldtt_sequence(
+                                    plddt_seq = self.get_plddt_sequence(
                                         gene_id=gene_id,
                                         uniprot_id=uniprot_id,
                                         isoform_id=isoform_id,
                                         chain_id=chain.id
                                     )
                                     candidate_cdss = self.get_candidate_cds_for_structural_search(
-                                        plddt_seq=pldtt_seq,
+                                        plddt_seq=plddt_seq,
                                         coordinates_list=list(prot_coords_to_dna.keys())
                                     )
                                     pairs = self.fetch_pairs_for_alignments(
@@ -738,7 +738,7 @@ class Searcher(object):
                                                 pair=pair,
                                                 prot_coords_to_dna=prot_coords_to_dna,
                                                 transcripts_dictionary=transcripts_dictionary,
-                                                pldtt_seq=pldtt_seq,
+                                                plddt_seq=plddt_seq,
                                                 tmresult=structure_alignment
                                             )
                                             matched_pairs.append(
