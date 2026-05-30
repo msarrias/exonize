@@ -1227,7 +1227,9 @@ class SqliteHandler(object):
             TandemPair
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
-        with sqlite3.connect(self.environment.results_database_path) as db:
+        with sqlite3.connect(
+                self.environment.results_database_path, timeout=self.environment.timeout_database
+        ) as db:
             cursor = db.cursor()
             cursor.executemany(query, matches)
             db.commit()
