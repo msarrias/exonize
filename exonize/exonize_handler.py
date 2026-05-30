@@ -638,7 +638,7 @@ class Exonize(object):
             self
     ):
         # MATCHES INTERDEPENDENCE CLASSIFICATION
-        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
+        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH or not self.environment.SEARCH_ALL):
             cds_global_matches_list = self.database_interface.query_cds_global_matches()
             transcripts_iterdependence_global_matches_tuples = self.classify_matches_transcript_interdependence(
                 non_reciprocal_coding_matches_list=cds_global_matches_list
