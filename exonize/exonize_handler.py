@@ -745,8 +745,6 @@ class Exonize(object):
         """
         self.environment.logger.info(f'Running Exonize for: {self.environment.output_prefix}')
         self.data_container.prepare_data()
-        if self.environment.STRUCTURAL_SEARCH:
-            self.structural_search()
         if self.environment.SEARCH_ALL:
             self.local_search()
             self.global_search()
@@ -754,6 +752,8 @@ class Exonize(object):
             self.global_search()
         elif not self.environment.SEARCH_ALL and self.environment.LOCAL_SEARCH:
             self.local_search()
+        if self.environment.STRUCTURAL_SEARCH:
+            self.structural_search()
         self.environment.logger.info('Starting reconciliation and classification...')
         self.environment.logger.info('Reconciling local matches')
         self.events_reconciliation()
