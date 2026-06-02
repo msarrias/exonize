@@ -18,6 +18,7 @@ from Bio.Blast import NCBIXML
 from Bio import AlignIO
 from tmtools.io import get_structure, get_residue_data
 from tmtools import tm_align
+import gzip
 
 
 class Searcher(object):
@@ -704,10 +705,17 @@ class Searcher(object):
                             # this is the protein sequence we constructed from the CDS
                             trans_seq = transcripts_dictionary[transcript_id]['pepSeq']
                             trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
-                            pdb_id = f'AF-{uniprot_id}-{isoform_id}-model_v4.pdb'
+                            pdb_id = f'AF-{uniprot_id}-{isoform_id}-model_v6.pdb.gz'
                             pdb_file = self.environment.pdb_structures_path / pdb_id
                             if pdb_file in self.environment.pdb_files:
-                                structure = get_structure(pdb_file)
+                                with tempfile.NamedTemporaryFile(suffix='.pdb', delete=False) as tmp:
+                                    with gzip.open(pdb_file, 'rb') as f_in:
+                                        tmp.write(f_in.read())
+                                    tmp_path = tmp.name
+                                try:
+                                    structure = get_structure(tmp_path)
+                                finally:
+                                    os.unlink(tmp_path)
                                 chain = next(structure.get_chains())
                                 # these are the alphafold protein coordinates and sequence that was folded
                                 coords, seq = get_residue_data(chain=chain)
