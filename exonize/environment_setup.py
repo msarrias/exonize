@@ -55,8 +55,8 @@ class EnvironmentSetup(object):
         self.LOCAL_SEARCH = local_search
         self.STRUCTURAL_SEARCH = structural_search
         self.SEARCH_ALL = True if (
-                self.GLOBAL_SEARCH == True and
-                self.LOCAL_SEARCH == True
+                self.GLOBAL_SEARCH is True and
+                self.LOCAL_SEARCH is True
         ) else False
         self.CSV = csv
 
