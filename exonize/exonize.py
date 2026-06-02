@@ -47,13 +47,13 @@ def argument_parser():
     )
     # Optional Arguments for GFF annotations
     parser.add_argument(
-        '--pdb_ids_mapping_db_path',
+        '--pdb-ids-mapping-db-path',
         default=None,
         type=Path,
         help='Path to the PDB IDs mapping database.'
     )
     parser.add_argument(
-        '--pdb_structures_path',
+        '--pdb-structures-path',
         default=None,
         type=Path,
         help='Path to the PDB structures.'
@@ -184,7 +184,7 @@ def argument_parser():
     # Optional Arguments for Flags
     parser.add_argument(
         '-op',
-        '--output_prefix',
+        '--output-prefix',
         type=str,
         help='Species identifier - used for naming output files.')
     parser.add_argument(
