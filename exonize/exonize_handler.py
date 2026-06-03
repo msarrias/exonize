@@ -83,6 +83,7 @@ class Exonize(object):
             gff_file_path=gff_file_path,
             pdb_ids_mapping_db_path=pdb_ids_mapping_db_path,
             pdb_structures_path=pdb_structures_path,
+            af2_version=af2_version,
             output_prefix=output_prefix,
             output_directory_path=output_directory_path,
             gene_annot_feature=gene_annot_feature,
@@ -128,7 +129,7 @@ class Exonize(object):
         )
         self.event_reconciler = ReconcilerHandler(
             search_engine=self.search_engine
-            )
+        )
 
     def generate_unique_events_list(
             self,
@@ -338,7 +339,7 @@ class Exonize(object):
     def structural_search(
             self
     ):
-        unprocessed_gene_ids_list = self.data_container.gene_hierarchy_dictionary.keys()
+        unprocessed_gene_ids_list = self.database_interface.query_to_process_gene_ids(structural_search=True)
         if unprocessed_gene_ids_list:
             self.log_search_progress(
                 unprocessed_gene_ids_list=unprocessed_gene_ids_list,
@@ -638,7 +639,7 @@ class Exonize(object):
             self
     ):
         # MATCHES INTERDEPENDENCE CLASSIFICATION
-        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH or not self.environment.SEARCH_ALL):
+        if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
             cds_global_matches_list = self.database_interface.query_cds_global_matches()
             transcripts_iterdependence_global_matches_tuples = self.classify_matches_transcript_interdependence(
                 non_reciprocal_coding_matches_list=cds_global_matches_list
@@ -674,7 +675,7 @@ class Exonize(object):
         )
         self.database_interface.insert_expansions_interdependence_classification(
             list_tuples=expansion_interdependence_tuples
-            )
+        )
         if self.environment.GLOBAL_SEARCH:
             self.database_interface.drop_table('Expansions')
 
@@ -745,6 +746,8 @@ class Exonize(object):
         """
         self.environment.logger.info(f'Running Exonize for: {self.environment.output_prefix}')
         self.data_container.prepare_data()
+        if self.environment.STRUCTURAL_SEARCH:
+            self.structural_search()
         if self.environment.SEARCH_ALL:
             self.local_search()
             self.global_search()
@@ -752,8 +755,6 @@ class Exonize(object):
             self.global_search()
         elif not self.environment.SEARCH_ALL and self.environment.LOCAL_SEARCH:
             self.local_search()
-        if self.environment.STRUCTURAL_SEARCH:
-            self.structural_search()
         self.environment.logger.info('Starting reconciliation and classification...')
         self.environment.logger.info('Reconciling local matches')
         self.events_reconciliation()
