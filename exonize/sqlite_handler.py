@@ -784,7 +784,8 @@ class SqliteHandler(object):
     def clear_search_monitor_table(
             self,
             local_search: bool = False,
-            global_search: bool = False
+            global_search: bool = False,
+            structural_search: bool = False,
     ):
         column_name = ""
         if local_search:
