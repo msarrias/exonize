@@ -763,7 +763,6 @@ class Searcher(object):
                 structural_search=True
             )
 
-
     def cds_local_search(
             self,
             gene_id_list: list[str],
