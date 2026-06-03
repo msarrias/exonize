@@ -121,7 +121,7 @@ class SqliteHandler(object):
             # Drop each table and view except 'Genes'
             for name, type_ in items:
                 if name not in except_tables:
-                    cursor.execute(f"DROP {type_} IF EXISTS {name};")
+                    cursor.execute(f"""DROP {type_} IF EXISTS {name};""")
 
     def create_genes_table(
             self
@@ -155,7 +155,8 @@ class SqliteHandler(object):
             CREATE TABLE IF NOT EXISTS Search_monitor (
                 GeneID VARCHAR(100) PRIMARY KEY,
                 Global BINARY(1) DEFAULT 0,
-                Local BINARY(1) DEFAULT 0
+                Local BINARY(1) DEFAULT 0,
+                Structural BINARY(1) DEFAULT 0
             );
             """
                            )
@@ -787,9 +788,11 @@ class SqliteHandler(object):
     ):
         column_name = ""
         if local_search:
-            column_name = "Global"
-        elif global_search:
             column_name = "Local"
+        elif global_search:
+            column_name = "Global"
+        elif structural_search:
+            column_name = "Structural"
 
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
@@ -802,20 +805,20 @@ class SqliteHandler(object):
             self,
             gene_id: str,
             local_search: bool = False,
-            global_search: bool = False
+            global_search: bool = False,
+            structural_search: bool = False,
     ):
+        if local_search:
+            column_name = "Local"
+        elif global_search:
+            column_name = "Global"
+        elif structural_search:
+            column_name = "Structural"
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
             cursor = db.cursor()
-            if local_search:
-                insert_gene_table_param = """
-                UPDATE Search_monitor SET Local=1 where GeneID=?
-                """
-            elif global_search:
-                insert_gene_table_param = """
-                UPDATE Search_monitor SET Global=1 where GeneID=?
-                """
+            insert_gene_table_param = f"UPDATE Search_monitor SET {column_name}=1 where GeneID=?"
             cursor.execute(insert_gene_table_param, (gene_id,))
 
     def populate_search_monitor_table(
@@ -1441,13 +1444,17 @@ class SqliteHandler(object):
     def query_to_process_gene_ids(
         self,
         local_search: bool = False,
-        global_search: bool = False
+        global_search: bool = False,
+        structural_search: bool = False,
     ) -> set:
         column_name = ''
         if local_search:
             column_name = 'Local'
         elif global_search:
             column_name = 'Global'
+        elif structural_search:
+            column_name = 'Structural'
+
         with sqlite3.connect(
             self.environment.results_database_path, timeout=self.environment.timeout_database
         ) as db:
@@ -1542,6 +1549,6 @@ class SqliteHandler(object):
                       if ("sqlite" not in table[0] and table[0] != "Local_matches")]
             for table in tables:
                 table_name = table
-                df = pd.read_sql_query(f"SELECT * FROM {table_name}", db)
+                df = pd.read_sql_query(f"""SELECT * FROM {table_name}""", db)
                 csv_file_path = output_dir / f"{table_name}.csv"
                 df.to_csv(csv_file_path, index=False)
