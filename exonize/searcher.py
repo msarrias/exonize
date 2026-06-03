@@ -758,6 +758,11 @@ class Searcher(object):
                     self.attempt_insert_structural_matches(
                         tuples_to_insert=matched_pairs
                     )
+            self.database_interface.update_search_monitor_table(
+                gene_id=gene_id,
+                structural_search=True
+            )
+
 
     def cds_local_search(
             self,
