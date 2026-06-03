@@ -44,6 +44,7 @@ class Exonize(object):
             output_directory_path: Path,
             pdb_ids_mapping_db_path: Path = None,
             pdb_structures_path: Path = None,
+            af2_version: int = None,
             cpus_number: int = os.cpu_count(),
             gene_annot_feature: str = 'gene',
             cds_annot_feature: str = 'CDS',
@@ -538,6 +539,7 @@ class Exonize(object):
 
             if self.environment.SEARCH_ALL or (self.environment.GLOBAL_SEARCH and not self.environment.SEARCH_ALL):
                 global_records_set = self.global_full_matches_dictionary[gene_id]
+
             gene_graph = self.event_reconciler.create_events_multigraph(
                 targets_reference_coordinates_dictionary=targets_reference_coordinates_dictionary,
                 query_local_coordinates_set=query_coordinates,
@@ -656,14 +658,14 @@ class Exonize(object):
 
         if self.environment.SEARCH_ALL or (self.environment.LOCAL_SEARCH or not self.environment.SEARCH_ALL):
             non_reciprocal_coding_matches_list = self.database_interface.query_non_reciprocal_coding_matches()
-            transcripts_iterdependence_tuples = self.classify_matches_transcript_interdependence(
+            transcripts_interdependence_tuples = self.classify_matches_transcript_interdependence(
                 non_reciprocal_coding_matches_list=non_reciprocal_coding_matches_list
             )
             self.database_interface.insert_matches_interdependence_classification(
                 tuples_list=[
                     (n_mrnas, all_, present, absent, neither, category, frag_id)
                     for _, frag_id, n_mrnas, _, all_, present, absent, neither, category, _
-                    in transcripts_iterdependence_tuples
+                    in transcripts_interdependence_tuples
                 ],
                 table_name='Local_matches_non_reciprocal',
                 table_identifier_column='LocalFragmentID'
