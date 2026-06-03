@@ -17,6 +17,7 @@ class EnvironmentSetup(object):
             output_directory_path: Path,
             pdb_ids_mapping_db_path: Path,
             pdb_structures_path: Path,
+            af2_version: int,
             output_prefix: str,
             gene_annot_feature: str,
             cds_annot_feature: str,
@@ -65,6 +66,7 @@ class EnvironmentSetup(object):
         self.output_directory_path = output_directory_path
         self.pdb_ids_mapping_db_path = pdb_ids_mapping_db_path
         self.pdb_structures_path = pdb_structures_path
+        self.af2_version = af2_version
         self.output_prefix = output_prefix
 
         # Search criteria parameters

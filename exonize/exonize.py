@@ -59,6 +59,12 @@ def argument_parser():
         help='Path to the PDB structures.'
     )
     parser.add_argument(
+        '--af2-v',
+        default=None,
+        type=Path,
+        help='AlphaFold 2 database version'
+    )
+    parser.add_argument(
         '-gfeat',
         '--gene-annot-feature',
         default='gene',
@@ -273,6 +279,7 @@ def main():
         genome_file_path=args.genome_file_path,
         pdb_ids_mapping_db_path=args.pdb_ids_mapping_db_path,
         pdb_structures_path=args.pdb_structures_path,
+        af2_version=args.af2_v,
         gene_annot_feature=args.gene_annot_feature,
         cds_annot_feature=args.cds_annot_feature,
         transcript_annot_feature=args.transcript_annot_feature,
