@@ -705,7 +705,7 @@ class Searcher(object):
                             # this is the protein sequence we constructed from the CDS
                             trans_seq = transcripts_dictionary[transcript_id]['pepSeq']
                             trans_seq = trans_seq[:-1] if trans_seq[-1] == '*' else trans_seq
-                            pdb_id = f'AF-{uniprot_id}-{isoform_id}-model_v6.pdb.gz'
+                            pdb_id = f'AF-{uniprot_id}-{isoform_id}-model_v{str(self.environment.af2_version)}.pdb.gz'
                             pdb_file = self.environment.pdb_structures_path / pdb_id
                             if pdb_file in self.environment.pdb_files:
                                 with tempfile.NamedTemporaryFile(suffix='.pdb', delete=False) as tmp:
